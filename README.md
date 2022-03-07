@@ -41,3 +41,23 @@ The gem is available as open source under the terms of the [MIT License](https:/
 ## Code of Conduct
 
 Everyone interacting in the MarkdownExec project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/markdown_exec/blob/master/CODE_OF_CONDUCT.md).
+
+# 2022-03-06
+```
+gem build markdown_exec.gemspec
+```
+```expect
+  Successfully built RubyGem
+  Name: markdown_exec
+  Version: 0.0.1
+  File: markdown_exec-0.0.1.gem
+```
+```
+gem install ./markdown_exec-0.0.1.gem
+```
+```
+gem list | grep exec
+```
+```
+gem uninstall markdown_exec
+```
