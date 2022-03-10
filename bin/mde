@@ -2,13 +2,14 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
+# rubocop:disable Style/GlobalVars
 
 env_debug = ENV['MARKDOWN_EXEC_DEBUG']
 $pdebug = !(env_debug || '').empty?
 
 APP_NAME = 'MDExec'
 APP_DESC = 'Markdown block executor'
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 
 require 'markdown_exec'
 # puts MarkdownExec::MDExec.echo(ARGV[0])
@@ -222,9 +223,9 @@ class MarkParse
     #   puts "InputInterrupt"
     # end
 
-    block = blocks.select { |block1| block1[:label] == sel }.fetch(0, nil)
-    puts "select_block() block: #{block.inspect}" if $pdebug
-    sel = block[:name]
+    label_block = blocks.select { |block| block[:label] == sel }.fetch(0, nil)
+    puts "select_block() label_block: #{label_block.inspect}" if $pdebug
+    sel = label_block[:name]
     puts "select_block() sel: #{sel.inspect}" if $pdebug
 
     cbs = code_blocks(blocks, sel)
@@ -237,7 +238,7 @@ class MarkParse
     allow = true
     allow = prompt.yes? 'Process?' if opts[:approve]
 
-    selected = table_block blocks, sel
+    selected = block_by_name blocks, sel
     puts "select_block() selected: #{selected.inspect}" if $pdebug
     if allow && opts[:execute]
 
@@ -252,7 +253,7 @@ class MarkParse
       #   # stdin.close                # we're done
       #   stdout_str = stdout.read   # read stdout to string. note that this will block until the command is done!
       #   stderr_str = stderr.read   # read stderr to string
-      #   status = wait_thr.value    # will block until the command finishes; returns status that responds to .success? etc
+      #   status = wait_thr.value    # will block until the command finishes; returns status that responds to .success?
       #   fout "#{stdout_str}"
       #   fout "#{cnt}: err: #{stderr_str}" if stderr_str != ''
       #   # fout "#{cnt}: stt: #{status}"
@@ -278,7 +279,7 @@ class MarkParse
               data = f.read_nonblock(BLOCK_SIZE)
               # fout "- fileno: #{fileno}\n#{data}"
               fout data
-            rescue EOFError
+            rescue EOFError #=> e
               # fout "fileno: #{fileno} EOF"
             end
           end
@@ -327,25 +328,29 @@ class MarkParse
     puts "code() all: #{all.inspect}" if $pdebug
     all.reverse.map do |req|
       puts "code() req: #{req.inspect}" if $pdebug
-      table_block(table, req).fetch(:body, '')
-    end.flatten(1).tap { |ret| puts "code() ret: #{ret.inspect}" if $pdebug }
+      block_by_name(table, req).fetch(:body, '')
+    end
+       .flatten(1)
+       .tap { |ret| puts "code() ret: #{ret.inspect}" if $pdebug }
   end
 
-  def table_block(table, name, default = {})
+  def block_by_name(table, name, default = {})
     table.select { |block| block[:name] == name }.fetch(0, default)
   end
 
   def code_blocks(table, name)
     puts "code_blocks() table: #{table.inspect}" if $pdebug
     puts "code_blocks() name: #{name.inspect}" if $pdebug
-    block = table_block(table, name)
-    puts "code_blocks() block: #{block.inspect}" if $pdebug
-    all = [block[:name]] + unroll(table, block[:reqs])
+    name_block = block_by_name(table, name)
+    puts "code_blocks() name_block: #{name_block.inspect}" if $pdebug
+    all = [name_block[:name]] + unroll(table, name_block[:reqs])
     puts "code_blocks() all: #{all.inspect}" if $pdebug
-    all.reverse.map do |req|
-      puts "code_blocks() req: #{req.inspect}" if $pdebug
-      table_block(table, req).fetch(:body, '')
-    end.flatten(1).tap { |ret| puts "code_blocks() ret: #{ret.inspect}" if $pdebug }
+
+    # in order of appearance in document
+    table.select { |block| all.include? block[:name] }
+         .map { |block| block.fetch(:body, '') }
+         .flatten(1)
+         .tap { |ret| puts "code_blocks() ret: #{ret.inspect}" if $pdebug }
   end
 
   def unroll(table, reqs)
@@ -361,12 +366,13 @@ class MarkParse
 
         all += [req]
         puts "unrol() all: #{all.inspect}" if $pdebug
-        table_block(table, req).fetch(:reqs, [])
-      end.compact.flatten(1).tap { |_ret| puts "unroll() rem: #{rem.inspect}" if $pdebug }
+        block_by_name(table, req).fetch(:reqs, [])
     end
-    all.tap { |ret| puts "unroll() ret: #{ret.inspect}" if $pdebug }
+               .compact
+               .flatten(1)
+               .tap { |_ret| puts "unroll() rem: #{rem.inspect}" if $pdebug }
   end
-end
+    all.tap { |ret| puts "unroll() ret: #{ret.inspect}" if $pdebug }
 
 $stderr.sync = true
 $stdout.sync = true
@@ -380,7 +386,7 @@ end
 def read_configuration!(options, configuration_path)
   if Pathname.new(configuration_path).exist?
     # rubocop:disable Security/YAMLLoad
-    options.merge!((YAML.load(open(configuration_path)) || {})
+    options.merge!((YAML.load(File.open(configuration_path)) || {})
       .transform_keys(&:to_sym))
     # rubocop:enable Security/YAMLLoad
   end
@@ -408,10 +414,11 @@ read_configuration! options, ".#{APP_NAME.downcase}.yml"
 # load_resources! options
 # puts "q31 options: #{options.to_yaml}" if $pdebug
 
+# rubocop:disable Metrics/BlockLength
 option_parser = OptionParser.new do |opts|
   executable_name = File.basename($PROGRAM_NAME)
   opts.banner = [
-    APP_VDESC = "#{APP_NAME} - #{APP_DESC} (#{VERSION})",
+    "#{APP_NAME} - #{APP_DESC} (#{VERSION})".freeze,
     "Usage: #{executable_name} [options]"
   ].join("\n")
 
@@ -460,6 +467,7 @@ option_parser = OptionParser.new do |opts|
     puts options.to_yaml
   end
 end
+# rubocop:enable Metrics/BlockLength
 
 option_parser.load # filename defaults to basename of the program without suffix in a directory ~/.options
 option_parser.environment # env defaults to the basename of the program.
@@ -468,6 +476,7 @@ options_finalize! options
 
 ## process
 #
+# rubocop:disable Metrics/BlockLength
 loop do # once
   mp = MarkParse.new options
   options.merge!(
@@ -475,6 +484,7 @@ loop do # once
       approve: true,
       bash: true,
       display: true,
+      exclude_expect_blocks: true,
       execute: true,
       prompt: 'Execute',
       struct: true
@@ -499,7 +509,7 @@ loop do # once
   #
   mp.select_block(bash: true, struct: true) if options[:mdfilename]
 
-# rubocop:disable Style/BlockComments
+  # rubocop:disable Style/BlockComments
 =begin
   # rescue ArgumentError => e
   #   puts "User abort: #{e}"
@@ -513,7 +523,7 @@ loop do # once
 =end
   # rubocop:enable Style/BlockComments
 
-  # rubocop:disable Lint/LiteralAsCondition
-  break unless false
-  # rubocop:enable Lint/LiteralAsCondition
+  break unless false # rubocop:disable Lint/LiteralAsCondition
 end
+# rubocop:enable Metrics/BlockLength
+# rubocop:enable Style/GlobalVars
