@@ -3,7 +3,7 @@
 require_relative 'lib/markdown_exec/version'
 
 Gem::Specification.new do |spec|
-  spec.name = 'markdown_exec'
+  spec.name = MarkdownExec::GEM_NAME
   spec.version = MarkdownExec::VERSION
   spec.authors = ['Fareed Stevenson']
   spec.email = ['fareed@phomento.com']

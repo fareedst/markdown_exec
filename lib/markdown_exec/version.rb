@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
 module MarkdownExec
-  VERSION = '0.0.6'
+  APP_NAME = 'MDE'
+  APP_DESC = 'Markdown block executor'
+  GEM_NAME = 'markdown_exec'
+  VERSION = '0.1.0'
 end

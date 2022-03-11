@@ -3,8 +3,6 @@
 
 # encoding=utf-8
 
-require 'markdown_exec'
+require_relative '../lib/markdown_exec'
 
-mp = MarkdownExec::MarkParse.new
-# mp.fout Time.now
-mp.run
+MarkdownExec::MarkParse.new.run

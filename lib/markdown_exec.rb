@@ -1,38 +1,17 @@
-# frozen_string_literal: true
-
-require_relative 'markdown_exec/version'
-
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
 # encoding=utf-8
+
 # rubocop:disable Style/GlobalVars
+$pdebug = !(ENV['MARKDOWN_EXEC_DEBUG'] || '').empty?
 
-env_debug = ENV['MARKDOWN_EXEC_DEBUG']
-$pdebug = !(env_debug || '').empty?
-
-APP_NAME = 'MDExec'
-APP_DESC = 'Markdown block executor'
-VERSION = '0.0.6'
-
-# require 'markdown_exec'
-# # puts MarkdownExec::MarkParse.echo(ARGV[0])
-
+require 'open3'
 require 'optparse'
 require 'pathname'
 require 'tty-prompt'
 require 'yaml'
-
-# require_relative 'mdlib'
-# #!/usr/bin/env ruby
-# # frozen_string_literal: true
-# # encoding=utf-8
-
-# env_debug = ENV['MARKDOWN_EXEC_DEBUG']
-# $pdebug = !(env_debug || '').empty?
-
-require 'open3'
-# require 'tty-prompt'
+require_relative 'markdown_exec/version'
 
 BLOCK_SIZE = 1024
 SELECT_PAGE_HEIGHT = 12
@@ -40,12 +19,6 @@ SELECT_PAGE_HEIGHT = 12
 module MarkdownExec
   class Error < StandardError; end
 
-  # Markdown Exec
-  # class MarkParse
-  #   def self.echo(str = '')
-  #     "#{str}#{str}"
-  #   end
-  # end
   ##
   #
   class MarkParse
@@ -391,10 +364,6 @@ module MarkdownExec
     # $stderr.sync = true
     # $stdout.sync = true
 
-    def fout(str)
-      puts str # to stdout
-    end
-
     ## configuration file
     #
     def read_configuration!(options, configuration_path)
@@ -424,7 +393,7 @@ module MarkdownExec
 
       # read local configuration file
       #
-      read_configuration! options, ".#{APP_NAME.downcase}.yml"
+      read_configuration! options, ".#{MarkdownExec::APP_NAME.downcase}.yml"
 
       ## read current details for aws resources from app_data_file
       #
@@ -435,7 +404,7 @@ module MarkdownExec
       option_parser = OptionParser.new do |opts|
         executable_name = File.basename($PROGRAM_NAME)
         opts.banner = [
-          "#{APP_NAME} - #{APP_DESC} (#{VERSION})".freeze,
+          "#{MarkdownExec::APP_NAME} - #{MarkdownExec::APP_DESC} (#{MarkdownExec::VERSION})",
           "Usage: #{executable_name} [options]"
         ].join("\n")
 
@@ -471,7 +440,7 @@ module MarkdownExec
         end
 
         opts.on_tail('-v', '--version', 'App version') do |_value|
-          puts VERSION
+          puts MarkdownExec::VERSION
           exit
         end
 
@@ -526,7 +495,18 @@ module MarkdownExec
         #
         mp.select_block(bash: true, struct: true) if options[:mdfilename]
 
-        # rubocop:disable Style/BlockComments
+# rubocop:disable Style/BlockComments
+=begin
+  # rescue ArgumentError => e
+  #   puts "User abort: #{e}"
+
+  # rescue StandardError => e
+  #   puts "ERROR: #{e}"
+  #   raise StandardError, e
+
+  # ensure
+  #   exit
+=end
         # rubocop:enable Style/BlockComments
 
         break unless false # rubocop:disable Lint/LiteralAsCondition

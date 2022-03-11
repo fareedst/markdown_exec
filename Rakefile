@@ -13,27 +13,26 @@ require 'rubocop/rake_task'
 
 RuboCop::RakeTask.new
 
-task default: %i[test rubocop]
+require_relative 'lib/markdown_exec/version'
 
-GEM_NAME = 'markdown_exec'
-GEM_VERSION = '0.0.6'
+task default: %i[test rubocop]
 
 # task :default => :build
 
 task :build do
-  system "gem build #{GEM_NAME}.gemspec"
+  system "gem build #{MarkdownExec::GEM_NAME}.gemspec"
 end
 
 task install: :build do
-  system "gem install #{GEM_NAME}-#{GEM_VERSION}.gem"
+  system "gem install #{MarkdownExec::GEM_NAME}-#{MarkdownExec::VERSION}.gem"
 end
 
 task publish: :build do
-  system "gem push #{GEM_NAME}-#{GEM_VERSION}.gem"
+  system "gem push #{MarkdownExec::GEM_NAME}-#{MarkdownExec::VERSION}.gem"
 end
 
 task uninstall: :build do
-  system "gem uninstall #{GEM_NAME}"
+  system "gem uninstall #{MarkdownExec::GEM_NAME}"
 end
 
 task :clean do
