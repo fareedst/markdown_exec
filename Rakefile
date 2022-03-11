@@ -16,7 +16,7 @@ RuboCop::RakeTask.new
 task default: %i[test rubocop]
 
 GEM_NAME = 'markdown_exec'
-GEM_VERSION = '0.0.5'
+GEM_VERSION = '0.0.6'
 
 # task :default => :build
 
@@ -30,6 +30,10 @@ end
 
 task publish: :build do
   system "gem push #{GEM_NAME}-#{GEM_VERSION}.gem"
+end
+
+task uninstall: :build do
+  system "gem uninstall #{GEM_NAME}"
 end
 
 task :clean do
