@@ -16,7 +16,7 @@ RuboCop::RakeTask.new
 task default: %i[test rubocop]
 
 GEM_NAME = 'markdown_exec'
-GEM_VERSION = '0.0.3'
+GEM_VERSION = '0.0.5'
 
 # task :default => :build
 

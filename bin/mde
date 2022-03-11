@@ -9,7 +9,7 @@ $pdebug = !(env_debug || '').empty?
 
 APP_NAME = 'MDExec'
 APP_DESC = 'Markdown block executor'
-VERSION = '0.0.3'
+VERSION = '0.0.5'
 
 require 'markdown_exec'
 # puts MarkdownExec::MDExec.echo(ARGV[0])
