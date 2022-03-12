@@ -6,7 +6,9 @@ This gem allows you to interactively select and run code blocks in markdown file
 
 * Named blocks can be required by other blocks.
 
-* The selected code block, and all required blocks, are collected in the order they appear in the markdown file.
+* The selected code block, and all required blocks, are arranged in the order they appear in the markdown file.
+
+* The resulting code is presented for approval prior to execution.
 
 ## Installation
 
@@ -33,6 +35,29 @@ List all blocks in the selected files.
 
 `mde --list-docs`
 List all markdown documents in the selected folder.
+
+# Example blocks
+When prompted, select either the `awake` or `asleep` block. The standard output confirms which required were blocks were included. Naming "hidden" blocks with parentheses "(" and ")" is a convention used here to re-inforce the purpose of the named blocks.
+
+``` :(day)
+export MYTIME=early
+```
+
+``` :(night)
+export MYTIME=late
+```
+
+``` :awake +(day) +(report)
+export ACTIVITY=awake
+```
+
+``` :asleep +(night) +(report)
+export ACTIVITY=asleep
+```
+
+``` :(report)
+echo "time: $MYTIME, activity: $ACTIVITY"
+```
 
 ## License
 
