@@ -69,6 +69,8 @@ echo "time: $MYTIME, activity: $ACTIVITY"
 
 ![Selecting a block](/assets/select.png)
 
+![Approving code](/assets/approve.png)
+
 # License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
