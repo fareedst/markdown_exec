@@ -65,11 +65,9 @@ export ACTIVITY=asleep
 echo "time: $MYTIME, activity: $ACTIVITY"
 ```
 
-Blocks:
-[[assets/blocks.png]]
+![Sample blocks](/assets/blocks.png)
 
-Selecting a block:
-[[assets/select.png]]
+![Selecting a block](/assets/select.png)
 
 # License
 
