@@ -40,12 +40,12 @@ List all markdown documents in the selected folder.
 When prompted, select either the `awake` or `asleep` block. The standard output confirms which required were blocks were included. Naming "hidden" blocks with parentheses "(" and ")" is a convention used here to re-inforce the purpose of the named blocks.
 
 ``` :(day)
-# block named "day", required by other blocks
+# block named "(day)", required by other blocks
 export MYTIME=early
 ```
 
 ``` :(night)
-# block named "night", required by other blocks
+# block named "(night)", required by other blocks
 export MYTIME=late
 ```
 
@@ -60,7 +60,7 @@ export ACTIVITY=asleep
 ```
 
 ``` :(report)
-# block named "report", required by other blocks
+# block named "(report)", required by other blocks
 echo "time: $MYTIME, activity: $ACTIVITY"
 ```
 
