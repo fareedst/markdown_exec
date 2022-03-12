@@ -1,38 +1,38 @@
 # MarkdownExec
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/markdown_exec`. To experiment with that code, run `bin/console` for an interactive prompt.
+This gem allows you to run code blocks in markdown files.
 
-TODO: Delete this and the text above, and describe your gem
+* Code blocks can be named.
+
+* Named blocks can be required by other blocks.
+
+* The selected code block, and all required blocks, are collected in the order they appear in the markdown file.
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'markdown_exec'
-```
-
-And then execute:
-
-    $ bundle install
-
-Or install it yourself as:
+Install:
 
     $ gem install markdown_exec
 
 ## Usage
 
-TODO: Write usage instructions here
+`mde --help`
+Displays help information.
 
-## Development
+`mde`
+Process `README.md` file in the current directory. Displays all the blocks in the file and allows you to select using [up], [down], and [return]. Press [ctrl]-c to abort selection.
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+`mde -f my.md`
+Process `my.md` file in the current directory.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+`mde -p child`
+Process markdown files in the `child` directory.
 
-## Contributing
+`mde --list-blocks`
+List all blocks in the selected files.
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/markdown_exec. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/markdown_exec/blob/master/CODE_OF_CONDUCT.md).
+`mde --list-docs`
+List all markdown documents in the selected folder.
 
 ## License
 
@@ -41,23 +41,3 @@ The gem is available as open source under the terms of the [MIT License](https:/
 ## Code of Conduct
 
 Everyone interacting in the MarkdownExec project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/markdown_exec/blob/master/CODE_OF_CONDUCT.md).
-
-# 2022-03-06
-```
-gem build markdown_exec.gemspec
-```
-```expect
-  Successfully built RubyGem
-  Name: markdown_exec
-  Version: 0.0.1
-  File: markdown_exec-0.0.1.gem
-```
-```
-gem install ./markdown_exec-0.0.1.gem
-```
-```
-gem list | grep exec
-```
-```
-gem uninstall markdown_exec
-```
