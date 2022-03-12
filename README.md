@@ -37,6 +37,7 @@ List all blocks in the selected files.
 List all markdown documents in the selected folder.
 
 # Example blocks
+
 When prompted, select either the `awake` or `asleep` block. The standard output confirms which required were blocks were included. Naming "hidden" blocks with parentheses "(" and ")" is a convention used here to re-inforce the purpose of the named blocks.
 
 ``` :(day)
@@ -64,10 +65,16 @@ export ACTIVITY=asleep
 echo "time: $MYTIME, activity: $ACTIVITY"
 ```
 
-## License
+Blocks:
+[[assets/blocks.png]]
+
+Selecting a block:
+[[assets/select.png]]
+
+# License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
 
-## Code of Conduct
+# Code of Conduct
 
 Everyone interacting in the MarkdownExec project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/markdown_exec/blob/master/CODE_OF_CONDUCT.md).
