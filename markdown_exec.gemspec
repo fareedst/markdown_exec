@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ['fareed@phomento.com']
 
   spec.summary = 'Execute shell blocks in markdown files.'
-  spec.description = 'Execute shell blocks in markdown files. Name blocks and require named blocks.'
+  spec.description = 'Interactively select and execute shell blocks in markdown files. Build complex scripts by naming blocks and requiring named blocks.'
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'

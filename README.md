@@ -1,6 +1,6 @@
 # MarkdownExec
 
-This gem allows you to run code blocks in markdown files.
+This gem allows you to interactively select and run code blocks in markdown files.
 
 * Code blocks can be named.
 
