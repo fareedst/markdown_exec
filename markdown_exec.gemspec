@@ -35,7 +35,7 @@ Gem::Specification.new do |spec|
   # Uncomment to register a new dependency of your gem
   spec.add_dependency 'open3', '~> 0.1.1'
   spec.add_dependency 'optparse', '~> 0.1.1'
-  spec.add_dependency 'pathname', '~> 0.1.0'
+  # spec.add_dependency 'pathname', '~> 0.1.0'
   spec.add_dependency 'tty-prompt', '~> 0.23.1'
   spec.add_dependency 'yaml', '~> 0.2.0'
 

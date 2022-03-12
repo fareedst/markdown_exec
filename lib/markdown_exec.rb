@@ -8,7 +8,7 @@ $pdebug = !(ENV['MARKDOWN_EXEC_DEBUG'] || '').empty?
 
 require 'open3'
 require 'optparse'
-require 'pathname'
+# require 'pathname'
 require 'tty-prompt'
 require 'yaml'
 require_relative 'markdown_exec/version'
@@ -367,7 +367,7 @@ module MarkdownExec
     ## configuration file
     #
     def read_configuration!(options, configuration_path)
-      if Pathname.new(configuration_path).exist?
+      if File.exist?(configuration_path)
         # rubocop:disable Security/YAMLLoad
         options.merge!((YAML.load(File.open(configuration_path)) || {})
           .transform_keys(&:to_sym))

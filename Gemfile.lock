@@ -1,14 +1,19 @@
 PATH
   remote: .
   specs:
-    markdown_exec (0.0.3)
+    markdown_exec (0.1.1)
+      open3 (~> 0.1.1)
+      optparse (~> 0.1.1)
       tty-prompt (~> 0.23.1)
+      yaml (~> 0.2.0)
 
 GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.2)
     minitest (5.15.0)
+    open3 (0.1.1)
+    optparse (0.1.1)
     parallel (1.21.0)
     parser (3.1.1.0)
       ast (~> 2.4.1)
@@ -42,6 +47,7 @@ GEM
     tty-screen (0.8.1)
     unicode-display_width (2.1.0)
     wisper (2.0.1)
+    yaml (0.2.0)
 
 PLATFORMS
   arm64-darwin-21
