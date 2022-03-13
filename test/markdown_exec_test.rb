@@ -5,58 +5,62 @@ require 'test_helper'
 RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 
 class MarkdownExecTest < Minitest::Test
+  extend Minitest::Spec::DSL
+
   def test_that_it_has_a_version_number
     refute_nil ::MarkdownExec::VERSION
   end
 
-  extend Minitest::Spec::DSL
-
   let(:options) do
     {
-      mdfilename: 'spec/sample1.md',
-      mdfolder: '.'
+      filename: 'spec/sample1.md',
+      folder: '.'
     }
   end
   let(:mp) { MarkdownExec::MarkParse.new options }
 
   def test_exist
-    assert_equal true, File.exist?(options[:mdfilename])
+    assert_equal true, File.exist?(options[:filename])
   end
 
   def test_yield
-    assert_equal [['b']], (mp.get_blocks { |opts| opts.merge(bash_only: true) })
+    assert_equal [['b']], (mp.list_blocks_in_file { |opts| opts.merge(bash_only: true) })
   end
 
-  def test_count_blocks
-    assert_equal 2, mp.count_blocks
+  def test_count_blocks_in_filename
+    assert_equal 2, mp.count_blocks_in_filename
   end
 
   def test_get_blocks
-    assert_equal [['a'], ['b']], mp.get_blocks
+    assert_equal [['a'], ['b']], mp.list_blocks_in_file
   end
+
   def test_get_blocks_filter
-    assert_equal [['b']], mp.get_blocks(bash_only: true)
+    assert_equal [['b']], mp.list_blocks_in_file(bash_only: true)
   end
+
   def test_get_blocks_struct
     assert_equal [
       { body: ['a'], title: 'one' },
       { body: ['b'], title: 'two' }
-    ], (mp.get_blocks(struct: true).map { |block| block.slice(:body, :title) })
+    ], (mp.list_blocks_in_file(struct: true).map { |block| block.slice(:body, :title) })
   end
+
   def test_match_block_title
     assert_equal 'two', mp.select_block(title_match: 'w') if RUN_INTERACTIVE
-    assert_equal [['b']], mp.get_blocks(title_match: 'w')
+    assert_equal [['b']], mp.list_blocks_in_file(title_match: 'w')
   end
   if RUN_INTERACTIVE
     def test_select_block
       assert_equal 'one', mp.select_block
     end
+
     def test_select_block_approve
       assert_equal 'ls', mp.select_block(
         approve: true,
         display: true,
         execute: true,
-        mdfilename: 'spec/exec1.md',
+        filename: 'spec/exec1.md',
         prompt: 'Execute'
       )
     end
@@ -64,20 +68,20 @@ class MarkdownExecTest < Minitest::Test
     def test_select_block_display
       assert_equal 'one', mp.select_block(display: true)
     end
+
     def test_select_block_execute
       mp.select_block(
         display: true,
         execute: true,
-        mdfilename: 'spec/exec1.md',
+        filename: 'spec/exec1.md',
         prompt: 'Execute'
       )
     end
   end
 
   # test_list_documents_root
-  def test_find_files
-    # assert_equal `ls -1 *.md`.split("\n"), mp.find_files
-    assert_equal ["./CHANGELOG.md", "./CODE_OF_CONDUCT.md", "./README.md"], mp.find_files
+  def test_list_markdown_files_in_folder
+    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_folder
   end
 
   if RUN_INTERACTIVE
@@ -88,9 +92,9 @@ class MarkdownExecTest < Minitest::Test
   # def method_missing(meth, *args, &blk); end
 
   let(:bash1_blocks) do
-    mp.get_blocks(
+    mp.list_blocks_in_file(
       bash: true,
-      mdfilename: 'spec/bash1.md',
+      filename: 'spec/bash1.md',
       struct: true
     )
   end
@@ -104,14 +108,14 @@ class MarkdownExecTest < Minitest::Test
     ], (bash1_blocks.map { |block| block.slice(:name, :reqs) })
   end
 
-  def test_unroll_reqs
+  def test_recursively_required_reqs
     assert_equal [
       { name: 'one', allreqs: [] },
       { name: 'two', allreqs: ['one'] },
       { name: 'three', allreqs: %w[two one] },
       { name: 'four', allreqs: %w[three two one] }
     ], (bash1_blocks.map do |block|
-          { name: block[:name], allreqs: mp.unroll(bash1_blocks, block[:reqs]) }
+          { name: block[:name], allreqs: mp.recursively_required(bash1_blocks, block[:reqs]) }
         end)
   end
 
@@ -127,13 +131,13 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_code_blocks
-    assert_equal %w[a b c d], mp.code_blocks(bash1_blocks, 'four')
+    assert_equal %w[a b c d], mp.list_recursively_required_blocks(bash1_blocks, 'four')
   end
 
   let(:bash2_blocks) do
-    mp.get_blocks(
+    mp.list_blocks_in_file(
       bash: true,
-      mdfilename: 'spec/bash2.md',
+      filename: 'spec/bash2.md',
       struct: true
     )
   end
@@ -151,9 +155,9 @@ class MarkdownExecTest < Minitest::Test
   end
 
   let(:title1_blocks) do
-    mp.get_blocks(
+    mp.list_blocks_in_file(
       bash: true,
-      mdfilename: 'spec/title1.md',
+      filename: 'spec/title1.md',
       struct: true
     )
   end
@@ -166,9 +170,9 @@ class MarkdownExecTest < Minitest::Test
   end
 
   let(:heading1_blocks) do
-    mp.get_blocks(
+    mp.list_blocks_in_file(
       bash: true,
-      mdfilename: 'spec/heading1.md',
+      filename: 'spec/heading1.md',
       mdheadings: true,
       struct: true
     )
@@ -185,10 +189,10 @@ class MarkdownExecTest < Minitest::Test
   end
 
   let(:exclude1_blocks) do
-    mp.get_blocks(
+    mp.list_blocks_in_file(
       bash: true,
       exclude_expect_blocks: true,
-      mdfilename: 'spec/exclude1.md',
+      filename: 'spec/exclude1.md',
       struct: true
     )
   end
@@ -197,5 +201,42 @@ class MarkdownExecTest < Minitest::Test
     assert_equal [
       { name: 'one', title: 'one' }
     ], (exclude1_blocks.map { |block| block.slice(:name, :title) })
+  end
+
+  let(:default_filename) { 'file0' }
+  let(:default_folder) { 'folder0' }
+  let(:specified_filename) { 'file1' }
+  let(:specified_folder) { 'folder1' }
+
+  def test_target_default_folder_and_default_filename1
+    ft = ['./README.md']
+    assert_equal ft, mp.list_files_specified(nil, nil, 'README.md', '.')
+  end
+
+  def test_target_default_folder_and_default_filename2
+    ft = ['spec/bash1.md', 'spec/bash2.md', 'spec/exclude1.md', 'spec/exec1.md', 'spec/heading1.md', 'spec/sample1.md',
+          'spec/title1.md']
+    assert_equal ft, mp.list_files_specified(nil, 'spec', 'README.md', '.')
+  end
+
+  def test_target_default_folder_and_default_filename
+    ft = ["#{default_folder}/#{default_filename}"]
+    assert_equal ft, mp.list_files_specified(nil, nil, default_filename, default_folder, ft)
+  end
+
+  def test_target_default_folder_and_specified_filename
+    ft = ["#{default_folder}/#{specified_filename}"]
+    assert_equal ft, mp.list_files_specified(specified_filename, nil, default_filename, default_folder, ft)
+  end
+
+  def test_target_specified_folder_and_filename
+    ft = ["#{specified_folder}/#{specified_filename}"]
+    assert_equal ft, mp.list_files_specified(specified_filename, specified_folder, default_filename, default_folder, ft)
+  end
+
+  def test_target_specified_folder
+    # ft = ["#{specified_folder}/#{default_filename}"]
+    ft = ["#{specified_folder}/any.md"]
+    assert_equal ft, mp.list_files_specified(nil, specified_folder, default_filename, default_folder, ft)
   end
 end
