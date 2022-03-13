@@ -11,13 +11,13 @@ class MarkdownExecTest < Minitest::Test
     refute_nil ::MarkdownExec::VERSION
   end
 
+  let(:mp) { MarkdownExec::MarkParse.new options }
   let(:options) do
     {
       filename: 'spec/sample1.md',
       folder: '.'
     }
   end
-  let(:mp) { MarkdownExec::MarkParse.new options }
 
   def test_exist
     assert_equal true, File.exist?(options[:filename])
@@ -203,6 +203,23 @@ class MarkdownExecTest < Minitest::Test
     ], (exclude1_blocks.map { |block| block.slice(:name, :title) })
   end
 
+  ###
+  let(:exclude2_blocks) do
+    mp.list_named_blocks_in_file(
+      bash: true,
+      exclude_matching_block_names: true,
+      filename: 'spec/exclude2.md',
+      struct: true
+    )
+  end
+
+  def test_parse_exclude2
+    assert_equal [
+      { name: 'one' },
+      { name: 'three' }
+    ], (exclude2_blocks.map { |block| block.slice(:name) })
+  end
+
   let(:default_filename) { 'file0' }
   let(:default_folder) { 'folder0' }
   let(:specified_filename) { 'file1' }
@@ -214,8 +231,10 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_target_default_folder_and_default_filename2
-    ft = ['spec/bash1.md', 'spec/bash2.md', 'spec/exclude1.md', 'spec/exec1.md', 'spec/heading1.md', 'spec/sample1.md',
-          'spec/title1.md']
+    ft = ['spec/bash1.md', 'spec/bash2.md',
+          'spec/exclude1.md', 'spec/exclude2.md',
+          'spec/exec1.md', 'spec/heading1.md',
+          'spec/sample1.md', 'spec/title1.md']
     assert_equal ft, mp.list_files_specified(nil, 'spec', 'README.md', '.')
   end
 
@@ -231,11 +250,11 @@ class MarkdownExecTest < Minitest::Test
 
   def test_target_specified_folder_and_filename
     ft = ["#{specified_folder}/#{specified_filename}"]
-    assert_equal ft, mp.list_files_specified(specified_filename, specified_folder, default_filename, default_folder, ft)
+    assert_equal ft,
+                 mp.list_files_specified(specified_filename, specified_folder, default_filename, default_folder, ft)
   end
 
   def test_target_specified_folder
-    # ft = ["#{specified_folder}/#{default_filename}"]
     ft = ["#{specified_folder}/any.md"]
     assert_equal ft, mp.list_files_specified(nil, specified_folder, default_filename, default_folder, ft)
   end

@@ -25,9 +25,11 @@ Displays help information.
 Process `README.md` file in the current folder. Displays all the blocks in the file and allows you to select using [up], [down], and [return]. Press [ctrl]-c to abort selection.
 
 `mde -f my.md`
+`mde my.md`
 Select a block to execute from `my.md`.
 
 `mde -p .`
+`mde .`
 Select a markdown file in the current folder. Select a block to execute from that file.
 
 `mde --list-blocks`
@@ -52,31 +54,26 @@ e.g. Use to set the default file for the current folder.
 
 # Example blocks
 
-When prompted, select either the `awake` or `asleep` block. The standard output confirms which required were blocks were included. Naming "hidden" blocks with parentheses "(" and ")" is a convention used here to re-inforce the purpose of the named blocks.
+When prompted, select either the `awake` or `asleep` block.
 
 ``` :(day)
-# block named "(day)", required by other blocks
-export MYTIME=early
+export TIME=early
 ```
 
 ``` :(night)
-# block named "(night)", required by other blocks
-export MYTIME=late
+export TIME=late
 ```
 
 ``` :awake +(day) +(report)
-# block named "awake", select to see result
 export ACTIVITY=awake
 ```
 
 ``` :asleep +(night) +(report)
-# block named "asleep", select to see result
 export ACTIVITY=asleep
 ```
 
 ``` :(report)
-# block named "(report)", required by other blocks
-echo "time: $MYTIME, activity: $ACTIVITY"
+echo "$TIME -> $ACTIVITY"
 ```
 
 ## Example blocks

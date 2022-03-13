@@ -123,28 +123,35 @@ module MarkdownExec
             #
 
             lm = line.match(/^`{3,}([^`\s]*) *(.*)$/)
-
             do1 = false
             if opts[:bash_only]
               do1 = true if lm && (lm[1] == 'bash')
-            elsif opts[:exclude_expect_blocks]
-              do1 = true unless lm && (lm[1] == 'expect')
             else
               do1 = true
+              do1 = !(lm && (lm[1] == 'expect')) if opts[:exclude_expect_blocks]
+
+              #             if do1 && opts[:exclude_matching_block_names]
+              # puts " MW a4"
+              # puts " MW a4 #{(lm[2].match %r{^:\(.+\)$})}"
+              #               do1 = !(lm && (lm[2].match %r{^:\(.+\)$}))
+              #             end
             end
 
+            in_block = true
             if do1 && (!opts[:title_match] || (lm && lm[2] && lm[2].match(opts[:title_match])))
               current = []
-              in_block = true
               block_title = (lm && lm[2])
             end
-
           end
         elsif current
           current += [line.chomp]
         end
       end
       blocks.tap { |ret| puts "list_blocks_in_file() ret: #{ret.inspect}" if $pdebug }
+      # blocks.map do |block|
+      #   next if opts[:exclude_matching_block_names] && block[:name].match(%r{^\(.+\)$})
+      #   block
+      # end.compact.tap { |ret| puts "list_blocks_in_file() ret: #{ret.inspect}" if $pdebug }
     end
 
     def list_files_per_options(options)
@@ -184,6 +191,15 @@ module MarkdownExec
       Dir.glob(File.join(options[:folder], '*.md'))
     end
 
+    def list_named_blocks_in_file(call_options = {}, &options_block)
+      opts = optsmerge call_options, options_block
+      list_blocks_in_file(opts).map do |block|
+        next if opts[:exclude_matching_block_names] && block[:name].match(/^\(.+\)$/)
+
+        block
+      end.compact.tap { |ret| puts "list_named_blocks_in_file() ret: #{ret.inspect}" if $pdebug }
+    end
+
     def code(table, block)
       all = [block[:name]] + recursively_required(table, block[:reqs])
       all.reverse.map do |req|
@@ -217,7 +233,17 @@ module MarkdownExec
     def make_block_labels(call_options = {})
       opts = options.merge(call_options)
       list_blocks_in_file(opts).map do |block|
+        # next if opts[:exclude_matching_block_names] && block[:name].match(%r{^:\(.+\)$})
+
         make_block_label block, opts
+      end.compact.tap { |ret| puts "make_block_labels() ret: #{ret.inspect}" if $pdebug }
+    end
+
+    def option_exclude_blocks(opts, blocks)
+      if opts[:exclude_matching_block_names]
+        blocks.reject { |block| block[:name].match(/^\(.+\)$/) }
+      else
+        blocks
       end
     end
 
@@ -278,7 +304,7 @@ module MarkdownExec
         executable_name = File.basename($PROGRAM_NAME)
         opts.banner = [
           "#{MarkdownExec::APP_NAME} - #{MarkdownExec::APP_DESC} (#{MarkdownExec::VERSION})",
-          "Usage: #{executable_name} [options]"
+          "Usage: #{executable_name} [filename or path] [options]"
         ].join("\n")
 
         ## menu top: items appear in reverse order added
@@ -293,7 +319,7 @@ module MarkdownExec
           options[:filename] = value
         end
 
-        opts.on('-p PATH', '--folder', 'Path to documents') do |value|
+        opts.on('-p PATH', '--path', 'Path to documents') do |value|
           options[:folder] = value
         end
 
@@ -328,8 +354,16 @@ module MarkdownExec
       end
       option_parser.load # filename defaults to basename of the program without suffix in a directory ~/.options
       option_parser.environment # env defaults to the basename of the program.
-      option_parser.parse! # (into: options)
+      rest = option_parser.parse! # (into: options)
       options_finalize.call options
+
+      if rest.fetch(0, nil)&.present?
+        if Dir.exist?(rest[0])
+          options[:folder] = rest[0]
+        elsif File.exist?(rest[0])
+          options[:filename] = rest[0]
+        end
+      end
 
       ## process
       #
@@ -339,6 +373,7 @@ module MarkdownExec
           bash: true,
           display: true,
           exclude_expect_blocks: true,
+          exclude_matching_block_names: true,
           execute: true,
           prompt: 'Execute',
           struct: true
@@ -375,8 +410,14 @@ module MarkdownExec
       prompt = TTY::Prompt.new(interrupt: :exit)
       pt = "#{opts.fetch(:prompt, nil) || 'Pick one'}:"
 
+      # blocks.map do |block|
+      #   next if opts[:exclude_matching_block_names] && block[:name].match(%r{^\(.+\)$})
+      #   block
+      # end.compact.tap { |ret| puts "list_blocks_in_file() ret: #{ret.inspect}" if $pdebug }
+
       blocks.each { |block| block.merge! label: make_block_label(block, opts) }
-      block_labels = blocks.map { |block| block[:label] }
+      # block_labels = blocks.map { |block| block[:label] }
+      block_labels = option_exclude_blocks(opts, blocks).map { |block| block[:label] }
 
       if opts[:preview_options]
         select_per_page = 3
@@ -406,8 +447,6 @@ module MarkdownExec
       selected = get_block_by_name blocks, sel
       if allow && opts[:execute]
 
-        ## process in script, to handle line continuations
-        #
         cmd2 = cbs.flatten.join("\n")
 
         Open3.popen3(cmd2) do |stdin, stdout, stderr|
