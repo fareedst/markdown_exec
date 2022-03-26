@@ -14,8 +14,8 @@ class MarkdownExecTest < Minitest::Test
   let(:mp) { MarkdownExec::MarkParse.new options }
   let(:options) do
     {
-      filename: 'spec/sample1.md',
-      folder: '.'
+      filename: 'fixtures/sample1.md',
+      path: '.'
     }
   end
 
@@ -60,7 +60,7 @@ class MarkdownExecTest < Minitest::Test
         approve: true,
         display: true,
         execute: true,
-        filename: 'spec/exec1.md',
+        filename: 'fixtures/exec1.md',
         prompt: 'Execute'
       )
     end
@@ -73,7 +73,7 @@ class MarkdownExecTest < Minitest::Test
       mp.select_block(
         display: true,
         execute: true,
-        filename: 'spec/exec1.md',
+        filename: 'fixtures/exec1.md',
         prompt: 'Execute'
       )
     end
@@ -94,7 +94,7 @@ class MarkdownExecTest < Minitest::Test
   let(:bash1_blocks) do
     mp.list_blocks_in_file(
       bash: true,
-      filename: 'spec/bash1.md',
+      filename: 'fixtures/bash1.md',
       struct: true
     )
   end
@@ -137,7 +137,7 @@ class MarkdownExecTest < Minitest::Test
   let(:bash2_blocks) do
     mp.list_blocks_in_file(
       bash: true,
-      filename: 'spec/bash2.md',
+      filename: 'fixtures/bash2.md',
       struct: true
     )
   end
@@ -157,7 +157,7 @@ class MarkdownExecTest < Minitest::Test
   let(:title1_blocks) do
     mp.list_blocks_in_file(
       bash: true,
-      filename: 'spec/title1.md',
+      filename: 'fixtures/title1.md',
       struct: true
     )
   end
@@ -172,7 +172,7 @@ class MarkdownExecTest < Minitest::Test
   let(:heading1_blocks) do
     mp.list_blocks_in_file(
       bash: true,
-      filename: 'spec/heading1.md',
+      filename: 'fixtures/heading1.md',
       mdheadings: true,
       struct: true
     )
@@ -192,7 +192,7 @@ class MarkdownExecTest < Minitest::Test
     mp.list_blocks_in_file(
       bash: true,
       exclude_expect_blocks: true,
-      filename: 'spec/exclude1.md',
+      filename: 'fixtures/exclude1.md',
       struct: true
     )
   end
@@ -208,7 +208,7 @@ class MarkdownExecTest < Minitest::Test
     mp.list_named_blocks_in_file(
       bash: true,
       exclude_matching_block_names: true,
-      filename: 'spec/exclude2.md',
+      filename: 'fixtures/exclude2.md',
       struct: true
     )
   end
@@ -231,11 +231,11 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_target_default_folder_and_default_filename2
-    ft = ['spec/bash1.md', 'spec/bash2.md',
-          'spec/exclude1.md', 'spec/exclude2.md',
-          'spec/exec1.md', 'spec/heading1.md',
-          'spec/sample1.md', 'spec/title1.md']
-    assert_equal ft, mp.list_files_specified(nil, 'spec', 'README.md', '.')
+    ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
+          'fixtures/exclude1.md', 'fixtures/exclude2.md',
+          'fixtures/exec1.md', 'fixtures/heading1.md',
+          'fixtures/sample1.md', 'fixtures/title1.md']
+    assert_equal ft, mp.list_files_specified(nil, 'fixtures', 'README.md', '.')
   end
 
   def test_target_default_folder_and_default_filename
