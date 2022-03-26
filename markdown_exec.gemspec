@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
   # spec.metadata["allowed_push_host"] = "https://rubygems.org"
 
   spec.metadata['homepage_uri'] = spec.homepage
+  spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/fareedst/markdown_exec'
   spec.metadata['changelog_uri'] = 'https://github.com/fareedst/markdown_exec/blob/main/CHANGELOG.md'
 
