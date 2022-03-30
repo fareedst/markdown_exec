@@ -14,13 +14,44 @@ class MarkdownExecTest < Minitest::Test
   let(:mp) { MarkdownExec::MarkParse.new options }
   let(:options) do
     {
+      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.+\)$'),
+      block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
+      block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
+      fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
+      fenced_start_ex_match: env_str('MDE_FENCED_START_EX_MATCH', default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$'),
       filename: 'fixtures/sample1.md',
+      md_filename_glob: env_str('MDE_MD_FILENAME_GLOB', default: '*.[Mm][Dd]'),
+      md_filename_match: env_str('MDE_MD_FILENAME_MATCH', default: '.+\\.md'),
       path: '.'
     }
   end
 
+  ## options
+  #
+  let(:options_diff) do
+    {
+      filename: 'diff'
+    }
+  end
+
+  def test_initial_options_recalled
+    assert_equal options, mp.options
+  end
+
+  def test_update_options_over
+    mp.update_options options_diff
+    assert_equal options.merge(options_diff), mp.options
+  end
+
+  def test_update_options_under
+    mp.update_options options_diff, over: false
+    assert_equal options_diff.merge(options), mp.options
+  end
+
+  ## code blocks
+  #
   def test_exist
-    assert_equal true, File.exist?(options[:filename])
+    assert_path_exists options[:filename]
   end
 
   def test_yield
@@ -79,9 +110,8 @@ class MarkdownExecTest < Minitest::Test
     end
   end
 
-  # test_list_documents_root
-  def test_list_markdown_files_in_folder
-    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_folder
+  def test_list_markdown_files_in_path
+    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_path
   end
 
   if RUN_INTERACTIVE
@@ -89,7 +119,6 @@ class MarkdownExecTest < Minitest::Test
       assert_equal 'README.md', mp.select_md_file
     end
   end
-  # def method_missing(meth, *args, &blk); end
 
   let(:bash1_blocks) do
     mp.list_blocks_in_file(
@@ -174,7 +203,11 @@ class MarkdownExecTest < Minitest::Test
       bash: true,
       filename: 'fixtures/heading1.md',
       mdheadings: true,
-      struct: true
+      struct: true,
+
+      heading1_match: env_str('MDE_HEADING1_MATCH', default: '^# *(?<name>[^#]*?) *$'),
+      heading2_match: env_str('MDE_HEADING2_MATCH', default: '^## *(?<name>[^#]*?) *$'),
+      heading3_match: env_str('MDE_HEADING3_MATCH', default: '^### *(?<name>.+?) *$')
     )
   end
 
@@ -221,16 +254,16 @@ class MarkdownExecTest < Minitest::Test
   end
 
   let(:default_filename) { 'file0' }
-  let(:default_folder) { 'folder0' }
+  let(:default_path) { 'path0' }
   let(:specified_filename) { 'file1' }
-  let(:specified_folder) { 'folder1' }
+  let(:specified_path) { 'path1' }
 
-  def test_target_default_folder_and_default_filename1
+  def test_target_default_path_and_default_filename1
     ft = ['./README.md']
     assert_equal ft, mp.list_files_specified(nil, nil, 'README.md', '.')
   end
 
-  def test_target_default_folder_and_default_filename2
+  def test_target_default_path_and_default_filename2
     ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
@@ -238,24 +271,24 @@ class MarkdownExecTest < Minitest::Test
     assert_equal ft, mp.list_files_specified(nil, 'fixtures', 'README.md', '.')
   end
 
-  def test_target_default_folder_and_default_filename
-    ft = ["#{default_folder}/#{default_filename}"]
-    assert_equal ft, mp.list_files_specified(nil, nil, default_filename, default_folder, ft)
+  def test_target_default_path_and_default_filename
+    ft = ["#{default_path}/#{default_filename}"]
+    assert_equal ft, mp.list_files_specified(nil, nil, default_filename, default_path, ft)
   end
 
-  def test_target_default_folder_and_specified_filename
-    ft = ["#{default_folder}/#{specified_filename}"]
-    assert_equal ft, mp.list_files_specified(specified_filename, nil, default_filename, default_folder, ft)
+  def test_target_default_path_and_specified_filename
+    ft = ["#{default_path}/#{specified_filename}"]
+    assert_equal ft, mp.list_files_specified(specified_filename, nil, default_filename, default_path, ft)
   end
 
-  def test_target_specified_folder_and_filename
-    ft = ["#{specified_folder}/#{specified_filename}"]
+  def test_target_specified_path_and_filename
+    ft = ["#{specified_path}/#{specified_filename}"]
     assert_equal ft,
-                 mp.list_files_specified(specified_filename, specified_folder, default_filename, default_folder, ft)
+                 mp.list_files_specified(specified_filename, specified_path, default_filename, default_path, ft)
   end
 
-  def test_target_specified_folder
-    ft = ["#{specified_folder}/any.md"]
-    assert_equal ft, mp.list_files_specified(nil, specified_folder, default_filename, default_folder, ft)
+  def test_target_specified_path
+    ft = ["#{specified_path}/any.md"]
+    assert_equal ft, mp.list_files_specified(nil, specified_path, default_filename, default_path, ft)
   end
 end

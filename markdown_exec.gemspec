@@ -9,18 +9,18 @@ Gem::Specification.new do |spec|
   spec.email = ['fareed@phomento.com']
 
   spec.summary = 'Execute shell blocks in markdown files.'
-  spec.description = 'Interactively select and execute shell blocks in markdown files.' \
-                     ' Build complex scripts by naming blocks and requiring named blocks.'
+  spec.description = 'Interactively select and execute fenced code blocks in markdown files.' \
+                     ' Build complex scripts by naming and requiring blocks.'
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'
 
   # spec.metadata["allowed_push_host"] = "https://rubygems.org"
 
+  spec.metadata['changelog_uri'] = 'https://github.com/fareedst/markdown_exec/blob/main/CHANGELOG.md'
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/fareedst/markdown_exec'
-  spec.metadata['changelog_uri'] = 'https://github.com/fareedst/markdown_exec/blob/main/CHANGELOG.md'
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|

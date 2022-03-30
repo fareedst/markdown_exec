@@ -1,6 +1,6 @@
 # MarkdownExec
 
-Interactively select and execute code blocks in markdown files. Build complex scripts by naming blocks and requiring blocks.
+Interactively select and execute fenced code blocks in markdown files. Build complex scripts by naming and requiring blocks.
 
 * Code blocks may be named.
 
@@ -10,21 +10,26 @@ Interactively select and execute code blocks in markdown files. Build complex sc
 
 * The code is presented for approval prior to execution.
 
-## Select a file
-![Selecting a file](/assets/select_a_file.png)
-## Select a block
-![Selecting a block](/assets/select_a_block.png)
-## Approve code
-![Approving code](/assets/approve_code.png)
-## Output
+## Screenshots
+
+### Select a file
+![Select a file](/assets/select_a_file.png)
+
+### Select a block
+![Select a block](/assets/select_a_block.png)
+
+### Approve code
+![Approve code](/assets/approve_code.png)
+
+### Output
 ![Output of execution](/assets/output_of_execution.png)
-## Example blocks
-![Sample blocks](/assets/example_blocks.png)
+
+### Example blocks
+![Example blocks](/assets/example_blocks.png)
 
 ## Installation
 
 Install:
-
     $ gem install markdown_exec
 
 ## Usage

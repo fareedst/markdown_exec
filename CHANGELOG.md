@@ -1,14 +1,91 @@
+# Changelog
+
 ## [Unreleased]
 
+## [0.2.3] - 2022-03
+
+### Added
+
+- `rubocop` checks.
+- Added optional command-line positional arguments:
+  1. document file
+  2. block name
+
+	e.g. `mde doc1 block1` will execute the block named `block1` in file `doc1`.
+
+### Changed
+
+- Naming saved script files: The file name contains the time stamp, document name, and block name.
+
+- Renamed folder with fixtures.
+
+- Command options:
+
+| YAML Name | Environment Variable | Option Name | Default | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| debug | MDE_DEBUG | `--debug` | False | Output debugging information (verbose) |
+| filename | MDE_FILENAME | `--filename` | `README.md`* | File name of document |
+| output_execution_summary | MDE_OUTPUT_STDOUT_SUMMARY | `--output-execution-summary` | False | Display summary for execution |
+| output_script | MDE_OUTPUT_SCRIPT | `--output-script` | False | Display script |
+| output_stdout | MDE_OUTPUT_EXECUTION | `--output-stdout` | True | Display standard output from execution |
+| path | MDE_PATH | `--path` | `.` | Path to document(s) |
+| save_executed_script | MDE_SAVE_EXECUTED_SCRIPT | `--save-executed-script` | False | Save executed script |
+| saved_script_folder | MDE_SAVED_SCRIPT_FOLDER | `--saved-script-folder` | `logs` | Saved script folder |
+| select_page_height | MDE_SELECT_PAGE_HEIGHT |  | `12` | Menu page height (maximum) |
+| user_must_approve | MDE_USER_MUST_APPROVE | `--user-must-approve` | True | Pause to approve execution |
+
+- Configuration options:
+
+| YAML Name | Environment Variable | Default |
+| :--- | :--- | :--- |
+| block_name_excluded_match | MDE_BLOCK_NAME_EXCLUDED_MATCH  | `^\(.+\)$` |
+| block_name_match | MDE_BLOCK_NAME_MATCH  | `:(?<title>\S+)( \|$)` |
+| block_required_scan | MDE_BLOCK_REQUIRED_SCAN  | `\+\S+` |
+| fenced_start_and_end_match | MDE_FENCED_START_AND_END_MATCH  | `^\`{3,}` |
+| fenced_start_ex_match | MDE_FENCED_START_EX_MATCH  | `^\`{3,}(?<shell>[^\`\s]*) *(?<name>.*)$` |
+| heading1_match | MDE_HEADING1_MATCH  | `^# *(?<name>[^#]*?) *$` |
+| heading2_match | MDE_HEADING2_MATCH  | `^## *(?<name>[^#]*?) *$` |
+| heading3_match | MDE_HEADING3_MATCH  | `^### *(?<name>.+?) *$` |
+| md_filename_glob | MDE_MD_FILENAME_GLOB  | `*.[Mm][Dd]` |
+| md_filename_match | MDE_MD_FILENAME_MATCH  | `.+\\.md` |
+
+Most options can be configured in multiple ways. In order of use (earliest superceded by last):
+1. environment variables
+2. the configuration file `.mde.yml` in the current folder
+3. command line arguments
+
+#### Representing boolean values
+
+Boolean values for options are specified as strings and interpreted as:
+| Value | Boolean |
+| :---: | :---: |
+| *empty string* | False |
+| `0` | False |
+| `1` | True |
+| *anything else* | True |
+
+E.g. `opt1=1` will set option `opt1` to True.
+
+Boolean options configured with environment variables:
+- Set to `1` or non-empty value to save executed scripts; empty or `0` to disable saving.
+  e.g. `export MDE_SAVE_EXECUTED_SCRIPT=1`
+  e.g. `export MDE_SAVE_EXECUTED_SCRIPT=`
+- Specify variable on command line.
+  e.g. `MDE_SAVE_EXECUTED_SCRIPT=1 mde`
+
 ## [0.2.2] - 2022-03-17
+
 - Update documentation.
 
 ## [0.2.1] - 2022-03-12
+
 - Accept file or folder as first optional positional argument.
 - Hide blocks with parentheses in the name, like "(name)". This is useful for blocks that are to be required and not selected to execute alone.
 
 ## [0.2.0] - 2022-03-12
+
 - Improve processing of file and path sepcs.
 
 ## [0.1.0] - 2022-03-06
+
 - Initial release
