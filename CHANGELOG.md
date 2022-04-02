@@ -1,8 +1,30 @@
 # Changelog
 
-## [Unreleased]
 
-## [0.2.3] - 2022-03
+## [0.2.4] - 2022-04-01
+
+### Added
+
+- Command `--list-recent-scripts` to list the last *N* saved scripts.
+- Command `--run-last-script` to re-run the last saved script.
+- Command `--select-recent-script` to select and execute a recently saved script.
+
+| YAML Name | Environment Variable | Option Name | Default | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| list_count | MDE_LIST_COUNT | `--list_count` | `16` | Max. items to return in list |
+| logged_stdout_filename_prefix | MDE_LOGGED_STDOUT_FILENAME_PREFIX | | `mde` | Name prefix for stdout files |
+| save_execution_output | MDE_SAVE_EXECUTION_OUTPUT | `--save-execution-output` | False | Save standard output of the executed script |
+| saved_script_filename_prefix | MDE_SAVED_SCRIPT_FILENAME_PREFIX | | `mde` | Name prefix for saved scripts |
+| saved_script_folder | MDE_SAVED_SCRIPT_FOLDER | `--saved-script-folder` | `logs` | Saved script folder |
+| saved_script_glob | MDE_SAVED_SCRIPT_GLOB | | `mde_*.sh` | Glob matching saved scripts |
+| saved_stdout_folder | MDE_SAVED_STDOUT_FOLDER | `--saved-stdout-folder` | `logs` | Saved stdout folder |
+
+### Changed
+
+- Fix saving of executed script.
+- Sort configuration keys output by `-0` (Show configuration.)
+
+## [0.2.3] - 2022-03-29
 
 ### Added
 
@@ -16,9 +38,7 @@
 ### Changed
 
 - Naming saved script files: The file name contains the time stamp, document name, and block name.
-
 - Renamed folder with fixtures.
-
 - Command options:
 
 | YAML Name | Environment Variable | Option Name | Default | Purpose |
@@ -41,8 +61,8 @@
 | block_name_excluded_match | MDE_BLOCK_NAME_EXCLUDED_MATCH  | `^\(.+\)$` |
 | block_name_match | MDE_BLOCK_NAME_MATCH  | `:(?<title>\S+)( \|$)` |
 | block_required_scan | MDE_BLOCK_REQUIRED_SCAN  | `\+\S+` |
-| fenced_start_and_end_match | MDE_FENCED_START_AND_END_MATCH  | `^\`{3,}` |
-| fenced_start_ex_match | MDE_FENCED_START_EX_MATCH  | `^\`{3,}(?<shell>[^\`\s]*) *(?<name>.*)$` |
+| fenced_start_and_end_match | MDE_FENCED_START_AND_END_MATCH  | ``^`{3,}`` |
+| fenced_start_ex_match | MDE_FENCED_START_EX_MATCH  | ``^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$`` |
 | heading1_match | MDE_HEADING1_MATCH  | `^# *(?<name>[^#]*?) *$` |
 | heading2_match | MDE_HEADING2_MATCH  | `^## *(?<name>[^#]*?) *$` |
 | heading3_match | MDE_HEADING3_MATCH  | `^### *(?<name>.+?) *$` |

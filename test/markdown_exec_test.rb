@@ -240,7 +240,7 @@ class MarkdownExecTest < Minitest::Test
   let(:exclude2_blocks) do
     mp.list_named_blocks_in_file(
       bash: true,
-      exclude_matching_block_names: true,
+      hide_blocks_by_name: true,
       filename: 'fixtures/exclude2.md',
       struct: true
     )

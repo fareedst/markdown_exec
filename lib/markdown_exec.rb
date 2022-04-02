@@ -98,15 +98,24 @@ module MarkdownExec
         # commands
         list_blocks: false, # command
         list_docs: false, # command
+        list_recent_scripts: false, # command
+        run_last_script: false, # command
+        select_recent_script: false, # command
 
         # command options
         filename: env_str('MDE_FILENAME', default: nil), # option Filename to open
+        list_count: 16,
+        logged_stdout_filename_prefix: 'mde',
         output_execution_summary: env_bool('MDE_OUTPUT_EXECUTION_SUMMARY', default: false), # option
         output_script: env_bool('MDE_OUTPUT_SCRIPT', default: false), # option
         output_stdout: env_bool('MDE_OUTPUT_STDOUT', default: true), # option
         path: env_str('MDE_PATH', default: nil), # option Folder to search for files
         save_executed_script: env_bool('MDE_SAVE_EXECUTED_SCRIPT', default: false), # option
+        save_execution_output: env_bool('MDE_SAVE_EXECUTION_OUTPUT', default: false), # option
+        saved_script_filename_prefix: 'mde',
         saved_script_folder: env_str('MDE_SAVED_SCRIPT_FOLDER', default: 'logs'), # option
+        saved_script_glob: 'mde_*.sh',
+        saved_stdout_folder: env_str('MDE_SAVED_STDOUT_FOLDER', default: 'logs'), # option
         user_must_approve: env_bool('MDE_USER_MUST_APPROVE', default: true), # option Pause for user to approve script
 
         # configuration options
@@ -129,10 +138,11 @@ module MarkdownExec
       {
         bash: true, # bash block parsing in get_block_summary()
         exclude_expect_blocks: true,
-        exclude_matching_block_names: true, # exclude hidden blocks
+        hide_blocks_by_name: true,
         output_saved_script_filename: false,
-        prompt_select_block: 'Choose a block:', # in select_and_approve_block()
-        prompt_select_md: 'Choose a file:', # in select_md_file()
+        prompt_approve_block: 'Process?',
+        prompt_select_block: 'Choose a block:',
+        prompt_select_md: 'Choose a file:',
         saved_script_filename: nil, # calculated
         struct: true # allow get_block_summary()
       }
@@ -149,7 +159,7 @@ module MarkdownExec
       display_command(opts, required_blocks) if opts[:output_script] || opts[:user_must_approve]
 
       allow = true
-      allow = @prompt.yes? 'Process?' if opts[:user_must_approve]
+      allow = @prompt.yes? opts[:prompt_approve_block] if opts[:user_must_approve]
       opts[:ir_approve] = allow
       selected = get_block_by_name blocks_in_file, opts[:block_name]
 
@@ -171,6 +181,7 @@ module MarkdownExec
     end
 
     def command_execute(opts, cmd2)
+      @execute_files = Hash.new([])
       @execute_options = opts
       @execute_started_at = Time.now.utc
       Open3.popen3(cmd2) do |stdin, stdout, stderr|
@@ -186,7 +197,6 @@ module MarkdownExec
             # readable = ready[0]
             # # writable = ready[1]
             # # exceptions = ready[2]
-            @execute_files = Hash.new([])
             ready.each.with_index do |readable, ind|
               readable.each do |f|
                 block = f.read_nonblock(BLOCK_SIZE)
@@ -203,9 +213,11 @@ module MarkdownExec
         @execute_completed_at = Time.now.utc
       end
     rescue Errno::ENOENT => e
+      # error triggered by missing command in script
       @execute_aborted_at = Time.now.utc
       @execute_error_message = e.message
       @execute_error = e
+      @execute_files[1] = e.message
       fout "Error ENOENT: #{e.inspect}"
     end
 
@@ -222,18 +234,13 @@ module MarkdownExec
       required_blocks.each { |cb| fout cb }
     end
 
-    def exec_block(options, block_name = '')
+    def exec_block(options, _block_name = '')
       options = default_options.merge options
       update_options options, over: false
 
       # document and block reports
       #
       files = list_files_per_options(options)
-      if @options[:list_docs]
-        fout_list files
-        return
-      end
-
       if @options[:list_blocks]
         fout_list (files.map do |file|
                      make_block_labels(filename: file, struct: true)
@@ -241,18 +248,36 @@ module MarkdownExec
         return
       end
 
+      if @options[:list_docs]
+        fout_list files
+        return
+      end
+
+      if @options[:list_recent_scripts]
+        fout_list list_recent_scripts
+        return
+      end
+
+      if @options[:run_last_script]
+        run_last_script
+        return
+      end
+
+      if @options[:select_recent_script]
+        select_recent_script
+        return
+      end
+
       # process
       #
+      @options[:filename] = select_md_file(files)
       select_and_approve_block(
         bash: true,
-        block_name: block_name,
-        filename: select_md_file(files),
         struct: true
       )
-
       fout "saved_filespec: #{@execute_script_filespec}" if @options[:output_saved_script_filename]
-
-      output_execution_summary if @options[:output_execution_summary]
+      save_execution_output
+      output_execution_summary
     end
 
     # standard output; not for debug
@@ -394,7 +419,7 @@ module MarkdownExec
       opts = optsmerge call_options, options_block
       block_name_excluded_match = Regexp.new opts[:block_name_excluded_match]
       list_blocks_in_file(opts).map do |block|
-        next if opts[:exclude_matching_block_names] && block[:name].match(block_name_excluded_match)
+        next if opts[:hide_blocks_by_name] && block[:name].match(block_name_excluded_match)
 
         block
       end.compact.tap_inspect
@@ -413,6 +438,11 @@ module MarkdownExec
            .tap_inspect
     end
 
+    def list_recent_scripts
+      Dir.glob(File.join(@options[:saved_script_folder],
+                         @options[:saved_script_glob])).sort[0..(options[:list_count] - 1)].reverse.tap_inspect
+    end
+
     def make_block_label(block, call_options = {})
       opts = options.merge(call_options)
       if opts[:mdheadings]
@@ -426,7 +456,7 @@ module MarkdownExec
     def make_block_labels(call_options = {})
       opts = options.merge(call_options)
       list_blocks_in_file(opts).map do |block|
-        # next if opts[:exclude_matching_block_names] && block[:name].match(%r{^:\(.+\)$})
+        # next if opts[:hide_blocks_by_name] && block[:name].match(%r{^:\(.+\)$})
 
         make_block_label block, opts
       end.compact.tap_inspect
@@ -434,7 +464,7 @@ module MarkdownExec
 
     def option_exclude_blocks(opts, blocks)
       block_name_excluded_match = Regexp.new opts[:block_name_excluded_match]
-      if opts[:exclude_matching_block_names]
+      if opts[:hide_blocks_by_name]
         blocks.reject { |block| block[:name].match(block_name_excluded_match) }
       else
         blocks
@@ -451,6 +481,8 @@ module MarkdownExec
     end
 
     def output_execution_summary
+      return unless @options[:output_execution_summary]
+
       fout_section 'summary', {
         execute_aborted_at: @execute_aborted_at,
         execute_completed_at: @execute_completed_at,
@@ -528,6 +560,8 @@ module MarkdownExec
            :list_blocks, proc_true],
           ['list-docs', nil, nil, nil, 'List docs in current folder',
            :list_docs, proc_true],
+          ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts',
+           :list_recent_scripts, proc_true],
           ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution',
            :output_execution_summary, proc_to_i],
           ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script',
@@ -536,10 +570,18 @@ module MarkdownExec
            :output_stdout, proc_to_i],
           ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents',
            :path, proc_self],
+          ['run-last-script', nil, nil, nil, 'Run most recently saved script',
+           :run_last_script, proc_true],
+          ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script',
+           :select_recent_script, proc_true],
+          ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save execution output',
+           :save_execution_output, proc_to_i],
           ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script',
            :save_executed_script, proc_to_i],
           ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder',
            :saved_script_folder, proc_self],
+          ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder',
+           :saved_stdout_folder, proc_self],
           ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause to approve execution',
            :user_must_approve, proc_to_i]
         ]
@@ -547,7 +589,7 @@ module MarkdownExec
         # rubocop:disable Style/Semicolon
         summary_tail = [
           [nil, '0', nil, nil, 'Show configuration',
-           nil, ->(_) { options_finalize.call options; fout options.to_yaml }],
+           nil, ->(_) { options_finalize.call options; fout sorted_keys(options).to_yaml }],
           ['help', 'h', nil, nil, 'App help',
            nil, ->(_) { fout option_parser.help; exit }],
           ['version', 'v', nil, nil, 'App version',
@@ -559,7 +601,9 @@ module MarkdownExec
 
         (summary_head + summary_body + summary_tail)
           .map do |long_name, short_name, env_var, arg_name, description, opt_name, proc1| # rubocop:disable Metrics/ParameterLists
-          opts.on(*[long_name.present? ? "--#{long_name}#{arg_name.present? ? (' ' + arg_name) : ''}" : nil,
+          opts.on(*[if long_name.present?
+                      "--#{long_name}#{arg_name.present? ? " #{arg_name}" : ''}"
+                    end,
                     short_name.present? ? "-#{short_name}" : nil,
                     [description,
                      env_var.present? ? "env: #{env_var}" : nil].compact.join(' - '),
@@ -597,6 +641,34 @@ module MarkdownExec
       exec_block options, block_name
     end
 
+    def run_last_script
+      filename = Dir.glob(File.join(@options[:saved_script_folder],
+                                    @options[:saved_script_glob])).sort[0..(options[:list_count] - 1)].last
+      filename.tap_inspect name: filename
+      mf = filename.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_(?<block>.+)\.sh/)
+
+      @options[:block_name] = mf[:block]
+      @options[:filename] = "#{mf[:file]}.md" ### other extensions
+      @options[:save_executed_script] = false
+      select_and_approve_block
+      save_execution_output
+      output_execution_summary
+    end
+
+    def save_execution_output
+      return unless @options[:save_execution_output]
+
+      fne = File.basename(@options[:filename], '.*')
+      @options[:logged_stdout_filename] =
+        "#{[@options[:logged_stdout_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
+            @options[:block_name]].join('_')}.out.txt"
+      @options[:logged_stdout_filespec] = File.join @options[:saved_stdout_folder], @options[:logged_stdout_filename]
+      @logged_stdout_filespec = @options[:logged_stdout_filespec]
+      dirname = File.dirname(@options[:logged_stdout_filespec])
+      Dir.mkdir dirname unless File.exist?(dirname)
+      File.write(@options[:logged_stdout_filespec], @execute_files&.fetch(0, ''))
+    end
+
     def select_and_approve_block(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
       blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
@@ -608,9 +680,9 @@ module MarkdownExec
 
         return nil if block_labels.count.zero?
 
-        sel = @prompt.select(pt, block_labels, per_page: opts[:select_page_height])
+        sel = @prompt.select pt, block_labels, per_page: opts[:select_page_height]
         label_block = blocks_in_file.select { |block| block[:label] == sel }.fetch(0, nil)
-        opts[:block_name] = label_block[:name]
+        opts[:block_name] = @options[:block_name] = label_block[:name]
       end
 
       approve_block opts, blocks_in_file
@@ -622,8 +694,28 @@ module MarkdownExec
       if files.count == 1
         files[0]
       elsif files.count >= 2
-        @prompt.select(opts[:prompt_select_md].to_s, files, per_page: opts[:select_page_height])
+        @prompt.select opts[:prompt_select_md].to_s, files, per_page: opts[:select_page_height]
       end
+    end
+
+    def select_recent_script
+      filename = @prompt.select @options[:prompt_select_md].to_s, list_recent_scripts,
+                                per_page: @options[:select_page_height]
+      mf = filename.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_(?<block>.+)\.sh/)
+
+      @options[:block_name] = mf[:block]
+      @options[:filename] = "#{mf[:file]}.md" ### other extensions
+      select_and_approve_block(
+        bash: true,
+        save_executed_script: false,
+        struct: true
+      )
+      save_execution_output
+      output_execution_summary
+    end
+
+    def sorted_keys(hash1)
+      hash1.keys.sort.to_h { |k| [k, hash1[k]] }
     end
 
     def summarize_block(headings, title)
@@ -640,12 +732,10 @@ module MarkdownExec
     end
 
     def write_command_file(opts, required_blocks)
-      return unless opts[:saved_script_filename].present?
-
-      fne = File.basename(opts[:filename], '.*').gsub(/[^a-z0-9]/i, '-') # scan(/[a-z0-9]/i).join
-      bne = opts[:block_name].gsub(/[^a-z0-9]/i, '-') # scan(/[a-z0-9]/i).join
-      opts[:saved_script_filename] = "mde_#{Time.now.utc.strftime '%F-%H-%M-%S'}_#{fne}_#{bne}.sh"
-
+      fne = File.basename(opts[:filename], '.*')
+      opts[:saved_script_filename] =
+        "#{[opts[:saved_script_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
+            opts[:block_name]].join('_')}.sh"
       @options[:saved_filespec] = File.join opts[:saved_script_folder], opts[:saved_script_filename]
       @execute_script_filespec = @options[:saved_filespec]
       dirname = File.dirname(@options[:saved_filespec])
