@@ -14,21 +14,23 @@ require 'yaml'
 # else true
 
 def env_bool(name, default: false)
-  return default if (val = ENV[name]).nil?
+  return default if name.nil? || (val = ENV[name]).nil?
   return false if val.empty? || val == '0'
 
   true
 end
 
 def env_int(name, default: 0)
-  return default if (val = ENV[name]).nil?
+  return default if name.nil? || (val = ENV[name]).nil?
   return default if val.empty?
 
   val.to_i
 end
 
 def env_str(name, default: '')
-  ENV[name] || default
+  return default if name.nil? || (val = ENV[name]).nil?
+
+  val || default
 end
 
 $pdebug = env_bool 'MDE_DEBUG'
@@ -42,7 +44,12 @@ BLOCK_SIZE = 1024
 
 class Object # rubocop:disable Style/Documentation
   def present?
-    self && !blank?
+    case self.class.to_s
+    when 'FalseClass', 'TrueClass'
+      true
+    else
+      self && (!respond_to?(:blank?) || !blank?)
+    end
   end
 end
 
@@ -94,44 +101,17 @@ module MarkdownExec
     # options necessary to start, parse input, defaults for cli options
 
     def base_options
-      {
-        # commands
-        list_blocks: false, # command
-        list_docs: false, # command
-        list_recent_scripts: false, # command
-        run_last_script: false, # command
-        select_recent_script: false, # command
+      menu_data
+        .map do |_long_name, _short_name, env_var, _arg_name, _description, opt_name, default, _proc1| # rubocop:disable Metrics/ParameterLists
+        next unless opt_name.present?
 
-        # command options
-        filename: env_str('MDE_FILENAME', default: nil), # option Filename to open
-        list_count: 16,
-        logged_stdout_filename_prefix: 'mde',
-        output_execution_summary: env_bool('MDE_OUTPUT_EXECUTION_SUMMARY', default: false), # option
-        output_script: env_bool('MDE_OUTPUT_SCRIPT', default: false), # option
-        output_stdout: env_bool('MDE_OUTPUT_STDOUT', default: true), # option
-        path: env_str('MDE_PATH', default: nil), # option Folder to search for files
-        save_executed_script: env_bool('MDE_SAVE_EXECUTED_SCRIPT', default: false), # option
-        save_execution_output: env_bool('MDE_SAVE_EXECUTION_OUTPUT', default: false), # option
-        saved_script_filename_prefix: 'mde',
-        saved_script_folder: env_str('MDE_SAVED_SCRIPT_FOLDER', default: 'logs'), # option
-        saved_script_glob: 'mde_*.sh',
-        saved_stdout_folder: env_str('MDE_SAVED_STDOUT_FOLDER', default: 'logs'), # option
-        user_must_approve: env_bool('MDE_USER_MUST_APPROVE', default: true), # option Pause for user to approve script
-
-        # configuration options
-        block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.+\)$'),
-        block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
-        block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
-        fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
-        fenced_start_ex_match: env_str('MDE_FENCED_START_EX_MATCH', default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$'),
-        heading1_match: env_str('MDE_HEADING1_MATCH', default: '^# *(?<name>[^#]*?) *$'),
-        heading2_match: env_str('MDE_HEADING2_MATCH', default: '^## *(?<name>[^#]*?) *$'),
-        heading3_match: env_str('MDE_HEADING3_MATCH', default: '^### *(?<name>.+?) *$'),
-        md_filename_glob: env_str('MDE_MD_FILENAME_GLOB', default: '*.[Mm][Dd]'),
-        md_filename_match: env_str('MDE_MD_FILENAME_MATCH', default: '.+\\.md'),
-        mdheadings: true, # use headings (levels 1,2,3) in block lable
-        select_page_height: env_int('MDE_SELECT_PAGE_HEIGHT', default: 12)
-      }
+        [opt_name, env_bool(env_var, default: value_for_hash(default))]
+      end.compact.to_h.merge(
+        {
+          mdheadings: true, # use headings (levels 1,2,3) in block lable
+          menu_with_exit: true
+        }
+      ).tap_inspect format: :yaml
     end
 
     def default_options
@@ -248,8 +228,18 @@ module MarkdownExec
         return
       end
 
+      if @options[:list_default_yaml]
+        fout_list list_default_yaml
+        return
+      end
+
       if @options[:list_docs]
         fout_list files
+        return
+      end
+
+      if @options[:list_default_env]
+        fout_list list_default_env
         return
       end
 
@@ -376,14 +366,37 @@ module MarkdownExec
       blocks.tap_inspect
     end
 
+    def list_default_env
+      menu_data
+        .map do |_long_name, _short_name, env_var, _arg_name, description, _opt_name, default, _proc1| # rubocop:disable Metrics/ParameterLists
+        next unless env_var.present?
+
+        [
+          "#{env_var}=#{value_for_cli default}",
+          description.present? ? description : nil
+        ].compact.join('      # ')
+      end.compact.sort
+    end
+
+    def list_default_yaml
+      menu_data
+        .map do |_long_name, _short_name, _env_var, _arg_name, description, opt_name, default, _proc1| # rubocop:disable Metrics/ParameterLists
+        next unless opt_name.present? && default.present?
+
+        [
+          "#{opt_name}: #{value_for_yaml default}",
+          description.present? ? description : nil
+        ].compact.join('      # ')
+      end.compact.sort
+    end
+
     def list_files_per_options(options)
-      default_filename = 'README.md'
-      default_folder = '.'
-      if options[:filename]&.present?
-        list_files_specified(options[:filename], options[:path], default_filename, default_folder)
-      else
-        list_files_specified(nil, options[:path], default_filename, default_folder)
-      end.tap_inspect
+      list_files_specified(
+        options[:filename]&.present? ? options[:filename] : nil,
+        options[:path],
+        'README.md',
+        '.'
+      ).tap_inspect
     end
 
     def list_files_specified(specified_filename, specified_folder, default_filename, default_folder, filetree = nil)
@@ -462,6 +475,92 @@ module MarkdownExec
       end.compact.tap_inspect
     end
 
+    def menu_data
+      proc_self = ->(value) { value }
+      proc_to_i = ->(value) { value.to_i != 0 }
+      proc_true = ->(_) { true }
+
+      summary_head = [
+        ['config', nil, nil, 'PATH', 'Read configuration file',
+         nil, '.', ->(value) { read_configuration_file! options, value }],
+        ['debug', 'd', 'MDE_DEBUG', 'BOOL', 'Debug output',
+         nil, false, ->(value) { $pdebug = value.to_i != 0 }]
+      ]
+
+      summary_body = [
+        ['filename', 'f', 'MDE_FILENAME', 'RELATIVE', 'Name of document',
+         :filename, nil, proc_self],
+        ['list-blocks', nil, nil, nil, 'List blocks',
+         :list_blocks, nil, proc_true],
+        ['list-default-env', nil, nil, nil, 'List default configuration as environment variables',
+         :list_default_env, nil, proc_true],
+        ['list-default-yaml', nil, nil, nil, 'List default configuration as YAML',
+         :list_default_yaml, nil, proc_true],
+        ['list-docs', nil, nil, nil, 'List docs in current folder',
+         :list_docs, nil, proc_true],
+        ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts',
+         :list_recent_scripts, nil, proc_true],
+        ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution',
+         :output_execution_summary, false, proc_to_i],
+        ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script prior to execution',
+         :output_script, false, proc_to_i],
+        ['output-stdout', nil, 'MDE_OUTPUT_STDOUT', 'BOOL', 'Display standard output from execution',
+         :output_stdout, true, proc_to_i],
+        ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents',
+         :path, nil, proc_self],
+        ['run-last-script', nil, nil, nil, 'Run most recently saved script',
+         :run_last_script, nil, proc_true],
+        ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script',
+         :select_recent_script, nil, proc_true],
+        ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save execution output',
+         :save_execution_output, false, proc_to_i],
+        ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script',
+         :save_executed_script, false, proc_to_i],
+        ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder',
+         :saved_script_folder, 'logs', proc_self],
+        ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder',
+         :saved_stdout_folder, 'logs', proc_self],
+        ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause for user to approve script',
+         :user_must_approve, true, proc_to_i]
+      ]
+
+      # rubocop:disable Style/Semicolon
+      summary_tail = [
+        [nil, '0', nil, nil, 'Show current configuration values',
+         nil, nil, ->(_) { options_finalize options; fout sorted_keys(options).to_yaml }],
+        ['help', 'h', nil, nil, 'App help',
+         nil, nil, ->(_) { fout menu_help; exit }],
+        ['version', 'v', nil, nil, 'App version',
+         nil, nil, ->(_) { fout MarkdownExec::VERSION; exit }],
+        ['exit', 'x', nil, nil, 'Exit app',
+         nil, nil, ->(_) { exit }]
+      ]
+      # rubocop:enable Style/Semicolon
+
+      env_vars = [
+        [nil, nil, 'MDE_BLOCK_NAME_EXCLUDED_MATCH', nil, 'Pattern for blocks to hide from user-selection',
+         :block_name_excluded_match, '^\(.+\)$', nil],
+        [nil, nil, 'MDE_BLOCK_NAME_MATCH', nil, '', :block_name_match, ':(?<title>\S+)( |$)', nil],
+        [nil, nil, 'MDE_BLOCK_REQUIRED_SCAN', nil, '', :block_required_scan, '\+\S+', nil],
+        [nil, nil, 'MDE_FENCED_START_AND_END_MATCH', nil, '', :fenced_start_and_end_match, '^`{3,}', nil],
+        [nil, nil, 'MDE_FENCED_START_EX_MATCH', nil, '', :fenced_start_ex_match,
+         '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$', nil],
+        [nil, nil, 'MDE_HEADING1_MATCH', nil, '', :heading1_match, '^# *(?<name>[^#]*?) *$', nil],
+        [nil, nil, 'MDE_HEADING2_MATCH', nil, '', :heading2_match, '^## *(?<name>[^#]*?) *$', nil],
+        [nil, nil, 'MDE_HEADING3_MATCH', nil, '', :heading3_match, '^### *(?<name>.+?) *$', nil],
+        [nil, nil, 'MDE_MD_FILENAME_GLOB', nil, '', :md_filename_glob, '*.[Mm][Dd]', nil],
+        [nil, nil, 'MDE_MD_FILENAME_MATCH', nil, '', :md_filename_match, '.+\\.md', nil],
+        [nil, nil, 'MDE_SELECT_PAGE_HEIGHT', nil, '', :select_page_height, 12, nil]
+        # [nil, nil, 'MDE_', nil, '', nil, '', nil],
+      ]
+
+      summary_head + summary_body + summary_tail + env_vars
+    end
+
+    def menu_help
+      @option_parser.help
+    end
+
     def option_exclude_blocks(opts, blocks)
       block_name_excluded_match = Regexp.new opts[:block_name_excluded_match]
       if opts[:hide_blocks_by_name]
@@ -469,6 +568,26 @@ module MarkdownExec
       else
         blocks
       end
+    end
+
+    ## post-parse options configuration
+    #
+    def options_finalize(rest)
+      ## position 0: file or folder (optional)
+      #
+      if (pos = rest.fetch(0, nil))&.present?
+        if Dir.exist?(pos)
+          @options[:path] = pos
+        elsif File.exist?(pos)
+          @options[:filename] = pos
+        else
+          raise "Invalid parameter: #{pos}"
+        end
+      end
+
+      ## position 1: block name (optional)
+      #
+      @options[:block_name] = rest.fetch(1, nil)
     end
 
     def optsmerge(call_options = {}, options_block = nil)
@@ -493,6 +612,14 @@ module MarkdownExec
         execute_started_at: @execute_started_at,
         execute_script_filespec: @execute_script_filespec
       }
+    end
+
+    def prompt_with_quit(prompt_text, items, opts = {})
+      exit_option = '* Exit'
+      sel = @prompt.select prompt_text,
+                           items + (@options[:menu_with_exit] ? [exit_option] : []),
+                           opts
+      sel == exit_option ? nil : sel
     end
 
     def read_configuration_file!(options, configuration_path)
@@ -526,19 +653,11 @@ module MarkdownExec
       #
       @options = base_options
 
-      ## post-parse options configuration
-      #
-      options_finalize = ->(_options) {}
-
-      proc_self = ->(value) { value }
-      proc_to_i = ->(value) { value.to_i != 0 }
-      proc_true = ->(_) { true }
-
-      # read local configuration file
+      ## read local configuration file
       #
       read_configuration_file! @options, ".#{MarkdownExec::APP_NAME.downcase}.yml"
 
-      option_parser = OptionParser.new do |opts|
+      @option_parser = option_parser = OptionParser.new do |opts|
         executable_name = File.basename($PROGRAM_NAME)
         opts.banner = [
           "#{MarkdownExec::APP_NAME}" \
@@ -546,67 +665,16 @@ module MarkdownExec
           "Usage: #{executable_name} [path] [filename] [options]"
         ].join("\n")
 
-        summary_head = [
-          ['config', nil, nil, 'PATH', 'Read configuration file',
-           nil, ->(value) { read_configuration_file! options, value }],
-          ['debug', 'd', 'MDE_DEBUG', 'BOOL', 'Debug output',
-           nil, ->(value) { $pdebug = value.to_i != 0 }]
-        ]
+        menu_data
+          .map do |long_name, short_name, _env_var, arg_name, description, opt_name, default, proc1| # rubocop:disable Metrics/ParameterLists
+          next unless long_name.present? || short_name.present?
 
-        summary_body = [
-          ['filename', 'f', 'MDE_FILENAME', 'RELATIVE', 'Name of document',
-           :filename, proc_self],
-          ['list-blocks', nil, nil, nil, 'List blocks',
-           :list_blocks, proc_true],
-          ['list-docs', nil, nil, nil, 'List docs in current folder',
-           :list_docs, proc_true],
-          ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts',
-           :list_recent_scripts, proc_true],
-          ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution',
-           :output_execution_summary, proc_to_i],
-          ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script',
-           :output_script, proc_to_i],
-          ['output-stdout', nil, 'MDE_OUTPUT_STDOUT', 'BOOL', 'Display standard output from execution',
-           :output_stdout, proc_to_i],
-          ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents',
-           :path, proc_self],
-          ['run-last-script', nil, nil, nil, 'Run most recently saved script',
-           :run_last_script, proc_true],
-          ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script',
-           :select_recent_script, proc_true],
-          ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save execution output',
-           :save_execution_output, proc_to_i],
-          ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script',
-           :save_executed_script, proc_to_i],
-          ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder',
-           :saved_script_folder, proc_self],
-          ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder',
-           :saved_stdout_folder, proc_self],
-          ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause to approve execution',
-           :user_must_approve, proc_to_i]
-        ]
-
-        # rubocop:disable Style/Semicolon
-        summary_tail = [
-          [nil, '0', nil, nil, 'Show configuration',
-           nil, ->(_) { options_finalize.call options; fout sorted_keys(options).to_yaml }],
-          ['help', 'h', nil, nil, 'App help',
-           nil, ->(_) { fout option_parser.help; exit }],
-          ['version', 'v', nil, nil, 'App version',
-           nil, ->(_) { fout MarkdownExec::VERSION; exit }],
-          ['exit', 'x', nil, nil, 'Exit app',
-           nil, ->(_) { exit }]
-        ]
-        # rubocop:enable Style/Semicolon
-
-        (summary_head + summary_body + summary_tail)
-          .map do |long_name, short_name, env_var, arg_name, description, opt_name, proc1| # rubocop:disable Metrics/ParameterLists
           opts.on(*[if long_name.present?
                       "--#{long_name}#{arg_name.present? ? " #{arg_name}" : ''}"
                     end,
                     short_name.present? ? "-#{short_name}" : nil,
                     [description,
-                     env_var.present? ? "env: #{env_var}" : nil].compact.join(' - '),
+                     default.present? ? "[#{value_for_cli default}]" : nil].compact.join('  '),
                     lambda { |value|
                       ret = proc1.call(value)
                       options[opt_name] = ret if opt_name
@@ -618,27 +686,9 @@ module MarkdownExec
       option_parser.environment # env defaults to the basename of the program.
       rest = option_parser.parse! # (into: options)
 
-      ## finalize configuration
-      #
-      options_finalize.call options
+      options_finalize rest
 
-      ## position 0: file or folder (optional)
-      #
-      if (pos = rest.fetch(0, nil))&.present?
-        if Dir.exist?(pos)
-          options[:path] = pos
-        elsif File.exist?(pos)
-          options[:filename] = pos
-        else
-          raise "Invalid parameter: #{pos}"
-        end
-      end
-
-      ## position 1: block name (optional)
-      #
-      block_name = rest.fetch(1, nil)
-
-      exec_block options, block_name
+      exec_block options, options[:block_name]
     end
 
     def run_last_script
@@ -680,7 +730,9 @@ module MarkdownExec
 
         return nil if block_labels.count.zero?
 
-        sel = @prompt.select pt, block_labels, per_page: opts[:select_page_height]
+        sel = prompt_with_quit pt, block_labels, per_page: opts[:select_page_height]
+        return nil if sel.nil?
+
         label_block = blocks_in_file.select { |block| block[:label] == sel }.fetch(0, nil)
         opts[:block_name] = @options[:block_name] = label_block[:name]
       end
@@ -694,13 +746,15 @@ module MarkdownExec
       if files.count == 1
         files[0]
       elsif files.count >= 2
-        @prompt.select opts[:prompt_select_md].to_s, files, per_page: opts[:select_page_height]
+        prompt_with_quit opts[:prompt_select_md].to_s, files, per_page: opts[:select_page_height]
       end
     end
 
     def select_recent_script
-      filename = @prompt.select @options[:prompt_select_md].to_s, list_recent_scripts,
-                                per_page: @options[:select_page_height]
+      filename = prompt_with_quit @options[:prompt_select_md].to_s, list_recent_scripts,
+                                  per_page: @options[:select_page_height]
+      return if filename.nil?
+
       mf = filename.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_(?<block>.+)\.sh/)
 
       @options[:block_name] = mf[:block]
@@ -728,7 +782,50 @@ module MarkdownExec
       else
         @options.merge! opts
       end
-      @options
+      @options.tap_inspect format: :yaml
+    end
+
+    def value_for_cli(value)
+      case value.class.to_s
+      when 'String'
+        "'#{value}'"
+      when 'FalseClass', 'TrueClass'
+        value ? '1' : '0'
+      when 'Integer'
+        value
+      else
+        value.to_s
+      end
+    end
+
+    def value_for_hash(value, default = nil)
+      return default if value.nil?
+
+      case value.class.to_s
+      when 'String', 'Integer', 'FalseClass', 'TrueClass'
+        value
+      when value.empty?
+        default
+      else
+        value.to_s
+      end
+    end
+
+    def value_for_yaml(value)
+      return default if value.nil?
+
+      case value.class.to_s
+      when 'String'
+        "'#{value}'"
+      when 'Integer'
+        value
+      when 'FalseClass', 'TrueClass'
+        value ? true : false
+      when value.empty?
+        default
+      else
+        value.to_s
+      end
     end
 
     def write_command_file(opts, required_blocks)

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.5] - 2022-04
+
+### Added
+
+- Command `--list-default-env` to show default configuration as environment variables.
+- Command `--list-default-yaml` to show default configuration as YAML.
+- Option to exit program when selecting files or blocks.
+
+### Changed
+
+- Composition of menu to facilitate reports.
+- List default values in menu help.
 
 ## [0.2.4] - 2022-04-01
 
@@ -11,7 +23,7 @@
 
 | YAML Name | Environment Variable | Option Name | Default | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| list_count | MDE_LIST_COUNT | `--list_count` | `16` | Max. items to return in list |
+| list_count | MDE_LIST_COUNT | `--list-count` | `16` | Max. items to return in list |
 | logged_stdout_filename_prefix | MDE_LOGGED_STDOUT_FILENAME_PREFIX | | `mde` | Name prefix for stdout files |
 | save_execution_output | MDE_SAVE_EXECUTION_OUTPUT | `--save-execution-output` | False | Save standard output of the executed script |
 | saved_script_filename_prefix | MDE_SAVED_SCRIPT_FILENAME_PREFIX | | `mde` | Name prefix for saved scripts |

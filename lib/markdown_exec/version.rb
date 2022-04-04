@@ -2,7 +2,7 @@
 
 module MarkdownExec
   APP_NAME = 'MDE'
-  APP_DESC = 'Markdown block executor'
+  APP_DESC = 'Markdown Executor'
   GEM_NAME = 'markdown_exec'
-  VERSION = '0.2.4'
+  VERSION = '0.2.5'
 end

@@ -7,6 +7,49 @@ RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 class MarkdownExecTest < Minitest::Test
   extend Minitest::Spec::DSL
 
+  # rubocop:disable Minitest/MultipleAssertions
+  def test_object_present?
+    assert_nil nil.present?
+    refute_predicate '', :present?
+    assert_predicate 'a', :present?
+    assert_predicate true, :present?
+    assert_predicate false, :present?
+  end
+
+  def test_env_bool
+    assert env_bool(nil, default: true)
+    refute env_bool('NO_VAR', default: false)
+    ENV['X'] = ''
+    refute env_bool('X')
+    ENV['X0'] = '0'
+    refute env_bool('X0')
+    ENV['X1'] = '1'
+    assert env_bool('X1')
+  end
+
+  let(:default_int) { 2 }
+
+  def test_env_int
+    assert_equal default_int, env_int(nil, default: default_int)
+    assert_equal default_int, env_int('NO_VAR', default: default_int)
+    ENV['X'] = ''
+    assert_equal default_int, env_int('X', default: default_int)
+    ENV['X1'] = '1'
+    assert_equal 1, env_int('X1', default: default_int)
+  end
+
+  let(:default_str) { 'a' }
+
+  def test_env_str
+    assert_equal default_str, env_str(nil, default: default_str)
+    assert_equal default_str, env_str('NO_VAR', default: default_str)
+    ENV['X'] = ''
+    assert_equal '', env_str('X', default: default_str)
+    ENV['X1'] = '1'
+    assert_equal '1', env_str('X1', default: default_str)
+  end
+  # rubocop:enable Minitest/MultipleAssertions
+
   def test_that_it_has_a_version_number
     refute_nil ::MarkdownExec::VERSION
   end
@@ -54,10 +97,6 @@ class MarkdownExecTest < Minitest::Test
     assert_path_exists options[:filename]
   end
 
-  def test_yield
-    assert_equal [['b']], (mp.list_blocks_in_file { |opts| opts.merge(bash_only: true) })
-  end
-
   def test_count_blocks_in_filename
     assert_equal 2, mp.count_blocks_in_filename
   end
@@ -77,10 +116,146 @@ class MarkdownExecTest < Minitest::Test
     ], (mp.list_blocks_in_file(struct: true).map { |block| block.slice(:body, :title) })
   end
 
-  def test_match_block_title
-    assert_equal 'two', mp.select_block(title_match: 'w') if RUN_INTERACTIVE
-    assert_equal [['b']], mp.list_blocks_in_file(title_match: 'w')
+  def test_list_markdown_files_in_path
+    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_path
   end
+
+  let(:list_blocks_bash1) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/bash1.md',
+      struct: true
+    )
+  end
+
+  def test_list_recursively_required_blocks
+    assert_equal %w[a b c d], mp.list_recursively_required_blocks(list_blocks_bash1, 'four')
+  end
+
+  def test_list_yield
+    assert_equal [['b']], (mp.list_blocks_in_file { |opts| opts.merge(bash_only: true) })
+  end
+
+  def test_parse_bash_blocks
+    assert_equal [
+      { name: 'one', reqs: [] },
+      { name: 'two', reqs: ['one'] },
+      { name: 'three', reqs: %w[two one] },
+      { name: 'four', reqs: ['three'] }
+    ], (list_blocks_bash1.map { |block| block.slice(:name, :reqs) })
+  end
+
+  def test_parse_bash_code
+    assert_equal [
+      { name: 'one', code: ['a'] },
+      { name: 'two', code: %w[a b] },
+      { name: 'three', code: %w[a b c] },
+      { name: 'four', code: %w[a b c d] }
+    ], (list_blocks_bash1.map do |block|
+          { name: block[:name], code: mp.code(list_blocks_bash1, block) }
+        end)
+  end
+
+  let(:list_blocks_bash2) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/bash2.md',
+      struct: true
+    )
+  end
+
+  def test_parse_bash2
+    assert_equal [
+      { name: 'one', code: ['a'] },
+      { name: 'two', code: %w[a b] },
+      { name: 'three', code: %w[a b c] },
+      { name: 'four', code: %w[d] },
+      { name: 'five', code: %w[a d e] }
+    ], (list_blocks_bash2.map do |block|
+          { name: block[:name], code: mp.code(list_blocks_bash2, block) }
+        end)
+  end
+
+  let(:list_blocks_exclude_expect_blocks) do
+    mp.list_blocks_in_file(
+      bash: true,
+      exclude_expect_blocks: true,
+      filename: 'fixtures/exclude1.md',
+      struct: true
+    )
+  end
+
+  def test_parse_exclude_expect_blocks
+    assert_equal [
+      { name: 'one', title: 'one' }
+    ], (list_blocks_exclude_expect_blocks.map { |block| block.slice(:name, :title) })
+  end
+
+  let(:list_blocks_headings) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/heading1.md',
+      mdheadings: true,
+      struct: true,
+
+      heading1_match: env_str('MDE_HEADING1_MATCH', default: '^# *(?<name>[^#]*?) *$'),
+      heading2_match: env_str('MDE_HEADING2_MATCH', default: '^## *(?<name>[^#]*?) *$'),
+      heading3_match: env_str('MDE_HEADING3_MATCH', default: '^### *(?<name>.+?) *$')
+    )
+  end
+
+  def test_parse_headings
+    assert_equal [
+      { headings: [], name: 'one' },
+      { headings: %w[h1], name: 'two' },
+      { headings: %w[h1 h2], name: 'three' },
+      { headings: %w[h1 h2 h3], name: 'four' },
+      { headings: %w[h1 h2 h4], name: 'five' }
+    ], (list_blocks_headings.map { |block| block.slice(:headings, :name) })
+  end
+
+  let(:list_blocks_hide_blocks_by_name) do
+    mp.list_named_blocks_in_file(
+      bash: true,
+      hide_blocks_by_name: true,
+      filename: 'fixtures/exclude2.md',
+      struct: true
+    )
+  end
+
+  def test_parse_hide_blocks_by_name
+    assert_equal [
+      { name: 'one' },
+      { name: 'three' }
+    ], (list_blocks_hide_blocks_by_name.map { |block| block.slice(:name) })
+  end
+
+  let(:list_blocks_title) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/title1.md',
+      struct: true
+    )
+  end
+
+  def test_parse_title
+    assert_equal [
+      { name: 'no name', title: 'no name' },
+      { name: 'name1', title: 'name1' }
+    ], (list_blocks_title.map { |block| block.slice(:name, :title) })
+  end
+
+  def test_recursively_required_reqs
+    assert_equal [
+      { name: 'one', allreqs: [] },
+      { name: 'two', allreqs: ['one'] },
+      { name: 'three', allreqs: %w[two one] },
+      { name: 'four', allreqs: %w[three two one] }
+    ], (list_blocks_bash1.map do |block|
+          { name: block[:name], allreqs: mp.recursively_required(list_blocks_bash1, block[:reqs]) }
+        end)
+  end
+
   if RUN_INTERACTIVE
     def test_select_block
       assert_equal 'one', mp.select_block
@@ -108,149 +283,15 @@ class MarkdownExecTest < Minitest::Test
         prompt: 'Execute'
       )
     end
-  end
 
-  def test_list_markdown_files_in_path
-    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_path
-  end
-
-  if RUN_INTERACTIVE
     def test_select_md_file
       assert_equal 'README.md', mp.select_md_file
     end
   end
 
-  let(:bash1_blocks) do
-    mp.list_blocks_in_file(
-      bash: true,
-      filename: 'fixtures/bash1.md',
-      struct: true
-    )
-  end
-
-  def test_match_bash1_blocks_bash
-    assert_equal [
-      { name: 'one', reqs: [] },
-      { name: 'two', reqs: ['one'] },
-      { name: 'three', reqs: %w[two one] },
-      { name: 'four', reqs: ['three'] }
-    ], (bash1_blocks.map { |block| block.slice(:name, :reqs) })
-  end
-
-  def test_recursively_required_reqs
-    assert_equal [
-      { name: 'one', allreqs: [] },
-      { name: 'two', allreqs: ['one'] },
-      { name: 'three', allreqs: %w[two one] },
-      { name: 'four', allreqs: %w[three two one] }
-    ], (bash1_blocks.map do |block|
-          { name: block[:name], allreqs: mp.recursively_required(bash1_blocks, block[:reqs]) }
-        end)
-  end
-
-  def test_load_blocks
-    assert_equal [
-      { name: 'one', code: ['a'] },
-      { name: 'two', code: %w[a b] },
-      { name: 'three', code: %w[a b c] },
-      { name: 'four', code: %w[a b c d] }
-    ], (bash1_blocks.map do |block|
-          { name: block[:name], code: mp.code(bash1_blocks, block) }
-        end)
-  end
-
-  def test_code_blocks
-    assert_equal %w[a b c d], mp.list_recursively_required_blocks(bash1_blocks, 'four')
-  end
-
-  let(:bash2_blocks) do
-    mp.list_blocks_in_file(
-      bash: true,
-      filename: 'fixtures/bash2.md',
-      struct: true
-    )
-  end
-
-  def test_parse_bash2
-    assert_equal [
-      { name: 'one', code: ['a'] },
-      { name: 'two', code: %w[a b] },
-      { name: 'three', code: %w[a b c] },
-      { name: 'four', code: %w[d] },
-      { name: 'five', code: %w[a d e] }
-    ], (bash2_blocks.map do |block|
-          { name: block[:name], code: mp.code(bash2_blocks, block) }
-        end)
-  end
-
-  let(:title1_blocks) do
-    mp.list_blocks_in_file(
-      bash: true,
-      filename: 'fixtures/title1.md',
-      struct: true
-    )
-  end
-
-  def test_parse_title1
-    assert_equal [
-      { name: 'no name', title: 'no name' },
-      { name: 'name1', title: 'name1' }
-    ], (title1_blocks.map { |block| block.slice(:name, :title) })
-  end
-
-  let(:heading1_blocks) do
-    mp.list_blocks_in_file(
-      bash: true,
-      filename: 'fixtures/heading1.md',
-      mdheadings: true,
-      struct: true,
-
-      heading1_match: env_str('MDE_HEADING1_MATCH', default: '^# *(?<name>[^#]*?) *$'),
-      heading2_match: env_str('MDE_HEADING2_MATCH', default: '^## *(?<name>[^#]*?) *$'),
-      heading3_match: env_str('MDE_HEADING3_MATCH', default: '^### *(?<name>.+?) *$')
-    )
-  end
-
-  def test_parse_heading1
-    assert_equal [
-      { headings: [], name: 'one' },
-      { headings: %w[h1], name: 'two' },
-      { headings: %w[h1 h2], name: 'three' },
-      { headings: %w[h1 h2 h3], name: 'four' },
-      { headings: %w[h1 h2 h4], name: 'five' }
-    ], (heading1_blocks.map { |block| block.slice(:headings, :name) })
-  end
-
-  let(:exclude1_blocks) do
-    mp.list_blocks_in_file(
-      bash: true,
-      exclude_expect_blocks: true,
-      filename: 'fixtures/exclude1.md',
-      struct: true
-    )
-  end
-
-  def test_parse_exclude1
-    assert_equal [
-      { name: 'one', title: 'one' }
-    ], (exclude1_blocks.map { |block| block.slice(:name, :title) })
-  end
-
-  ###
-  let(:exclude2_blocks) do
-    mp.list_named_blocks_in_file(
-      bash: true,
-      hide_blocks_by_name: true,
-      filename: 'fixtures/exclude2.md',
-      struct: true
-    )
-  end
-
-  def test_parse_exclude2
-    assert_equal [
-      { name: 'one' },
-      { name: 'three' }
-    ], (exclude2_blocks.map { |block| block.slice(:name) })
+  def test_select_title_match
+    assert_equal 'two', mp.select_block(title_match: 'w') if RUN_INTERACTIVE
+    assert_equal [['b']], mp.list_blocks_in_file(title_match: 'w')
   end
 
   let(:default_filename) { 'file0' }
@@ -291,4 +332,31 @@ class MarkdownExecTest < Minitest::Test
     ft = ["#{specified_path}/any.md"]
     assert_equal ft, mp.list_files_specified(nil, specified_path, default_filename, default_path, ft)
   end
+
+  # rubocop:disable Minitest/MultipleAssertions
+  def test_value_for_cli
+    assert_equal '0', mp.value_for_cli(false)
+    assert_equal '1', mp.value_for_cli(true)
+    assert_equal 2, mp.value_for_cli(2)
+    assert_equal "'a'", mp.value_for_cli('a')
+  end
+
+  def test_value_for_hash
+    refute mp.value_for_hash(false)
+    assert mp.value_for_hash(true)
+    assert_equal 2, mp.value_for_hash(2)
+    assert_equal 'a', mp.value_for_hash('a')
+  end
+
+  def test_value_for_yaml
+    refute mp.value_for_yaml(false)
+    assert mp.value_for_yaml(true)
+    assert_equal 2, mp.value_for_yaml(2)
+    assert_equal "'a'", mp.value_for_yaml('a')
+  end
+  # rubocop:enable Minitest/MultipleAssertions
+
+  def test_base_options; end
+  def test_list_default_env; end
+  def test_list_default_yaml; end
 end

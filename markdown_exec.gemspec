@@ -8,9 +8,11 @@ Gem::Specification.new do |spec|
   spec.authors = ['Fareed Stevenson']
   spec.email = ['fareed@phomento.com']
 
-  spec.summary = 'Execute shell blocks in markdown files.'
+  spec.summary = 'Interactively select and execute fenced code blocks in markdown files.'
   spec.description = 'Interactively select and execute fenced code blocks in markdown files.' \
-                     ' Build complex scripts by naming and requiring blocks.'
+                     ' Build complex scripts by naming and requiring blocks.' \
+                     ' Log resulting scripts and output.' \
+                     ' Re-run scripts.'
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'
