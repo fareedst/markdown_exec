@@ -476,53 +476,43 @@ module MarkdownExec
     end
 
     def menu_data
-      proc_self = ->(value) { value }
-      proc_to_i = ->(value) { value.to_i != 0 }
-      proc_true = ->(_) { true }
+      val_as_bool = ->(value) { value.to_i != 0 }
+      val_as_int = ->(value) { value.to_i }
+      val_as_str = ->(value) { value.to_s }
+      val_true = ->(_) { true }
 
       summary_head = [
-        ['config', nil, nil, 'PATH', 'Read configuration file',
-         nil, '.', ->(value) { read_configuration_file! options, value }],
-        ['debug', 'd', 'MDE_DEBUG', 'BOOL', 'Debug output',
-         nil, false, ->(value) { $pdebug = value.to_i != 0 }]
+        ['config', nil, nil, 'PATH', 'Read configuration file', nil, '.', lambda { |value|
+                                                                            read_configuration_file! options, value
+                                                                          }],
+        ['debug', 'd', 'MDE_DEBUG', 'BOOL', 'Debug output', nil, false, ->(value) { $pdebug = value.to_i != 0 }]
       ]
 
+      # rubocop:disable Layout/LineLength
       summary_body = [
-        ['filename', 'f', 'MDE_FILENAME', 'RELATIVE', 'Name of document',
-         :filename, nil, proc_self],
-        ['list-blocks', nil, nil, nil, 'List blocks',
-         :list_blocks, nil, proc_true],
-        ['list-default-env', nil, nil, nil, 'List default configuration as environment variables',
-         :list_default_env, nil, proc_true],
-        ['list-default-yaml', nil, nil, nil, 'List default configuration as YAML',
-         :list_default_yaml, nil, proc_true],
-        ['list-docs', nil, nil, nil, 'List docs in current folder',
-         :list_docs, nil, proc_true],
-        ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts',
-         :list_recent_scripts, nil, proc_true],
-        ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution',
-         :output_execution_summary, false, proc_to_i],
-        ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script prior to execution',
-         :output_script, false, proc_to_i],
-        ['output-stdout', nil, 'MDE_OUTPUT_STDOUT', 'BOOL', 'Display standard output from execution',
-         :output_stdout, true, proc_to_i],
-        ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents',
-         :path, nil, proc_self],
-        ['run-last-script', nil, nil, nil, 'Run most recently saved script',
-         :run_last_script, nil, proc_true],
-        ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script',
-         :select_recent_script, nil, proc_true],
-        ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save execution output',
-         :save_execution_output, false, proc_to_i],
-        ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script',
-         :save_executed_script, false, proc_to_i],
-        ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder',
-         :saved_script_folder, 'logs', proc_self],
-        ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder',
-         :saved_stdout_folder, 'logs', proc_self],
-        ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause for user to approve script',
-         :user_must_approve, true, proc_to_i]
+        ['filename', 'f', 'MDE_FILENAME', 'RELATIVE', 'Name of document', :filename, nil, val_as_str],
+        ['list-blocks', nil, nil, nil, 'List blocks', :list_blocks, nil, val_true],
+        ['list-count', nil, 'MDE_LIST_COUNT', 'NUM', 'Max. items to return in list', :list_count, 16, val_as_int],
+        ['list-default-env', nil, nil, nil, 'List default configuration as environment variables', :list_default_env, nil, val_true],
+        ['list-default-yaml', nil, nil, nil, 'List default configuration as YAML', :list_default_yaml, nil, val_true],
+        ['list-docs', nil, nil, nil, 'List docs in current folder', :list_docs, nil, val_true],
+        ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts', :list_recent_scripts, nil, val_true],
+        ['logged-stdout-filename-prefix', nil, 'MDE_LOGGED_STDOUT_FILENAME_PREFIX', 'NAME', 'Name prefix for stdout files', :logged_stdout_filename_prefix, 'mde', val_as_str],
+        ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution', :output_execution_summary, false, val_as_bool],
+        ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script prior to execution', :output_script, false, val_as_bool],
+        ['output-stdout', nil, 'MDE_OUTPUT_STDOUT', 'BOOL', 'Display standard output from execution', :output_stdout, true, val_as_bool],
+        ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents', :path, nil, val_as_str],
+        ['run-last-script', nil, nil, nil, 'Run most recently saved script', :run_last_script, nil, val_true],
+        ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script', :select_recent_script, nil, val_true],
+        ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script', :save_executed_script, false, val_as_bool],
+        ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save standard output of the executed script', :save_execution_output, false, val_as_bool],
+        ['saved-script-filename-prefix', nil, 'MDE_SAVED_SCRIPT_FILENAME_PREFIX', 'NAME', 'Name prefix for saved scripts', :saved_script_filename_prefix, 'mde', val_as_str],
+        ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder', :saved_script_folder, 'logs', val_as_str],
+        ['saved-script-glob', nil, 'MDE_SAVED_SCRIPT_GLOB', 'SPEC', 'Glob matching saved scripts', :saved_script_glob, 'mde_*.sh', val_as_str],
+        ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder', :saved_stdout_folder, 'logs', val_as_str],
+        ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause for user to approve script', :user_must_approve, true, val_as_bool]
       ]
+      # rubocop:enable Layout/LineLength
 
       # rubocop:disable Style/Semicolon
       summary_tail = [

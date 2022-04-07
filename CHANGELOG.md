@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.2.5] - 2022-04
+## [0.2.6] - 2022-04-07
+
+### Changed
+
+- Fixed default values for command line options.
+
+## [0.2.5] - 2022-04-03
 
 ### Added
 
