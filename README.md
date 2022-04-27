@@ -55,6 +55,10 @@ Process `README.md` file in the current folder. Displays all the blocks in the f
 
 Select a block to execute from `my.md`.
 
+#### `mde my.md myblock`
+
+Execute the block named `myblock` from `my.md`.
+
 #### `mde .` or `mde -p .`
 
 Select a markdown file in the current folder. Select a block to execute from that file.
@@ -142,7 +146,27 @@ Boolean options configured with environment variables:
 - Specify variable on command line.
   e.g. `MDE_SAVE_EXECUTED_SCRIPT=1 mde`
 
-# Example blocks
+## Tab Completion
+
+### Install tab completion
+
+Append a command to load the completion script to your shell configuration file:
+
+```bash :()
+echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
+```
+
+### Example Completions
+
+Type tab at end of any of the following commands to see the options.
+- `mde `
+- `mde -`
+- `mde --`
+- `mde --o`
+- `mde --filename my.md -`
+- `mde --filename my.md --`
+
+## Example Blocks
 
 When prompted, select either the `awake` or `asleep` block.
 
@@ -164,17 +188,6 @@ export ACTIVITY=asleep
 
 ``` :(report)
 echo "$TIME -> $ACTIVITY"
-```
-
-``` :missing_command
-fail
-```
-
-``` :exit_value
-echo "a"
-echo "b"
-echo "c" >>/dev/stderr
-grep nx Gemfile
 ```
 
 # License

@@ -67,16 +67,13 @@ public
 def tap_inspect(format: nil, name: 'return')
   return self unless $pdebug
 
-  fn = case format
-       when :json
-         :to_json
-       when :string
-         :to_s
-       when :yaml
-         :to_yaml
-       else
-         :inspect
-       end
+  cvt = {
+    json: :to_json,
+    string: :to_s,
+    yaml: :to_yaml,
+    else: :inspect
+  }
+  fn = cvt.fetch(format, cvt[:else])
 
   puts "-> #{caller[0].scan(/in `?(\S+)'$/)[0][0]}()" \
        " #{name}: #{method(fn).call}"
@@ -102,10 +99,11 @@ module MarkdownExec
 
     def base_options
       menu_data
-        .map do |_long_name, _short_name, env_var, _arg_name, _description, opt_name, default, _proc1| # rubocop:disable Metrics/ParameterLists
+        .map do |_long_name, _short_name, env_var, _arg_name, _description, opt_name, default, proc1| # rubocop:disable Metrics/ParameterLists
         next unless opt_name.present?
 
-        [opt_name, env_bool(env_var, default: value_for_hash(default))]
+        value = env_str(env_var, default: value_for_hash(default))
+        [opt_name, proc1 ? proc1.call(value) : value]
       end.compact.to_h.merge(
         {
           mdheadings: true, # use headings (levels 1,2,3) in block lable
@@ -123,6 +121,7 @@ module MarkdownExec
         prompt_approve_block: 'Process?',
         prompt_select_block: 'Choose a block:',
         prompt_select_md: 'Choose a file:',
+        prompt_select_output: 'Choose a file:',
         saved_script_filename: nil, # calculated
         struct: true # allow get_block_summary()
       }
@@ -144,8 +143,10 @@ module MarkdownExec
       selected = get_block_by_name blocks_in_file, opts[:block_name]
 
       if opts[:ir_approve]
-        write_command_file(opts, required_blocks) if opts[:save_executed_script]
+        write_command_file opts, required_blocks
         command_execute opts, required_blocks.flatten.join("\n")
+        save_execution_output
+        output_execution_summary
       end
 
       selected[:name]
@@ -221,41 +222,30 @@ module MarkdownExec
       # document and block reports
       #
       files = list_files_per_options(options)
-      if @options[:list_blocks]
-        fout_list (files.map do |file|
-                     make_block_labels(filename: file, struct: true)
-                   end).flatten(1)
-        return
-      end
 
-      if @options[:list_default_yaml]
-        fout_list list_default_yaml
-        return
-      end
-
-      if @options[:list_docs]
-        fout_list files
-        return
-      end
-
-      if @options[:list_default_env]
-        fout_list list_default_env
-        return
-      end
-
-      if @options[:list_recent_scripts]
-        fout_list list_recent_scripts
-        return
-      end
-
-      if @options[:run_last_script]
-        run_last_script
-        return
-      end
-
-      if @options[:select_recent_script]
-        select_recent_script
-        return
+      simple_commands = {
+        doc_glob: -> { fout options[:md_filename_glob] },
+        list_blocks: lambda do
+                       fout_list (files.map do |file|
+                                    make_block_labels(filename: file, struct: true)
+                                  end).flatten(1)
+                     end,
+        list_default_yaml: -> { fout_list list_default_yaml },
+        list_docs: -> { fout_list files },
+        list_default_env: -> { fout_list list_default_env },
+        list_recent_output: -> { fout_list list_recent_output },
+        list_recent_scripts: -> { fout_list list_recent_scripts },
+        pwd: -> { fout File.expand_path('..', __dir__) },
+        run_last_script: -> { run_last_script },
+        select_recent_output: -> { select_recent_output },
+        select_recent_script: -> { select_recent_script },
+        tab_completions: -> { fout tab_completions }
+      }
+      simple_commands.each_key do |key|
+        if @options[key]
+          simple_commands[key].call
+          return # rubocop:disable Lint/NonLocalExitFromIterator
+        end
       end
 
       # process
@@ -266,8 +256,6 @@ module MarkdownExec
         struct: true
       )
       fout "saved_filespec: #{@execute_script_filespec}" if @options[:output_saved_script_filename]
-      save_execution_output
-      output_execution_summary
     end
 
     # standard output; not for debug
@@ -309,6 +297,11 @@ module MarkdownExec
 
       unless opts[:filename]&.present?
         fout 'No blocks found.'
+        exit 1
+      end
+
+      unless File.exist? opts[:filename]
+        fout 'Document is missing.'
         exit 1
       end
 
@@ -451,9 +444,28 @@ module MarkdownExec
            .tap_inspect
     end
 
+    def most_recent(arr)
+      return unless arr
+      return if arr.count < 1
+
+      arr.max.tap_inspect
+    end
+
+    def most_recent_list(arr)
+      return unless arr
+      return if (ac = arr.count) < 1
+
+      arr.sort[-[ac, options[:list_count]].min..].reverse.tap_inspect
+    end
+
+    def list_recent_output
+      most_recent_list(Dir.glob(File.join(@options[:saved_stdout_folder],
+                                          @options[:saved_stdout_glob]))).tap_inspect
+    end
+
     def list_recent_scripts
-      Dir.glob(File.join(@options[:saved_script_folder],
-                         @options[:saved_script_glob])).sort[0..(options[:list_count] - 1)].reverse.tap_inspect
+      most_recent_list(Dir.glob(File.join(@options[:saved_script_folder],
+                                          @options[:saved_script_glob]))).tap_inspect
     end
 
     def make_block_label(block, call_options = {})
@@ -476,10 +488,9 @@ module MarkdownExec
     end
 
     def menu_data
-      val_as_bool = ->(value) { value.to_i != 0 }
+      val_as_bool = ->(value) { value.class.to_s == 'String' ? (value.chomp != '0') : value }
       val_as_int = ->(value) { value.to_i }
       val_as_str = ->(value) { value.to_s }
-      val_true = ->(_) { true }
 
       summary_head = [
         ['config', nil, nil, 'PATH', 'Read configuration file', nil, '.', lambda { |value|
@@ -490,26 +501,32 @@ module MarkdownExec
 
       # rubocop:disable Layout/LineLength
       summary_body = [
+        ['block-name', 'f', 'MDE_BLOCK_NAME', 'RELATIVE', 'Name of block', :block_name, nil, val_as_str],
         ['filename', 'f', 'MDE_FILENAME', 'RELATIVE', 'Name of document', :filename, nil, val_as_str],
-        ['list-blocks', nil, nil, nil, 'List blocks', :list_blocks, nil, val_true],
+        ['list-blocks', nil, nil, nil, 'List blocks', :list_blocks, false, val_as_bool],
         ['list-count', nil, 'MDE_LIST_COUNT', 'NUM', 'Max. items to return in list', :list_count, 16, val_as_int],
-        ['list-default-env', nil, nil, nil, 'List default configuration as environment variables', :list_default_env, nil, val_true],
-        ['list-default-yaml', nil, nil, nil, 'List default configuration as YAML', :list_default_yaml, nil, val_true],
-        ['list-docs', nil, nil, nil, 'List docs in current folder', :list_docs, nil, val_true],
-        ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts', :list_recent_scripts, nil, val_true],
+        ['list-default-env', nil, nil, nil, 'List default configuration as environment variables', :list_default_env, false, val_as_bool],
+        ['list-default-yaml', nil, nil, nil, 'List default configuration as YAML', :list_default_yaml, false, val_as_bool],
+        ['list-docs', nil, nil, nil, 'List docs in current folder', :list_docs, false, val_as_bool],
+        ['list-recent-output', nil, nil, nil, 'List recent saved output', :list_recent_output, false, val_as_bool],
+        ['list-recent-scripts', nil, nil, nil, 'List recent saved scripts', :list_recent_scripts, false, val_as_bool],
         ['logged-stdout-filename-prefix', nil, 'MDE_LOGGED_STDOUT_FILENAME_PREFIX', 'NAME', 'Name prefix for stdout files', :logged_stdout_filename_prefix, 'mde', val_as_str],
         ['output-execution-summary', nil, 'MDE_OUTPUT_EXECUTION_SUMMARY', 'BOOL', 'Display summary for execution', :output_execution_summary, false, val_as_bool],
         ['output-script', nil, 'MDE_OUTPUT_SCRIPT', 'BOOL', 'Display script prior to execution', :output_script, false, val_as_bool],
         ['output-stdout', nil, 'MDE_OUTPUT_STDOUT', 'BOOL', 'Display standard output from execution', :output_stdout, true, val_as_bool],
         ['path', 'p', 'MDE_PATH', 'PATH', 'Path to documents', :path, nil, val_as_str],
-        ['run-last-script', nil, nil, nil, 'Run most recently saved script', :run_last_script, nil, val_true],
-        ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script', :select_recent_script, nil, val_true],
+        ['pwd', nil, nil, nil, 'Gem home folder', :pwd, false, val_as_bool],
+        ['run-last-script', nil, nil, nil, 'Run most recently saved script', :run_last_script, false, val_as_bool],
         ['save-executed-script', nil, 'MDE_SAVE_EXECUTED_SCRIPT', 'BOOL', 'Save executed script', :save_executed_script, false, val_as_bool],
         ['save-execution-output', nil, 'MDE_SAVE_EXECUTION_OUTPUT', 'BOOL', 'Save standard output of the executed script', :save_execution_output, false, val_as_bool],
         ['saved-script-filename-prefix', nil, 'MDE_SAVED_SCRIPT_FILENAME_PREFIX', 'NAME', 'Name prefix for saved scripts', :saved_script_filename_prefix, 'mde', val_as_str],
         ['saved-script-folder', nil, 'MDE_SAVED_SCRIPT_FOLDER', 'SPEC', 'Saved script folder', :saved_script_folder, 'logs', val_as_str],
         ['saved-script-glob', nil, 'MDE_SAVED_SCRIPT_GLOB', 'SPEC', 'Glob matching saved scripts', :saved_script_glob, 'mde_*.sh', val_as_str],
         ['saved-stdout-folder', nil, 'MDE_SAVED_STDOUT_FOLDER', 'SPEC', 'Saved stdout folder', :saved_stdout_folder, 'logs', val_as_str],
+        ['saved-stdout-glob', nil, 'MDE_SAVED_STDOUT_GLOB', 'SPEC', 'Glob matching saved outputs', :saved_stdout_glob, 'mde_*.out.txt', val_as_str],
+        ['select-recent-output', nil, nil, nil, 'Select and execute a recently saved output', :select_recent_output, false, val_as_bool],
+        ['select-recent-script', nil, nil, nil, 'Select and execute a recently saved script', :select_recent_script, false, val_as_bool],
+        ['tab-completions', nil, nil, nil, 'List tab completions', :tab_completions, false, val_as_bool],
         ['user-must-approve', nil, 'MDE_USER_MUST_APPROVE', 'BOOL', 'Pause for user to approve script', :user_must_approve, true, val_as_bool]
       ]
       # rubocop:enable Layout/LineLength
@@ -520,7 +537,7 @@ module MarkdownExec
          nil, nil, ->(_) { options_finalize options; fout sorted_keys(options).to_yaml }],
         ['help', 'h', nil, nil, 'App help',
          nil, nil, ->(_) { fout menu_help; exit }],
-        ['version', 'v', nil, nil, 'App version',
+        ['version', 'v', nil, nil, "Print the gem's version",
          nil, nil, ->(_) { fout MarkdownExec::VERSION; exit }],
         ['exit', 'x', nil, nil, 'Exit app',
          nil, nil, ->(_) { exit }]
@@ -529,18 +546,20 @@ module MarkdownExec
 
       env_vars = [
         [nil, nil, 'MDE_BLOCK_NAME_EXCLUDED_MATCH', nil, 'Pattern for blocks to hide from user-selection',
-         :block_name_excluded_match, '^\(.+\)$', nil],
-        [nil, nil, 'MDE_BLOCK_NAME_MATCH', nil, '', :block_name_match, ':(?<title>\S+)( |$)', nil],
-        [nil, nil, 'MDE_BLOCK_REQUIRED_SCAN', nil, '', :block_required_scan, '\+\S+', nil],
-        [nil, nil, 'MDE_FENCED_START_AND_END_MATCH', nil, '', :fenced_start_and_end_match, '^`{3,}', nil],
+         :block_name_excluded_match, '^\(.*\)$', val_as_str],
+        [nil, nil, 'MDE_BLOCK_NAME_MATCH', nil, '', :block_name_match, ':(?<title>\S+)( |$)', val_as_str],
+        [nil, nil, 'MDE_BLOCK_REQUIRED_SCAN', nil, '', :block_required_scan, '\+\S+', val_as_str],
+        [nil, nil, 'MDE_FENCED_START_AND_END_MATCH', nil, '', :fenced_start_and_end_match, '^`{3,}', val_as_str],
         [nil, nil, 'MDE_FENCED_START_EX_MATCH', nil, '', :fenced_start_ex_match,
-         '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$', nil],
-        [nil, nil, 'MDE_HEADING1_MATCH', nil, '', :heading1_match, '^# *(?<name>[^#]*?) *$', nil],
-        [nil, nil, 'MDE_HEADING2_MATCH', nil, '', :heading2_match, '^## *(?<name>[^#]*?) *$', nil],
-        [nil, nil, 'MDE_HEADING3_MATCH', nil, '', :heading3_match, '^### *(?<name>.+?) *$', nil],
-        [nil, nil, 'MDE_MD_FILENAME_GLOB', nil, '', :md_filename_glob, '*.[Mm][Dd]', nil],
-        [nil, nil, 'MDE_MD_FILENAME_MATCH', nil, '', :md_filename_match, '.+\\.md', nil],
-        [nil, nil, 'MDE_SELECT_PAGE_HEIGHT', nil, '', :select_page_height, 12, nil]
+         '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$', val_as_str],
+        [nil, nil, 'MDE_HEADING1_MATCH', nil, '', :heading1_match, '^# *(?<name>[^#]*?) *$', val_as_str],
+        [nil, nil, 'MDE_HEADING2_MATCH', nil, '', :heading2_match, '^## *(?<name>[^#]*?) *$', val_as_str],
+        [nil, nil, 'MDE_HEADING3_MATCH', nil, '', :heading3_match, '^### *(?<name>.+?) *$', val_as_str],
+        [nil, nil, 'MDE_MD_FILENAME_GLOB', nil, '', :md_filename_glob, '*.[Mm][Dd]', val_as_str],
+        [nil, nil, 'MDE_MD_FILENAME_MATCH', nil, '', :md_filename_match, '.+\\.md', val_as_str],
+        [nil, nil, 'MDE_OUTPUT_VIEWER_OPTIONS', nil, 'Options for viewing saved output file', :output_viewer_options,
+         '', val_as_str],
+        [nil, nil, 'MDE_SELECT_PAGE_HEIGHT', nil, '', :select_page_height, 12, val_as_int]
         # [nil, nil, 'MDE_', nil, '', nil, '', nil],
       ]
 
@@ -577,7 +596,8 @@ module MarkdownExec
 
       ## position 1: block name (optional)
       #
-      @options[:block_name] = rest.fetch(1, nil)
+      block_name = rest.fetch(1, nil)
+      @options[:block_name] = block_name if block_name.present?
     end
 
     def optsmerge(call_options = {}, options_block = nil)
@@ -652,7 +672,7 @@ module MarkdownExec
         opts.banner = [
           "#{MarkdownExec::APP_NAME}" \
           " - #{MarkdownExec::APP_DESC} (#{MarkdownExec::VERSION})",
-          "Usage: #{executable_name} [path] [filename] [options]"
+          "Usage: #{executable_name} [(path | filename [block_name])] [options]"
         ].join("\n")
 
         menu_data
@@ -681,24 +701,39 @@ module MarkdownExec
       exec_block options, options[:block_name]
     end
 
-    def run_last_script
-      filename = Dir.glob(File.join(@options[:saved_script_folder],
-                                    @options[:saved_script_glob])).sort[0..(options[:list_count] - 1)].last
-      filename.tap_inspect name: filename
-      mf = filename.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_(?<block>.+)\.sh/)
+    FNR11 = '/'
+    FNR12 = ',;'
 
-      @options[:block_name] = mf[:block]
-      @options[:filename] = "#{mf[:file]}.md" ### other extensions
+    def saved_name_make(opts)
+      fne = opts[:filename].gsub(FNR11, FNR12)
+      "#{[opts[:saved_script_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
+          ',', opts[:block_name]].join('_')}.sh"
+    end
+
+    def saved_name_split(name)
+      mf = name.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_,_(?<block>.+)\.sh/)
+      return unless mf
+
+      @options[:block_name] = mf[:block].tap_inspect name: :options_block_name
+      @options[:filename] = mf[:file].gsub(FNR12, FNR11).tap_inspect name: :options_filename
+    end
+
+    def run_last_script
+      filename = most_recent Dir.glob(File.join(@options[:saved_script_folder],
+                                                @options[:saved_script_glob]))
+      return unless filename
+
+      filename.tap_inspect name: filename
+      saved_name_split filename
       @options[:save_executed_script] = false
       select_and_approve_block
-      save_execution_output
-      output_execution_summary
     end
 
     def save_execution_output
       return unless @options[:save_execution_output]
 
       fne = File.basename(@options[:filename], '.*')
+
       @options[:logged_stdout_filename] =
         "#{[@options[:logged_stdout_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
             @options[:block_name]].join('_')}.out.txt"
@@ -740,22 +775,25 @@ module MarkdownExec
       end
     end
 
+    def select_recent_output
+      filename = prompt_with_quit @options[:prompt_select_output].to_s, list_recent_output,
+                                  per_page: @options[:select_page_height]
+      return unless filename.present?
+
+      `open #{filename} #{options[:output_viewer_options]}`
+    end
+
     def select_recent_script
       filename = prompt_with_quit @options[:prompt_select_md].to_s, list_recent_scripts,
                                   per_page: @options[:select_page_height]
       return if filename.nil?
 
-      mf = filename.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_(?<block>.+)\.sh/)
-
-      @options[:block_name] = mf[:block]
-      @options[:filename] = "#{mf[:file]}.md" ### other extensions
+      saved_name_split filename
       select_and_approve_block(
         bash: true,
         save_executed_script: false,
         struct: true
       )
-      save_execution_output
-      output_execution_summary
     end
 
     def sorted_keys(hash1)
@@ -764,6 +802,12 @@ module MarkdownExec
 
     def summarize_block(headings, title)
       { headings: headings, name: title, title: title }
+    end
+
+    def tab_completions(data = menu_data)
+      data.map do |item|
+        "--#{item[0]}" if item[0]
+      end.compact
     end
 
     def update_options(opts = {}, over: true)
@@ -819,12 +863,13 @@ module MarkdownExec
     end
 
     def write_command_file(opts, required_blocks)
-      fne = File.basename(opts[:filename], '.*')
-      opts[:saved_script_filename] =
-        "#{[opts[:saved_script_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
-            opts[:block_name]].join('_')}.sh"
-      @options[:saved_filespec] = File.join opts[:saved_script_folder], opts[:saved_script_filename]
-      @execute_script_filespec = @options[:saved_filespec]
+      return unless opts[:save_executed_script]
+
+      opts[:saved_script_filename] = saved_name_make(opts)
+      @execute_script_filespec =
+        @options[:saved_filespec] =
+          File.join opts[:saved_script_folder], opts[:saved_script_filename]
+
       dirname = File.dirname(@options[:saved_filespec])
       Dir.mkdir dirname unless File.exist?(dirname)
       File.write(@options[:saved_filespec], "#!/usr/bin/env bash\n" \

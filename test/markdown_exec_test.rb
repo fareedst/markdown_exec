@@ -57,7 +57,7 @@ class MarkdownExecTest < Minitest::Test
   let(:mp) { MarkdownExec::MarkParse.new options }
   let(:options) do
     {
-      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.+\)$'),
+      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.*\)$'),
       block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
       block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
       fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
@@ -292,6 +292,17 @@ class MarkdownExecTest < Minitest::Test
   def test_select_title_match
     assert_equal 'two', mp.select_block(title_match: 'w') if RUN_INTERACTIVE
     assert_equal [['b']], mp.list_blocks_in_file(title_match: 'w')
+  end
+
+  let(:menu_data) do
+    [
+      ['aa', 'a', 'MDE_A', 'TYPE', 'A a', nil, nil, nil],
+      ['bb', 'b', 'MDE_B', 'TYPE', 'B b', nil, nil, nil]
+    ]
+  end
+
+  def test_tab_completions
+    assert_equal %w[--aa --bb], mp.tab_completions(menu_data)
   end
 
   let(:default_filename) { 'file0' }

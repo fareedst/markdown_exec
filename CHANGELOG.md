@@ -1,10 +1,25 @@
 # Changelog
 
+## [1.0.0] - 2022-04-26
+
+### Added
+
+- Command `--pwd` to print the gem's home folder.
+- Command `--select-recent-output` to select and open a recent output log file.
+e.g. `MDE_OUTPUT_VIEWER_OPTIONS="-a '/Applications/Sublime Text.app'" mde --select-recent-output`
+- Command `--tab-completions` to list the application options.
+- Tab completion script for Bash shell.
+
+### Changed
+
+- File names for saved scripts.
+- Hide blocks with empty names, e.g. `:()`.
+
 ## [0.2.6] - 2022-04-07
 
 ### Changed
 
-- Fixed default values for command line options.
+- Default values for command line options.
 
 ## [0.2.5] - 2022-04-03
 

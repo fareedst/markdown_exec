@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
       (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features)/|\.(?:git|travis|circleci)|appveyor)})
     end
   end
-  spec.executables = ['mde']
+  spec.executables = %w[mde tab_completion.sh]
   spec.require_paths = ['lib']
 
   spec.add_dependency 'open3', '~> 0.1.1'
