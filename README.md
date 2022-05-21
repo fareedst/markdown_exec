@@ -150,7 +150,7 @@ Boolean options configured with environment variables:
 
 ### Install tab completion
 
-Append a command to load the completion script to your shell configuration file:
+Append a command to load the completion script to your shell configuration file. `mde` must be executable for the command to be composed correctly.
 
 ```bash :()
 echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile

@@ -26,12 +26,13 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|
-      (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features)/|\.(?:git|travis|circleci)|appveyor)})
+      (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features|fixtures)/|\.(?:git|travis|circleci)|appveyor)})
     end
-  end
+  end + %w[lib/shared.rb] ###
   spec.executables = %w[mde tab_completion.sh]
   spec.require_paths = ['lib']
 
+  spec.add_dependency 'clipboard', '~> 1.3.6'
   spec.add_dependency 'open3', '~> 0.1.1'
   spec.add_dependency 'optparse', '~> 0.1.1'
   spec.add_dependency 'tty-prompt', '~> 0.23.1'

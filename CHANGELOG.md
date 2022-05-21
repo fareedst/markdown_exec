@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.1] - 2022-05-21
+
+### Added
+
+- Display administrative output (command, save files) for executed blocks.
+- Select base, administrative output as hierarchical output (MDE_DISPLAY_LEVEL).
+- The user may select Exit, the first option, to quit the program.
+- The block-selection menu is re-displayed after an approved script is exectued.
+- Pause for and pass through standard input in scripts executed by the tool.
+- Options
+    - chmod for saved scripts
+    - shebang for saved scripts
+    - shell for executed and saved scripts
+
+### Changed
+
+- Exit option is at top of each menu.
+- Single-stage tab completion, defaut
+    - Presents matching options when current word starts with `-`
+    - Presents directories and files otherwise.
+- Two-stage tab completion for option arguments.
+    - When prior word is an option and current word is empty
+    - Presents option type on first tab, eg `.BOOL.` for a boolean option.
+    - Presents option default value on second tab, eg `0` for false.
+- Use 'bash' shell instead of default
+- Write STDOUT, STDERR, STDIN in sections to saved output file.
+
 ## [1.0.0] - 2022-04-26
 
 ### Added

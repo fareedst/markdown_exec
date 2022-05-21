@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+__filedirs()
+{
+  local IFS=$'\n'
+  COMPREPLY=( $(compgen -o plusdirs -f -- "${cur}") )
+  # COMPREPLY=( $(compgen -d) $(compgen -f -- "${cur}") )
+}
+
+__filedirs_all()
+{
+  COMPREPLY='.'
+}
+
+_mde_echo_version() {
+  echo "<%= MarkdownExec::VERSION %>"
+}
+
+_mde() {
+  local cur prev opts
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  # printf '%s' "-;${prev}-:${cur}-"
+
+  # current word is an option type
+  # if previous word is an option name
+  #   stage 2: replace with option default value
+  #
+  if [[ "${cur}" =~ ^\..+\.$ ]] ; then
+    if [[ ${prev} == -* ]] ; then
+      case $prev in
+        <% svhs.each do |svh|
+          svn = svh[:long_name]
+          if svn && svh[:arg_name]
+            svn = '--' + svh[:long_name]
+            if svh[:compreply] == false
+              # nothing
+            elsif svh[:compreply].nil? %>
+              <%= svn + ') __filedirs_all; return 0 ;;' %>
+            <% elsif svh[:compreply].empty?
+              # nothing
+            else %>
+              <%= svn + ') COMPREPLY="' + svh[:compreply] + '"; return 0 ;;' %>
+            <% end
+          end
+        end %>
+      esac
+    fi
+  fi
+
+  # current word is an option name or start of
+  # present matching option names
+  #
+  if [[ ${cur} == -* ]] ; then
+    opts=<%= mde_tab_completions %>
+    COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
+
+    return 0
+  fi
+
+  # no current word
+  # if previous word is an option name
+  #   stage 1: present option type 
+  #
+  if [[ -z ${cur} ]] ; then
+    case $prev in
+      <% svhs.each do |svh|
+        svn = svh[:long_name]
+        if svn && svh[:arg_name]
+          svn = '--' + svh[:long_name] %>
+          <%= svn + ') COMPREPLY=".' + svh[:arg_name] + '."; return 0 ;;' %>
+        <% end
+      end %>
+    esac
+  fi
+
+  # current word is unrecognized
+  # present matching directory or file names
+  #
+  __filedirs
+}
+
+complete -o filenames -o nospace -F _mde mde
+# _mde_echo_version
+# echo "Updated: <%= Time.now.utc %>"

@@ -296,8 +296,8 @@ class MarkdownExecTest < Minitest::Test
 
   let(:menu_data) do
     [
-      ['aa', 'a', 'MDE_A', 'TYPE', 'A a', nil, nil, nil],
-      ['bb', 'b', 'MDE_B', 'TYPE', 'B b', nil, nil, nil]
+      { long_name: 'aa', short_name: 'a', env_var: 'MDE_A', arg_name: 'TYPE', description: 'A a' },
+      { long_name: 'bb', short_name: 'b', env_var: 'MDE_B', arg_name: 'TYPE', description: 'B b' }
     ]
   end
 
@@ -348,8 +348,9 @@ class MarkdownExecTest < Minitest::Test
   def test_value_for_cli
     assert_equal '0', mp.value_for_cli(false)
     assert_equal '1', mp.value_for_cli(true)
-    assert_equal 2, mp.value_for_cli(2)
-    assert_equal "'a'", mp.value_for_cli('a')
+    assert_equal '2', mp.value_for_cli(2)
+    assert_equal 'a', mp.value_for_cli('a')
+    assert_equal 'a\ b', mp.value_for_cli('a b')
   end
 
   def test_value_for_hash
