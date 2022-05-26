@@ -1,6 +1,16 @@
 # Changelog
 
-## [1.0.1] - 2022-05-21
+## [1.1.1] - 2022-05-25
+
+### Added
+
+- Post-install instructions to add tab completions permanently to the shell.
+
+### Changed
+
+- Improve handling of threads ending while executing scripts.
+
+## [1.1.0] - 2022-05-21
 
 ### Added
 
@@ -17,14 +27,13 @@
 ### Changed
 
 - Exit option is at top of each menu.
-- Single-stage tab completion, defaut
+- Single-stage tab completion, default
     - Presents matching options when current word starts with `-`
     - Presents directories and files otherwise.
 - Two-stage tab completion for option arguments.
     - When prior word is an option and current word is empty
     - Presents option type on first tab, eg `.BOOL.` for a boolean option.
     - Presents option default value on second tab, eg `0` for false.
-- Use 'bash' shell instead of default
 - Write STDOUT, STDERR, STDIN in sections to saved output file.
 
 ## [1.0.0] - 2022-04-26

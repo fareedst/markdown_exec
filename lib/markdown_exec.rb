@@ -179,6 +179,8 @@ module MarkdownExec
             print line if opts[:output_stdout]
             yield nil, line, nil, exec_thr if block_given?
           end
+        rescue IOError => e
+          # thread killed, do nothing
         end
 
         t2 = Thread.new do
@@ -187,6 +189,8 @@ module MarkdownExec
             print line if opts[:output_stdout]
             yield nil, nil, line, exec_thr if block_given?
           end
+        rescue IOError => e
+          # thread killed, do nothing
         end
 
         in_thr = Thread.new do

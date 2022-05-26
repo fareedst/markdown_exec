@@ -16,6 +16,14 @@ Gem::Specification.new do |spec|
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'
+  spec.post_install_message = %q{
+To install tab completion:
+- Append a command to load the completion script to your shell configuration file.
+- This gem must be installed and executable for the command to be composed correctly.
+
+echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
+
+}
 
   # spec.metadata["allowed_push_host"] = "https://rubygems.org"
 
