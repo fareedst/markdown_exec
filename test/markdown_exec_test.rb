@@ -4,6 +4,9 @@ require 'test_helper'
 
 RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 
+# test MardownExec
+#
+# :reek:TooManyMethods ### temp
 class MarkdownExecTest < Minitest::Test
   extend Minitest::Spec::DSL
 
@@ -129,7 +132,7 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_list_recursively_required_blocks
-    assert_equal %w[a b c d], mp.list_recursively_required_blocks(list_blocks_bash1, 'four')
+    assert_equal %w[a b c d], MarkdownExec::MDoc.new(list_blocks_bash1).list_recursively_required_blocks('four')
   end
 
   def test_list_yield
@@ -152,7 +155,7 @@ class MarkdownExecTest < Minitest::Test
       { name: 'three', code: %w[a b c] },
       { name: 'four', code: %w[a b c d] }
     ], (list_blocks_bash1.map do |block|
-          { name: block[:name], code: mp.code(list_blocks_bash1, block) }
+          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash1).code(block) }
         end)
   end
 
@@ -164,6 +167,7 @@ class MarkdownExecTest < Minitest::Test
     )
   end
 
+  # :reek:UncommunicativeMethodName ### temp
   def test_parse_bash2
     assert_equal [
       { name: 'one', code: ['a'] },
@@ -172,7 +176,7 @@ class MarkdownExecTest < Minitest::Test
       { name: 'four', code: %w[d] },
       { name: 'five', code: %w[a d e] }
     ], (list_blocks_bash2.map do |block|
-          { name: block[:name], code: mp.code(list_blocks_bash2, block) }
+          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash2).code(block) }
         end)
   end
 
@@ -195,7 +199,7 @@ class MarkdownExecTest < Minitest::Test
     mp.list_blocks_in_file(
       bash: true,
       filename: 'fixtures/heading1.md',
-      mdheadings: true,
+      menu_blocks_with_headings: true,
       struct: true,
 
       heading1_match: env_str('MDE_HEADING1_MATCH', default: '^# *(?<name>[^#]*?) *$'),
@@ -252,7 +256,7 @@ class MarkdownExecTest < Minitest::Test
       { name: 'three', allreqs: %w[two one] },
       { name: 'four', allreqs: %w[three two one] }
     ], (list_blocks_bash1.map do |block|
-          { name: block[:name], allreqs: mp.recursively_required(list_blocks_bash1, block[:reqs]) }
+          { name: block[:name], allreqs: MarkdownExec::MDoc.new(list_blocks_bash1).recursively_required(block[:reqs]) }
         end)
   end
 
@@ -310,38 +314,48 @@ class MarkdownExecTest < Minitest::Test
   let(:specified_filename) { 'file1' }
   let(:specified_path) { 'path1' }
 
+  # :reek:UncommunicativeMethodName ### temp
   def test_target_default_path_and_default_filename1
     ft = ['./README.md']
-    assert_equal ft, mp.list_files_specified(nil, nil, 'README.md', '.')
+    assert_equal ft, mp.list_files_specified(default_filename: 'README.md', default_folder: '.')
   end
 
+  # :reek:UncommunicativeMethodName ### temp
   def test_target_default_path_and_default_filename2
     ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
           'fixtures/sample1.md', 'fixtures/title1.md']
-    assert_equal ft, mp.list_files_specified(nil, 'fixtures', 'README.md', '.')
+    assert_equal ft,
+                 mp.list_files_specified(specified_folder: 'fixtures', default_filename: 'README.md',
+                                         default_folder: '.')
   end
 
   def test_target_default_path_and_default_filename
     ft = ["#{default_path}/#{default_filename}"]
-    assert_equal ft, mp.list_files_specified(nil, nil, default_filename, default_path, ft)
+    assert_equal ft,
+                 mp.list_files_specified(default_filename: default_filename, default_folder: default_path, filetree: ft)
   end
 
   def test_target_default_path_and_specified_filename
     ft = ["#{default_path}/#{specified_filename}"]
-    assert_equal ft, mp.list_files_specified(specified_filename, nil, default_filename, default_path, ft)
+    assert_equal ft,
+                 mp.list_files_specified(specified_filename: specified_filename, default_filename: default_filename,
+                                         default_folder: default_path, filetree: ft)
   end
 
   def test_target_specified_path_and_filename
     ft = ["#{specified_path}/#{specified_filename}"]
     assert_equal ft,
-                 mp.list_files_specified(specified_filename, specified_path, default_filename, default_path, ft)
+                 mp.list_files_specified(specified_filename: specified_filename, specified_folder: specified_path,
+                                         default_filename: default_filename, default_folder: default_path, filetree: ft)
   end
 
   def test_target_specified_path
     ft = ["#{specified_path}/any.md"]
-    assert_equal ft, mp.list_files_specified(nil, specified_path, default_filename, default_path, ft)
+    assert_equal ft,
+                 mp.list_files_specified(specified_folder: specified_path, default_filename: default_filename,
+                                         default_folder: default_path, filetree: ft)
   end
 
   # rubocop:disable Minitest/MultipleAssertions
@@ -354,17 +368,17 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_value_for_hash
-    refute mp.value_for_hash(false)
-    assert mp.value_for_hash(true)
-    assert_equal 2, mp.value_for_hash(2)
-    assert_equal 'a', mp.value_for_hash('a')
+    refute MarkdownExec::OptionValue.new(false).for_hash
+    assert MarkdownExec::OptionValue.new(true).for_hash
+    assert_equal 2, MarkdownExec::OptionValue.new(2).for_hash
+    assert_equal 'a', MarkdownExec::OptionValue.new('a').for_hash
   end
 
   def test_value_for_yaml
-    refute mp.value_for_yaml(false)
-    assert mp.value_for_yaml(true)
-    assert_equal 2, mp.value_for_yaml(2)
-    assert_equal "'a'", mp.value_for_yaml('a')
+    refute MarkdownExec::OptionValue.new(false).for_yaml
+    assert MarkdownExec::OptionValue.new(true).for_yaml
+    assert_equal 2, MarkdownExec::OptionValue.new(2).for_yaml
+    assert_equal "'a'", MarkdownExec::OptionValue.new('a').for_yaml
   end
   # rubocop:enable Minitest/MultipleAssertions
 

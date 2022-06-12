@@ -5,8 +5,6 @@ require 'rake/testtask'
 require 'erb'
 require 'yaml'
 
-require_relative 'lib/shared'
-
 Rake::TestTask.new(:test) do |task|
   task.libs << 'test'
   task.libs << 'lib'
@@ -14,6 +12,11 @@ Rake::TestTask.new(:test) do |task|
 end
 
 require 'rubocop/rake_task'
+
+require_relative 'lib/shared'
+require_relative 'lib/tap'
+
+include Tap # rubocop:disable Style/MixinUsage
 
 RuboCop::RakeTask.new do |task|
   task.requires << 'rubocop-minitest'
@@ -26,12 +29,13 @@ end
 
 require_relative 'lib/markdown_exec/version'
 
-task default: %i[test rubocop rubocopminitest]
+task default: %i[test reek rubocop rubocopminitest]
 
 # task :default => :build
 
 desc 'gem build'
 task :build do
+  Rake::Task['update_tab_completion'].execute
   system "gem build #{MarkdownExec::GEM_NAME}.gemspec"
 end
 
@@ -55,13 +59,29 @@ task :clean do
   system 'rm *.gem'
 end
 
+desc 'reek'
+task :reek do
+  `reek --config .reek .`
+end
+
 private
 
 BF = 'bin'
 
+# format for use in array in bash script
+# `opts=<%= mde_tab_completions %>`
+#
+def words_list(words)
+  words.map do |word|
+    %("#{word}")
+  end.join ' '
+end
+
+# write tab_completion.sh with erb
+#
 def update_tab_completion(target)
   words = `#{File.join BF, MarkdownExec::BIN_NAME} --tab-completions`.split("\n")
-  mde_tab_completions = '(' + (words.map { |s| "\"#{s}\"" }).join(' ') + ')'
+  mde_tab_completions = "(#{words_list(words)})"
   mde_help = `#{File.join BF, MarkdownExec::BIN_NAME} --help`.split("\n")
   menu_export_yaml = `#{File.join BF, MarkdownExec::BIN_NAME} --menu-export`
 

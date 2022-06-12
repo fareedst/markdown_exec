@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "1.1.1"
+  echo "1.2.0"
 }
 
 _mde() {
@@ -41,6 +41,10 @@ _mde() {
               --list-count) COMPREPLY="32"; return 0 ;;
             
               --logged-stdout-filename-prefix) COMPREPLY="mde"; return 0 ;;
+            
+              --menu-blocks-with-docname) COMPREPLY="0"; return 0 ;;
+            
+              --menu-blocks-with-headings) COMPREPLY="0"; return 0 ;;
             
               --output-execution-summary) COMPREPLY="0"; return 0 ;;
             
@@ -76,7 +80,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--pwd" "--run-last-script" "--select-recent-output" "--select-recent-script" "--menu-export" "--tab-completions" "--help" "--version" "--exit" "--config" "--debug" "--display-level" "--block-name" "--filename" "--list-count" "--logged-stdout-filename-prefix" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--save-executed-script" "--save-execution-output" "--saved-script-chmod" "--saved-script-filename-prefix" "--saved-script-folder" "--saved-script-glob" "--saved-stdout-folder" "--saved-stdout-glob" "--user-must-approve")
+    opts=("--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--pwd" "--run-last-script" "--select-recent-output" "--select-recent-script" "--menu-export" "--tab-completions" "--help" "--version" "--exit" "--config" "--debug" "--display-level" "--block-name" "--filename" "--list-count" "--logged-stdout-filename-prefix" "--menu-blocks-with-docname" "--menu-blocks-with-headings" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--save-executed-script" "--save-execution-output" "--saved-script-chmod" "--saved-script-filename-prefix" "--saved-script-folder" "--saved-script-glob" "--saved-stdout-folder" "--saved-stdout-glob" "--user-must-approve")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -102,6 +106,10 @@ _mde() {
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
           --logged-stdout-filename-prefix) COMPREPLY=".PREFIX."; return 0 ;;
+        
+          --menu-blocks-with-docname) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --menu-blocks-with-headings) COMPREPLY=".BOOL."; return 0 ;;
         
           --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -140,4 +148,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2022-05-26 01:40:10 UTC"
+# echo "Updated: 2022-06-12 20:30:22 UTC"

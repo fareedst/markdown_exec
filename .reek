@@ -1,0 +1,24 @@
+---
+detectors:
+  DataClump:
+    enabled: false
+  NilCheck:
+    enabled: false
+  TooManyStatements:
+    enabled: false
+  UtilityFunction:
+    public_methods_only: true
+  ControlParameter:
+    enabled: true
+  DuplicateMethodCall:
+    enabled: true
+  FeatureEnvy:
+    enabled: false # too strict
+  InstanceVariableAssumption:
+    enabled: true
+  IrresponsibleModule:
+    enabled: true
+  LongParameterList:
+    enabled: true
+  LongYieldList:
+    enabled: true

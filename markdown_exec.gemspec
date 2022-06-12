@@ -16,14 +16,14 @@ Gem::Specification.new do |spec|
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'
-  spec.post_install_message = %q{
+  spec.post_install_message = '
 To install tab completion:
 - Append a command to load the completion script to your shell configuration file.
 - This gem must be installed and executable for the command to be composed correctly.
 
 echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
 
-}
+'
 
   # spec.metadata["allowed_push_host"] = "https://rubygems.org"
 
@@ -32,11 +32,12 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/fareedst/markdown_exec'
 
+  unchecked = %w[lib/colorize.rb lib/env.rb lib/tap.rb] ###
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|
       (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features|fixtures)/|\.(?:git|travis|circleci)|appveyor)})
     end
-  end + %w[lib/shared.rb] ###
+  end + unchecked
   spec.executables = %w[mde tab_completion.sh]
   spec.require_paths = ['lib']
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0] - 2022-06-11
+
+### Added
+
+- Options
+    - Display document name in block selection menu
+    - Display headings (levels 1,2,3) in block selection menu
+- Trap Ctrl-C (SIGTERM) while script is executing.
+  Completes MDE processes such as saving output and reporting results.
+
+### Changed
+
+- Refactoring
+
 ## [1.1.1] - 2022-05-25
 
 ### Added

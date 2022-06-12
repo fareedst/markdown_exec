@@ -10,15 +10,31 @@ require 'optparse'
 require 'tty-prompt'
 require 'yaml'
 
+require_relative 'colorize'
+require_relative 'env'
 require_relative 'shared'
+require_relative 'tap'
 require_relative 'markdown_exec/version'
+
+include Tap # rubocop:disable Style/MixinUsage
 
 $stderr.sync = true
 $stdout.sync = true
 
 BLOCK_SIZE = 1024
 
-class Object # rubocop:disable Style/Documentation
+# hash with keys sorted by name
+#
+class Hash
+  def sort_by_key
+    keys.sort.to_h { |key| [key, self[key]] }
+  end
+end
+
+# is the value a non-empty string or a binary?
+#
+# :reek:ManualDispatch ### temp
+class Object
   def present?
     case self.class.to_s
     when 'FalseClass', 'TrueClass'
@@ -29,7 +45,9 @@ class Object # rubocop:disable Style/Documentation
   end
 end
 
-class String # rubocop:disable Style/Documentation
+# is value empty?
+#
+class String
   BLANK_RE = /\A[[:space:]]*\z/.freeze
   def blank?
     empty? || BLANK_RE.match?(self)
@@ -50,17 +68,216 @@ EF_STDOUT = 0
 EF_STDERR = 1
 EF_STDIN = 2
 
+# execute markdown documents
+#
 module MarkdownExec
+  # :reek:IrresponsibleModule
   class Error < StandardError; end
+
+  ## an imported markdown document
+  #
+  class MDoc
+    def initialize(table)
+      @table = table
+    end
+
+    def code(block)
+      all = [block[:name]] + recursively_required(block[:reqs])
+      all.reverse.map do |req|
+        get_block_by_name(req).fetch(:body, '')
+      end
+         .flatten(1)
+         .tap_inspect
+    end
+
+    def get_block_by_name(name, default = {})
+      @table.select { |block| block[:name] == name }.fetch(0, default)
+    end
+
+    def list_recursively_required_blocks(name)
+      name_block = get_block_by_name(name)
+      raise "Named code block `#{name}` not found." if name_block.nil? || name_block.keys.empty?
+
+      all = [name_block[:name]] + recursively_required(name_block[:reqs])
+
+      # in order of appearance in document
+      @table.select { |block| all.include? block[:name] }
+            .map { |block| block.fetch(:body, '') }
+            .flatten(1)
+            .tap_inspect
+    end
+
+    def option_exclude_blocks(opts)
+      block_name_excluded_match = Regexp.new opts[:block_name_excluded_match]
+      if opts[:hide_blocks_by_name]
+        @table.reject { |block| block[:name].match(block_name_excluded_match) }
+      else
+        @table
+      end
+    end
+
+    def recursively_required(reqs)
+      all = []
+      rem = reqs
+      while rem.count.positive?
+        rem = rem.map do |req|
+          next if all.include? req
+
+          all += [req]
+          get_block_by_name(req).fetch(:reqs, [])
+        end
+                 .compact
+                 .flatten(1)
+                 .tap_inspect(name: 'rem')
+      end
+      all.tap_inspect
+    end
+  end
+
+  # format option defaults and values
+  #
+  # :reek:TooManyInstanceVariables
+  class BlockLabel
+    def initialize(filename:, headings:, menu_blocks_with_docname:, menu_blocks_with_headings:, title:)
+      @filename = filename
+      @headings = headings
+      @menu_blocks_with_docname = menu_blocks_with_docname
+      @menu_blocks_with_headings = menu_blocks_with_headings
+      @title = title
+    end
+
+    def make
+      ([@title] +
+        (if @menu_blocks_with_headings
+           [@headings.compact.join(' # ')]
+         else
+           []
+         end) +
+        (
+          if @menu_blocks_with_docname
+            [@filename]
+          else
+            []
+          end
+        )).join('  ')
+    end
+  end
+
+  FNR11 = '/'
+  FNR12 = ',~'
+
+  # format option defaults and values
+  #
+  class SavedAsset
+    def initialize(filename:, prefix:, time:, blockname:)
+      @filename = filename
+      @prefix = prefix
+      @time = time
+      @blockname = blockname
+    end
+
+    def script_name
+      fne = @filename.gsub(FNR11, FNR12)
+      "#{[@prefix, @time.strftime('%F-%H-%M-%S'), fne, ',', @blockname].join('_')}.sh".tap_inspect
+    end
+
+    def stdout_name
+      "#{[@prefix, @time.strftime('%F-%H-%M-%S'), @filename, @blockname].join('_')}.out.txt".tap_inspect
+    end
+  end
+
+  # format option defaults and values
+  #
+  class OptionValue
+    def initialize(value)
+      @value = value
+    end
+
+    # as default value in env_str()
+    #
+    def for_hash(default = nil)
+      return default if @value.nil?
+
+      case @value.class.to_s
+      when 'String', 'Integer'
+        @value
+      when 'FalseClass', 'TrueClass'
+        @value ? true : false
+      when @value.empty?
+        default
+      else
+        @value.to_s
+      end
+    end
+
+    # for output as default value in list_default_yaml()
+    #
+    def for_yaml(default = nil)
+      return default if @value.nil?
+
+      case @value.class.to_s
+      when 'String'
+        "'#{@value}'"
+      when 'Integer'
+        @value
+      when 'FalseClass', 'TrueClass'
+        @value ? true : false
+      when @value.empty?
+        default
+      else
+        @value.to_s
+      end
+    end
+  end
+
+  # a generated list of saved files
+  #
+  class Sfiles
+    def initialize(folder, glob)
+      @folder = folder
+      @glob = glob
+    end
+
+    def list_all
+      Dir.glob(File.join(@folder, @glob)).tap_inspect
+    end
+
+    def most_recent(arr = list_all)
+      return unless arr
+      return if arr.count < 1
+
+      arr.max.tap_inspect
+    end
+
+    def most_recent_list(arr = list_all)
+      return unless arr
+      return if (ac = arr.count) < 1
+
+      arr.sort[-[ac, options[:list_count]].min..].reverse.tap_inspect
+    end
+  end
 
   ##
   #
+  # :reek:DuplicateMethodCall { allow_calls: ['block', 'item', 'lm', 'opts', 'option', '@options', 'required_blocks'] }
+  # :reek:MissingSafeMethod { exclude: [ read_configuration_file! ] }
+  # :reek:TooManyInstanceVariables ### temp
+  # :reek:TooManyMethods ### temp
   class MarkParse
-    attr_accessor :options
+    attr_reader :options
 
     def initialize(options = {})
       @options = options
       @prompt = TTY::Prompt.new(interrupt: :exit)
+      @execute_aborted_at = nil
+      @execute_completed_at = nil
+      @execute_error = nil
+      @execute_error_message = nil
+      @execute_files = nil
+      @execute_options = nil
+      @execute_script_filespec = nil
+      @execute_started_at = nil
+      @option_parser = nil
     end
 
     ##
@@ -68,20 +285,19 @@ module MarkdownExec
 
     def base_options
       menu_iter do |item|
-        item.tap_inspect name: :item, format: :yaml
+        # noisy item.tap_inspect name: :item, format: :yaml
         next unless item[:opt_name].present?
 
         item_default = item[:default]
-        item_default.tap_inspect name: :item_default
+        # noisy item_default.tap_inspect name: :item_default
         value = if item_default.nil?
                   item_default
                 else
-                  env_str(item[:env_var], default: value_for_hash(item_default))
+                  env_str(item[:env_var], default: OptionValue.new(item_default).for_hash)
                 end
         [item[:opt_name], item[:proc1] ? item[:proc1].call(value) : value]
       end.compact.to_h.merge(
         {
-          mdheadings: true, # use headings (levels 1,2,3) in block lable
           menu_exit_at_top: true,
           menu_with_exit: true
         }
@@ -103,20 +319,13 @@ module MarkdownExec
       }
     end
 
-    # Returns true if all files are EOF
-    #
-    def all_at_eof(files)
-      files.find { |f| !f.eof }.nil?
-    end
-
-    def approve_block(opts, blocks_in_file)
-      required_blocks = list_recursively_required_blocks(blocks_in_file, opts[:block_name])
+    def approve_block(opts, mdoc)
+      required_blocks = mdoc.list_recursively_required_blocks(opts[:block_name])
       display_command(opts, required_blocks) if opts[:output_script] || opts[:user_must_approve]
 
       allow = true
       if opts[:user_must_approve]
         loop do
-          # (sel = @prompt.select(opts[:prompt_approve_block], %w(Yes No Copy_script_to_clipboard Save_script), cycle: true)).tap_inspect name: :sel
           (sel = @prompt.select(opts[:prompt_approve_block], filter: true) do |menu|
              menu.default 1
              # menu.enum '.'
@@ -131,10 +340,11 @@ module MarkdownExec
           if sel == 3
             text = required_blocks.flatten.join($INPUT_RECORD_SEPARATOR)
             Clipboard.copy(text)
-            fout "Clipboard updated: #{required_blocks.count} blocks, #{required_blocks.flatten.count} lines, #{text.length} characters"
+            fout "Clipboard updated: #{required_blocks.count} blocks," /
+                 " #{required_blocks.flatten.count} lines," /
+                 " #{text.length} characters"
           end
           if sel == 4
-            # opts[:saved_script_filename] = saved_name_make(opts)
             write_command_file(opts.merge(save_executed_script: true), required_blocks)
             fout "File saved: #{@options[:saved_filespec]}"
           end
@@ -143,7 +353,7 @@ module MarkdownExec
       end
       (opts[:ir_approve] = allow).tap_inspect name: :allow
 
-      selected = get_block_by_name blocks_in_file, opts[:block_name]
+      selected = mdoc.get_block_by_name opts[:block_name]
 
       if opts[:ir_approve]
         write_command_file opts, required_blocks
@@ -156,40 +366,34 @@ module MarkdownExec
       selected[:name]
     end
 
-    def code(table, block)
-      all = [block[:name]] + recursively_required(table, block[:reqs])
-      all.reverse.map do |req|
-        get_block_by_name(table, req).fetch(:body, '')
-      end
-         .flatten(1)
-         .tap_inspect
-    end
-
-    def command_execute(opts, cmd2)
+    # :reek:DuplicateMethodCall
+    # :reek:UncommunicativeVariableName { exclude: [ e ] }
+    # :reek:LongYieldList
+    def command_execute(opts, command)
       @execute_files = Hash.new([])
       @execute_options = opts
       @execute_started_at = Time.now.utc
 
-      Open3.popen3(@options[:shell], '-c', cmd2) do |stdin, stdout, stderr, exec_thr|
+      Open3.popen3(@options[:shell], '-c', command) do |stdin, stdout, stderr, exec_thr|
         # pid = exec_thr.pid # pid of the started process
 
-        t1 = Thread.new do
+        Thread.new do
           until (line = stdout.gets).nil?
             @execute_files[EF_STDOUT] = @execute_files[EF_STDOUT] + [line]
             print line if opts[:output_stdout]
             yield nil, line, nil, exec_thr if block_given?
           end
-        rescue IOError => e
+        rescue IOError
           # thread killed, do nothing
         end
 
-        t2 = Thread.new do
+        Thread.new do
           until (line = stderr.gets).nil?
             @execute_files[EF_STDERR] = @execute_files[EF_STDERR] + [line]
             print line if opts[:output_stdout]
             yield nil, nil, line, exec_thr if block_given?
           end
-        rescue IOError => e
+        rescue IOError
           # thread killed, do nothing
         end
 
@@ -211,7 +415,14 @@ module MarkdownExec
       @execute_aborted_at = Time.now.utc
       @execute_error_message = e.message
       @execute_error = e
-      @execute_files[EF_STDERR] += [e.message]
+      @execute_files[EF_STDERR] += [@execute_error_message]
+      fout "Error ENOENT: #{e.inspect}"
+    rescue SignalException => e
+      # SIGTERM triggered by user or system
+      @execute_aborted_at = Time.now.utc
+      @execute_error_message = 'SIGTERM'
+      @execute_error = e
+      @execute_files[EF_STDERR] += [@execute_error_message]
       fout "Error ENOENT: #{e.inspect}"
     end
 
@@ -224,12 +435,15 @@ module MarkdownExec
       cnt / 2
     end
 
+    # :reek:DuplicateMethodCall
     def display_command(_opts, required_blocks)
-      fout ' #=#=#'.yellow
+      frame = ' #=#=#'.yellow
+      fout frame
       required_blocks.each { |cb| fout cb }
-      fout ' #=#=#'.yellow
+      fout frame
     end
 
+    # :reek:DuplicateMethodCall
     def exec_block(options, _block_name = '')
       options = default_options.merge options
       update_options options, over: false
@@ -289,17 +503,15 @@ module MarkdownExec
       puts data.to_yaml
     end
 
-    def get_block_by_name(table, name, default = {})
-      table.select { |block| block[:name] == name }.fetch(0, default)
-    end
-
-    def get_block_summary(opts, headings, block_title, current)
+    # :reek:LongParameterList
+    def get_block_summary(opts, headings:, block_title:, current:)
       return [current] unless opts[:struct]
 
       return [summarize_block(headings, block_title).merge({ body: current })] unless opts[:bash]
 
       bm = block_title.match(Regexp.new(opts[:block_name_match]))
-      reqs = block_title.scan(Regexp.new(opts[:block_required_scan])).map { |s| s[1..] }
+      reqs = block_title.scan(Regexp.new(opts[:block_required_scan]))
+                        .map { |scanned| scanned[1..] }
 
       if bm && bm[1]
         [summarize_block(headings, bm[:title]).merge({ body: current, reqs: reqs })]
@@ -321,6 +533,7 @@ module MarkdownExec
       fout level == DISPLAY_LEVEL_BASE ? str : @options[:display_level_xbase_prefix] + str
     end
 
+    # :reek:DuplicateMethodCall
     def list_blocks_in_file(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
 
@@ -344,7 +557,7 @@ module MarkdownExec
       File.readlines(opts[:filename]).each do |line|
         continue unless line
 
-        if opts[:mdheadings]
+        if opts[:menu_blocks_with_headings]
           if (lm = line.match(Regexp.new(opts[:heading3_match])))
             headings = [headings[0], headings[1], lm[:name]]
           elsif (lm = line.match(Regexp.new(opts[:heading2_match])))
@@ -358,7 +571,7 @@ module MarkdownExec
           if in_block
             if current
               block_title = current.join(' ').gsub(/  +/, ' ')[0..64] if block_title.nil? || block_title.empty?
-              blocks += get_block_summary opts, headings, block_title, current
+              blocks += get_block_summary opts, headings: headings, block_title: block_title, current: current
               current = nil
             end
             in_block = false
@@ -367,16 +580,16 @@ module MarkdownExec
             # new block
             #
             lm = line.match(fenced_start_ex)
-            do1 = false
+            block_allow = false
             if opts[:bash_only]
-              do1 = true if lm && (lm[:shell] == 'bash')
+              block_allow = true if lm && (lm[:shell] == 'bash')
             else
-              do1 = true
-              do1 = !(lm && (lm[:shell] == 'expect')) if opts[:exclude_expect_blocks]
+              block_allow = true
+              block_allow = !(lm && (lm[:shell] == 'expect')) if opts[:exclude_expect_blocks]
             end
 
             in_block = true
-            if do1 && (!opts[:title_match] || (lm && lm[:name] && lm[:name].match(opts[:title_match])))
+            if block_allow && (!opts[:title_match] || (lm && lm[:name] && lm[:name].match(opts[:title_match])))
               current = []
               block_title = (lm && lm[:name])
             end
@@ -404,7 +617,7 @@ module MarkdownExec
         next unless item[:opt_name].present? && item[:default].present?
 
         [
-          "#{item[:opt_name]}: #{value_for_yaml item[:default]}",
+          "#{item[:opt_name]}: #{OptionValue.new(item[:default]).for_yaml}",
           item[:description].present? ? item[:description] : nil
         ].compact.join('      # ')
       end.compact.sort
@@ -412,14 +625,16 @@ module MarkdownExec
 
     def list_files_per_options(options)
       list_files_specified(
-        options[:filename]&.present? ? options[:filename] : nil,
-        options[:path],
-        'README.md',
-        '.'
+        specified_filename: options[:filename]&.present? ? options[:filename] : nil,
+        specified_folder: options[:path],
+        default_filename: 'README.md',
+        default_folder: '.'
       ).tap_inspect
     end
 
-    def list_files_specified(specified_filename, specified_folder, default_filename, default_folder, filetree = nil)
+    # :reek:LongParameterList
+    def list_files_specified(specified_filename: nil, specified_folder: nil,
+                             default_filename: nil, default_folder: nil, filetree: nil)
       fn = File.join(if specified_filename&.present?
                        if specified_folder&.present?
                          [specified_folder, specified_filename]
@@ -458,51 +673,14 @@ module MarkdownExec
       end.compact.tap_inspect
     end
 
-    def list_recursively_required_blocks(table, name)
-      name_block = get_block_by_name(table, name)
-      raise "Named code block `#{name}` not found." if name_block.nil? || name_block.keys.empty?
-
-      all = [name_block[:name]] + recursively_required(table, name_block[:reqs])
-
-      # in order of appearance in document
-      table.select { |block| all.include? block[:name] }
-           .map { |block| block.fetch(:body, '') }
-           .flatten(1)
-           .tap_inspect
-    end
-
-    def most_recent(arr)
-      return unless arr
-      return if arr.count < 1
-
-      arr.max.tap_inspect
-    end
-
-    def most_recent_list(arr)
-      return unless arr
-      return if (ac = arr.count) < 1
-
-      arr.sort[-[ac, options[:list_count]].min..].reverse.tap_inspect
-    end
-
     def list_recent_output
-      most_recent_list(Dir.glob(File.join(@options[:saved_stdout_folder],
-                                          @options[:saved_stdout_glob]))).tap_inspect
+      Sfiles.new(@options[:saved_stdout_folder],
+                 @options[:saved_stdout_glob]).most_recent_list
     end
 
     def list_recent_scripts
-      most_recent_list(Dir.glob(File.join(@options[:saved_script_folder],
-                                          @options[:saved_script_glob]))).tap_inspect
-    end
-
-    def make_block_label(block, call_options = {})
-      opts = options.merge(call_options)
-      if opts[:mdheadings]
-        heads = block.fetch(:headings, []).compact.join(' # ')
-        "#{block[:title]}  [#{heads}]  (#{opts[:filename]})"
-      else
-        "#{block[:title]}  (#{opts[:filename]})"
-      end
+      Sfiles.new(@options[:saved_script_folder],
+                 @options[:saved_script_glob]).most_recent_list
     end
 
     def make_block_labels(call_options = {})
@@ -510,16 +688,22 @@ module MarkdownExec
       list_blocks_in_file(opts).map do |block|
         # next if opts[:hide_blocks_by_name] && block[:name].match(%r{^:\(.+\)$})
 
-        make_block_label block, opts
+        BlockLabel.new(filename: opts[:filename],
+                       headings: block.fetch(:headings, []),
+                       menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+                       menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+                       title: block[:title]).make
       end.compact.tap_inspect
     end
 
+    # :reek:DuplicateMethodCall
+    # :reek:UncommunicativeMethodName ### temp
     def menu_data1
       val_as_bool = ->(value) { value.class.to_s == 'String' ? (value.chomp != '0') : value }
       val_as_int = ->(value) { value.to_i }
       val_as_str = ->(value) { value.to_s }
       # val_true = ->(_value) { true } # for commands, sets option to true
-      set1 = [
+      menu_options = [
         {
           arg_name: 'PATH',
           default: '.',
@@ -537,7 +721,7 @@ module MarkdownExec
           long_name: 'debug',
           short_name: 'd',
           proc1: lambda { |value|
-                   $pdebug = value.to_i != 0
+                   tap_config value.to_i != 0
                  }
         },
         {
@@ -620,6 +804,24 @@ module MarkdownExec
           long_name: 'logged-stdout-filename-prefix',
           opt_name: :logged_stdout_filename_prefix,
           proc1: val_as_str
+        },
+        {
+          arg_name: 'BOOL',
+          default: false,
+          description: 'Display document name in block selection menu',
+          env_var: 'MDE_MENU_BLOCKS_WITH_DOCNAME',
+          long_name: 'menu-blocks-with-docname',
+          opt_name: :menu_blocks_with_docname,
+          proc1: val_as_bool
+        },
+        {
+          arg_name: 'BOOL',
+          default: false,
+          description: 'Display headings (levels 1,2,3) in block selection menu',
+          env_var: 'MDE_MENU_BLOCKS_WITH_HEADINGS',
+          long_name: 'menu-blocks-with-headings',
+          opt_name: :menu_blocks_with_headings,
+          proc1: val_as_bool
         },
         {
           arg_name: 'BOOL',
@@ -780,7 +982,7 @@ module MarkdownExec
           short_name: '0',
           proc1: lambda { |_|
                    options_finalize options
-                   fout sorted_keys(options).to_yaml
+                   fout options.sort_by_key.to_yaml
                  }
         },
         {
@@ -903,7 +1105,8 @@ module MarkdownExec
         }
       ]
       # commands first, options second
-      (set1.reject { |v1| v1[:arg_name] }) + (set1.select { |v1| v1[:arg_name] })
+      (menu_options.reject { |option| option[:arg_name] }) +
+        (menu_options.select { |option| option[:arg_name] })
     end
 
     def menu_iter(data = menu_data1, &block)
@@ -912,15 +1115,6 @@ module MarkdownExec
 
     def menu_help
       @option_parser.help
-    end
-
-    def option_exclude_blocks(opts, blocks)
-      block_name_excluded_match = Regexp.new opts[:block_name_excluded_match]
-      if opts[:hide_blocks_by_name]
-        blocks.reject { |block| block[:name].match(block_name_excluded_match) }
-      else
-        blocks
-      end
     end
 
     ## post-parse options configuration
@@ -944,6 +1138,7 @@ module MarkdownExec
       @options[:block_name] = block_name if block_name.present?
     end
 
+    # :reek:ControlParameter
     def optsmerge(call_options = {}, options_block = nil)
       class_call_options = @options.merge(call_options || {})
       if options_block
@@ -997,6 +1192,7 @@ module MarkdownExec
       sel == exit_option ? nil : sel
     end
 
+    # :reek:UtilityFunction ### temp
     def read_configuration_file!(options, configuration_path)
       return unless File.exist?(configuration_path)
 
@@ -1006,23 +1202,7 @@ module MarkdownExec
       # rubocop:enable Security/YAMLLoad
     end
 
-    def recursively_required(table, reqs)
-      all = []
-      rem = reqs
-      while rem.count.positive?
-        rem = rem.map do |req|
-          next if all.include? req
-
-          all += [req]
-          get_block_by_name(table, req).fetch(:reqs, [])
-        end
-                 .compact
-                 .flatten(1)
-                 .tap_inspect(name: 'rem')
-      end
-      all.tap_inspect
-    end
-
+    # :reek:NestedIterators
     def run
       ## default configuration
       #
@@ -1066,15 +1246,6 @@ module MarkdownExec
       exec_block options, options[:block_name]
     end
 
-    FNR11 = '/'
-    FNR12 = ',~'
-
-    def saved_name_make(opts)
-      fne = opts[:filename].gsub(FNR11, FNR12)
-      "#{[opts[:saved_script_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
-          ',', opts[:block_name]].join('_')}.sh"
-    end
-
     def saved_name_split(name)
       mf = name.match(/#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_,_(?<block>.+)\.sh/)
       return unless mf
@@ -1084,50 +1255,61 @@ module MarkdownExec
     end
 
     def run_last_script
-      filename = most_recent Dir.glob(File.join(@options[:saved_script_folder],
-                                                @options[:saved_script_glob]))
+      filename = Sfiles.new(@options[:saved_script_folder],
+                            @options[:saved_script_glob]).most_recent
       return unless filename
 
-      filename.tap_inspect name: filename
       saved_name_split filename
       @options[:save_executed_script] = false
       select_and_approve_block
     end
 
     def save_execution_output
+      @options.tap_inspect name: :options
       return unless @options[:save_execution_output]
 
-      fne = File.basename(@options[:filename], '.*')
-
       @options[:logged_stdout_filename] =
-        "#{[@options[:logged_stdout_filename_prefix], Time.now.utc.strftime('%F-%H-%M-%S'), fne,
-            @options[:block_name]].join('_')}.out.txt"
+        SavedAsset.new(blockname: @options[:block_name],
+                       filename: File.basename(@options[:filename], '.*'),
+                       prefix: @options[:logged_stdout_filename_prefix],
+                       time: Time.now.utc).stdout_name
+
       @options[:logged_stdout_filespec] = File.join @options[:saved_stdout_folder], @options[:logged_stdout_filename]
       @logged_stdout_filespec = @options[:logged_stdout_filespec]
-      dirname = File.dirname(@options[:logged_stdout_filespec])
+      (dirname = File.dirname(@options[:logged_stdout_filespec])).tap_inspect name: :dirname
       Dir.mkdir dirname unless File.exist?(dirname)
 
-      # File.write(@options[:logged_stdout_filespec], @execute_files&.fetch(EF_STDOUT, ''))
       ol = ["-STDOUT-\n"]
       ol += @execute_files&.fetch(EF_STDOUT, [])
-      ol += ["-STDERR-\n"].tap_inspect name: :ol3
+      ol += ["\n-STDERR-\n"]
       ol += @execute_files&.fetch(EF_STDERR, [])
-      ol += ["-STDIN-\n"]
+      ol += ["\n-STDIN-\n"]
       ol += @execute_files&.fetch(EF_STDIN, [])
+      ol += ["\n"]
       File.write(@options[:logged_stdout_filespec], ol.join)
     end
 
     def select_and_approve_block(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
       blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
+      mdoc = MDoc.new(blocks_in_file)
 
-      loop1 = true && !opts[:block_name].present?
+      repeat_menu = true && !opts[:block_name].present?
 
       loop do
         unless opts[:block_name].present?
           pt = (opts[:prompt_select_block]).to_s
-          blocks_in_file.each { |block| block.merge! label: make_block_label(block, opts) }
-          block_labels = option_exclude_blocks(opts, blocks_in_file).map { |block| block[:label] }
+
+          blocks_in_file.each do |block|
+            block.merge! label:
+            BlockLabel.new(filename: opts[:filename],
+                           headings: block.fetch(:headings, []),
+                           menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+                           menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+                           title: block[:title]).make
+          end
+
+          block_labels = mdoc.option_exclude_blocks(opts).map { |block| block[:label] }
 
           return nil if block_labels.count.zero?
 
@@ -1135,7 +1317,7 @@ module MarkdownExec
           return nil if sel.nil?
 
           # if sel.nil?
-          #   loop1 = false
+          #   repeat_menu = false
           #   break
           # end
 
@@ -1143,22 +1325,21 @@ module MarkdownExec
           opts[:block_name] = @options[:block_name] = label_block[:name]
 
         end
-        # if loop1
-        approve_block opts, blocks_in_file
+        # if repeat_menu
+        approve_block opts, mdoc
         # end
 
-        break unless loop1
+        break unless repeat_menu
 
         opts[:block_name] = ''
       end
     end
 
-    def select_md_file(files_ = nil)
+    def select_md_file(files = list_markdown_files_in_path)
       opts = options
-      files = files_ || list_markdown_files_in_path
-      if files.count == 1
+      if (count = files.count) == 1
         files[0]
-      elsif files.count >= 2
+      elsif count >= 2
         prompt_with_quit opts[:prompt_select_md].to_s, files, per_page: opts[:select_page_height]
       end
     end
@@ -1184,10 +1365,6 @@ module MarkdownExec
       )
     end
 
-    def sorted_keys(hash1)
-      hash1.keys.sort.to_h { |k| [k, hash1[k]] }
-    end
-
     def summarize_block(headings, title)
       { headings: headings, name: title, title: title }
     end
@@ -1205,6 +1382,8 @@ module MarkdownExec
       end.compact
     end
 
+    # :reek:BooleanParameter
+    # :reek:ControlParameter
     def update_options(opts = {}, over: true)
       if over
         @options = @options.merge opts
@@ -1214,40 +1393,17 @@ module MarkdownExec
       @options.tap_inspect format: :yaml
     end
 
-    def value_for_hash(value, default = nil)
-      return default if value.nil?
+    def write_command_file(call_options, required_blocks)
+      return unless call_options[:save_executed_script]
 
-      case value.class.to_s
-      when 'String', 'Integer', 'FalseClass', 'TrueClass'
-        value
-      when value.empty?
-        default
-      else
-        value.to_s
-      end
-    end
+      time_now = Time.now.utc
+      opts = optsmerge call_options
+      opts[:saved_script_filename] =
+        SavedAsset.new(blockname: opts[:block_name],
+                       filename: opts[:filename],
+                       prefix: opts[:saved_script_filename_prefix],
+                       time: time_now).script_name
 
-    def value_for_yaml(value)
-      return default if value.nil?
-
-      case value.class.to_s
-      when 'String'
-        "'#{value}'"
-      when 'Integer'
-        value
-      when 'FalseClass', 'TrueClass'
-        value ? true : false
-      when value.empty?
-        default
-      else
-        value.to_s
-      end
-    end
-
-    def write_command_file(opts, required_blocks)
-      return unless opts[:save_executed_script]
-
-      opts[:saved_script_filename] = saved_name_make(opts)
       @execute_script_filespec =
         @options[:saved_filespec] =
           File.join opts[:saved_script_folder], opts[:saved_script_filename]
@@ -1263,15 +1419,11 @@ module MarkdownExec
       File.write(@options[:saved_filespec], shebang +
                                             "# file_name: #{opts[:filename]}\n" \
                                             "# block_name: #{opts[:block_name]}\n" \
-                                            "# time: #{Time.now.utc}\n" \
+                                            "# time: #{time_now}\n" \
                                             "#{required_blocks.flatten.join("\n")}\n")
-
-      @options[:saved_script_chmod].tap_inspect name: :@options_saved_script_chmod
       return if @options[:saved_script_chmod].zero?
 
-      @options[:saved_script_chmod].tap_inspect name: :@options_saved_script_chmod
       File.chmod @options[:saved_script_chmod], @options[:saved_filespec]
-      @options[:saved_script_chmod].tap_inspect name: :@options_saved_script_chmod
     end
   end
 end
