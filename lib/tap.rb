@@ -6,19 +6,25 @@ require 'json'
 require 'yaml'
 
 require_relative 'env'
-include Env # rubocop:disable Style/MixinUsage
+include Env
 
-# add function for in-line tap
+## application-level debug control
 #
 module Tap
-  $pdebug = env_bool 'MDE_DEBUG'
+  $tap_enable = env_bool 'TAP_DEBUG'
 
-  def tap_config(enable)
-    $pdebug = enable
+  def tap_config(enable: nil, envvar: nil, value: nil)
+    $tap_enable = if envvar
+                    env_bool envvar
+                  elsif value
+                    value.to_i != 0
+                  elsif enable
+                    enable
+                  end
   end
 
   def tap_inspect(format: nil, name: 'return')
-    return self unless $pdebug
+    return self unless $tap_enable
 
     cvt = {
       json: :to_json,

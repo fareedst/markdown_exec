@@ -13,10 +13,12 @@ end
 
 require 'rubocop/rake_task'
 
+require_relative 'lib/markdown_exec/version'
 require_relative 'lib/shared'
 require_relative 'lib/tap'
 
-include Tap # rubocop:disable Style/MixinUsage
+include Tap
+tap_config envvar: MarkdownExec::TAP_DEBUG
 
 RuboCop::RakeTask.new do |task|
   task.requires << 'rubocop-minitest'
@@ -26,8 +28,6 @@ desc 'named task because minitest not included in rubocop tests'
 task :rubocopminitest do
   `rubocop --require rubocop-minitest`
 end
-
-require_relative 'lib/markdown_exec/version'
 
 task default: %i[test reek rubocop rubocopminitest]
 

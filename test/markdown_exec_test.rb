@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require_relative '../lib/markdown_exec/version'
+
+include Tap
+tap_config envvar: MarkdownExec::TAP_DEBUG
 
 RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 

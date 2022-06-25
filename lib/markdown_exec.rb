@@ -16,7 +16,8 @@ require_relative 'shared'
 require_relative 'tap'
 require_relative 'markdown_exec/version'
 
-include Tap # rubocop:disable Style/MixinUsage
+include Tap
+tap_config envvar: MarkdownExec::TAP_DEBUG
 
 $stderr.sync = true
 $stdout.sync = true
@@ -717,7 +718,7 @@ module MarkdownExec
           arg_name: 'BOOL',
           default: false,
           description: 'Debug output',
-          env_var: 'MDE_DEBUG',
+          env_var: MarkdownExec::TAP_DEBUG,
           long_name: 'debug',
           short_name: 'd',
           proc1: lambda { |value|
