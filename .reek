@@ -11,7 +11,7 @@ detectors:
   ControlParameter:
     enabled: true
   DuplicateMethodCall:
-    enabled: true
+    enabled: false # too strict
   FeatureEnvy:
     enabled: false # too strict
   InstanceVariableAssumption:
@@ -22,3 +22,5 @@ detectors:
     enabled: true
   LongYieldList:
     enabled: true
+  TooManyStatements:
+    enabled: false # too strict

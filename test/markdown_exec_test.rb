@@ -14,7 +14,25 @@ RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 class MarkdownExecTest < Minitest::Test
   extend Minitest::Spec::DSL
 
-  # rubocop:disable Minitest/MultipleAssertions
+  let(:mp) { MarkdownExec::MarkParse.new options }
+  let(:options) do
+    {
+      # block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.*\)$'),
+      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^[\(\[].*[\)\]]$'),
+      block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
+      block_calls_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '%\([^\)]+\)'),
+      block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
+      block_stdin_scan: '<(?<full>(?<type>\$)?(?<name>[A-Za-z]\S+))',
+      block_stdout_scan: '>(?<full>(?<type>\$)?(?<name>[A-Za-z]\S+))',
+      fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
+      fenced_start_ex_match: env_str('MDE_FENCED_START_EX_MATCH', default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$'),
+      filename: 'fixtures/sample1.md',
+      md_filename_glob: env_str('MDE_MD_FILENAME_GLOB', default: '*.[Mm][Dd]'),
+      md_filename_match: env_str('MDE_MD_FILENAME_MATCH', default: '.+\\.md'),
+      path: '.'
+    }
+  end
+
   def test_object_present?
     assert_nil nil.present?
     refute_predicate '', :present?
@@ -55,25 +73,9 @@ class MarkdownExecTest < Minitest::Test
     ENV['X1'] = '1'
     assert_equal '1', env_str('X1', default: default_str)
   end
-  # rubocop:enable Minitest/MultipleAssertions
 
   def test_that_it_has_a_version_number
     refute_nil ::MarkdownExec::VERSION
-  end
-
-  let(:mp) { MarkdownExec::MarkParse.new options }
-  let(:options) do
-    {
-      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.*\)$'),
-      block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
-      block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
-      fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
-      fenced_start_ex_match: env_str('MDE_FENCED_START_EX_MATCH', default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$'),
-      filename: 'fixtures/sample1.md',
-      md_filename_glob: env_str('MDE_MD_FILENAME_GLOB', default: '*.[Mm][Dd]'),
-      md_filename_match: env_str('MDE_MD_FILENAME_MATCH', default: '.+\\.md'),
-      path: '.'
-    }
   end
 
   ## options
@@ -135,12 +137,38 @@ class MarkdownExecTest < Minitest::Test
     )
   end
 
-  def test_list_recursively_required_blocks
-    assert_equal %w[a b c d], MarkdownExec::MDoc.new(list_blocks_bash1).list_recursively_required_blocks('four')
+  def test_called_parse_hidden_get_required_blocks
+    assert_equal %w[one two three four],
+                 (MarkdownExec::MDoc.new(list_blocks_bash1).get_required_blocks('four').map do |block|
+                    block[:name]
+                  end)
+  end
+
+  def test_called_parse_hidden_get_required_code
+    assert_equal %w[a b c d],
+                 MarkdownExec::MDoc.new(list_blocks_bash1).collect_recursively_required_code('four')
   end
 
   def test_list_yield
     assert_equal [['b']], (mp.list_blocks_in_file { |opts| opts.merge(bash_only: true) })
+  end
+
+  let(:options_parse_menu_for_blocks) do
+    options.merge({
+                    filename: 'fixtures/menu_divs.md',
+                    menu_divider_match: '^::: +(?<name>.+?)$'
+                  })
+  end
+
+  def test_parse_menu_for_blocks
+    assert_equal [
+      { name: 'menu divider 11', disabled: '' },
+      'block11',
+      { name: 'menu divider 21', disabled: '' },
+      'block21',
+      { name: 'menu divider 31', disabled: '' },
+      'block31'
+    ], mp.menu_for_blocks(options_parse_menu_for_blocks)
   end
 
   def test_parse_bash_blocks
@@ -159,7 +187,7 @@ class MarkdownExecTest < Minitest::Test
       { name: 'three', code: %w[a b c] },
       { name: 'four', code: %w[a b c d] }
     ], (list_blocks_bash1.map do |block|
-          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash1).code(block) }
+          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash1).collect_recursively_required_code(block[:name]) }
         end)
   end
 
@@ -180,7 +208,7 @@ class MarkdownExecTest < Minitest::Test
       { name: 'four', code: %w[d] },
       { name: 'five', code: %w[a d e] }
     ], (list_blocks_bash2.map do |block|
-          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash2).code(block) }
+          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash2).collect_recursively_required_code(block[:name]) }
         end)
   end
 
@@ -260,7 +288,9 @@ class MarkdownExecTest < Minitest::Test
       { name: 'three', allreqs: %w[two one] },
       { name: 'four', allreqs: %w[three two one] }
     ], (list_blocks_bash1.map do |block|
-          { name: block[:name], allreqs: MarkdownExec::MDoc.new(list_blocks_bash1).recursively_required(block[:reqs]) }
+          { name: block[:name],
+            allreqs: MarkdownExec::MDoc.new(list_blocks_bash1)
+                                       .recursively_required(block[:reqs]) }
         end)
   end
 
@@ -295,7 +325,7 @@ class MarkdownExecTest < Minitest::Test
     def test_select_md_file
       assert_equal 'README.md', mp.select_md_file
     end
-  end
+  end # RUN_INTERACTIVE
 
   def test_select_title_match
     assert_equal 'two', mp.select_block(title_match: 'w') if RUN_INTERACTIVE
@@ -327,9 +357,12 @@ class MarkdownExecTest < Minitest::Test
   # :reek:UncommunicativeMethodName ### temp
   def test_target_default_path_and_default_filename2
     ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
+          'fixtures/block_exclude.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
-          'fixtures/sample1.md', 'fixtures/title1.md']
+          'fixtures/menu_divs.md',
+          'fixtures/sample1.md', 'fixtures/title1.md',
+          'fixtures/yaml1.md', 'fixtures/yaml2.md']
     assert_equal ft,
                  mp.list_files_specified(specified_folder: 'fixtures', default_filename: 'README.md',
                                          default_folder: '.')
@@ -338,31 +371,38 @@ class MarkdownExecTest < Minitest::Test
   def test_target_default_path_and_default_filename
     ft = ["#{default_path}/#{default_filename}"]
     assert_equal ft,
-                 mp.list_files_specified(default_filename: default_filename, default_folder: default_path, filetree: ft)
+                 mp.list_files_specified(default_filename: default_filename, default_folder: default_path,
+                                         filetree: ft)
   end
 
   def test_target_default_path_and_specified_filename
     ft = ["#{default_path}/#{specified_filename}"]
     assert_equal ft,
-                 mp.list_files_specified(specified_filename: specified_filename, default_filename: default_filename,
-                                         default_folder: default_path, filetree: ft)
+                 mp.list_files_specified(specified_filename: specified_filename,
+                                         default_filename: default_filename,
+                                         default_folder: default_path,
+                                         filetree: ft)
   end
 
   def test_target_specified_path_and_filename
     ft = ["#{specified_path}/#{specified_filename}"]
     assert_equal ft,
-                 mp.list_files_specified(specified_filename: specified_filename, specified_folder: specified_path,
-                                         default_filename: default_filename, default_folder: default_path, filetree: ft)
+                 mp.list_files_specified(specified_filename: specified_filename,
+                                         specified_folder: specified_path,
+                                         default_filename: default_filename,
+                                         default_folder: default_path,
+                                         filetree: ft)
   end
 
   def test_target_specified_path
     ft = ["#{specified_path}/any.md"]
     assert_equal ft,
-                 mp.list_files_specified(specified_folder: specified_path, default_filename: default_filename,
-                                         default_folder: default_path, filetree: ft)
+                 mp.list_files_specified(specified_folder: specified_path,
+                                         default_filename: default_filename,
+                                         default_folder: default_path,
+                                         filetree: ft)
   end
 
-  # rubocop:disable Minitest/MultipleAssertions
   def test_value_for_cli
     assert_equal '0', mp.value_for_cli(false)
     assert_equal '1', mp.value_for_cli(true)
@@ -384,9 +424,132 @@ class MarkdownExecTest < Minitest::Test
     assert_equal 2, MarkdownExec::OptionValue.new(2).for_yaml
     assert_equal "'a'", MarkdownExec::OptionValue.new('a').for_yaml
   end
-  # rubocop:enable Minitest/MultipleAssertions
 
   def test_base_options; end
   def test_list_default_env; end
   def test_list_default_yaml; end
+
+  let(:list_blocks_yaml1) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/yaml1.md',
+      hide_blocks_by_name: true,
+      struct: true,
+      yaml_blocks: true
+    )
+  end
+
+  let(:mdoc_yaml1) do
+    MarkdownExec::MDoc.new(list_blocks_yaml1)
+  end
+
+  def test_parse_called_get_named_blocks
+    assert_equal [
+      { name: '[summarize_fruits]' },
+      { name: '(make_fruit_file)' },
+      { name: 'show_fruit_yml' }
+    ], (list_blocks_yaml1.map { |block| block.slice(:name) })
+  end
+
+  def test_parse_called_get_required_blocks
+    assert_equal [
+      { call: nil, name: '(make_fruit_file)', stdout_name: 'fruit.yml' },
+      { call: nil, name: '[summarize_fruits]' },
+      { call: '(summarize_fruits <fruit.yml >$fruit_summary)', name: 'show_fruit_yml' }
+    ], (mdoc_yaml1.get_required_blocks('show_fruit_yml').map do |block|
+      block.slice(:call, :name).merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
+      # block.slice(:call, :name, :stdout).merge { 'stdout_name' => block.dig(:stdout, :name) }
+    end)
+  end
+
+  def test_parse_called_get_required_code
+    assert_equal [
+      [
+        %q(cat > 'fruit.yml' <<"EOF"),
+        'fruit:',
+        '  name: apple',
+        '  color: green',
+        '  price: 1.234',
+        'EOF',
+        ''
+      ].join("\n"),
+      "export fruit_summary=$(yq e '[.fruit.name,.fruit.price]' 'fruit.yml')",
+      'echo "fruit_summary: ${fruit_summary:-MISSING}"'
+    ], mdoc_yaml1.collect_recursively_required_code('show_fruit_yml')
+  end
+
+  let(:list_blocks_yaml2) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/yaml2.md',
+      hide_blocks_by_name: true,
+      struct: true,
+      yaml_blocks: true
+    )
+  end
+
+  let(:mdoc_yaml2) do
+    MarkdownExec::MDoc.new(list_blocks_yaml2)
+  end
+
+  def test_vars_parse_called_get_named_blocks
+    assert_equal [
+      { name: '[extract_coins_report]' },
+      { name: '(make_coins_file)' },
+      { name: 'show_coins_var' },
+      { name: 'report_coins_yml' }
+    ], (list_blocks_yaml2.map { |block| block.slice(:name) })
+  end
+
+  def test_vars_parse_called_get_required_blocks
+    assert_equal [
+      { call: nil, name: '(make_coins_file)' },
+      { call: nil, cann: '(extract_coins_report <$coins >$coins_report)', name: '[extract_coins_report]' },
+      { call: '(extract_coins_report <$coins >$coins_report)', name: 'show_coins_var' }
+    ], (mdoc_yaml2.get_required_blocks('show_coins_var').map do |block|
+          block.slice(:call, :cann, :name)
+        end)
+  end
+
+  # rubocop:disable Layout/LineLength
+  def test_vars_parse_called_get_required_code
+    assert_equal [
+      %(export coins=$(cat <<"EOF"\ncoins:\n  - name: bitcoin\n    price: 21000\n  - name: ethereum\n    price: 1000\nEOF\n)),
+      %q(export coins_report=$(echo "$coins" | yq '.coins | map(. | { "name": .name, "price": .price })')),
+      'echo "coins_report:"',
+      'echo "${coins_report:-MISSING}"'
+    ], mdoc_yaml2.collect_recursively_required_code('show_coins_var')
+  end
+  # rubocop:enable Layout/LineLength
+
+  let(:doc_blocks) do
+    mp.list_blocks_in_file(
+      bash: true,
+      filename: 'fixtures/block_exclude.md',
+      hide_blocks_by_name: false,
+      struct: true,
+      yaml_blocks: true
+    )
+  end
+
+  let(:mdoc) do
+    MarkdownExec::MDoc.new(doc_blocks)
+  end
+
+  let(:hide_menu_block_per_options) do
+    {
+      block_name_excluded_match: '^(?<name>block[13]).*$',
+      hide_blocks_by_name: true
+    }
+  end
+
+  def test_hide_menu_block_per_options
+    assert_equal [true, false, true], (doc_blocks.map do |block|
+      !!mdoc.hide_menu_block_per_options(hide_menu_block_per_options, block)
+    end)
+  end
+
+  def test_blocks_for_menu
+    assert_equal ['block21'], (mdoc.blocks_for_menu(hide_menu_block_per_options).map { |block| block[:name] })
+  end
 end

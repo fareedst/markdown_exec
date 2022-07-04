@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# :reek:TooManyConstants
 module MarkdownExec
   APP_DESC = 'Markdown Executor'
   APP_NAME = 'MDE'

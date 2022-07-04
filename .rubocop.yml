@@ -6,6 +6,9 @@ AllCops:
   NewCops: enable
   TargetRubyVersion: 2.6
 
+Lint/SafeNavigationChain:
+  Enabled: false
+
 Metrics/AbcSize:
   Enabled: false
 
@@ -28,6 +31,15 @@ Metrics/MethodLength:
   Enabled: false
 
 Metrics/PerceivedComplexity:
+  Enabled: false
+
+Minitest/MultipleAssertions:
+  Enabled: false
+
+Style/CommentedKeyword:
+  Enabled: false
+
+Style/DoubleNegation:
   Enabled: false
 
 Style/GlobalVars:
