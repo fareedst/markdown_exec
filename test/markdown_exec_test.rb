@@ -15,22 +15,14 @@ class MarkdownExecTest < Minitest::Test
   extend Minitest::Spec::DSL
 
   let(:mp) { MarkdownExec::MarkParse.new options }
+
   let(:options) do
-    {
-      # block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^\(.*\)$'),
-      block_name_excluded_match: env_str('MDE_BLOCK_NAME_EXCLUDED_MATCH', default: '^[\(\[].*[\)\]]$'),
-      block_name_match: env_str('MDE_BLOCK_NAME_MATCH', default: ':(?<title>\S+)( |$)'),
-      block_calls_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '%\([^\)]+\)'),
-      block_required_scan: env_str('MDE_BLOCK_REQUIRED_SCAN', default: '\+\S+'),
-      block_stdin_scan: '<(?<full>(?<type>\$)?(?<name>[A-Za-z]\S+))',
-      block_stdout_scan: '>(?<full>(?<type>\$)?(?<name>[A-Za-z]\S+))',
-      fenced_start_and_end_match: env_str('MDE_FENCED_START_AND_END_MATCH', default: '^`{3,}'),
-      fenced_start_ex_match: env_str('MDE_FENCED_START_EX_MATCH', default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$'),
-      filename: 'fixtures/sample1.md',
-      md_filename_glob: env_str('MDE_MD_FILENAME_GLOB', default: '*.[Mm][Dd]'),
-      md_filename_match: env_str('MDE_MD_FILENAME_MATCH', default: '.+\\.md'),
-      path: '.'
-    }
+    menu_from_yaml.map do |item|
+      next unless item[:opt_name]
+
+      val = env_str(item[:env_var], default: item[:default])
+      [item[:opt_name].to_sym, val] if val.present?
+    end.compact.sort_by { |key, _v| key }.to_h.merge({ filename: 'fixtures/sample1.md' })
   end
 
   def test_object_present?
@@ -154,10 +146,7 @@ class MarkdownExecTest < Minitest::Test
   end
 
   let(:options_parse_menu_for_blocks) do
-    options.merge({
-                    filename: 'fixtures/menu_divs.md',
-                    menu_divider_match: '^::: +(?<name>.+?)$'
-                  })
+    options.merge({ filename: 'fixtures/menu_divs.md' })
   end
 
   def test_parse_menu_for_blocks
@@ -187,7 +176,9 @@ class MarkdownExecTest < Minitest::Test
       { name: 'three', code: %w[a b c] },
       { name: 'four', code: %w[a b c d] }
     ], (list_blocks_bash1.map do |block|
-          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash1).collect_recursively_required_code(block[:name]) }
+          { name: block[:name],
+            code: MarkdownExec::MDoc.new(list_blocks_bash1)
+                  .collect_recursively_required_code(block[:name]) }
         end)
   end
 
@@ -208,7 +199,9 @@ class MarkdownExecTest < Minitest::Test
       { name: 'four', code: %w[d] },
       { name: 'five', code: %w[a d e] }
     ], (list_blocks_bash2.map do |block|
-          { name: block[:name], code: MarkdownExec::MDoc.new(list_blocks_bash2).collect_recursively_required_code(block[:name]) }
+          { name: block[:name],
+            code: MarkdownExec::MDoc.new(list_blocks_bash2)
+                  .collect_recursively_required_code(block[:name]) }
         end)
   end
 
@@ -360,6 +353,7 @@ class MarkdownExecTest < Minitest::Test
           'fixtures/block_exclude.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
+          'fixtures/infile_config.md',
           'fixtures/menu_divs.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
@@ -458,7 +452,6 @@ class MarkdownExecTest < Minitest::Test
       { call: '(summarize_fruits <fruit.yml >$fruit_summary)', name: 'show_fruit_yml' }
     ], (mdoc_yaml1.get_required_blocks('show_fruit_yml').map do |block|
       block.slice(:call, :name).merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
-      # block.slice(:call, :name, :stdout).merge { 'stdout_name' => block.dig(:stdout, :name) }
     end)
   end
 
@@ -522,6 +515,8 @@ class MarkdownExecTest < Minitest::Test
   end
   # rubocop:enable Layout/LineLength
 
+  ## blocks
+  #
   let(:doc_blocks) do
     mp.list_blocks_in_file(
       bash: true,
@@ -532,7 +527,7 @@ class MarkdownExecTest < Minitest::Test
     )
   end
 
-  let(:mdoc) do
+  let(:mdoc_blocks) do
     MarkdownExec::MDoc.new(doc_blocks)
   end
 
@@ -545,11 +540,11 @@ class MarkdownExecTest < Minitest::Test
 
   def test_hide_menu_block_per_options
     assert_equal [true, false, true], (doc_blocks.map do |block|
-      !!mdoc.hide_menu_block_per_options(hide_menu_block_per_options, block)
+      !!mdoc_blocks.hide_menu_block_per_options(hide_menu_block_per_options, block)
     end)
   end
 
   def test_blocks_for_menu
-    assert_equal ['block21'], (mdoc.blocks_for_menu(hide_menu_block_per_options).map { |block| block[:name] })
+    assert_equal ['block21'], (mdoc_blocks.blocks_for_menu(hide_menu_block_per_options).map { |block| block[:name] })
   end
 end

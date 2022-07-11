@@ -35,6 +35,9 @@ Metrics/PerceivedComplexity:
 
 Minitest/MultipleAssertions:
   Enabled: false
+ 
+Security/YAMLLoad:
+  Enabled: false
 
 Style/CommentedKeyword:
   Enabled: false

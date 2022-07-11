@@ -32,12 +32,14 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.metadata['source_code_uri'] = 'https://github.com/fareedst/markdown_exec'
 
-  unchecked = %w[lib/colorize.rb lib/env.rb lib/tap.rb] ###
+  # include unchecked files from lib folder
+  #
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|
       (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features|fixtures)/|\.(?:git|travis|circleci)|appveyor)})
     end
-  end + unchecked
+  end + Dir['lib/*'] - ['lib/rb.rb']
+
   spec.executables = %w[mde tab_completion.sh]
   spec.require_paths = ['lib']
 
