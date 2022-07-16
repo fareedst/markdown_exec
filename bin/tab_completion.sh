@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "1.2.0"
+  echo "1.3.0"
 }
 
 _mde() {
@@ -34,17 +34,15 @@ _mde() {
             
               --debug) COMPREPLY="0"; return 0 ;;
             
-              --display-level) COMPREPLY="1"; return 0 ;;
-            
               --filename) COMPREPLY="."; return 0 ;;
             
+              --path) COMPREPLY="."; return 0 ;;
+            
+              --user-must-approve) COMPREPLY="1"; return 0 ;;
+            
+              --display-level) COMPREPLY="1"; return 0 ;;
+            
               --list-count) COMPREPLY="32"; return 0 ;;
-            
-              --logged-stdout-filename-prefix) COMPREPLY="mde"; return 0 ;;
-            
-              --menu-blocks-with-docname) COMPREPLY="0"; return 0 ;;
-            
-              --menu-blocks-with-headings) COMPREPLY="0"; return 0 ;;
             
               --output-execution-summary) COMPREPLY="0"; return 0 ;;
             
@@ -52,25 +50,13 @@ _mde() {
             
               --output-stdout) COMPREPLY="1"; return 0 ;;
             
-              --path) COMPREPLY="."; return 0 ;;
-            
               --save-executed-script) COMPREPLY="0"; return 0 ;;
             
               --save-execution-output) COMPREPLY="0"; return 0 ;;
             
-              --saved-script-chmod) COMPREPLY="493"; return 0 ;;
-            
-              --saved-script-filename-prefix) COMPREPLY="mde"; return 0 ;;
-            
               --saved-script-folder) COMPREPLY="logs"; return 0 ;;
             
-              --saved-script-glob) COMPREPLY="mde_\*.sh"; return 0 ;;
-            
               --saved-stdout-folder) COMPREPLY="logs"; return 0 ;;
-            
-              --saved-stdout-glob) COMPREPLY="mde_\*.out.txt"; return 0 ;;
-            
-              --user-must-approve) COMPREPLY="1"; return 0 ;;
             
       esac
     fi
@@ -80,7 +66,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--pwd" "--run-last-script" "--select-recent-output" "--select-recent-script" "--menu-export" "--tab-completions" "--help" "--version" "--exit" "--config" "--debug" "--display-level" "--block-name" "--filename" "--list-count" "--logged-stdout-filename-prefix" "--menu-blocks-with-docname" "--menu-blocks-with-headings" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--save-executed-script" "--save-execution-output" "--saved-script-chmod" "--saved-script-filename-prefix" "--saved-script-folder" "--saved-script-glob" "--saved-stdout-folder" "--saved-stdout-glob" "--user-must-approve")
+    opts=("--block-name" "--config" "--debug" "--filename" "--help" "--path" "--user-must-approve" "--version" "--exit" "--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--select-recent-output" "--select-recent-script" "--tab-completions" "--run-last-script" "--pwd" "--display-level" "--list-count" "--output-execution-summary" "--output-script" "--output-stdout" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -93,23 +79,21 @@ _mde() {
   if [[ -z ${cur} ]] ; then
     case $prev in
       
+          --block-name) COMPREPLY=".NAME."; return 0 ;;
+        
           --config) COMPREPLY=".PATH."; return 0 ;;
         
           --debug) COMPREPLY=".BOOL."; return 0 ;;
         
-          --display-level) COMPREPLY=".INT.0-2."; return 0 ;;
-        
-          --block-name) COMPREPLY=".NAME."; return 0 ;;
-        
           --filename) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
+          --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --display-level) COMPREPLY=".INT.0-2."; return 0 ;;
+        
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
-        
-          --logged-stdout-filename-prefix) COMPREPLY=".PREFIX."; return 0 ;;
-        
-          --menu-blocks-with-docname) COMPREPLY=".BOOL."; return 0 ;;
-        
-          --menu-blocks-with-headings) COMPREPLY=".BOOL."; return 0 ;;
         
           --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -117,25 +101,13 @@ _mde() {
         
           --output-stdout) COMPREPLY=".BOOL."; return 0 ;;
         
-          --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
           --save-executed-script) COMPREPLY=".BOOL."; return 0 ;;
         
           --save-execution-output) COMPREPLY=".BOOL."; return 0 ;;
         
-          --saved-script-chmod) COMPREPLY=".INT."; return 0 ;;
-        
-          --saved-script-filename-prefix) COMPREPLY=".PREFIX."; return 0 ;;
-        
           --saved-script-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
-          --saved-script-glob) COMPREPLY=".GLOB."; return 0 ;;
-        
           --saved-stdout-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
-          --saved-stdout-glob) COMPREPLY=".GLOB."; return 0 ;;
-        
-          --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
         
     esac
   fi
@@ -148,4 +120,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2022-06-12 20:30:22 UTC"
+# echo "Updated: 2022-07-16 23:30:20 UTC"

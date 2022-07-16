@@ -49,7 +49,7 @@ Displays help information.
 
 #### `mde`
 
-Process `README.md` file in the current folder. Displays all the blocks in the file and allows you to select using [up], [down], and [return]. Press [ctrl]-c to abort selection.
+Process `README.md` file in the current folder. Displays all the blocks in the file and allows you to select using [up], [down], and [return].
 
 #### `mde my.md` or `mde -f my.md`
 
@@ -159,7 +159,7 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
 ### Behavior
 
 Press tab for completions appropriate to the current input.
-`mde <...> <prior word> <current word>`
+`mde <...> <prior word> <current word><TAB>`
 
 Completions are calculated based on the current word and the prior word. 
 1. If the current word starts with `-`, present matching options, eg `--version` for the current word `--v`.
@@ -171,7 +171,7 @@ Completions are calculated based on the current word and the prior word.
 
 In the table below, tab is indicated by `!`
 | Input | Completions |
-| :---: | :---: |
+| :--- | :--- |
 | `mde !` | local files and folders |
 | `mde -!` | all options |
 | `mde --!` | all options |
@@ -209,4 +209,4 @@ The gem is available as open source under the terms of the [MIT License](https:/
 
 # Code of Conduct
 
-Everyone interacting in the MarkdownExec project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/markdown_exec/blob/master/CODE_OF_CONDUCT.md).
+Everyone interacting in the MarkdownExec project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/fareedst/markdown_exec/blob/master/CODE_OF_CONDUCT.md).

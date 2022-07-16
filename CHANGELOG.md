@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.3.0] - 2022-07-16
+
+### Added
+
+- Short name `-p` for `--user-must-approve` option
+  Enable/disable pause for user to review and approve script
+- Automatic wrapping for data in blocks of yaml data eg ` ```yaml `
+  Data is written to the file named in the fenced block heading
+- Data transformations are embedded in the script at every invocation
+  with arguments to the transformation as stdin and stdout for the `yq` process
+  eg `export fruit_summary=$(yq e '[.fruit.name,.fruit.price]' fruit.yml)`
+  for invocation `%(summarize_fruits <fruit.yml >fruit_summary)`
+  and transformation `[.fruit.name,.fruit.price]`
+- Option to extract document text and display it as disabled items in-line with the blocks in the selection menu.
+  Add options for constants used in parsing.
+- [x] yaml processing
+    - ```yaml :(make_fruit_file) >fruit.yml```
+      write to: fruit.yml
+    - ```yq [summarize_fruits] +(make_fruit_file) <fruit.yml =color_price```
+      not included in linear script
+      read from: fruit.yml
+      result into var: color_price instead of stdout
+    - ```bash :show_fruit_yml +(summarize_fruits)```
+      include summarize_fruits
+      output value of var color_price
+
+### Changed
+
+- Refactoring
+    - Run-time menu in YAML file.
+    - Tap module initialization
+
 ## [1.2.0] - 2022-06-11
 
 ### Added
