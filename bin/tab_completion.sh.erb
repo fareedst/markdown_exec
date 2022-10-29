@@ -30,6 +30,7 @@ _mde() {
     if [[ ${prev} == -* ]] ; then
       case $prev in
         <% svhs.each do |svh|
+
           svn = svh[:long_name]
           if svn && svh[:arg_name]
             svn = '--' + svh[:long_name]
@@ -43,6 +44,21 @@ _mde() {
               <%= svn + ') COMPREPLY="' + svh[:compreply] + '"; return 0 ;;' %>
             <% end
           end
+
+          svn = svh[:short_name]
+          if svn && svh[:arg_name]
+            svn = '-' + svh[:short_name]
+            if svh[:compreply] == false
+              # nothing
+            elsif svh[:compreply].nil? %>
+              <%= svn + ') __filedirs_all; return 0 ;;' %>
+            <% elsif svh[:compreply].empty?
+              # nothing
+            else %>
+              <%= svn + ') COMPREPLY="' + svh[:compreply] + '"; return 0 ;;' %>
+            <% end
+          end
+
         end %>
       esac
     fi
@@ -65,9 +81,16 @@ _mde() {
   if [[ -z ${cur} ]] ; then
     case $prev in
       <% svhs.each do |svh|
+
         svn = svh[:long_name]
         if svn && svh[:arg_name]
           svn = '--' + svh[:long_name] %>
+          <%= svn + ') COMPREPLY=".' + svh[:arg_name] + '."; return 0 ;;' %>
+        <% end
+
+        svn = svh[:short_name]
+        if svn && svh[:arg_name]
+          svn = '-' + svh[:short_name] %>
           <%= svn + ') COMPREPLY=".' + svh[:arg_name] + '."; return 0 ;;' %>
         <% end
       end %>

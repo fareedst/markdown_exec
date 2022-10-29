@@ -34,11 +34,19 @@ _mde() {
             
               --debug) COMPREPLY="0"; return 0 ;;
             
+              -d) COMPREPLY="0"; return 0 ;;
+            
               --filename) COMPREPLY="."; return 0 ;;
+            
+              -f) COMPREPLY="."; return 0 ;;
             
               --path) COMPREPLY="."; return 0 ;;
             
+              -p) COMPREPLY="."; return 0 ;;
+            
               --user-must-approve) COMPREPLY="1"; return 0 ;;
+            
+              -q) COMPREPLY="1"; return 0 ;;
             
               --display-level) COMPREPLY="1"; return 0 ;;
             
@@ -81,17 +89,27 @@ _mde() {
       
           --block-name) COMPREPLY=".NAME."; return 0 ;;
         
+          -b) COMPREPLY=".NAME."; return 0 ;;
+        
           --config) COMPREPLY=".PATH."; return 0 ;;
         
           --debug) COMPREPLY=".BOOL."; return 0 ;;
         
+          -d) COMPREPLY=".BOOL."; return 0 ;;
+        
           --filename) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          -f) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
+          -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
           --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
         
-          --display-level) COMPREPLY=".INT.0-2."; return 0 ;;
+          -q) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --display-level) COMPREPLY=".INT.0-3."; return 0 ;;
         
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
