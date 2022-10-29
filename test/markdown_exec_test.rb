@@ -3,8 +3,8 @@
 require 'test_helper'
 require_relative '../lib/markdown_exec/version'
 
-include Tap
-tap_config envvar: MarkdownExec::TAP_DEBUG
+# include Tap
+# tap_config envvar: MarkdownExec::TAP_DEBUG
 
 RUN_INTERACTIVE = false # tests requiring user interaction (e.g. selection)
 
@@ -22,7 +22,7 @@ class MarkdownExecTest < Minitest::Test
 
       val = env_str(item[:env_var], default: item[:default])
       [item[:opt_name].to_sym, val] if val.present?
-    end.compact.sort_by { |key, _v| key }.to_h.merge({ filename: 'fixtures/sample1.md' })
+    end.compact.sort_by { |key, _v| key }.to_h.merge({ filename: 'fixtures/sample1.md', menu_divider_format: '' })
   end
 
   def test_object_present?
@@ -31,39 +31,6 @@ class MarkdownExecTest < Minitest::Test
     assert_predicate 'a', :present?
     assert_predicate true, :present?
     assert_predicate false, :present?
-  end
-
-  def test_env_bool
-    assert env_bool(nil, default: true)
-    refute env_bool('NO_VAR', default: false)
-    ENV['X'] = ''
-    refute env_bool('X')
-    ENV['X0'] = '0'
-    refute env_bool('X0')
-    ENV['X1'] = '1'
-    assert env_bool('X1')
-  end
-
-  let(:default_int) { 2 }
-
-  def test_env_int
-    assert_equal default_int, env_int(nil, default: default_int)
-    assert_equal default_int, env_int('NO_VAR', default: default_int)
-    ENV['X'] = ''
-    assert_equal default_int, env_int('X', default: default_int)
-    ENV['X1'] = '1'
-    assert_equal 1, env_int('X1', default: default_int)
-  end
-
-  let(:default_str) { 'a' }
-
-  def test_env_str
-    assert_equal default_str, env_str(nil, default: default_str)
-    assert_equal default_str, env_str('NO_VAR', default: default_str)
-    ENV['X'] = ''
-    assert_equal '', env_str('X', default: default_str)
-    ENV['X1'] = '1'
-    assert_equal '1', env_str('X1', default: default_str)
   end
 
   def test_that_it_has_a_version_number
@@ -83,7 +50,7 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_update_options_over
-    mp.update_options options_diff
+    mp.update_options options_diff, over: true
     assert_equal options.merge(options_diff), mp.options
   end
 
@@ -118,7 +85,8 @@ class MarkdownExecTest < Minitest::Test
   end
 
   def test_list_markdown_files_in_path
-    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'], mp.list_markdown_files_in_path
+    assert_equal ['./CHANGELOG.md', './CODE_OF_CONDUCT.md', './README.md'],
+                 mp.list_markdown_files_in_path.sort
   end
 
   let(:list_blocks_bash1) do
@@ -359,7 +327,7 @@ class MarkdownExecTest < Minitest::Test
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
     assert_equal ft,
                  mp.list_files_specified(specified_folder: 'fixtures', default_filename: 'README.md',
-                                         default_folder: '.')
+                                         default_folder: '.').sort
   end
 
   def test_target_default_path_and_default_filename
@@ -395,14 +363,6 @@ class MarkdownExecTest < Minitest::Test
                                          default_filename: default_filename,
                                          default_folder: default_path,
                                          filetree: ft)
-  end
-
-  def test_value_for_cli
-    assert_equal '0', mp.value_for_cli(false)
-    assert_equal '1', mp.value_for_cli(true)
-    assert_equal '2', mp.value_for_cli(2)
-    assert_equal 'a', mp.value_for_cli('a')
-    assert_equal 'a\ b', mp.value_for_cli('a b')
   end
 
   def test_value_for_hash
@@ -533,7 +493,7 @@ class MarkdownExecTest < Minitest::Test
 
   let(:hide_menu_block_per_options) do
     {
-      block_name_excluded_match: '^(?<name>block[13]).*$',
+      block_name_hidden_match: '^(?<name>block[13]).*$',
       hide_blocks_by_name: true
     }
   end

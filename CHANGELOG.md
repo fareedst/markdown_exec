@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.1] - 2022-10-29
+
+### Added
+
+- Delay to allow all command output to be received
+- Display an error message when the specified document file is missing
+- Options to display, format and colorize menu dividers and demarcations
+- Tab completion for short option names
+
+### Changed
+
+- Fix handling of document supplied by process substitution
+
 ## [1.3.0] - 2022-07-16
 
 ### Added
@@ -173,7 +186,7 @@ e.g. `MDE_OUTPUT_VIEWER_OPTIONS="-a '/Applications/Sublime Text.app'" mde --sele
 
 | YAML Name | Environment Variable | Default |
 | :--- | :--- | :--- |
-| block_name_excluded_match | MDE_BLOCK_NAME_EXCLUDED_MATCH  | `^\(.+\)$` |
+| block_name_hidden_match | MDE_BLOCK_NAME_HIDDEN_MATCH  | `^\(.+\)$` |
 | block_name_match | MDE_BLOCK_NAME_MATCH  | `:(?<title>\S+)( \|$)` |
 | block_required_scan | MDE_BLOCK_REQUIRED_SCAN  | `\+\S+` |
 | fenced_start_and_end_match | MDE_FENCED_START_AND_END_MATCH  | ``^`{3,}`` |

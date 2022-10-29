@@ -24,3 +24,6 @@ detectors:
     enabled: true
   TooManyStatements:
     enabled: false # too strict
+
+exclude_paths:
+  - vendor/

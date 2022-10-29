@@ -6,6 +6,9 @@ AllCops:
   NewCops: enable
   TargetRubyVersion: 2.6
 
+Layout/LeadingCommentSpace:
+  Enabled: false
+
 Lint/SafeNavigationChain:
   Enabled: false
 
