@@ -10,17 +10,21 @@ module Env
   # :reek:NilCheck
   # :reek:UtilityFunction
   def env_bool(name, default: false)
-    return default if name.nil? || (val = ENV[name]).nil?
+    return default if name.nil? || (val = ENV.fetch(name, nil)).nil?
     return false if val.empty? || val == '0'
 
     true
+  end
+
+  def env_bool_false(name)
+    !(val = (name && ENV.fetch(name, nil))).nil? && !(val.empty? || val == '0')
   end
 
   # skip :reek:DataClump
   # skip :reek:NilCheck
   # skip :reek:UtilityFunction
   def env_int(name, default: 0)
-    return default if name.nil? || (val = ENV[name]).nil?
+    return default if name.nil? || (val = ENV.fetch(name, nil)).nil?
     return default if val.empty?
 
     val.to_i
@@ -30,7 +34,7 @@ module Env
   # skip :reek:NilCheck
   # skip :reek:UtilityFunction
   def env_str(name, default: '')
-    return default if name.nil? || (val = ENV[name]).nil?
+    return default if name.nil? || (val = ENV.fetch(name, nil)).nil?
 
     val || default
   end

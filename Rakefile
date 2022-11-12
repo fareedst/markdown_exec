@@ -34,6 +34,7 @@ tap_config envvar: MarkdownExec::TAP_DEBUG
 
 RuboCop::RakeTask.new do |task|
   task.requires << 'rubocop-minitest'
+  task.requires << 'rubocop-rspec'
 end
 
 desc 'named task because minitest not included in rubocop tests'
@@ -42,7 +43,7 @@ task :rubocopminitest do
 end
 
 task default: %i[test reek rubocop rubocopminitest]
-# task default: %i[spec test reek rubocop rubocopminitest]
+# task default: %i[rspec test reek rubocop rubocopminitest]
 
 # task :default => :build
 
@@ -630,7 +631,7 @@ def update_tab_completion(target)
 
   svhs = YAML.load File.open(MENU_YML)
   svhs.each do |svh|
-    svh[:compreply] = CLI::value_for_cli(svh[:default]) if svh[:compreply].nil?
+    svh[:compreply] = CLI.value_for_cli(svh[:default]) if svh[:compreply].nil?
   end.tap_inspect name: :svhs, type: :yaml
 
   File.write target, ERB.new(File.read(filespec = File.join(BF, 'tab_completion.sh.erb'))).result(binding)

@@ -6,6 +6,7 @@
 require 'English'
 require 'clipboard'
 require 'open3'
+require 'optparse'
 require 'shellwords'
 require 'tty-prompt'
 require 'yaml'
@@ -13,7 +14,6 @@ require 'yaml'
 require_relative 'cli'
 require_relative 'colorize'
 require_relative 'env'
-require_relative 'environment_opt_parse'
 require_relative 'object_present'
 require_relative 'shared'
 require_relative 'tap'
@@ -477,7 +477,7 @@ module MarkdownExec
             yield line, nil, nil, exec_thr if block_given?
           end
           #d 'exec_thr now dead'
-        rescue
+        rescue StandardError
           #d 'stdin error, thread killed, do nothing'
         end
 
@@ -787,11 +787,9 @@ module MarkdownExec
       blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
       mdoc = MDoc.new(blocks_in_file)
 
-      list_blocks_in_file(opts).map do |block|
-        next if mdoc.hide_menu_block_per_options(opts, block)
-
-        block
-      end.compact.tap_inspect
+      list_blocks_in_file(opts).reject do |block|
+        mdoc.hide_menu_block_per_options(opts, block)
+      end.tap_inspect
     end
 
     def list_recent_output(saved_stdout_folder, saved_stdout_glob, list_count)
@@ -1001,21 +999,6 @@ module MarkdownExec
 
     # :reek:NestedIterators
     def run
-      # eop = EnvironmentOptParse.new(
-      #   menu: File.join(File.expand_path(__dir__), 'menu.yml'),
-      #   options: {
-      #     menu_exit_at_top: true,
-      #     menu_with_exit: true
-      #   }
-      # ).tap_yaml '** eop'
-      # # eop = EnvironmentOptParse.new(menu: 'lib/menu.yml', options: ".#{MarkdownExec::APP_NAME.downcase}.yml", version: MarkdownExec::VERSION).tap_yaml '** eop'
-      # eop.options.tap_inspect 'eop.options'
-      # eop.remainder.tap_inspect 'eop.remainder'
-
-      # exec_block eop.options, eop.options[:block_name]
-
-      # return
-
       ## default configuration
       #
       @options = base_options
@@ -1080,7 +1063,7 @@ module MarkdownExec
       @options[:logged_stdout_filespec] = File.join @options[:saved_stdout_folder], @options[:logged_stdout_filename]
       @logged_stdout_filespec = @options[:logged_stdout_filespec]
       (dirname = File.dirname(@options[:logged_stdout_filespec])).tap_inspect name: :dirname
-      Dir.mkdir dirname unless File.exist?(dirname)
+      Dir.mkdir_p dirname
 
       ol = ["-STDOUT-\n"]
       ol += @execute_files&.fetch(EF_STDOUT, [])
@@ -1217,7 +1200,7 @@ module MarkdownExec
           File.join opts[:saved_script_folder], opts[:saved_script_filename]
 
       dirname = File.dirname(@options[:saved_filespec])
-      Dir.mkdir dirname unless File.exist?(dirname)
+      Dir.mkdir_p dirname
       (shebang = if @options[:shebang]&.present?
                    "#{@options[:shebang]} #{@options[:shell]}\n"
                  else

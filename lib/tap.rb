@@ -6,7 +6,11 @@ require 'json'
 require 'yaml'
 
 require_relative 'env'
+require_relative 'object_present'
+
 include Env
+
+# rubocop:disable Metrics/ParameterLists
 
 ## application-level debug control
 #
@@ -59,6 +63,7 @@ module Tap
     end
     # puts "$tap_enable: #{$tap_enable}"
     # puts "$tap_mask: #{$tap_mask.to_s(2)}"
+    self
   end
 
   def tap_inspect(name_ = nil, caller0: nil, mask: TDD, name: DN, source: nil, type: nil)
@@ -67,31 +72,46 @@ module Tap
 
     fn = CVT.fetch(type, CVT[:else])
     outs = []
-    outs.push("#{source}") if source
-    outs.push("#{(caller0 || caller[0]).scan(/in `?(\S+)'$/)[0][0]}()") # if (mask & $tap_mask & TP).positive?
-    outs.push("#{name_ || name}: #{method(fn).call}") # if (mask & $tap_mask & TD).positive?
-    puts outs.join(' ') if outs.length.positive?
+    outs.push(source.to_s) if source.present?
 
+    vs = (caller0 || caller[0]).scan(/in `?(\S+)'$/).fetch(0, []).fetch(0, '')
+    outs.push("#{vs}()") if vs.present?
+
+    outs.push(tap_named_value(name_ || name, method(fn).call))
+
+    $stdout.puts(outs.join(' ')) if outs.length.positive?
     self
   end
 
   def tap_print(mask: TDD)
+    return self unless $tap_enable
     return self unless (mask & $tap_mask).positive?
 
-    print self
+    $stdout.print self
+    self
   end
 
-  def tap_puts(name_ = nil, caller0: nil, mask: TDD, name: nil, type: nil)
-    # return self unless (mask & $tap_mask).positive?
+  def tap_puts(name_ = nil, mask: TDD, name: nil)
+    return self unless $tap_enable
+    return self unless (mask & $tap_mask).positive?
 
-    if (name1 = name_ || name).present?
-      puts "#{name1}: #{self}"
-    else
-      puts self
-    end
+    $stdout.puts tap_named_value(name_ || name, self)
+    self
   end
 
   def tap_yaml(name_ = nil, caller0: nil, mask: TDD, name: DN, source: nil)
     tap_inspect name_, caller0: (caller0 || caller[0]), mask: mask, name: name, source: source, type: :yaml
   end
+
+  private
+
+  def tap_named_value(name, value)
+    if name.present?
+      "#{name}: #{value}"
+    else
+      value.to_s
+    end
+  end
 end
+
+# rubocop:enable Metrics/ParameterLists

@@ -22,7 +22,6 @@ class String
   end
 end
 
-
 # is the value a non-empty string or a binary?
 #
 # :reek:ManualDispatch ### temp

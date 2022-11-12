@@ -3,6 +3,8 @@
 require 'test_helper'
 require_relative '../lib/markdown_exec/version'
 
+puts "SPEC:#{__FILE__}" if ENV.fetch('SPEC_DEBUG', nil).tap { |val| val.nil? ? false : !(val.empty? || val == '0') }
+
 # include Tap
 # tap_config envvar: MarkdownExec::TAP_DEBUG
 

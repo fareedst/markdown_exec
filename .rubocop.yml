@@ -9,6 +9,9 @@ AllCops:
 Layout/LeadingCommentSpace:
   Enabled: false
 
+Layout/LineContinuationLeadingSpace:
+  Enabled: false
+
 Lint/SafeNavigationChain:
   Enabled: false
 
@@ -55,6 +58,9 @@ Style/MixinUsage:
   Enabled: false
 
 Style/MultilineBlockChain:
+  Enabled: false
+
+Style/SlicingWithRange:
   Enabled: false
 
 Style/StringLiterals:

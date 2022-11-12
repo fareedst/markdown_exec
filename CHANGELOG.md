@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2] - 2022-11-12
+
+### Added
+
+- Add EnvOpts class
+- RSpec for internal classes
+
 ## [1.3.1] - 2022-10-29
 
 ### Added

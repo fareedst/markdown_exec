@@ -7,6 +7,8 @@ require 'yaml'
 
 require_relative 'object_present'
 
+# add Hash.sym_keys
+#
 class Hash
   unless defined?(sym_keys)
     def sym_keys
@@ -18,6 +20,8 @@ class Hash
   end
 end
 
+# parse application configuration from command-line options and environment variables
+#
 class EnvironmentOptParse
   attr_reader :options, :remainder
 
