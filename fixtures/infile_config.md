@@ -4,7 +4,7 @@ menu_divider_match: "^::: +(?<name>.+?)$"
 menu_divider_format: "=> %s <="
 ```
 
-::: divider 1
+::: :divider 1
 
 ```bash :placeholder
 ```

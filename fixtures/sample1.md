@@ -1,9 +1,9 @@
 #
 ##
-``` one
+``` :one
 a
 ```
 
-```bash two
+```bash :two
 b
 ```

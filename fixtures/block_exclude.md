@@ -15,6 +15,9 @@ lorem 21
 ```bash :block21
 body21
 ```
+```expect :block22
+body22
+```
 
 lorem 22
 
@@ -22,8 +25,11 @@ lorem 22
 
 lorem 31
 
-```bash :block31
+```mermaid :block31
 body31
+```
+```unexpected :block32
+body32
 ```
 
 lorem 32

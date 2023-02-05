@@ -1,8 +1,8 @@
-```bash ls
+```bash :ls
 ls
 ```
 
-```bash two-three
+```bash :two-three
 echo "TWO"
 echo "THREE"
 ```

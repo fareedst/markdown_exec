@@ -101,6 +101,12 @@
   :long_name: pwd
   :opt_name: pwd
   :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
+  :description: Display only blocks of type "bash"
+  :env_var: MDE_BASH_ONLY
+  :opt_name: bash_only
+  :procname: val_as_bool
 - :arg_name: INT.0-3
   :default: 1
   :description: Output display level (0 to 3 [data, +context, +info])
@@ -108,6 +114,30 @@
   :long_name: display-level
   :opt_name: display_level
   :procname: val_as_int
+- :arg_name: REGEX
+  :default:
+  :description: Exclude blocks with name matching
+  :env_var: MDE_EXCLUDE_BY_NAME_REGEX
+  :opt_name: exclude_by_name_regex
+  :procname: val_as_str
+- :arg_name: REGEX
+  :default:
+  :description: Exclude blocks with shell matching
+  :env_var: MDE_EXCLUDE_BY_SHELL_REGEX
+  :opt_name: exclude_by_shell_regex
+  :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Hide all blocks of type "expect"
+  :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
+  :opt_name: exclude_expect_blocks
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: true
+  :description: Exclude blocks with name matching expression `block_name_hidden_match`
+  :env_var: MDE_HIDE_BLOCKS_BY_NAME
+  :opt_name: hide_blocks_by_name
+  :procname: val_as_bool
 - :arg_name: INT.1-
   :default: 32
   :description: Max. items to return in list
@@ -134,11 +164,29 @@
   :opt_name: menu_blocks_with_headings
   :procname: val_as_bool
 - :arg_name: BOOL
+  :default: true
+  :description: Display Exit option at top of menu
+  :env_var: MDE_MENU_EXIT_AT_TOP
+  :opt_name: menu_exit_at_top
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: true
+  :description: Display Exit option in menu
+  :env_var: MDE_MENU_WITH_EXIT
+  :opt_name: menu_with_exit
+  :procname: val_as_bool
+- :arg_name: BOOL
   :default: false
   :description: Display summary for execution
   :env_var: MDE_OUTPUT_EXECUTION_SUMMARY
   :long_name: output-execution-summary
   :opt_name: output_execution_summary
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
+  :description: Output saved script filename at end of execution
+  :env_var: MDE_OUTPUT_SAVED_SCRIPT_FILENAME
+  :opt_name: output_saved_script_filename
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
@@ -206,6 +254,18 @@
   :env_var: MDE_SAVED_STDOUT_GLOB
   :opt_name: saved_stdout_glob
   :procname: val_as_str
+- :arg_name: REGEX
+  :default:
+  :description: Select blocks with name matching
+  :env_var: MDE_SELECT_BY_NAME_REGEX
+  :opt_name: select_by_name_regex
+  :procname: val_as_str
+- :arg_name: REGEX
+  :default:
+  :description: Select blocks with shell matching
+  :env_var: MDE_SELECT_BY_SHELL_REGEX
+  :opt_name: select_by_shell_regex
+  :procname: val_as_str
 - :default: "^[\\(\\[].*[\\)\\]]$"
   :description: Pattern for blocks to hide from user-selection
   :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
@@ -223,11 +283,11 @@
   :env_var: MDE_BLOCK_REQUIRED_SCAN
   :opt_name: block_required_scan
   :procname: val_as_str
-- :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z]\\S*))"
+- :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
   :env_var: MDE_BLOCK_STDIN_SCAN
   :opt_name: block_stdin_scan
   :procname: val_as_str
-- :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z]\\S*))"
+- :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
   :env_var: MDE_BLOCK_STDOUT_SCAN
   :opt_name: block_stdout_scan
   :procname: val_as_str
@@ -239,7 +299,7 @@
   :env_var: MDE_FENCED_START_AND_END_MATCH
   :opt_name: fenced_start_and_end_match
   :procname: val_as_str
-- :default: "^`{3,}(?<shell>[^`\\s]*) *(?<name>.*)$"
+- :default: "^`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
   :env_var: MDE_FENCED_START_EX_MATCH
   :opt_name: fenced_start_ex_match
   :procname: val_as_str

@@ -30,7 +30,6 @@ require_relative 'lib/tap'
 include CLI
 
 include Tap
-tap_config envvar: MarkdownExec::TAP_DEBUG
 
 RuboCop::RakeTask.new do |task|
   task.requires << 'rubocop-minitest'
@@ -239,13 +238,56 @@ task :update_menu_yml do
     ## secondary options
     #
     {
+      arg_name: 'BOOL',
+      default: false,
+      description: 'Display only blocks of type "bash"',
+      env_var: 'MDE_BASH_ONLY',
+      opt_name: 'bash_only',
+      procname: 'val_as_bool'
+    },
+    {
       arg_name: "INT.#{DISPLAY_LEVEL_BASE}-#{DISPLAY_LEVEL_MAX}",
       default: DISPLAY_LEVEL_DEFAULT,
-      description: "Output display level (#{DISPLAY_LEVEL_BASE} to #{DISPLAY_LEVEL_MAX} [data, +context, +info])",
+      description: 'Output display level ' \
+                   "(#{DISPLAY_LEVEL_BASE} to #{DISPLAY_LEVEL_MAX} " \
+                   '[data, +context, +info])',
       env_var: 'MDE_DISPLAY_LEVEL',
       long_name: 'display-level',
       opt_name: 'display_level',
       procname: 'val_as_int'
+    },
+    {
+      arg_name: 'REGEX',
+      default: nil,
+      description: 'Exclude blocks with name matching',
+      env_var: 'MDE_EXCLUDE_BY_NAME_REGEX',
+      opt_name: 'exclude_by_name_regex',
+      procname: 'val_as_str'
+    },
+    {
+      arg_name: 'REGEX',
+      default: nil,
+      description: 'Exclude blocks with shell matching',
+      env_var: 'MDE_EXCLUDE_BY_SHELL_REGEX',
+      opt_name: 'exclude_by_shell_regex',
+      procname: 'val_as_str'
+    },
+    {
+      arg_name: 'BOOL',
+      default: true,
+      description: 'Hide all blocks of type "expect"',
+      env_var: 'MDE_EXCLUDE_EXPECT_BLOCKS',
+      opt_name: 'exclude_expect_blocks',
+      procname: 'val_as_bool'
+    },
+    {
+      arg_name: 'BOOL',
+      default: true,
+      description: 'Exclude blocks with name matching expression " \
+       "`block_name_hidden_match`',
+      env_var: 'MDE_HIDE_BLOCKS_BY_NAME',
+      opt_name: 'hide_blocks_by_name',
+      procname: 'val_as_bool'
     },
     {
       arg_name: 'INT.1-',
@@ -261,7 +303,6 @@ task :update_menu_yml do
       default: MarkdownExec::BIN_NAME,
       description: 'Name prefix for stdout files',
       env_var: 'MDE_LOGGED_STDOUT_FILENAME_PREFIX',
-      # long_name: 'logged-stdout-filename-prefix',
       opt_name: 'logged_stdout_filename_prefix',
       procname: 'val_as_str'
     },
@@ -270,7 +311,6 @@ task :update_menu_yml do
       default: false,
       description: 'Display document name in block selection menu',
       env_var: 'MDE_MENU_BLOCKS_WITH_DOCNAME',
-      # long_name: 'menu-blocks-with-docname',
       opt_name: 'menu_blocks_with_docname',
       procname: 'val_as_bool'
     },
@@ -279,8 +319,23 @@ task :update_menu_yml do
       default: false,
       description: 'Display headings (levels 1,2,3) in block selection menu',
       env_var: 'MDE_MENU_BLOCKS_WITH_HEADINGS',
-      # long_name: 'menu-blocks-with-headings',
       opt_name: 'menu_blocks_with_headings',
+      procname: 'val_as_bool'
+    },
+    {
+      arg_name: 'BOOL',
+      default: true,
+      description: 'Display Exit option at top of menu',
+      env_var: 'MDE_MENU_EXIT_AT_TOP',
+      opt_name: 'menu_exit_at_top',
+      procname: 'val_as_bool'
+    },
+    {
+      arg_name: 'BOOL',
+      default: true,
+      description: 'Display Exit option in menu',
+      env_var: 'MDE_MENU_WITH_EXIT',
+      opt_name: 'menu_with_exit',
       procname: 'val_as_bool'
     },
     {
@@ -290,6 +345,14 @@ task :update_menu_yml do
       env_var: 'MDE_OUTPUT_EXECUTION_SUMMARY',
       long_name: 'output-execution-summary',
       opt_name: 'output_execution_summary',
+      procname: 'val_as_bool'
+    },
+    {
+      arg_name: 'BOOL',
+      default: false,
+      description: 'Output saved script filename at end of execution',
+      env_var: 'MDE_OUTPUT_SAVED_SCRIPT_FILENAME',
+      opt_name: 'output_saved_script_filename',
       procname: 'val_as_bool'
     },
     {
@@ -333,7 +396,6 @@ task :update_menu_yml do
       default: 0o755,
       description: 'chmod for saved scripts',
       env_var: 'MDE_SAVED_SCRIPT_CHMOD',
-      # long_name: 'saved-script-chmod',
       opt_name: 'saved_script_chmod',
       procname: 'val_as_int'
     },
@@ -342,7 +404,6 @@ task :update_menu_yml do
       default: MarkdownExec::BIN_NAME,
       description: 'Name prefix for saved scripts',
       env_var: 'MDE_SAVED_SCRIPT_FILENAME_PREFIX',
-      # long_name: 'saved-script-filename-prefix',
       opt_name: 'saved_script_filename_prefix',
       procname: 'val_as_str'
     },
@@ -360,7 +421,6 @@ task :update_menu_yml do
       default: 'mde_*.sh',
       description: 'Glob matching saved scripts',
       env_var: 'MDE_SAVED_SCRIPT_GLOB',
-      # long_name: 'saved-script-glob',
       opt_name: 'saved_script_glob',
       procname: 'val_as_str'
     },
@@ -378,11 +438,25 @@ task :update_menu_yml do
       default: 'mde_*.out.txt',
       description: 'Glob matching saved outputs',
       env_var: 'MDE_SAVED_STDOUT_GLOB',
-      # long_name: 'saved-stdout-glob',
       opt_name: 'saved_stdout_glob',
       procname: 'val_as_str'
     },
-
+    {
+      arg_name: 'REGEX',
+      default: nil,
+      description: 'Select blocks with name matching',
+      env_var: 'MDE_SELECT_BY_NAME_REGEX',
+      opt_name: 'select_by_name_regex',
+      procname: 'val_as_str'
+    },
+    {
+      arg_name: 'REGEX',
+      default: nil,
+      description: 'Select blocks with shell matching',
+      env_var: 'MDE_SELECT_BY_SHELL_REGEX',
+      opt_name: 'select_by_shell_regex',
+      procname: 'val_as_str'
+    },
     {
       default: '^[\(\[].*[\)\]]$',
       description: 'Pattern for blocks to hide from user-selection',
@@ -409,13 +483,13 @@ task :update_menu_yml do
       procname: 'val_as_str'
     },
     {
-      default: '<(?<full>(?<type>\$)?(?<name>[A-Za-z]\S*))',
+      default: '<(?<full>(?<type>\$)?(?<name>[A-Za-z_\-\.\w]+))',
       env_var: 'MDE_BLOCK_STDIN_SCAN',
       opt_name: 'block_stdin_scan',
       procname: 'val_as_str'
     },
     {
-      default: '>(?<full>(?<type>\$)?(?<name>[A-Za-z]\S*))',
+      default: '>(?<full>(?<type>\$)?(?<name>[A-Za-z_\-\.\w]+))',
       env_var: 'MDE_BLOCK_STDOUT_SCAN',
       opt_name: 'block_stdout_scan',
       procname: 'val_as_str'
@@ -433,7 +507,7 @@ task :update_menu_yml do
       procname: 'val_as_str'
     },
     {
-      default: '^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$',
+      default: '^`{3,}(?<shell>[^`\s]*) *:?(?<name>[^\s]*) *(?<rest>.*) *$',
       env_var: 'MDE_FENCED_START_EX_MATCH',
       opt_name: 'fenced_start_ex_match',
       procname: 'val_as_str'
@@ -606,18 +680,12 @@ task :update_menu_yml do
       env_var: 'MDE_OUTPUT_DIVIDER_COLOR',
       opt_name: 'output_divider_color',
       procname: 'val_as_str'
-      # },
-      # {
-      #   default: '',
-      #   description: '',
-      #   env_var: 'MDE_PROMPT_',
-      #   opt_name: 'prompt_',
-      #   procname: 'val_as_str'
     }
   ]
 
   File.write(MENU_YML,
-             "# #{MarkdownExec::APP_NAME} - #{MarkdownExec::APP_DESC} (#{MarkdownExec::VERSION})\n" +
+             "# #{MarkdownExec::APP_NAME} - #{MarkdownExec::APP_DESC} " \
+             "(#{MarkdownExec::VERSION})\n" +
               menu_options.to_yaml)
   puts `stat #{MENU_YML}`
 end
@@ -634,7 +702,10 @@ def update_tab_completion(target)
     svh[:compreply] = CLI.value_for_cli(svh[:default]) if svh[:compreply].nil?
   end.tap_inspect name: :svhs, type: :yaml
 
-  File.write target, ERB.new(File.read(filespec = File.join(BF, 'tab_completion.sh.erb'))).result(binding)
+  File.write target,
+             ERB.new(File.read(filespec = File.join(BF,
+                                                    'tab_completion.sh.erb')))
+                .result(binding)
   puts `stat #{filespec}`
 end
 
