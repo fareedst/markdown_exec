@@ -4,8 +4,8 @@ require 'rspec'
 require_relative '../lib/env_opts'
 
 include Tap #; tap_config
-
-puts "SPEC:#{__FILE__}" if ENV.fetch('SPEC_DEBUG', nil).tap { |val| val.nil? ? false : !(val.empty? || val == '0') }
+require_relative '../lib/rspec_helpers'
+spec_source __FILE__
 
 RSpec.describe 'EnvOpts' do
   describe 'initialize' do

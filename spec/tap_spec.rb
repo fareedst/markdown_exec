@@ -4,9 +4,9 @@ require 'rspec'
 require_relative '../lib/object_present'
 require_relative '../lib/tap'
 
-puts "SPEC:#{__FILE__}" if ENV.fetch('SPEC_DEBUG', nil).tap { |val| val.nil? ? false : !(val.empty? || val == '0') }
-
 include Tap
+require_relative '../lib/rspec_helpers'
+spec_source __FILE__
 
 def hide_stdout
   $stdout = StringIO.new # do not display stdout

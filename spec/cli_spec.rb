@@ -2,8 +2,8 @@
 
 require 'rspec'
 require_relative '../lib/cli'
-
-puts "SPEC:#{__FILE__}" if ENV.fetch('SPEC_DEBUG', nil).tap { |val| val.nil? ? false : !(val.empty? || val == '0') }
+require_relative '../lib/rspec_helpers'
+spec_source __FILE__
 
 include CLI
 
