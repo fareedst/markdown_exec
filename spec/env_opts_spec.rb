@@ -25,7 +25,7 @@ RSpec.describe 'EnvOpts' do
 
       it 'sets default value' do
         allow(EnvOpts).to receive(:new).and_return(double)
-        allow(double).to receive(:set_key_value_raw).with('value', '_option') #.and_return(build :sport_rate)
+        allow(double).to receive(:set_key_value_raw).with('value', '_option')
         expect(double).not_to be_nil
       end
     end

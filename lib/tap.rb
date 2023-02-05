@@ -5,16 +5,44 @@
 require 'json'
 require 'yaml'
 
-require_relative 'env'
-require_relative 'object_present'
+# is the value a non-empty string or a binary?
+#
+# :reek:ManualDispatch ### temp
+class Object
+  unless defined?(present?)
+    def present?
+      case self.class.to_s
+      when 'FalseClass', 'TrueClass'
+        true
+      else
+        self && (!respond_to?(:empty?) || !empty?)
+      end
+    end
+  end
+end
 
-include Env
+unless defined?(Env)
+  # utility functions to read environment variables
+  #
+  module Env
+    # :reek:UtilityFunction
+    def env_int(name, default: 0)
+      return default if name.nil? || (val = ENV.fetch(name, nil)).nil?
+      return default if val.empty?
+
+      val.to_i
+    end
+  end
+end
 
 # rubocop:disable Metrics/ParameterLists
 
 ## application-level debug control
 #
+# :reek:TooManyConstants
 module Tap
+  include Env
+
   DN = 'return'
   NONE = 0x0
   T1 = 1 # RESULT
@@ -49,6 +77,8 @@ module Tap
   $tap_enable = false
   $tap_mask = ALL2
 
+  # :reek:BooleanParameter
+  # :reek:ControlParameter
   def tap_config(enable: true, envvar: nil, value: nil)
     $tap_enable = false
     if envvar
@@ -66,7 +96,10 @@ module Tap
     self
   end
 
-  def tap_inspect(name_ = nil, caller0: nil, mask: TDD, name: DN, source: nil, type: nil)
+  # :reek:ControlParameter
+  # :reek:LongParameterList
+  def tap_inspect(name_ = nil, caller_first: nil, mask: TDD, name: DN, source: nil,
+                  type: nil)
     return self unless $tap_enable
     return self unless (mask & $tap_mask).positive?
 
@@ -74,7 +107,7 @@ module Tap
     outs = []
     outs.push(source.to_s) if source.present?
 
-    vs = (caller0 || caller[0]).scan(/in `?(\S+)'$/).fetch(0, []).fetch(0, '')
+    vs = (caller_first || caller[0]).scan(/in `?(\S+)'$/).fetch(0, []).fetch(0, '')
     outs.push("#{vs}()") if vs.present?
 
     outs.push(tap_named_value(name_ || name, method(fn).call))
@@ -91,6 +124,16 @@ module Tap
     self
   end
 
+  def tap_pry
+    return self unless $tap_enable
+
+    # rubocop:disable Lint/Debugger
+    binding.pry
+    # rubocop:enable Lint/Debugger
+    self
+  end
+
+  # :reek:ControlParameter
   def tap_puts(name_ = nil, mask: TDD, name: nil)
     return self unless $tap_enable
     return self unless (mask & $tap_mask).positive?
@@ -99,8 +142,11 @@ module Tap
     self
   end
 
-  def tap_yaml(name_ = nil, caller0: nil, mask: TDD, name: DN, source: nil)
-    tap_inspect name_, caller0: (caller0 || caller[0]), mask: mask, name: name, source: source, type: :yaml
+  # :reek:ControlParameter
+  # :reek:LongParameterList
+  def tap_yaml(name_ = nil, caller_first: nil, mask: TDD, name: DN, source: nil)
+    tap_inspect name_, caller_first: (caller_first || caller[0]),
+                       mask: mask, name: name, source: source, type: :yaml
   end
 
   private

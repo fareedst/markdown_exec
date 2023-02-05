@@ -11,6 +11,7 @@ include Tap #; tap_config
 # option to cast input values
 # value priority: default < environment < argument
 #
+# :reek:TooManyMethods
 class EnvOpts
   attr_reader :opts, :values
 
@@ -27,50 +28,48 @@ class EnvOpts
   # add options to menu
   # calculate help text
   #
+  # :reek:NestedIterators
   def add_options(opts_raw)
     return self if opts_raw.nil?
 
     rows = opts_raw.map do |key, opt_raw|
-      key2 = key_name_to_option_name(key)
+      opt_name = key_name_to_option_name(key)
 
-      # set_per_options(key2, opt_raw)
-      @opts[key2] = (opt_raw ||= {})
-      set_key_value_as_cast key2, EnvOpts.optdefault(opt_raw)
+      # set_per_options(opt_name, opt_raw)
+      @opts[opt_name] = (opt_raw ||= {})
+      set_key_value_as_cast opt_name, EnvOpts.optdefault(opt_raw)
 
-      set_key_value_per_environment_as_cast(key2, opt_raw)
+      set_key_value_per_environment_as_cast(opt_name, opt_raw)
 
       [
         [20, '-', "--#{key}"],
-        [16, '-', @opts[key2][:env].present? ? option_name_to_environment_name(key2, @opts[key2]) : ''],
-        # [24, '-', get_environment_value_from_option(key2, @opts[key2])],
-        [24, '-', @opts[key2][:default]],
+        [16, '-',
+         if @opts[opt_name][:env].present?
+           option_name_to_environment_name(opt_name, @opts[opt_name])
+         else
+           ''
+         end],
+        # [24, '-', get_environment_value_from_option(opt_name, @opts[opt_name])],
+        [24, '-', @opts[opt_name][:default]],
         [6, '-', if (fixed = opt_raw.fetch(:fixed, nil)).nil?
-                   ":#{option_cast(@opts[key2])}"
+                   ":#{option_cast(@opts[opt_name])}"
                  else
                    fixed.to_s
                  end]
       ]
-    end.tap_yaml 'rows'
+    end
 
-    max_widths = rows.reduce([0, 0, 0, 0]) do |memo, (c0, c1, c2, c3)|
-      [
-        [memo[0], c0[2].to_s.length].max,
-        [memo[1], c1[2].to_s.length].max,
-        [memo[2], c2[2].to_s.length].max,
-        [memo[3], c3[2].to_s.length].max
-      ]
-    end.tap_inspect 'max_widths'
+    max_widths = rows.reduce([0, 0, 0, 0]) do |memo, vals|
+      vals.map.with_index do |val, ind|
+        [memo[ind], val[2].to_s.length].max
+      end
+    end
 
-    @values['help'] = rows.map do |(c0, c1, c2, c3)|
-      [format("%#{c0[1]}#{max_widths[0]}s", c0[2]),
-       format("%#{c1[1]}#{max_widths[1]}s", c1[2]),
-       format("%#{c2[1]}#{max_widths[2]}s", c2[2]),
-       format("%#{c3[1]}#{max_widths[3]}s", c3[2])]
-    end.map do |row|
-      row.join('  ')
+    @values['help'] = rows.map do |row|
+      row.map.with_index do |cell, ind|
+        format("%#{cell[1]}#{max_widths[ind]}s", cell[2])
+      end.join('  ')
     end.join("\n")
-    @opts.tap_inspect '@opts'
-    @values.tap_inspect '@values'
 
     self
   end
@@ -98,7 +97,8 @@ class EnvOpts
       arg = argv.fetch(args_ind, '') #.tap_inspect 'argument', source: 'EnvOpts'
       if arg.start_with? '--'
         opt_name = arg[2..-1] #.tap_inspect 'opt_name', source: 'EnvOpts'
-        args_consumed = consume_arguments(opt_name, argv.fetch(args_ind + 1, nil))
+        args_consumed = consume_arguments(opt_name,
+                                          argv.fetch(args_ind + 1, nil))
       end
 
       if args_consumed.zero?
@@ -116,21 +116,19 @@ class EnvOpts
 
       args_ind += args_consumed
     end
-    @opts.tap_inspect '@opts'
-    @values.tap_inspect '@values'
 
     self
   end
 
   # set option current values per environment values
   #
-  def set_keys_value_per_environment_as_cast(opts_raw)
+  def options_per_environment_as_cast(opts_raw)
     return self if opts_raw.nil?
 
     opts_raw.each do |key, opt_raw|
-      set_key_value_per_environment_as_cast(key_name_to_option_name(key), opt_raw)
+      set_key_value_per_environment_as_cast(key_name_to_option_name(key),
+                                            opt_raw)
     end
-    @opts.tap_inspect '@opts'
 
     self
   end
@@ -146,7 +144,7 @@ class EnvOpts
   # get cast of environment variable
   #
   def option_cast(opt_raw)
-    (opt_raw[:cast].present? ? opt_raw[:cast].to_s : 'to_s').tap_inspect
+    (opt_raw[:cast].present? ? opt_raw[:cast].to_s : 'to_s')
   end
 
   # update value for named option
@@ -177,14 +175,13 @@ class EnvOpts
   # read and write options using the option name as a method
   #
   def method_missing(method_name, *args)
-    method_name.tap_inspect 'method_name'
     if method_name.to_s.end_with?('=')
       value = args.first
       name = method_name_to_option_name(method_name.to_s[0..-2])
       set_key_value_as_cast(name, value)
     else
       @values[method_name_to_option_name(method_name)]
-    end.tap_inspect "ref #{method_name}", source: 'EnvOpts'
+    end #.tap_inspect "ref #{method_name}", source: 'EnvOpts'
   end
 
   # option name to environment name
@@ -196,23 +193,24 @@ class EnvOpts
       "#{@values['env-prefix']}#{opt_name.upcase.gsub('-', '_')}"
     else
       env_name
-    end.tap_inspect
+    end
   end
 
   # get environment value from option
   #
   def get_environment_value_from_option(opt_name, opt_raw)
-    ENV.fetch(option_name_to_environment_name(opt_name, opt_raw), nil).tap_inspect
+    ENV.fetch(option_name_to_environment_name(opt_name, opt_raw),
+              nil)
   end
 
   # option names are available as methods
   #
+  # :reek:BooleanParameter
   def respond_to_missing?(method_name, include_private = false)
     (@opts.keys.include?(method_name_to_option_name(method_name)) || super)
   end
 
   def set_key_value_as_cast(key, value)
-    [key, value].tap_inspect 'key, value'
     opt = @opts[key]
     set_key_value_raw(key, (opt[:cast] ? value.send(opt[:cast]) : value))
   end
@@ -220,18 +218,19 @@ class EnvOpts
   # set key value_per environment as cast
   #
   def set_key_value_per_environment_as_cast(key, opt_raw)
-    key.tap_inspect 'key'
-    opt_raw.tap_inspect 'opt_raw'
     return if opt_raw[:env].nil?
 
-    value = get_environment_value_from_option(key, opt_raw).tap_inspect 'value'
-    set_key_value_as_cast(key, opt_raw[:cast] ? value.send(opt_raw[:cast]) : value) unless value.nil?
+    value = get_environment_value_from_option(key, opt_raw)
+
+    return unless value
+
+    set_key_value_as_cast(key,
+                          opt_raw[:cast] ? value.send(opt_raw[:cast]) : value)
   end
 
   # set key value (raw)
   #
   def set_key_value_raw(key, value)
-    [key, value].tap_inspect 'key, value'
     @values[key] = value
   end
 

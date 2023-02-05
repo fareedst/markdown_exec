@@ -31,18 +31,9 @@ class EnvironmentOptParse
     def menu_all(menu_data, lambdas, config)
       config.tap_yaml 'config'
       input_option_values, remainder, = menu_parse(add_proc(menu_data, lambdas))
-      # options = menu_default_option_values(menu_data).merge input_option_values
-      # options = (menu_default_option_values(menu_data)).merge(input_option_values).tap_yaml 'options1'
-      options = menu_default_option_values(menu_data).merge(config).merge(input_option_values) #.tap_yaml 'options2'
-      # options = menu_data.map do |menu_item|
-      #   menu_item.tap_inspect 'menu_item'
-      #   mion = menu_item[:opt_name]&.to_sym.tap_inspect 'mion'
-      #   omion = config[mion].tap_inspect 'omion'
-      #   unless omion.nil?
-      #     menu_item[:default] = omion
-      #   end
-      #   menu_item
-      # end,
+      options = menu_default_option_values(menu_data)
+                .merge(config)
+                .merge(input_option_values)
 
       [options, remainder]
     end
@@ -53,7 +44,8 @@ class EnvironmentOptParse
         procname = menu_item[:procname]
         next if procname.nil?
 
-        menu_item[:proccode] = lambdas.fetch(procname.to_sym, menu_item[:procname])
+        menu_item[:proccode] =
+          lambdas.fetch(procname.to_sym, menu_item[:procname])
       end.tap_yaml
     end
 
@@ -89,15 +81,21 @@ class EnvironmentOptParse
       mmoo = [
         # long name
         if item[:long_name].present?
-          "--#{item[:long_name]}#{item[:arg_name].present? ? " #{item[:arg_name]}" : ''}"
+          # if "--#{item[:long_name]}#{item[:arg_name]".present?
+          #   " #{item[:arg_name]}"
+          # else
+          #   "''}"
+          # end
         end,
 
         # short name
         item[:short_name].present? ? "-#{item[:short_name]}" : nil,
 
         # description and default
-        [item[:description],
-         item[:default].present? ? "[#{value_for_menu item[:default]}]" : nil].compact.join('  '),
+        [
+          item[:description],
+          item[:default].present? ? "[#{value_for_menu item[:default]}]" : nil
+        ].compact.join('  '),
 
         # apply proccode, if present, to value
         # save value to options hash if option is named
@@ -122,7 +120,10 @@ class EnvironmentOptParse
           menu_option_append opts, options, item
         end
       end
-      option_parser.load # filename defaults to basename of the program without suffix in a directory ~/.options
+
+      # filename defaults to basename of the program
+      # without suffix in a directory ~/.options
+      option_parser.load
       option_parser.environment # env defaults to the basename of the program.
       remainder = option_parser.parse!
 
@@ -184,12 +185,16 @@ class EnvironmentOptParse
         #   lambda { |v| options.tap_puts 'eop_l' }
         # }).call(@options),
 
-        stdout_defaults: ->(_) { menu_default_option_values(@menu).to_yaml.tap_puts },
+        stdout_defaults: lambda { |_|
+                           menu_default_option_values(@menu).to_yaml.tap_puts
+                         },
         stdout_help: lambda { |_|
                        menu_help(@menu).tap_puts
                        exit
                      },
-        val_as_bool: ->(value) { value.class.to_s == 'String' ? (value.chomp != '0') : value },
+        val_as_bool: lambda { |value|
+                       value.class.to_s == 'String' ? (value.chomp != '0') : value
+                     },
         val_as_int: ->(value) { value.to_i },
         val_as_str: ->(value) { value.to_s },
         version: lambda { |_|

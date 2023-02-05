@@ -36,7 +36,13 @@ code = eval("Proc.new { #{ARGV.join(' ')} }") # rubocop:disable Security/Eval,St
 # binding.pry
 # code = eval("Proc.new {grep -h }")
 # code.tap_inspect name: 'code'
-single_line ? $stdin.each { |l| execute(l.chomp, code) } : execute($stdin.each_line.tap_inspect(name: 'body'), code)
+if single_line
+  $stdin.each do |l|
+    execute(l.chomp, code)
+  end
+else
+  execute($stdin.each_line.tap_inspect(name: 'body'), code)
+end
 
 # rubocop:disable Layout/LineLength,Style/BlockComments
 =begin

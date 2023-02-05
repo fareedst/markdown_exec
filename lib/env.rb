@@ -16,6 +16,7 @@ module Env
     true
   end
 
+  # :reek:UtilityFunction
   def env_bool_false(name)
     !(val = (name && ENV.fetch(name, nil))).nil? && !(val.empty? || val == '0')
   end
