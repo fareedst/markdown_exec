@@ -41,6 +41,12 @@ class Hash
       keys.sort.to_h { |key| [key, self[key]] }
     end
   end
+
+  unless defined?(sym_keys)
+    def sym_keys
+      transform_keys(&:to_sym)
+    end
+  end
 end
 
 # stdout manager
@@ -76,11 +82,120 @@ end
 
 public
 
+# :reek:UtilityFunction
+def list_recent_output(saved_stdout_folder, saved_stdout_glob, list_count)
+  Sfiles.new(saved_stdout_folder,
+             saved_stdout_glob).most_recent_list(list_count)
+end
+
+# :reek:UtilityFunction
+def list_recent_scripts(saved_script_folder, saved_script_glob, list_count)
+  Sfiles.new(saved_script_folder,
+             saved_script_glob).most_recent_list(list_count)
+end
+
+# convert regex match groups to a hash with symbol keys
+#
+# :reek:UtilityFunction
+def option_match_groups(str, option)
+  str.match(Regexp.new(option))&.named_captures&.sym_keys
+end
+
 # execute markdown documents
 #
 module MarkdownExec
   # :reek:IrresponsibleModule
   class Error < StandardError; end
+
+  # fenced code block
+  #
+  class FCB
+    def initialize(options = {})
+      @attrs = {
+        body: nil,
+        call: nil,
+        headings: [],
+        name: '',
+        reqs: [],
+        shell: '',
+        title: '',
+        random: Random.new.rand
+      }.merge options
+    end
+
+    def to_h
+      @attrs
+    end
+
+    def to_yaml
+      @attrs.to_yaml
+    end
+
+    private
+
+    # :reek:ManualDispatch
+    def method_missing(method, *args, &block)
+      method_name = method.to_s
+
+      if @attrs.respond_to?(method_name)
+        @attrs.send(method_name, *args, &block)
+      elsif method_name[-1] == '='
+        @attrs[method_name.chop.to_sym] = args[0]
+      else
+        @attrs[method_name.to_sym]
+      end
+    rescue StandardError => err
+      warn(error = "ERROR ** FCB.method_missing(method: #{method_name}," \
+                   " *args: #{args.inspect}, &block)")
+      warn err.inspect
+      warn(caller[0..4])
+      raise StandardError, error
+    end
+
+    # option names are available as methods
+    #
+    def respond_to_missing?(_method_name, _include_private = false)
+      true # recognize all hash methods, rest are treated as hash keys
+    end
+  end
+
+  # select fcb per options
+  #
+  # :reek:UtilityFunction
+  class Filter
+    def self.fcb_title_parse(opts, fcb_title)
+      fcb_title.match(Regexp.new(opts[:fenced_start_ex_match])).named_captures.sym_keys
+    end
+
+    def self.fcb_select?(opts, fcb)
+      inc = true
+      if opts[:select_by_name_regex].present?
+        inc = fcb.name.match(Regexp.new(opts[:select_by_name_regex]))
+      end
+      if inc && opts[:exclude_by_name_regex].present?
+        inc = !fcb.name.match(Regexp.new(opts[:exclude_by_name_regex]))
+      end
+      if inc && opts[:hide_blocks_by_name] && opts[:block_name_hidden_match].present?
+        inc = !fcb.name.match(Regexp.new(opts[:block_name_hidden_match]))
+      end
+      if inc && opts[:exclude_by_shell_regex].present?
+        inc = !fcb.shell.match(Regexp.new(opts[:exclude_by_shell_regex]))
+      end
+      if inc && opts[:select_by_shell_regex].present?
+        inc = fcb.shell.match(Regexp.new(opts[:select_by_shell_regex]))
+      end
+      if inc && opts[:hide_blocks_by_shell] && opts[:block_shell_hidden_match].present?
+        inc = !fcb.shell.match(Regexp.new(opts[:block_shell_hidden_match]))
+      end
+      inc = fcb.shell.match('bash') if inc && opts[:bash_only]
+      inc = !fcb.shell.match('expect') if inc && opts[:exclude_expect_blocks]
+      inc
+    rescue StandardError => err
+      warn(error = "ERROR ** Filter::fcb_select?(); #{err.inspect}")
+      binding.pry if $tap_enable
+      raise ArgumentError, error
+    end
+  end
 
   # cache lines in text file
   #
@@ -362,6 +477,30 @@ module MarkdownExec
       @execute_started_at = nil
       @option_parser = nil
       @cfile = CFile.new
+    end
+
+    # return arguments before `--`
+    #
+    def arguments_for_mde(argv = ARGV)
+      case ind = argv.find_index('--')
+      when nil
+        argv
+      when 0
+        []
+      else
+        argv[0..ind - 1]
+      end #.tap_inspect
+    end
+
+    # return arguments after `--`
+    #
+    def arguments_for_child(argv = ARGV)
+      case ind = argv.find_index('--')
+      when nil, argv.count - 1
+        []
+      else
+        argv[ind + 1..-1]
+      end #.tap_inspect
     end
 
     ##
