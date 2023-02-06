@@ -223,6 +223,8 @@ module MarkdownExec
   ## an imported markdown document
   #
   class MDoc
+    attr_reader :table
+
     # convert block name to fcb_parse
     #
     def initialize(table)
@@ -231,14 +233,14 @@ module MarkdownExec
 
     def collect_recursively_required_code(name)
       get_required_blocks(name)
-        .map do |block|
-        block.tap_yaml name: :block
-        body = block[:body].join("\n")
+        .map do |fcb|
+        body = fcb[:body].join("\n")
 
-        if block[:cann]
-          xcall = block[:cann][1..-2].tap_inspect name: :xcall
-          mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/).tap_inspect name: :mstdin
-          mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_-]\S+)/).tap_inspect name: :mstdout
+        if fcb[:cann]
+          xcall = fcb[:cann][1..-2]
+          mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
+          mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
+
           yqcmd = if mstdin[:type]
                     "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
                   else
@@ -249,9 +251,9 @@ module MarkdownExec
           else
             "#{yqcmd} > '#{mstdout[:name]}'"
           end
-        elsif block[:stdout]
-          stdout = block[:stdout].tap_inspect name: :stdout
-          body = block[:body].join("\n").tap_inspect name: :body
+        elsif fcb[:stdout]
+          stdout = fcb[:stdout]
+          body = fcb[:body].join("\n")
           if stdout[:type]
             %(export #{stdout[:name]}=$(cat <<"EOF"\n#{body}\nEOF\n))
           else
@@ -260,7 +262,7 @@ module MarkdownExec
               "EOF\n"
           end
         else
-          block[:body]
+          fcb[:body]
         end
       end.flatten(1)
     end
@@ -278,31 +280,20 @@ module MarkdownExec
       all = [name_block.fetch(:name, '')] + recursively_required(name_block[:reqs])
 
       # in order of appearance in document
-      sel = @table.select { |block| all.include? block[:name] }
-
       # insert function blocks
-      sel.map do |block|
-        block.tap_yaml name: :block
-        if (call = block[:call])
-          [get_block_by_name("[#{call.match(/^\((\S+) |\)/)[1]}]").merge({ cann: call })]
+      @table.select { |fcb| all.include? fcb.fetch(:name, '') }
+            .map do |fcb|
+        if (call = fcb[:call])
+          [get_block_by_name("[#{call.match(/^%\((\S+) |\)/)[1]}]")
+            .merge({ cann: call })]
         else
           []
-        end + [block]
-      end.flatten(1) # .tap_yaml
+        end + [fcb]
+      end.flatten(1)
     end
 
-    # :reek:UtilityFunction
-    def hide_menu_block_per_options(opts, block)
-      (opts[:hide_blocks_by_name] &&
-              block[:name].match(Regexp.new(opts[:block_name_hidden_match]))).tap_inspect
-    end
-
-    def blocks_for_menu(opts)
-      if opts[:hide_blocks_by_name]
-        @table.reject { |block| hide_menu_block_per_options opts, block }
-      else
-        @table
-      end
+    def fcbs_per_options(opts = {})
+      @table.select { |fcb_title_groups| Filter.fcb_select? opts, fcb_title_groups }
     end
 
     def recursively_required(reqs)
@@ -522,12 +513,7 @@ module MarkdownExec
                           default: OptionValue.new(item_default).for_hash)
                 end
         [item[:opt_name], item[:proccode] ? item[:proccode].call(value) : value]
-      end.compact.to_h.merge(
-        {
-          menu_exit_at_top: true,
-          menu_with_exit: true
-        }
-      ).tap_yaml
+      end.compact.to_h
     end
 
     def calculated_options
@@ -734,30 +720,23 @@ module MarkdownExec
       fout "saved_filespec: #{@execute_script_filespec}"
     end
 
-    # :reek:LongParameterList
-    def get_block_summary(call_options = {}, headings:, block_title:, block_body:)
+    def get_block_summary(call_options, fcb)
       opts = optsmerge call_options
-      return [block_body] unless opts[:struct]
-      return [summarize_block(headings, block_title).merge({ body: block_body })] unless opts[:bash]
+      return fcb.body unless opts[:struct]
 
-      block_title.tap_inspect name: :block_title
-      call = block_title.scan(Regexp.new(opts[:block_calls_scan]))
-                        .map { |scanned| scanned[1..] }
-                          &.first.tap_inspect name: :call
-      (titlexcall = call ? block_title.sub("%#{call}", '') : block_title).tap_inspect name: :titlexcall
+      return [fcb] unless opts[:bash]
 
-      bm = titlexcall.match(Regexp.new(opts[:block_name_match]))
-      reqs = titlexcall.scan(Regexp.new(opts[:block_required_scan]))
-                       .map { |scanned| scanned[1..] }
-      stdin = titlexcall.match(Regexp.new(opts[:block_stdin_scan])).tap_inspect name: :stdin
-      stdout = titlexcall.match(Regexp.new(opts[:block_stdout_scan])).tap_inspect name: :stdout
-
-      title = bm && bm[1] ? bm[:title] : titlexcall
-      [summarize_block(headings, title).merge({ body: block_body,
-                                                call: call,
-                                                reqs: reqs,
-                                                stdin: stdin,
-                                                stdout: stdout })].tap_yaml
+      fcb.call = fcb.title.match(Regexp.new(opts[:block_calls_scan]))&.fetch(1, nil)
+      titlexcall = if fcb.call
+                     fcb.title.sub("%#{fcb.call}", '')
+                   else
+                     fcb.title
+                   end
+      bm = option_match_groups(titlexcall, opts[:block_name_match])
+      fcb.stdin = option_match_groups(titlexcall, opts[:block_stdin_scan])
+      fcb.stdout = option_match_groups(titlexcall, opts[:block_stdout_scan])
+      fcb.title = fcb.name = (bm && bm[1] ? bm[:title] : titlexcall)
+      [fcb]
     end
 
     # :reek:DuplicateMethodCall
@@ -778,14 +757,13 @@ module MarkdownExec
 
       fenced_start_and_end_match = Regexp.new opts[:fenced_start_and_end_match]
       fenced_start_ex = Regexp.new opts[:fenced_start_ex_match]
-      block_title = ''
-      block_body = nil
-      headings = []
+      fcb = FCB.new
       in_block = false
+      headings = []
 
       selected_messages = yield :filter
 
-      @cfile.readlines(opts[:filename]).each do |line|
+      @cfile.readlines(opts[:filename]).each.with_index do |line, _line_num|
         continue unless line
 
         if opts[:menu_blocks_with_headings]
@@ -800,39 +778,57 @@ module MarkdownExec
 
         if line.match(fenced_start_and_end_match)
           if in_block
-            if block_body
-              # end block
-              #
-              block_title = block_body.join(' ').gsub(/  +/, ' ')[0..64] if block_title.nil? || block_title.empty?
-              yield :blocks, headings, block_title, block_body if block_given? && selected_messages.include?(:blocks)
-              block_body = nil
+            # end fcb
+            #
+            fcb.name = fcb.title || ''
+            if fcb.body
+              if fcb.title.nil? || fcb.title.empty?
+                fcb.title = fcb.body.join(' ').gsub(/  +/, ' ')[0..64]
+              end
+
+              if block_given? && selected_messages.include?(:blocks) &&
+                 Filter.fcb_select?(opts, fcb)
+                yield :blocks, fcb
+              end
             end
             in_block = false
-            block_title = ''
           else
             # start fcb
             #
-            lm = line.match(fenced_start_ex)
-            block_allow = false
-            if opts[:bash_only]
-              block_allow = true if lm && (lm[:shell] == 'bash')
-            else
-              block_allow = true
-              block_allow = !(lm && (lm[:shell] == 'expect')) if opts[:exclude_expect_blocks]
-            end
-
             in_block = true
-            if block_allow && (!opts[:title_match] || (lm && lm[:name] && lm[:name].match(opts[:title_match])))
-              block_body = []
-              block_title = (lm && lm[:name])
-            end
+
+            fcb_title_groups = line.match(fenced_start_ex).named_captures.sym_keys
+            fcb = FCB.new
+            fcb.headings = headings
+            fcb.name = fcb_title_groups.fetch(:name, '')
+            fcb.shell = fcb_title_groups.fetch(:shell, '')
+            fcb.title = fcb_title_groups.fetch(:name, '')
+
+            # selected fcb
+            #
+            fcb.body = []
+
+            rest = fcb_title_groups.fetch(:rest, '')
+            fcb.reqs = rest.scan(/\+[^\s]+/).map { |req| req[1..-1] }
+
+            fcb.call = rest.match(Regexp.new(opts[:block_calls_scan]))&.to_a&.first
+            fcb.stdin = if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
+                          tn.named_captures.sym_keys
+                        end
+            fcb.stdout = if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
+                           tn.named_captures.sym_keys
+                         end
           end
-        elsif block_body
-          block_body += [line.chomp]
-        elsif block_given? && selected_messages.include?(:line)
-          # text outside of block
+        elsif in_block && fcb.body
+          # append line to fcb body
           #
-          yield :line, nil, nil, line
+          fcb.body += [line.chomp]
+        elsif block_given? && selected_messages.include?(:line)
+          # text outside of fcb
+          #
+          fcb = FCB.new
+          fcb.body = [line]
+          yield :line, fcb
         end
       end
     end
@@ -843,32 +839,26 @@ module MarkdownExec
     def list_blocks_in_file(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
       blocks = []
-      if opts[:menu_initial_divider].present?
-        blocks += [{
-          name: format(opts[:menu_divider_format],
-                       opts[:menu_initial_divider]).send(opts[:menu_divider_color].to_sym), disabled: ''
-        }]
-      end
-      iter_blocks_in_file(opts) do |btype, headings, block_title, body|
+
+      iter_blocks_in_file(opts) do |btype, fcb|
         case btype
         when :filter
           %i[blocks line]
         when :line
-          if opts[:menu_divider_match] && (mbody = body.match opts[:menu_divider_match])
-            blocks += [{ name: format(opts[:menu_divider_format], mbody[:name]).send(opts[:menu_divider_color].to_sym),
-                         disabled: '' }]
+          if opts[:menu_divider_match] &&
+             (mbody = fcb.body[0].match opts[:menu_divider_match])
+            blocks += [FCB.new({
+                                 name: format(opts[:menu_divider_format], mbody[:name])
+                                 .send(opts[:menu_divider_color].to_sym),
+                                 disabled: ''
+                               })]
           end
         when :blocks
-          blocks += get_block_summary opts, headings: headings, block_title: block_title, block_body: body
+          blocks += get_block_summary opts, fcb if Filter.fcb_select? opts, fcb
         end
       end
-      if opts[:menu_divider_format].present? && opts[:menu_final_divider].present?
-        blocks += [{
-          name: format(opts[:menu_divider_format],
-                       opts[:menu_final_divider]).send(opts[:menu_divider_color].to_sym), disabled: ''
-        }]
-      end
-      blocks.tap_yaml
+
+      blocks
     end
 
     def list_default_env
@@ -923,7 +913,9 @@ module MarkdownExec
                        [default_folder, default_filename]
                      end)
       if filetree
-        filetree.select { |filename| filename == fn || filename.match(/^#{fn}$/) || filename.match(%r{^#{fn}/.+$}) }
+        filetree.select do |filename|
+          filename == fn || filename.match(/^#{fn}$/) || filename.match(%r{^#{fn}/.+$})
+        end
       else
         Dir.glob(fn)
       end
@@ -936,31 +928,21 @@ module MarkdownExec
 
     def list_named_blocks_in_file(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
-      blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
-      mdoc = MDoc.new(blocks_in_file)
 
-      list_blocks_in_file(opts).reject do |block|
-        mdoc.hide_menu_block_per_options(opts, block)
-      end.tap_inspect
-    end
-
-    def list_recent_output(saved_stdout_folder, saved_stdout_glob, list_count)
-      Sfiles.new(saved_stdout_folder, saved_stdout_glob).most_recent_list(list_count)
-    end
-
-    def list_recent_scripts(saved_script_folder, saved_script_glob, list_count)
-      Sfiles.new(saved_script_folder, saved_script_glob).most_recent_list(list_count)
+      list_blocks_in_file(opts).select do |fcb|
+        Filter.fcb_select?(opts, fcb)
+      end
     end
 
     def make_block_labels(call_options = {})
       opts = options.merge(call_options)
-      list_blocks_in_file(opts).map do |block|
+      list_blocks_in_file(opts).map do |fcb|
         BlockLabel.new(filename: opts[:filename],
-                       headings: block.fetch(:headings, []),
+                       headings: fcb.fetch(:headings, []),
                        menu_blocks_with_docname: opts[:menu_blocks_with_docname],
                        menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-                       title: block[:title]).make
-      end.compact.tap_inspect
+                       title: fcb[:title]).make
+      end.compact
     end
 
     # :reek:DuplicateMethodCall
@@ -1017,17 +999,17 @@ module MarkdownExec
     def menu_for_blocks(menu_options)
       options = calculated_options.merge menu_options
       menu = []
-      iter_blocks_in_file(options) do |btype, headings, block_title, body|
+      iter_blocks_in_file(options) do |btype, fcb|
         case btype
         when :filter
           %i[blocks line]
         when :line
-          if options[:menu_divider_match] && (mbody = body.match options[:menu_divider_match])
-            menu += [{ name: mbody[:name], disabled: '' }]
+          if options[:menu_divider_match] &&
+             (mbody = fcb.body[0].match(options[:menu_divider_match]))
+            menu += [FCB.new({ name: mbody[:name], disabled: '' })]
           end
         when :blocks
-          summ = get_block_summary options, headings: headings, block_title: block_title, block_body: body
-          menu += [summ[0][:name]]
+          menu += [fcb.name]
         end
       end
       menu
@@ -1244,24 +1226,29 @@ module MarkdownExec
 
     def select_approve_and_execute_block(call_options, &options_block)
       opts = optsmerge call_options, options_block
-      blocks_in_file = list_blocks_in_file(opts.merge(struct: true)).tap_inspect name: :blocks_in_file
-      mdoc = MDoc.new(blocks_in_file) { |nopts| opts.merge!(nopts).tap_yaml name: :infiled_opts }
-      blocks_menu = mdoc.blocks_for_menu(opts.merge(struct: true)).tap_inspect name: :blocks_menu
+      blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
+      mdoc = MDoc.new(blocks_in_file) do |nopts|
+        opts.merge!(nopts)
+      end
+      blocks_menu = mdoc.fcbs_per_options(opts.merge(struct: true))
 
       repeat_menu = true && !opts[:block_name].present?
       loop do
         unless opts[:block_name].present?
           pt = (opts[:prompt_select_block]).to_s
 
-          blocks_menu.each do |block|
-            next if block.fetch(:disabled, false)
+          blocks_menu.each do |fcb|
+            next if fcb.fetch(:disabled, false)
 
-            block.merge! label:
-            BlockLabel.new(filename: opts[:filename],
-                           headings: block.fetch(:headings, []),
-                           menu_blocks_with_docname: opts[:menu_blocks_with_docname],
-                           menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-                           title: block[:title]).make
+            fcb.merge!(label: BlockLabel.new(
+              **{
+                filename: opts[:filename],
+                headings: fcb.fetch(:headings, []),
+                menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+                menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+                title: fcb[:title]
+              }
+            ).make)
           end
           return nil if blocks_menu.count.zero?
 
