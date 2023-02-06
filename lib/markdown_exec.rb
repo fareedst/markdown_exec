@@ -306,19 +306,21 @@ module MarkdownExec
     end
 
     def recursively_required(reqs)
-      all = []
+      return [] unless reqs
+
       rem = reqs
+      memo = []
       while rem.count.positive?
         rem = rem.map do |req|
-          next if all.include? req
+          next if memo.include? req
 
-          all += [req]
+          memo += [req]
           get_block_by_name(req).fetch(:reqs, [])
         end
                  .compact
                  .flatten(1)
       end
-      all.tap_yaml
+      memo
     end
   end # class MDoc
 
@@ -528,12 +530,9 @@ module MarkdownExec
       ).tap_yaml
     end
 
-    def default_options
+    def calculated_options
       {
         bash: true, # bash block parsing in get_block_summary()
-        exclude_expect_blocks: true,
-        hide_blocks_by_name: true,
-        output_saved_script_filename: false,
         saved_script_filename: nil, # calculated
         struct: true # allow get_block_summary()
       }
@@ -680,7 +679,7 @@ module MarkdownExec
 
     # :reek:DuplicateMethodCall
     def exec_block(options, _block_name = '')
-      options = default_options.merge options
+      options = calculated_options.merge options
       update_options options, over: false
 
       # document and block reports
@@ -698,12 +697,16 @@ module MarkdownExec
         list_docs: -> { fout_list files },
         list_default_env: -> { fout_list list_default_env },
         list_recent_output: lambda {
-                              fout_list list_recent_output(@options[:saved_stdout_folder],
-                                                           @options[:saved_stdout_glob], @options[:list_count])
+                              fout_list list_recent_output(
+                                @options[:saved_stdout_folder],
+                                @options[:saved_stdout_glob], @options[:list_count]
+                              )
                             },
         list_recent_scripts: lambda {
-                               fout_list list_recent_scripts(options[:saved_script_folder],
-                                                             options[:saved_script_glob], options[:list_count])
+                               fout_list list_recent_scripts(
+                                 options[:saved_script_folder],
+                                 options[:saved_script_glob], options[:list_count]
+                               )
                              },
         pwd: -> { fout File.expand_path('..', __dir__) },
         run_last_script: -> { run_last_script },
@@ -1012,7 +1015,7 @@ module MarkdownExec
     end
 
     def menu_for_blocks(menu_options)
-      options = default_options.merge menu_options
+      options = calculated_options.merge menu_options
       menu = []
       iter_blocks_in_file(options) do |btype, headings, block_title, body|
         case btype
