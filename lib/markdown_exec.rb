@@ -400,7 +400,7 @@ module MarkdownExec
       }
     end
 
-    def approve_block(opts, mdoc)
+    def approve_and_execute_block(opts, mdoc)
       required_blocks = mdoc.collect_recursively_required_code(opts[:block_name])
       if opts[:output_script] || opts[:user_must_approve]
         display_required_code(opts,
@@ -583,11 +583,13 @@ module MarkdownExec
       # process
       #
       @options[:filename] = select_md_file(files)
-      select_and_approve_block(
-        bash: true,
-        struct: true
-      )
-      fout "saved_filespec: #{@execute_script_filespec}" if @options[:output_saved_script_filename]
+      select_approve_and_execute_block({
+                                         bash: true,
+                                         struct: true
+                                       })
+      return unless @options[:output_saved_script_filename]
+
+      fout "saved_filespec: #{@execute_script_filespec}"
     end
 
     # :reek:LongParameterList
@@ -1069,7 +1071,7 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      select_and_approve_block
+      select_approve_and_execute_block({})
     end
 
     def save_execution_output
@@ -1098,7 +1100,7 @@ module MarkdownExec
       File.write(@options[:logged_stdout_filespec], ol.join)
     end
 
-    def select_and_approve_block(call_options = {}, &options_block)
+    def select_approve_and_execute_block(call_options, &options_block)
       opts = optsmerge call_options, options_block
       blocks_in_file = list_blocks_in_file(opts.merge(struct: true)).tap_inspect name: :blocks_in_file
       mdoc = MDoc.new(blocks_in_file) { |nopts| opts.merge!(nopts).tap_yaml name: :infiled_opts }
@@ -1130,7 +1132,7 @@ module MarkdownExec
           end.fetch(0, nil)
           opts[:block_name] = @options[:block_name] = label_block.fetch(:name, '')
         end
-        approve_block opts, mdoc
+        approve_and_execute_block opts, mdoc
         break unless repeat_menu
 
         opts[:block_name] = ''
