@@ -211,7 +211,7 @@ module MarkdownExec
         end
       else
         lines = []
-        File.readlines(filename).each do |line|
+        File.readlines(filename, chomp: true).each do |line|
           lines.push line
           yield line if block_given?
         end
