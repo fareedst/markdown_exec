@@ -1029,13 +1029,7 @@ module MarkdownExec
       opts.on(*[
         # - long name
         if item[:long_name].present?
-          # rubocop:disable Style/StringConcatenation
-          '--' + if item[:long_name]
-                   " #{item[:arg_name]}"
-                 else
-                   ''
-                 end
-          # rubocop:enable Style/StringConcatenation
+          "--#{item[:long_name]}#{item[:arg_name].present? ? " #{item[:arg_name]}" : ''}"
         end,
 
         # - short name
