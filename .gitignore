@@ -1,3 +1,4 @@
+/*.gem
 /.bundle/
 /.yardoc
 /_yardoc/
@@ -5,4 +6,4 @@
 /doc/
 /pkg/
 /tmp/
-/*.gem
+/vendor/

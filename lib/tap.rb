@@ -127,9 +127,7 @@ module Tap
   def tap_pry
     return self unless $tap_enable
 
-    # rubocop:disable Lint/Debugger
     binding.pry
-    # rubocop:enable Lint/Debugger
     self
   end
 

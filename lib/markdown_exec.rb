@@ -1029,7 +1029,8 @@ module MarkdownExec
       opts.on(*[
         # - long name
         if item[:long_name].present?
-          "--#{item[:long_name]}#{item[:arg_name].present? ? " #{item[:arg_name]}" : ''}"
+          arg_part = item[:arg_name].present? ? " #{item[:arg_name]}" : ''
+          "--#{item[:long_name]}#{arg_part}"
         end,
 
         # - short name

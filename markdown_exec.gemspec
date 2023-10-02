@@ -8,11 +8,13 @@ Gem::Specification.new do |spec|
   spec.authors = ['Fareed Stevenson']
   spec.email = ['fareed@phomento.com']
 
-  spec.summary = 'Interactively select and execute fenced code blocks in markdown files.'
-  spec.description = 'Interactively select and execute fenced code blocks in markdown files.' \
-                     ' Build complex scripts by naming and requiring blocks.' \
-                     ' Log resulting scripts and output.' \
-                     ' Re-run scripts.'
+  spec.summary =
+    'Interactively select and execute fenced code blocks in markdown files.'
+  spec.description =
+    'Interactively select and execute fenced code blocks in markdown files.' \
+    ' Build complex scripts by naming and requiring blocks.' \
+    ' Log resulting scripts and output.' \
+    ' Re-run scripts.'
   spec.homepage = 'https://rubygems.org/gems/markdown_exec'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 2.6.0'
@@ -36,7 +38,10 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
   #
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|
-      (f == __FILE__) || f.match(%r{\A(?:(?:test|spec|features|fixtures)/|\.(?:git|travis|circleci)|appveyor)})
+      # rubocop:disable Layout/LineLength
+      (f == __FILE__) ||
+        f.match(%r{\A(?:(?:test|spec|features|fixtures)/|\.(?:git|travis|circleci)|appveyor)})
+      # rubocop:enable Layout/LineLength
     end
   end + Dir['lib/*'] - ['lib/rb.rb']
 

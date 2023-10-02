@@ -354,7 +354,6 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_select_by_name_regex' do
     fcb.name = 'awe'
-    puts MarkdownExec::Filter.fcb_select?({ select_by_name_regex: 'w' }, fcb) ###
     expect(mp.list_blocks_in_file(select_by_name_regex: 'w')).to eq %w[b]
   end
 

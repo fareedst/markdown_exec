@@ -12,6 +12,12 @@ Layout/LeadingCommentSpace:
 Layout/LineContinuationLeadingSpace:
   Enabled: false
 
+Layout/LineLength:
+  Max: 88
+
+Lint/Debugger:
+  Enabled: false
+
 Lint/SafeNavigationChain:
   Enabled: false
 
@@ -41,7 +47,10 @@ Metrics/PerceivedComplexity:
 
 Minitest/MultipleAssertions:
   Enabled: false
- 
+
+Naming/RescuedExceptionsVariableName:
+  PreferredName: err
+
 Security/YAMLLoad:
   Enabled: false
 
@@ -70,6 +79,3 @@ Style/StringLiterals:
 Style/StringLiteralsInInterpolation:
   Enabled: true
   EnforcedStyle: single_quotes
-
-Layout/LineLength:
-  Max: 120
