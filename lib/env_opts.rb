@@ -32,17 +32,16 @@ class EnvOpts
   def add_options(opts_raw)
     return self if opts_raw.nil?
 
-    rows = opts_raw.map do |key, opt_raw|
+    help_rows = opts_raw.map do |key, opt_raw|
       opt_name = key_name_to_option_name(key)
 
       # set_per_options(opt_name, opt_raw)
       @opts[opt_name] = (opt_raw ||= {})
-      set_key_value_as_cast opt_name, EnvOpts.optdefault(opt_raw)
-
+      set_key_value_as_cast(opt_name, EnvOpts.optdefault(opt_raw))
       set_key_value_per_environment_as_cast(opt_name, opt_raw)
 
       [
-        [20, '-', "--#{key}"],
+        [20, '-', "--#{opt_name}"],
         [16, '-',
          if @opts[opt_name][:env].present?
            option_name_to_environment_name(opt_name, @opts[opt_name])
@@ -59,13 +58,13 @@ class EnvOpts
       ]
     end
 
-    max_widths = rows.reduce([0, 0, 0, 0]) do |memo, vals|
+    max_widths = help_rows.reduce([0, 0, 0, 0]) do |memo, vals|
       vals.map.with_index do |val, ind|
         [memo[ind], val[2].to_s.length].max
       end
     end
 
-    @values['help'] = rows.map do |row|
+    @values['help'] = help_rows.map do |row|
       row.map.with_index do |cell, ind|
         format("%#{cell[1]}#{max_widths[ind]}s", cell[2])
       end.join('  ')
@@ -133,12 +132,19 @@ class EnvOpts
     self
   end
 
+  # symbol name to option name
+  # option names use hyphens
+  #
+  def self.symbol_name_to_option_name(name)
+    name.to_s.gsub('_', '-') #.tap_inspect
+  end
+
   private
 
   # convert key name or symbol to an option name
   #
   def key_name_to_option_name(key)
-    (key.is_a?(Symbol) ? symbol_name_to_option_name(key) : key) #.tap_inspect
+    (key.is_a?(Symbol) ? EnvOpts.symbol_name_to_option_name(key) : key) #.tap_inspect
   end
 
   # get cast of environment variable
@@ -232,12 +238,5 @@ class EnvOpts
   #
   def set_key_value_raw(key, value)
     @values[key] = value
-  end
-
-  # symbol name to option name
-  # option names use hyphens
-  #
-  def symbol_name_to_option_name(name)
-    name.to_s.gsub('_', '-') #.tap_inspect
   end
 end
