@@ -73,6 +73,11 @@ task :clean do
   system 'rm *.gem'
 end
 
+desc 'minitest'
+task :minitest do
+  puts `bundle exec ruby ./lib/object_present.rb`
+end
+
 desc 'reek'
 task :reek do
   `reek --config .reek .`
