@@ -4,6 +4,10 @@
 a
 ```
 
+::: divider
+
 ```bash :two
 b
 ```
+
+[ ] task

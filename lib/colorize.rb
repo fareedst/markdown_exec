@@ -14,6 +14,10 @@
 # │   │                       │
 # │5  │ for flashing text
 class String
+  def plain
+    self
+  end
+
   def black
     "\033[30m#{self}\033[0m"
   end

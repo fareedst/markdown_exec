@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
+# echo "gem: --no-document" >> ~/.gemrc
+# bundle install --path vendor/bundle
+
 source 'https://rubygems.org'
 
 gemspec
 gem 'clipboard'
 gem 'erb'
 gem 'minitest', require: false
-gem 'pry-nav', require: false
-gem 'pry-stack_explorer', require: false
+gem 'pry-nav'
+gem 'pry-stack_explorer'
 gem 'railties'
 gem 'rake'
 gem 'reek'

@@ -5,8 +5,8 @@
 
 # version 2023-10-02
 
-require 'bundler'
-Bundler.require
+require 'bundler/setup'
+Bundler.require(:default)
 
 class FalseClass
   unless defined?(blank?)

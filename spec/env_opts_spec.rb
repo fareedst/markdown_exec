@@ -171,4 +171,10 @@ RSpec.describe 'EnvOpts' do
       end
     end
   end
+
+  describe 'converts names' do
+    it 'symbol_name_to_option_name' do
+      expect(EnvOpts.symbol_name_to_option_name(:_a_b_)).to eq '-a-b-'
+    end
+  end
 end

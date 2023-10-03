@@ -4,8 +4,7 @@
 
 ### Added
 
-- Add EnvOpts class
-- RSpec for internal classes
+- Add RSpec tests for internal classes
 
 ## [1.3.1] - 2022-10-29
 
