@@ -21,4 +21,4 @@ gem 'rubocop-rake', require: false
 gem 'rubocop-rspec', require: false
 gem 'shellwords'
 gem 'uri'
-gem 'yaml'
+gem 'yaml', '~> 0.2.1'
