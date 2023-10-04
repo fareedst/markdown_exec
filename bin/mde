@@ -3,9 +3,6 @@
 
 # encoding=utf-8
 
-require 'bundler/setup'
-Bundler.require
-
 require_relative '../lib/markdown_exec'
 
 MarkdownExec::MarkParse.new.run
