@@ -5,9 +5,6 @@
 
 # version 2023-10-03
 
-require 'bundler/setup'
-Bundler.require(:default)
-
 ##
 # The CachedNestedFileReader class provides functionality to read file lines with the ability
 # to process '#import filename' directives. When such a directive is encountered in a file,

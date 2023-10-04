@@ -5,9 +5,6 @@
 
 # version 2023-10-02
 
-require 'bundler/setup'
-Bundler.require(:default)
-
 class FalseClass
   unless defined?(blank?)
     def present?
