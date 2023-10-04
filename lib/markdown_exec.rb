@@ -5,6 +5,7 @@
 
 require 'English'
 require 'clipboard'
+require 'fileutils'
 require 'open3'
 require 'optparse'
 require 'shellwords'
@@ -1375,7 +1376,7 @@ module MarkdownExec
                   @options[:logged_stdout_filename]
       @logged_stdout_filespec = @options[:logged_stdout_filespec]
       (dirname = File.dirname(@options[:logged_stdout_filespec]))
-      Dir.mkdir_p dirname
+      FileUtils.mkdir_p dirname
 
       ol = ["-STDOUT-\n"]
       ol += @execute_files&.fetch(EF_STDOUT, [])
@@ -1530,7 +1531,7 @@ module MarkdownExec
           File.join opts[:saved_script_folder], opts[:saved_script_filename]
 
       dirname = File.dirname(@options[:saved_filespec])
-      Dir.mkdir_p dirname
+      FileUtils.mkdir_p dirname
       (shebang = if @options[:shebang]&.present?
                    "#{@options[:shebang]} #{@options[:shell]}\n"
                  else
