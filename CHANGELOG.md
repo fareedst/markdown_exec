@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.3] - 2023-10-03
+
+### Added
+
+- Nest scripts by using an `import` directive.
+
+### Changed
+
+- Convert constants for block selection into options.
+
 ## [1.3.2] - 2022-11-12
 
 ### Added

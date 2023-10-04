@@ -534,8 +534,10 @@ RSpec.describe 'MarkdownExec' do
   it 'test_target_default_path_and_default_filename2' do
     ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
           'fixtures/block_exclude.md',
+          'fixtures/duplicate_block.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
+          'fixtures/import0.md', 'fixtures/import1.md',
           'fixtures/infile_config.md',
           'fixtures/menu_divs.md',
           'fixtures/sample1.md', 'fixtures/title1.md',

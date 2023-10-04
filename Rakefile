@@ -76,6 +76,7 @@ end
 desc 'minitest'
 task :minitest do
   puts `bundle exec ruby ./lib/object_present.rb`
+  puts `bundle exec ruby ./lib/cached_nested_file_reader.rb`
 end
 
 desc 'reek'
@@ -533,6 +534,12 @@ task :update_menu_yml do
       default: '^### *(?<name>.+?) *$',
       env_var: 'MDE_HEADING3_MATCH',
       opt_name: 'heading3_match',
+      procname: 'val_as_str'
+    },
+    {
+      default: '^ *@import (.+)$',
+      env_var: 'MDE_IMPORT_PATTERN',
+      opt_name: 'import_pattern',
       procname: 'val_as_str'
     },
     {

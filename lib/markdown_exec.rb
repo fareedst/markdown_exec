@@ -11,6 +11,7 @@ require 'shellwords'
 require 'tty-prompt'
 require 'yaml'
 
+require_relative 'cached_nested_file_reader'
 require_relative 'cli'
 require_relative 'colorize'
 require_relative 'env'
@@ -264,29 +265,6 @@ module MarkdownExec
       raise err
     end
   end # class Filter
-
-  # cache lines in text file
-  #
-  class CFile
-    def initialize
-      @cache = {}
-    end
-
-    def readlines(filename)
-      if @cache[filename]
-        @cache[filename].each do |line|
-          yield line if block_given?
-        end
-      else
-        lines = []
-        File.readlines(filename, chomp: true).each do |line|
-          lines.push line
-          yield line if block_given?
-        end
-        @cache[filename] = lines
-      end
-    end
-  end # class CFile
 
   ## an imported markdown document
   #
@@ -580,7 +558,6 @@ module MarkdownExec
       @execute_script_filespec = nil
       @execute_started_at = nil
       @option_parser = nil
-      @cfile = CFile.new
     end
 
     # return arguments before `--`
@@ -684,6 +661,13 @@ module MarkdownExec
       selected[:name]
     end
 
+    def cfile
+# puts @options.inspect
+# binding.pry
+      @cfile ||= CachedNestedFileReader.new(import_pattern: @options.fetch(:import_pattern))
+      # @cfile ||= CachedNestedFileReader.new(import_pattern: /^ *#insert (.+)$/)
+    end
+
     # :reek:DuplicateMethodCall
     # :reek:UncommunicativeVariableName { exclude: [ e ] }
     # :reek:LongYieldList
@@ -760,7 +744,7 @@ module MarkdownExec
     def count_blocks_in_filename
       fenced_start_and_end_match = Regexp.new @options[:fenced_start_and_end_match]
       cnt = 0
-      @cfile.readlines(@options[:filename]).each do |line|
+      cfile.readlines(@options[:filename]).each do |line|
         cnt += 1 if line.match(fenced_start_and_end_match)
       end
       cnt / 2
@@ -882,7 +866,7 @@ module MarkdownExec
       #
       selected_messages = yield :filter
 
-      @cfile.readlines(opts[:filename]).each.with_index do |line, _line_num|
+      cfile.readlines(opts[:filename]).each.with_index do |line, _line_num|
         continue unless line
 
         if opts[:menu_blocks_with_headings]
