@@ -198,13 +198,11 @@ RSpec.describe 'MarkdownExec' do
 
     it 'formats dividers' do
       expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
-        { name: nil, text: '<BINDIV>' },
+        { name: '<BINDIV>', text: nil },
         { name: 'one', text: nil },
-        # { name: 'one' },
-        { name: nil, text: '<divider>' },
+        { name: '<divider>', text: nil },
         { name: 'two', text: nil },
-        # { name: 'two' },
-        { name: nil, text: '<FINDIV>' }
+        { name: '<FINDIV>', text: nil }
       ]
     end
   end
@@ -221,7 +219,7 @@ RSpec.describe 'MarkdownExec' do
       expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
         { name: 'one', text: nil },
         { name: 'two', text: nil },
-        { name: nil, text: '<task>' }
+        { name: '<task>', text: nil }
       ]
     end
   end
@@ -238,7 +236,7 @@ RSpec.describe 'MarkdownExec' do
 
     it 'passes arguments to script' do
       expect_any_instance_of(MarkdownExec::MarkParse).to \
-        receive(:command_execute).with({:block_name=>"one", :ir_approve=>true}, "a")
+        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a')
       mdoc = MarkdownExec::MDoc.new(
         mp.list_blocks_in_file(bash: true,
                                filename: 'fixtures/bash1.md',
@@ -504,9 +502,7 @@ RSpec.describe 'MarkdownExec' do
   end # RUN_INTERACTIVE
 
   it 'test_exclude_by_name_regex' do
-    if RUN_INTERACTIVE
-      expect(mp.exclude_block(exclude_by_name_regex: 'w')[:name]).to eq 'one'
-    end
+    expect(mp.exclude_block(exclude_by_name_regex: 'w')[:name]).to eq 'one' if RUN_INTERACTIVE
     expect(mp.list_named_blocks_in_file(exclude_by_name_regex: 'w').map do |block|
              block[:name]
            end).to eq %w[one]
@@ -709,6 +705,10 @@ RSpec.describe 'MarkdownExec' do
     end
   end
 
+  ### duplicate blocks, use most recent
+  ### import file
+  ### namespace file
+
   describe 'BlockLabel' do
     subject(:bl) { MarkdownExec::BlockLabel.new(**options) }
 
@@ -768,6 +768,48 @@ RSpec.describe 'MarkdownExec' do
 
       it 'makes label' do
         expect(bl.make).to eq "#{title}  #{h1} # #{h2}  #{filename}"
+      end
+    end
+  end
+end
+
+RSpec.describe MarkdownExec::MarkParse do
+  let(:instance) { described_class.new(options) }
+  let(:options) { {} }
+
+  describe '#prompt_menu_add_exit' do
+    let(:exit_option) { 'Exit' }
+    let(:items) { %w[item1 item2 item3] }
+
+    before do
+      allow(instance).to receive(:@options).and_return(options)
+    end
+
+    context 'when menu_with_exit is false' do
+      let(:options) { { menu_with_exit: false, menu_exit_at_top: false } }
+
+      it 'returns the items without the exit option' do
+        expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq(items)
+      end
+    end
+
+    context 'when menu_with_exit is true' do
+      let(:options) { { menu_with_exit: true, menu_exit_at_top: menu_exit_at_top } }
+
+      context 'and menu_exit_at_top is true' do
+        let(:menu_exit_at_top) { true }
+
+        it 'returns items with exit option at the top' do
+          expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq([exit_option] + items)
+        end
+      end
+
+      context 'and menu_exit_at_top is false' do
+        let(:menu_exit_at_top) { false }
+
+        it 'returns items with exit option at the end' do
+          expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq(items + [exit_option])
+        end
       end
     end
   end

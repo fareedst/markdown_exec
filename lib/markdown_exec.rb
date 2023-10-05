@@ -260,7 +260,6 @@ module MarkdownExec
       else
         true
       end.tap_inspect
-    # binding.pry
     rescue StandardError => err
       warn("ERROR ** Filter::fcb_select?(); #{err.inspect}")
       raise err
@@ -358,7 +357,7 @@ module MarkdownExec
       selrows = @table.select do |fcb_title_groups|
         Filter.fcb_select? options, fcb_title_groups
       end
-      # binding.pry
+
       ### hide rows correctly
 
       if opts[:hide_blocks_by_name]
@@ -663,10 +662,7 @@ module MarkdownExec
     end
 
     def cfile
-# puts @options.inspect
-# binding.pry
       @cfile ||= CachedNestedFileReader.new(import_pattern: @options.fetch(:import_pattern))
-      # @cfile ||= CachedNestedFileReader.new(import_pattern: /^ *#insert (.+)$/)
     end
 
     # :reek:DuplicateMethodCall
@@ -945,7 +941,7 @@ module MarkdownExec
         blocks.push FCB.new({
                               # name: '',
                               chrome: true,
-                              text: format(
+                              name: format(
                                 opts[:menu_divider_format],
                                 opts[:menu_initial_divider]
                               ).send(opts[:menu_divider_color].to_sym),
@@ -954,7 +950,6 @@ module MarkdownExec
       end
 
       iter_blocks_in_file(opts) do |btype, fcb|
-        # binding.pry
         case btype
         when :filter
           ## return type of blocks to select
@@ -964,14 +959,12 @@ module MarkdownExec
         when :line
           ## convert line to block
           #
-          # binding.pry
           if opts[:menu_divider_match].present? &&
              (mbody = fcb.body[0].match opts[:menu_divider_match])
-            # binding.pry
             blocks.push FCB.new(
               { chrome: true,
                 disabled: '',
-                text: format(opts[:menu_divider_format],
+                name: format(opts[:menu_divider_format],
                              mbody[:name]).send(opts[:menu_divider_color].to_sym) }
             )
           elsif opts[:menu_task_match].present? &&
@@ -979,7 +972,7 @@ module MarkdownExec
             blocks.push FCB.new(
               { chrome: true,
                 disabled: '',
-                text: format(opts[:menu_task_format],
+                name: format(opts[:menu_task_format],
                              mbody[:name]).send(opts[:menu_task_color].to_sym) }
             )
           else
@@ -996,7 +989,7 @@ module MarkdownExec
         blocks.push FCB.new(
           { chrome: true,
             disabled: '',
-            text: format(opts[:menu_divider_format],
+            name: format(opts[:menu_divider_format],
                          opts[:menu_final_divider])
                                  .send(opts[:menu_divider_color].to_sym) }
         )
@@ -1278,18 +1271,24 @@ module MarkdownExec
       }
     end
 
+    ## insert exit option at head or tail
+    #
+    def prompt_menu_add_exit(_prompt_text, items, exit_option, _opts = {})
+      if @options[:menu_exit_at_top]
+        (@options[:menu_with_exit] ? [exit_option] : []) + items
+      else
+        items + (@options[:menu_with_exit] ? [exit_option] : [])
+      end
+    end
+
     ## tty prompt to select
     # insert exit option at head or tail
     # return selected option or nil
     #
     def prompt_with_quit(prompt_text, items, opts = {})
       exit_option = '* Exit'
-      all_items = if @options[:menu_exit_at_top]
-                    (@options[:menu_with_exit] ? [exit_option] : []) + items
-                  else
-                    items + (@options[:menu_with_exit] ? [exit_option] : [])
-                  end
-      sel = @prompt.select(prompt_text, all_items, opts.merge(filter: true))
+      sel = @prompt.select(prompt_text, prompt_menu_add_exit(prompt_text, items, exit_option, opts),
+                           opts.merge(filter: true))
       sel == exit_option ? nil : sel
     end
 
@@ -1420,8 +1419,6 @@ module MarkdownExec
             fcb.to_h
           end.compact
           return nil if bm.count.zero?
-
-          # binding.pry
 
           sel = prompt_with_quit pt, bm,
                                  per_page: opts[:select_page_height]

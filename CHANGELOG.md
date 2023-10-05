@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.5] - 2023-10-05
+
+### Changed
+
+- Fix display of menu dividers.
+
 ## [1.3.3] - 2023-10-03
 
 ### Added
