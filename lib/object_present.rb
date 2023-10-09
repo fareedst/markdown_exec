@@ -54,22 +54,22 @@ if $PROGRAM_NAME == __FILE__
 
   class TestStringMethods < Minitest::Test
     def test_blank
-      assert "".blank?
-      assert " ".blank?
+      assert ''.blank?
+      assert ' '.blank?
       assert "\t\n\r".blank?
-      refute "foo".blank?
+      refute 'foo'.blank?
     end
 
     def test_present
-      assert "foo".present?
-      refute "".present?
+      assert 'foo'.present?
+      refute ''.present?
     end
   end
 
   class TestObjectMethods < Minitest::Test
     def test_present
-      assert "foo".present?
-      refute "".present?
+      assert 'foo'.present?
+      refute ''.present?
       assert Object.new.present?
       assert 123.present?
       assert true.present?

@@ -146,7 +146,7 @@ class EnvironmentOptParse
   include Menu
 
   def initialize(menu: {}, lambdas: nil, options: nil, version: nil)
-    @menu = if menu.class.to_s == 'String'
+    @menu = if menu.instance_of?(::String)
               filetext = File.read(menu).tap_yaml 'filetext'
               fileyaml = YAML.load(filetext)
               fileyaml.map(&:sym_keys)
@@ -156,7 +156,7 @@ class EnvironmentOptParse
     @lambdas = lambdas
     @version = version || '0.1'
     # @options = {}
-    @options = if options.class.to_s == 'String'
+    @options = if options.instance_of?(::String)
                  YAML.safe_load(File.read(options)).sym_keys.tap_yaml '@options'
                else
                  {}
@@ -193,7 +193,7 @@ class EnvironmentOptParse
                        exit
                      },
         val_as_bool: lambda { |value|
-                       value.class.to_s == 'String' ? (value.chomp != '0') : value
+                       value.instance_of?(::String) ? (value.chomp != '0') : value
                      },
         val_as_int: ->(value) { value.to_i },
         val_as_str: ->(value) { value.to_s },
