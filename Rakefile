@@ -75,8 +75,15 @@ end
 
 desc 'minitest'
 task :minitest do
-  puts `bundle exec ruby ./lib/object_present.rb`
+  puts `bundle exec ruby ./lib/block_label.rb`
   puts `bundle exec ruby ./lib/cached_nested_file_reader.rb`
+  puts `bundle exec ruby ./lib/fcb.rb`
+  puts `bundle exec ruby ./lib/filter.rb`
+  puts `bundle exec ruby ./lib/object_present.rb`
+  puts `bundle exec ruby ./lib/option_value.rb`
+  puts `bundle exec ruby ./lib/regexp.rb`
+  puts `bundle exec ruby ./lib/saved_assets.rb`
+  puts `bundle exec ruby ./lib/saved_files_matcher.rb`
 end
 
 desc 'reek'

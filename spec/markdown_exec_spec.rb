@@ -6,6 +6,7 @@ Bundler.require(:default)
 require_relative '../lib/markdown_exec'
 
 include Tap #; tap_config
+require_relative '../lib/block_label'
 require_relative '../lib/rspec_helpers'
 spec_source __FILE__
 
@@ -576,17 +577,17 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_value_for_hash' do
-    expect(MarkdownExec::OptionValue.new(false).for_hash).to be false
-    expect(MarkdownExec::OptionValue.new(true).for_hash).to be true
-    expect(MarkdownExec::OptionValue.new(2).for_hash).to eq 2
-    expect(MarkdownExec::OptionValue.new('a').for_hash).to eq 'a'
+    expect(MarkdownExec::OptionValue.for_hash(false)).to be false
+    expect(MarkdownExec::OptionValue.for_hash(true)).to be true
+    expect(MarkdownExec::OptionValue.for_hash(2)).to eq 2
+    expect(MarkdownExec::OptionValue.for_hash('a')).to eq 'a'
   end
 
   it 'test_value_for_yaml' do
-    expect(MarkdownExec::OptionValue.new(false).for_yaml).to be false
-    expect(MarkdownExec::OptionValue.new(true).for_yaml).to be true
-    expect(MarkdownExec::OptionValue.new(2).for_yaml).to eq 2
-    expect(MarkdownExec::OptionValue.new('a').for_yaml).to eq "'a'"
+    expect(MarkdownExec::OptionValue.for_yaml(false)).to be false
+    expect(MarkdownExec::OptionValue.for_yaml(true)).to be true
+    expect(MarkdownExec::OptionValue.for_yaml(2)).to eq 2
+    expect(MarkdownExec::OptionValue.for_yaml('a')).to eq "'a'"
   end
 
   it 'test_parse_called_get_named_blocks' do
@@ -710,7 +711,7 @@ RSpec.describe 'MarkdownExec' do
   ### namespace file
 
   describe 'BlockLabel' do
-    subject(:bl) { MarkdownExec::BlockLabel.new(**options) }
+    subject(:bl_make) { BlockLabel.make(**options) }
 
     let(:filename) { 'filename' }
     let(:h1) { 'h1' }
@@ -731,7 +732,7 @@ RSpec.describe 'MarkdownExec' do
       end
 
       it 'makes label' do
-        expect(bl.make).to eq title
+        expect(bl_make).to eq title
       end
     end
 
@@ -749,7 +750,7 @@ RSpec.describe 'MarkdownExec' do
       end
 
       it 'makes label' do
-        expect(bl.make).to eq "#{title}  #{h1} # #{h2}"
+        expect(bl_make).to eq "#{title}  #{h1} # #{h2}"
       end
     end
 
@@ -767,7 +768,7 @@ RSpec.describe 'MarkdownExec' do
       end
 
       it 'makes label' do
-        expect(bl.make).to eq "#{title}  #{h1} # #{h2}  #{filename}"
+        expect(bl_make).to eq "#{title}  #{h1} # #{h2}  #{filename}"
       end
     end
   end

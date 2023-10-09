@@ -12,10 +12,16 @@ require 'shellwords'
 require 'tty-prompt'
 require 'yaml'
 
+require_relative 'block_label'
 require_relative 'cached_nested_file_reader'
 require_relative 'cli'
 require_relative 'colorize'
 require_relative 'env'
+require_relative 'fcb'
+require_relative 'filter'
+require_relative 'option_value'
+require_relative 'saved_assets'
+require_relative 'saved_files_matcher'
 require_relative 'shared'
 require_relative 'tap'
 require_relative 'markdown_exec/version'
@@ -90,14 +96,14 @@ public
 
 # :reek:UtilityFunction
 def list_recent_output(saved_stdout_folder, saved_stdout_glob, list_count)
-  Sfiles.new(saved_stdout_folder,
-             saved_stdout_glob).most_recent_list(list_count)
+  SavedFilesMatcher.most_recent_list(saved_stdout_folder,
+                                     saved_stdout_glob, list_count)
 end
 
 # :reek:UtilityFunction
 def list_recent_scripts(saved_script_folder, saved_script_glob, list_count)
-  Sfiles.new(saved_script_folder,
-             saved_script_glob).most_recent_list(list_count)
+  SavedFilesMatcher.most_recent_list(saved_script_folder,
+                                     saved_script_glob, list_count)
 end
 
 # convert regex match groups to a hash with symbol keys
@@ -111,160 +117,6 @@ end
 #
 module MarkdownExec
   # :reek:IrresponsibleModule
-  class Error < StandardError; end
-
-  # fenced code block
-  #
-  class FCB
-    def initialize(options = {})
-      @attrs = {
-        body: nil,
-        call: nil,
-        headings: [],
-        name: nil,
-        reqs: [],
-        shell: '',
-        title: '',
-        random: Random.new.rand,
-        text: nil # displayable in menu
-      }.merge options
-    end
-
-    def to_h
-      @attrs
-    end
-
-    def to_yaml
-      @attrs.to_yaml
-    end
-
-    private
-
-    # :reek:ManualDispatch
-    def method_missing(method, *args, &block)
-      method_name = method.to_s
-
-      if @attrs.respond_to?(method_name)
-        @attrs.send(method_name, *args, &block)
-      elsif method_name[-1] == '='
-        @attrs[method_name.chop.to_sym] = args[0]
-      else
-        @attrs[method_name.to_sym]
-      end
-    rescue StandardError => err
-      warn(error = "ERROR ** FCB.method_missing(method: #{method_name}," \
-                   " *args: #{args.inspect}, &block)")
-      warn err.inspect
-      warn(caller[0..4])
-      raise StandardError, error
-    end
-
-    # option names are available as methods
-    #
-    def respond_to_missing?(_method_name, _include_private = false)
-      true # recognize all hash methods, rest are treated as hash keys
-    end
-  end
-
-  # select fcb per options
-  #
-  # :reek:UtilityFunction
-  class Filter
-    #     def self.fcb_title_parse(opts, fcb_title)
-    #       fcb_title.match(Regexp.new(opts[:fenced_start_ex_match])).named_captures.sym_keys
-    #     end
-
-    def self.fcb_select?(options, fcb)
-      # options.tap_yaml 'options'
-      # fcb.tap_inspect 'fcb'
-      name = fcb.fetch(:name, '').tap_inspect 'name'
-      shell = fcb.fetch(:shell, '').tap_inspect 'shell'
-
-      ## include hidden blocks for later use
-      #
-      name_default = true
-      name_exclude = nil
-      name_select = nil
-      shell_default = true
-      shell_exclude = nil
-      shell_select = nil
-      hidden_name = nil
-
-      if name.present? && options[:block_name]
-        if name =~ /#{options[:block_name]}/
-          '=~ block_name'.tap_puts
-          name_select = true
-          name_exclude = false
-        else
-          '!~ block_name'.tap_puts
-          name_exclude = true
-          name_select = false
-        end
-      end
-
-      if name.present? && name_select.nil? && options[:select_by_name_regex].present?
-        '+select_by_name_regex'.tap_puts
-        name_select = (!!(name =~ /#{options[:select_by_name_regex]}/)).tap_inspect 'name_select'
-      end
-
-      if shell.present? && options[:select_by_shell_regex].present?
-        '+select_by_shell_regex'.tap_puts
-        shell_select = (!!(shell =~ /#{options[:select_by_shell_regex]}/)).tap_inspect 'shell_select'
-      end
-
-      if name.present? && name_exclude.nil? && options[:exclude_by_name_regex].present?
-        '-exclude_by_name_regex'.tap_puts
-        name_exclude = (!!(name =~ /#{options[:exclude_by_name_regex]}/)).tap_inspect 'name_exclude'
-      end
-
-      if shell.present? && options[:exclude_by_shell_regex].present?
-        '-exclude_by_shell_regex'.tap_puts
-        shell_exclude = (!!(shell =~ /#{options[:exclude_by_shell_regex]}/)).tap_inspect 'shell_exclude'
-      end
-
-      if name.present? && options[:hide_blocks_by_name] &&
-         options[:block_name_hidden_match].present?
-        '+block_name_hidden_match'.tap_puts
-        hidden_name = (!!(name =~ /#{options[:block_name_hidden_match]}/)).tap_inspect 'hidden_name'
-      end
-
-      if shell.present? && options[:hide_blocks_by_shell] &&
-         options[:block_shell_hidden_match].present?
-        '-hide_blocks_by_shell'.tap_puts
-        (!!(shell =~ /#{options[:block_shell_hidden_match]}/)).tap_inspect 'hidden_shell'
-      end
-
-      if options[:bash_only]
-        '-bash_only'.tap_puts
-        shell_default = (shell == 'bash').tap_inspect 'shell_default'
-      end
-
-      ## name matching does not filter hidden blocks
-      #
-      case
-      when options[:no_chrome] && fcb.fetch(:chrome, false)
-        '-no_chrome'.tap_puts
-        false
-      when options[:exclude_expect_blocks] && shell == 'expect'
-        '-exclude_expect_blocks'.tap_puts
-        false
-      when hidden_name == true
-        true
-      when name_exclude == true, shell_exclude == true,
-           name_select == false, shell_select == false
-        false
-      when name_select == true, shell_select == true
-        true
-      when name_default == false, shell_default == false
-        false
-      else
-        true
-      end.tap_inspect
-    rescue StandardError => err
-      warn("ERROR ** Filter::fcb_select?(); #{err.inspect}")
-      raise err
-    end
-  end # class Filter
 
   ## an imported markdown document
   #
@@ -389,148 +241,8 @@ module MarkdownExec
     end
   end # class MDoc
 
-  # format option defaults and values
-  #
-  # :reek:TooManyInstanceVariables
-  class BlockLabel
-    def initialize(filename:, headings:, menu_blocks_with_docname:,
-                   menu_blocks_with_headings:, title:, body:, text:)
-      @filename = filename
-      @headings = headings
-      @menu_blocks_with_docname = menu_blocks_with_docname
-      @menu_blocks_with_headings = menu_blocks_with_headings
-      # @title = title.present? ? title : body
-      @title = title
-      @body = body
-      @text = text
-    rescue StandardError => err
-      warn(error = "ERROR ** BlockLabel.initialize(); #{err.inspect}")
-      binding.pry if $tap_enable
-      raise ArgumentError, error
-    end
-
-    # join title, headings, filename
-    #
-    def make
-      label = @title
-      label = @body unless label.present?
-      label = @text unless label.present?
-      label.tap_inspect
-      ([label] +
-        (if @menu_blocks_with_headings
-           [@headings.compact.join(' # ')]
-         else
-           []
-         end) +
-        (
-          if @menu_blocks_with_docname
-            [@filename]
-          else
-            []
-          end
-        )).join('  ')
-    rescue StandardError => err
-      warn(error = "ERROR ** BlockLabel.make(); #{err.inspect}")
-      binding.pry if $tap_enable
-      raise ArgumentError, error
-    end
-  end # class BlockLabel
-
   FNR11 = '/'
   FNR12 = ',~'
-
-  # format option defaults and values
-  #
-  class SavedAsset
-    def initialize(filename:, prefix:, time:, blockname:)
-      @filename = filename
-      @prefix = prefix
-      @time = time
-      @blockname = blockname
-    end
-
-    def script_name
-      fne = @filename.gsub(FNR11, FNR12)
-      "#{[@prefix, @time.strftime('%F-%H-%M-%S'), fne, ',',
-          @blockname].join('_')}.sh"
-    end
-
-    def stdout_name
-      "#{[@prefix, @time.strftime('%F-%H-%M-%S'), @filename,
-          @blockname].join('_')}.out.txt"
-    end
-  end # class SavedAsset
-
-  # format option defaults and values
-  #
-  class OptionValue
-    def initialize(value)
-      @value = value
-    end
-
-    # as default value in env_str()
-    #
-    def for_hash(default = nil)
-      return default if @value.nil?
-
-      case @value.class.to_s
-      when 'String', 'Integer'
-        @value
-      when 'FalseClass', 'TrueClass'
-        @value ? true : false
-      when @value.empty?
-        default
-      else
-        @value.to_s
-      end
-    end
-
-    # for output as default value in list_default_yaml()
-    #
-    def for_yaml(default = nil)
-      return default if @value.nil?
-
-      case @value.class.to_s
-      when 'String'
-        "'#{@value}'"
-      when 'Integer'
-        @value
-      when 'FalseClass', 'TrueClass'
-        @value ? true : false
-      when @value.empty?
-        default
-      else
-        @value.to_s
-      end
-    end
-  end # class OptionValue
-
-  # a generated list of saved files
-  #
-  class Sfiles
-    def initialize(folder, glob)
-      @folder = folder
-      @glob = glob
-    end
-
-    def list_all
-      Dir.glob(File.join(@folder, @glob))
-    end
-
-    def most_recent(arr = nil)
-      arr = list_all if arr.nil?
-      return if arr.count < 1
-
-      arr.max
-    end
-
-    def most_recent_list(list_count, arr = nil)
-      arr = list_all if arr.nil?
-      return if (ac = arr.count) < 1
-
-      arr.sort[-[ac, list_count].min..].reverse
-    end
-  end # class Sfiles
 
   ##
   #
@@ -598,7 +310,7 @@ module MarkdownExec
                   item_default
                 else
                   env_str(item[:env_var],
-                          default: OptionValue.new(item_default).for_hash)
+                          default: OptionValue.for_hash(item_default))
                 end
         [item[:opt_name], item[:proccode] ? item[:proccode].call(value) : value]
       end.compact.to_h
@@ -1017,7 +729,7 @@ module MarkdownExec
         next unless item[:opt_name].present? && item[:default].present?
 
         [
-          "#{item[:opt_name]}: #{OptionValue.new(item[:default]).for_yaml}",
+          "#{item[:opt_name]}: #{OptionValue.for_yaml(item[:default])}",
           item[:description].present? ? item[:description] : nil
         ].compact.join('      # ')
       end.compact.sort
@@ -1092,13 +804,15 @@ module MarkdownExec
     def make_block_labels(call_options = {})
       opts = options.merge(call_options)
       list_blocks_in_file(opts).map do |fcb|
-        BlockLabel.new(filename: opts[:filename],
-                       headings: fcb.fetch(:headings, []),
-                       menu_blocks_with_docname: opts[:menu_blocks_with_docname],
-                       menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-                       title: fcb[:title],
-                       text: fcb[:text],
-                       body: fcb[:body]).make
+        BlockLabel.make(
+          filename: opts[:filename],
+          headings: fcb.fetch(:headings, []),
+          menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+          menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+          title: fcb[:title],
+          text: fcb[:text],
+          body: fcb[:body]
+        )
       end.compact
     end
 
@@ -1352,8 +1066,8 @@ module MarkdownExec
     end
 
     def run_last_script
-      filename = Sfiles.new(@options[:saved_script_folder],
-                            @options[:saved_script_glob]).most_recent
+      filename = SavedFilesMatcher.most_recent(@options[:saved_script_folder],
+                                               @options[:saved_script_glob])
       return unless filename
 
       saved_name_split filename
@@ -1405,7 +1119,7 @@ module MarkdownExec
             # next unless fcb.fetch(:name, '').present?
 
             fcb.merge!(
-              label: BlockLabel.new(
+              label: BlockLabel.make(
                 body: fcb[:body],
                 filename: opts[:filename],
                 headings: fcb.fetch(:headings, []),
@@ -1413,7 +1127,7 @@ module MarkdownExec
                 menu_blocks_with_headings: opts[:menu_blocks_with_headings],
                 text: fcb[:text],
                 title: fcb[:title]
-              ).make
+              )
             )
 
             fcb.to_h
@@ -1546,3 +1260,5 @@ module MarkdownExec
     end
   end # class MarkParse
 end # module MarkdownExec
+
+require 'minitest/autorun' if $PROGRAM_NAME == __FILE__
