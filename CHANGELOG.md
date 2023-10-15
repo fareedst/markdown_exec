@@ -1,20 +1,27 @@
 # Changelog
 
+## [1.3.6] - 2023-10-15
+
+### Added
+
+- Option to inhibit display of menu decorations/chrome
+- Options for tasks
+
 ## [1.3.5] - 2023-10-05
 
 ### Changed
 
-- Fix display of menu dividers.
+- Fix display of menu dividers
 
 ## [1.3.3] - 2023-10-03
 
 ### Added
 
-- Nest scripts by using an `import` directive.
+- Nest scripts by using an `import` directive
 
 ### Changed
 
-- Convert constants for block selection into options.
+- Convert constants for block selection into options
 
 ## [1.3.2] - 2022-11-12
 
@@ -48,8 +55,8 @@
   eg `export fruit_summary=$(yq e '[.fruit.name,.fruit.price]' fruit.yml)`
   for invocation `%(summarize_fruits <fruit.yml >fruit_summary)`
   and transformation `[.fruit.name,.fruit.price]`
-- Option to extract document text and display it as disabled items in-line with the blocks in the selection menu.
-  Add options for constants used in parsing.
+- Option to extract document text and display it as disabled items in-line with the blocks in the selection menu
+  Add options for constants used in parsing
 - [x] yaml processing
     - ```yaml :(make_fruit_file) >fruit.yml```
       write to: fruit.yml
@@ -64,7 +71,7 @@
 ### Changed
 
 - Refactoring
-    - Run-time menu in YAML file.
+    - Run-time menu in YAML file
     - Tap module initialization
 
 ## [1.2.0] - 2022-06-11
@@ -74,8 +81,8 @@
 - Options
     - Display document name in block selection menu
     - Display headings (levels 1,2,3) in block selection menu
-- Trap Ctrl-C (SIGTERM) while script is executing.
-  Completes MDE processes such as saving output and reporting results.
+- Trap Ctrl-C (SIGTERM) while script is executing
+  Completes MDE processes such as saving output and reporting results
 
 ### Changed
 
@@ -85,11 +92,11 @@
 
 ### Added
 
-- Post-install instructions to add tab completions permanently to the shell.
+- Post-install instructions to add tab completions permanently to the shell
 
 ### Changed
 
-- Improve handling of threads ending while executing scripts.
+- Improve handling of threads ending while executing scripts
 
 ## [1.1.0] - 2022-05-21
 
