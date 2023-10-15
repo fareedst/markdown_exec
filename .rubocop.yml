@@ -76,6 +76,9 @@ Style/MultilineBlockChain:
 Style/SlicingWithRange:
   Enabled: false
 
+Style/SpecialGlobalVars:
+  Enabled: false
+
 Style/StringLiterals:
   Enabled: true
   EnforcedStyle: single_quotes

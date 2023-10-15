@@ -36,6 +36,7 @@ RSpec.describe 'MarkdownExec' do
   let(:menu_task_color) { 'plain' }
   let(:menu_task_format) { '-:   %s   :-' }
   let(:menu_task_match) { nil }
+  let(:no_chrome) { false }
   let(:option_bash) { false }
   let(:struct_bash) { true }
 
@@ -51,6 +52,7 @@ RSpec.describe 'MarkdownExec' do
         menu_task_color: menu_task_color,
         menu_task_format: menu_task_format,
         menu_task_match: menu_task_match,
+        no_chrome: no_chrome,
         struct: struct_bash }
     )
   end
@@ -184,6 +186,20 @@ RSpec.describe 'MarkdownExec' do
     { filename: 'diff' }
   end
 
+  context 'with task match' do
+    let(:menu_divider_match) { nil }
+    let(:menu_task_format) { '<%{name}>' }
+    let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
+
+    it 'formats tasks' do
+      expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
+        { name: 'one', text: nil },
+        { name: 'two', text: nil },
+        { name: '<task>', text: nil }
+      ]
+    end
+  end
+
   context 'with menu divider format' do
     let(:menu_divider_format) { '<%s>' }
     let(:menu_divider_match) { ymds[:menu_divider_match] }
@@ -208,12 +224,44 @@ RSpec.describe 'MarkdownExec' do
     end
   end
 
+  ## presence of chrome
+  #
+  describe 'presence of chrome' do
+    subject(:blocks) { mp.list_blocks_in_file.map { |block| block.slice(:name, :text) } }
+
+    let(:menu_divider_format) { '<%s>' }
+    let(:menu_initial_divider) { 'BINDIV' }
+
+    context 'with chrome' do
+      let(:no_chrome) { false }
+
+      it '' do
+        expect(blocks).to eq [
+          { name: '<BINDIV>', text: nil },
+          { name: 'one', text: nil },
+          { name: 'two', text: nil }
+        ]
+      end
+    end
+
+    context 'without chrome' do
+      let(:no_chrome) { true }
+
+      it '' do
+        expect(blocks).to eq [
+          { name: 'one', text: nil },
+          { name: 'two', text: nil }
+        ]
+      end
+    end
+  end
+
   ## presence of menu tasks
   #
   context 'with menu tasks' do
     let(:menu_divider_match) { nil }
     let(:menu_final_divider) { nil }
-    let(:menu_task_format) { '<%s>' }
+    let(:menu_task_format) { '<%{name}>' }
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it '' do
@@ -346,25 +394,6 @@ RSpec.describe 'MarkdownExec' do
            two
          ])
   end
-
-  # def menu_for_blocks(menu_options)
-  #   options = calculated_options.merge menu_options
-  #   menu = []
-  #   iter_blocks_in_file(options) do |btype, fcb|
-  #     case btype
-  #     when :filter
-  #       %i[blocks line]
-  #     when :line
-  #       if options[:menu_divider_match] &&
-  #          (mbody = fcb.body[0].match(options[:menu_divider_match]))
-  #         menu += [FCB.new({ name: mbody[:name], disabled: '' })]
-  #       end
-  #     when :blocks
-  #       menu += [fcb.name]
-  #     end
-  #   end
-  #   menu
-  # end
 
   it 'test_parse_menu_for_blocks' do
     expect(mp.menu_for_blocks(options_parse_menu_for_blocks).map do |block|
@@ -537,6 +566,7 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/import0.md', 'fixtures/import1.md',
           'fixtures/infile_config.md',
           'fixtures/menu_divs.md',
+          'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
     expect(mp.list_files_specified(specified_folder: 'fixtures',
@@ -667,7 +697,6 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_fcbs_per_options' do
-    # options.tap_inspect 'options'
     [
       [%w[block21 block22], { exclude_by_name_regex: '^(?<name>block[13].*)$',
                               exclude_expect_blocks: false,
@@ -695,9 +724,6 @@ RSpec.describe 'MarkdownExec' do
                       hide_blocks_by_name: false,
                       struct: true }]
     ].each.with_index do |(names, opts), _ind|
-      names.tap_inspect 'names'
-      opts.tap_inspect 'opts'
-      # puts "# #{ind}:"
       mp = MarkdownExec::MarkParse.new(o2 = options.merge(opts))
       doc_fcblocks = mp.list_blocks_in_file(o2)
       mdoc = MarkdownExec::MDoc.new(doc_fcblocks)

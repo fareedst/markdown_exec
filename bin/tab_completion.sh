@@ -48,8 +48,6 @@ _mde() {
             
               -q) COMPREPLY="1"; return 0 ;;
             
-              --display-level) COMPREPLY="1"; return 0 ;;
-            
               --list-count) COMPREPLY="32"; return 0 ;;
             
               --output-execution-summary) COMPREPLY="0"; return 0 ;;
@@ -66,6 +64,8 @@ _mde() {
             
               --saved-stdout-folder) COMPREPLY="logs"; return 0 ;;
             
+              --display-level) COMPREPLY="1"; return 0 ;;
+            
       esac
     fi
   fi
@@ -74,7 +74,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--filename" "--help" "--path" "--user-must-approve" "--version" "--exit" "--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--select-recent-output" "--select-recent-script" "--tab-completions" "--run-last-script" "--pwd" "--display-level" "--list-count" "--output-execution-summary" "--output-script" "--output-stdout" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder")
+    opts=("--block-name" "--config" "--debug" "--filename" "--help" "--path" "--user-must-approve" "--version" "--exit" "--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--select-recent-output" "--select-recent-script" "--tab-completions" "--run-last-script" "--pwd" "--list-count" "--output-execution-summary" "--output-script" "--output-stdout" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -109,8 +109,6 @@ _mde() {
         
           -q) COMPREPLY=".BOOL."; return 0 ;;
         
-          --display-level) COMPREPLY=".INT.0-3."; return 0 ;;
-        
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
           --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
@@ -126,6 +124,8 @@ _mde() {
           --saved-script-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           --saved-stdout-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          --display-level) COMPREPLY=".INT.0-3."; return 0 ;;
         
     esac
   fi

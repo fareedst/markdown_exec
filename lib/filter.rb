@@ -11,100 +11,102 @@ module MarkdownExec
   # various properties of an FCB and decides whether to include or exclude it.
   #
   # :reek:UtilityFunction
+
   class Filter
-    #     def self.fcb_title_parse(opts, fcb_title)
-    #       fcb_title.match(Regexp.new(opts[:fenced_start_ex_match])).named_captures.sym_keys
-    #     end
-
     def self.fcb_select?(options, fcb)
-      # options.tap_yaml 'options'
-      # fcb.tap_inspect 'fcb'
-      name = fcb.fetch(:name, '').tap_inspect 'name'
-      shell = fcb.fetch(:shell, '').tap_inspect 'shell'
+      filters = {
+        name_default: true,
+        name_exclude: nil,
+        name_select: nil,
+        shell_default: true,
+        shell_exclude: nil,
+        shell_select: nil,
+        hidden_name: nil
+      }
 
-      ## include hidden blocks for later use
-      #
-      name_default = true
-      name_exclude = nil
-      name_select = nil
-      shell_default = true
-      shell_exclude = nil
-      shell_select = nil
-      hidden_name = nil
+      name = fcb.fetch(:name, '')
+      shell = fcb.fetch(:shell, '')
 
+      apply_name_filters(options, filters, name)
+      apply_shell_filters(options, filters, shell)
+      apply_other_filters(options, filters, fcb)
+
+      evaluate_filters(options, filters)
+    rescue StandardError => err
+      warn("ERROR ** Filter::fcb_select?(); #{err.inspect}")
+      raise err
+    end
+
+    def self.apply_name_filters(options, filters, name)
       if name.present? && options[:block_name]
         if name =~ /#{options[:block_name]}/
-          '=~ block_name'.tap_puts
-          name_select = true
-          name_exclude = false
+          filters[:name_select] = true
+          filters[:name_exclude] = false
         else
-          '!~ block_name'.tap_puts
-          name_exclude = true
-          name_select = false
+          filters[:name_exclude] = true
+          filters[:name_select] = false
         end
       end
 
-      if name.present? && name_select.nil? && options[:select_by_name_regex].present?
-        '+select_by_name_regex'.tap_puts
-        name_select = (!!(name =~ /#{options[:select_by_name_regex]}/)).tap_inspect 'name_select'
+      if name.present? && filters[:name_select].nil? && options[:select_by_name_regex].present?
+        filters[:name_select] = !!(name =~ /#{options[:select_by_name_regex]}/)
       end
+
+      unless name.present? && filters[:name_exclude].nil? && options[:exclude_by_name_regex].present?
+        return
+      end
+
+      filters[:name_exclude] = !!(name =~ /#{options[:exclude_by_name_regex]}/)
+    end
+
+    def self.apply_shell_filters(options, filters, shell)
+      filters[:shell_expect] = shell == 'expect'
 
       if shell.present? && options[:select_by_shell_regex].present?
-        '+select_by_shell_regex'.tap_puts
-        shell_select = (!!(shell =~ /#{options[:select_by_shell_regex]}/)).tap_inspect 'shell_select'
+        filters[:shell_select] = !!(shell =~ /#{options[:select_by_shell_regex]}/)
       end
 
-      if name.present? && name_exclude.nil? && options[:exclude_by_name_regex].present?
-        '-exclude_by_name_regex'.tap_puts
-        name_exclude = (!!(name =~ /#{options[:exclude_by_name_regex]}/)).tap_inspect 'name_exclude'
-      end
+      return unless shell.present? && options[:exclude_by_shell_regex].present?
 
-      if shell.present? && options[:exclude_by_shell_regex].present?
-        '-exclude_by_shell_regex'.tap_puts
-        shell_exclude = (!!(shell =~ /#{options[:exclude_by_shell_regex]}/)).tap_inspect 'shell_exclude'
-      end
+      filters[:shell_exclude] = !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
+    end
+
+    def self.apply_other_filters(options, filters, fcb)
+      name = fcb.fetch(:name, '')
+      shell = fcb.fetch(:shell, '')
+      filters[:fcb_chrome] = fcb.fetch(:chrome, false)
 
       if name.present? && options[:hide_blocks_by_name] &&
          options[:block_name_hidden_match].present?
-        '+block_name_hidden_match'.tap_puts
-        hidden_name = (!!(name =~ /#{options[:block_name_hidden_match]}/)).tap_inspect 'hidden_name'
+        filters[:hidden_name] = !!(name =~ /#{options[:block_name_hidden_match]}/)
       end
 
       if shell.present? && options[:hide_blocks_by_shell] &&
          options[:block_shell_hidden_match].present?
-        '-hide_blocks_by_shell'.tap_puts
-        (!!(shell =~ /#{options[:block_shell_hidden_match]}/)).tap_inspect 'hidden_shell'
+        !!(shell =~ /#{options[:block_shell_hidden_match]}/)
       end
 
-      if options[:bash_only]
-        '-bash_only'.tap_puts
-        shell_default = (shell == 'bash').tap_inspect 'shell_default'
-      end
+      return unless options[:bash_only]
 
-      ## name matching does not filter hidden blocks
-      #
-      case
-      when options[:no_chrome] && fcb.fetch(:chrome, false)
-        '-no_chrome'.tap_puts
+      filters[:shell_default] = (shell == 'bash')
+    end
+
+    def self.evaluate_filters(options, filters)
+      if options[:no_chrome] && filters[:fcb_chrome]
         false
-      when options[:exclude_expect_blocks] && shell == 'expect'
-        '-exclude_expect_blocks'.tap_puts
+      elsif options[:exclude_expect_blocks] && filters[:shell_expect]
         false
-      when hidden_name == true
+      elsif filters[:hidden_name] == true
         true
-      when name_exclude == true, shell_exclude == true,
-           name_select == false, shell_select == false
+      elsif filters[:name_exclude] == true || filters[:shell_exclude] == true || filters[:name_select] == false || filters[:shell_select] == false
         false
-      when name_select == true, shell_select == true
+      elsif filters[:name_select] == true || filters[:shell_select] == true
         true
-      when name_default == false, shell_default == false
+      elsif filters[:name_default] == false || filters[:shell_default] == false
         false
       else
         true
-      end.tap_inspect
-    rescue StandardError => err
-      warn("ERROR ** Filter::fcb_select?(); #{err.inspect}")
-      raise err
+      end
     end
   end
 end

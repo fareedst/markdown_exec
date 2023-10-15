@@ -19,6 +19,7 @@ require_relative 'colorize'
 require_relative 'env'
 require_relative 'fcb'
 require_relative 'filter'
+require_relative 'mdoc'
 require_relative 'option_value'
 require_relative 'saved_assets'
 require_relative 'saved_files_matcher'
@@ -117,130 +118,6 @@ end
 #
 module MarkdownExec
   # :reek:IrresponsibleModule
-
-  ## an imported markdown document
-  #
-  class MDoc
-    attr_reader :table
-
-    # convert block name to fcb_parse
-    #
-    def initialize(table)
-      @table = table
-    end
-
-    def collect_recursively_required_code(name)
-      get_required_blocks(name)
-        .map do |fcb|
-        body = fcb[:body].join("\n")
-
-        if fcb[:cann]
-          xcall = fcb[:cann][1..-2]
-          mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
-          mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
-
-          yqcmd = if mstdin[:type]
-                    "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
-                  else
-                    "yq e '#{body}' '#{mstdin[:name]}'"
-                  end
-          if mstdout[:type]
-            "export #{mstdout[:name]}=$(#{yqcmd})"
-          else
-            "#{yqcmd} > '#{mstdout[:name]}'"
-          end
-        elsif fcb[:stdout]
-          stdout = fcb[:stdout]
-          body = fcb[:body].join("\n")
-          if stdout[:type]
-            %(export #{stdout[:name]}=$(cat <<"EOF"\n#{body}\nEOF\n))
-          else
-            "cat > '#{stdout[:name]}' <<\"EOF\"\n" \
-              "#{body}\n" \
-              "EOF\n"
-          end
-        else
-          fcb[:body]
-        end
-      end.flatten(1)
-    end
-
-    def get_block_by_name(name, default = {})
-      @table.select { |fcb| fcb.fetch(:name, '') == name }.fetch(0, default)
-    end
-
-    def get_required_blocks(name)
-      name_block = get_block_by_name(name)
-      raise "Named code block `#{name}` not found." if name_block.nil? || name_block.keys.empty?
-
-      all = [name_block.fetch(:name, '')] + recursively_required(name_block[:reqs])
-
-      # in order of appearance in document
-      # insert function blocks
-      @table.select { |fcb| all.include? fcb.fetch(:name, '') }
-            .map do |fcb|
-        if (call = fcb[:call])
-          [get_block_by_name("[#{call.match(/^%\((\S+) |\)/)[1]}]")
-            .merge({ cann: call })]
-        else
-          []
-        end + [fcb]
-      end.flatten(1)
-    end
-
-    # :reek:UtilityFunction
-    def hide_menu_block_per_options(opts, block)
-      (opts[:hide_blocks_by_name] &&
-              block[:name]&.match(Regexp.new(opts[:block_name_hidden_match])) &&
-              (block[:name]&.present? || block[:label]&.present?)
-      ).tap_inspect
-    end
-
-    # def blocks_for_menu(opts)
-    #   if opts[:hide_blocks_by_name]
-    #     @table.reject { |block| hide_menu_block_per_options opts, block }
-    #   else
-    #     @table
-    #   end
-    # end
-
-    def fcbs_per_options(opts = {})
-      options = opts.merge(block_name_hidden_match: nil)
-      selrows = @table.select do |fcb_title_groups|
-        Filter.fcb_select? options, fcb_title_groups
-      end
-
-      ### hide rows correctly
-
-      if opts[:hide_blocks_by_name]
-        selrows.reject { |block| hide_menu_block_per_options opts, block }
-      else
-        selrows
-      end.map do |block|
-        # block[:name] = block[:text] if block[:name].nil?
-        block
-      end
-    end
-
-    def recursively_required(reqs)
-      return [] unless reqs
-
-      rem = reqs
-      memo = []
-      while rem.count.positive?
-        rem = rem.map do |req|
-          next if memo.include? req
-
-          memo += [req]
-          get_block_by_name(req).fetch(:reqs, [])
-        end
-                 .compact
-                 .flatten(1)
-      end
-      memo
-    end
-  end # class MDoc
-
   FNR11 = '/'
   FNR12 = ',~'
 
@@ -282,7 +159,7 @@ module MarkdownExec
         []
       else
         argv[0..ind - 1]
-      end #.tap_inspect
+      end
     end
 
     # return arguments after `--`
@@ -293,7 +170,7 @@ module MarkdownExec
         []
       else
         argv[ind + 1..-1]
-      end #.tap_inspect
+      end
     end
 
     ##
@@ -301,11 +178,9 @@ module MarkdownExec
     #
     def base_options
       menu_iter do |item|
-        # noisy item.tap_yaml name: :item
         next unless item[:opt_name].present?
 
         item_default = item[:default]
-        # noisy item_default.tap_inspect name: :item_default
         value = if item_default.nil?
                   item_default
                 else
@@ -469,7 +344,7 @@ module MarkdownExec
 
     # :reek:DuplicateMethodCall
     def exec_block(options, _block_name = '')
-      options = calculated_options.merge(options).tap_yaml 'options'
+      options = calculated_options.merge(options)
       update_options options, over: false
 
       # document and block reports
@@ -647,9 +522,11 @@ module MarkdownExec
     # return body if not struct
     #
     def list_blocks_in_file(call_options = {}, &options_block)
-      opts = optsmerge(call_options, options_block) #.tap_yaml 'opts'
+      opts = optsmerge(call_options, options_block)
+      use_chrome = !opts[:no_chrome]
+
       blocks = []
-      if opts[:menu_initial_divider].present?
+      if opts[:menu_initial_divider].present? && use_chrome
         blocks.push FCB.new({
                               # name: '',
                               chrome: true,
@@ -673,20 +550,26 @@ module MarkdownExec
           #
           if opts[:menu_divider_match].present? &&
              (mbody = fcb.body[0].match opts[:menu_divider_match])
-            blocks.push FCB.new(
-              { chrome: true,
-                disabled: '',
-                name: format(opts[:menu_divider_format],
-                             mbody[:name]).send(opts[:menu_divider_color].to_sym) }
-            )
+            if use_chrome
+              blocks.push FCB.new(
+                { chrome: true,
+                  disabled: '',
+                  name: format(opts[:menu_divider_format],
+                               mbody[:name]).send(opts[:menu_divider_color].to_sym) }
+              )
+            end
           elsif opts[:menu_task_match].present? &&
                 (mbody = fcb.body[0].match opts[:menu_task_match])
-            blocks.push FCB.new(
-              { chrome: true,
-                disabled: '',
-                name: format(opts[:menu_task_format],
-                             mbody[:name]).send(opts[:menu_task_color].to_sym) }
-            )
+            if use_chrome
+              blocks.push FCB.new(
+                { chrome: true,
+                  disabled: '',
+                  name: format(
+                    opts[:menu_task_format],
+                    $~.named_captures.transform_keys(&:to_sym)
+                  ).send(opts[:menu_task_color].to_sym) }
+              )
+            end
           else
             # line not added
           end
@@ -697,7 +580,7 @@ module MarkdownExec
         end
       end
 
-      if opts[:menu_divider_format].present? && opts[:menu_final_divider].present?
+      if opts[:menu_divider_format].present? && opts[:menu_final_divider].present? && use_chrome && use_chrome
         blocks.push FCB.new(
           { chrome: true,
             disabled: '',
@@ -706,7 +589,7 @@ module MarkdownExec
                                  .send(opts[:menu_divider_color].to_sym) }
         )
       end
-      blocks.tap_inspect
+      blocks
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.list_blocks_in_file(); #{err.inspect}")
       warn(caller[0..4])
@@ -786,7 +669,7 @@ module MarkdownExec
         blocks.map do |block|
           block.fetch(:text, nil) || block.fetch(:name, nil)
         end
-      end.compact.reject(&:empty?).tap_inspect
+      end.compact.reject(&:empty?)
     end
 
     ## output type (body string or full object) per option struct and bash
@@ -798,7 +681,7 @@ module MarkdownExec
         # fcb.fetch(:name, '') != '' && Filter.fcb_select?(opts, fcb)
         Filter.fcb_select?(opts.merge(no_chrome: true), fcb)
       end
-      blocks_per_opts(blocks, opts).tap_inspect
+      blocks_per_opts(blocks, opts)
     end
 
     def make_block_labels(call_options = {})
@@ -1103,7 +986,7 @@ module MarkdownExec
 
     def select_approve_and_execute_block(call_options, &options_block)
       opts = optsmerge call_options, options_block
-      blocks_in_file = list_blocks_in_file(opts.merge(struct: true)).tap_inspect
+      blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
       mdoc = MDoc.new(blocks_in_file) do |nopts|
         opts.merge!(nopts)
       end
@@ -1243,12 +1126,12 @@ module MarkdownExec
 
       dirname = File.dirname(@options[:saved_filespec])
       FileUtils.mkdir_p dirname
-      (shebang = if @options[:shebang]&.present?
-                   "#{@options[:shebang]} #{@options[:shell]}\n"
-                 else
-                   ''
-                 end
-      ).tap_inspect name: :shebang
+      shebang = if @options[:shebang]&.present?
+                  "#{@options[:shebang]} #{@options[:shell]}\n"
+                else
+                  ''
+                end
+
       File.write(@options[:saved_filespec], shebang +
                                             "# file_name: #{opts[:filename]}\n" \
                                             "# block_name: #{opts[:block_name]}\n" \
