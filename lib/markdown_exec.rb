@@ -559,7 +559,7 @@ module MarkdownExec
               )
             end
           elsif opts[:menu_task_match].present? &&
-                (mbody = fcb.body[0].match opts[:menu_task_match])
+                (fcb.body[0].match opts[:menu_task_match])
             if use_chrome
               blocks.push FCB.new(
                 { chrome: true,
@@ -962,10 +962,10 @@ module MarkdownExec
       return unless @options[:save_execution_output]
 
       @options[:logged_stdout_filename] =
-        SavedAsset.new(blockname: @options[:block_name],
-                       filename: File.basename(@options[:filename], '.*'),
-                       prefix: @options[:logged_stdout_filename_prefix],
-                       time: Time.now.utc).stdout_name
+        SavedAsset.stdout_name(blockname: @options[:block_name],
+                               filename: File.basename(@options[:filename], '.*'),
+                               prefix: @options[:logged_stdout_filename_prefix],
+                               time: Time.now.utc)
 
       @options[:logged_stdout_filespec] =
         File.join @options[:saved_stdout_folder],
@@ -1035,6 +1035,7 @@ module MarkdownExec
       end
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.select_approve_and_execute_block(); #{err.inspect}")
+      warn err.backtrace
       binding.pry if $tap_enable
       raise ArgumentError, error
     end
@@ -1115,10 +1116,10 @@ module MarkdownExec
       time_now = Time.now.utc
       opts = optsmerge call_options
       opts[:saved_script_filename] =
-        SavedAsset.new(blockname: opts[:block_name],
-                       filename: opts[:filename],
-                       prefix: opts[:saved_script_filename_prefix],
-                       time: time_now).script_name
+        SavedAsset.script_name(blockname: opts[:block_name],
+                               filename: opts[:filename],
+                               prefix: opts[:saved_script_filename_prefix],
+                               time: time_now)
 
       @execute_script_filespec =
         @options[:saved_filespec] =
