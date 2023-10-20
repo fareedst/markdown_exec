@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.8] - 2023-10-20
+
+### Added
+
+- Options for hidden, included, and wrapped blocks
+
+## [1.3.7] - 2023-10-16
+
+### Changed
+
+- Fix invocation of SavedAsset class
+
 ## [1.3.6] - 2023-10-15
 
 ### Added
