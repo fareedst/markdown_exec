@@ -357,10 +357,10 @@ RSpec.describe 'MarkdownExec' do
       include(*%w[./CHANGELOG.md ./CODE_OF_CONDUCT.md ./README.md])
   end
 
-  it 'test_called_parse_hidden_get_required_blocks' do
+  it 'test_called_parse_hidden_collect_recursively_required_blocks' do
     expect(
       MarkdownExec::MDoc.new(list_blocks_bash1)
-                  .get_required_blocks('four')
+                  .collect_recursively_required_blocks('four')
                   .map do |block|
                     block[:name]
                   end
@@ -564,10 +564,12 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
           'fixtures/import0.md', 'fixtures/import1.md',
+          'fixtures/include.md',
           'fixtures/infile_config.md',
           'fixtures/menu_divs.md',
           'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
+          'fixtures/wrap.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
     expect(mp.list_files_specified(specified_folder: 'fixtures',
                                    default_filename: 'README.md',
@@ -628,8 +630,8 @@ RSpec.describe 'MarkdownExec' do
     ]
   end
 
-  it 'test_parse_called_get_required_blocks' do
-    expect(mdoc_yaml1.get_required_blocks('show_fruit_yml').map do |block|
+  it 'test_parse_called_collect_recursively_required_blocks' do
+    expect(mdoc_yaml1.collect_recursively_required_blocks('show_fruit_yml').map do |block|
       block.slice(:call, :name)
            .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
@@ -668,8 +670,8 @@ RSpec.describe 'MarkdownExec' do
     ]
   end
 
-  it 'test_vars_parse_called_get_required_blocks' do
-    expect(mdoc_yaml2.get_required_blocks('show_coins_var').map do |block|
+  it 'test_vars_parse_called_collect_recursively_required_blocks' do
+    expect(mdoc_yaml2.collect_recursively_required_blocks('show_coins_var').map do |block|
              block.slice(:call, :cann, :name)
            end).to eq [
              { call: nil, name: '(make_coins_file)' },

@@ -473,7 +473,8 @@ module MarkdownExec
                 fcb.title = fcb.body.join(' ').gsub(/  +/, ' ')[0..64]
               end
 
-              if block_given? && selected_messages.include?(:blocks) &&
+              if block_given? &&
+                 selected_messages.include?(:blocks) &&
                  Filter.fcb_select?(opts, fcb)
                 yield :blocks, fcb
               end
@@ -496,8 +497,10 @@ module MarkdownExec
             fcb.body = []
 
             rest = fcb_title_groups.fetch(:rest, '')
-            fcb.reqs = rest.scan(/\+[^\s]+/).map { |req| req[1..-1] }
-
+            fcb.reqs, fcb.wraps =
+              split_array(rest.scan(/\+[^\s]+/).map { |req| req[1..-1] }) do |name|
+              !name.match(Regexp.new(opts[:block_name_wrapper_match]))
+            end
             fcb.call = rest.match(Regexp.new(opts[:block_calls_scan]))&.to_a&.first
             fcb.stdin = if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
                           tn.named_captures.sym_keys
@@ -516,6 +519,21 @@ module MarkdownExec
           yield :line, fcb
         end
       end
+    end
+
+    def split_array(arr)
+      true_list = []
+      false_list = []
+
+      arr.each do |element|
+        if yield(element)
+          true_list << element
+        else
+          false_list << element
+        end
+      end
+
+      [true_list, false_list]
     end
 
     # return body, title if option.struct

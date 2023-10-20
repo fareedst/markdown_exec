@@ -267,14 +267,24 @@
   :env_var: MDE_SELECT_BY_SHELL_REGEX
   :opt_name: select_by_shell_regex
   :procname: val_as_str
-- :default: "^[\\(\\[].*[\\)\\]]$"
+- :default: "^-.+-$"
   :description: Pattern for blocks to hide from user-selection
   :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
   :opt_name: block_name_hidden_match
   :procname: val_as_str
+- :default: "^[\\(\\[].*[\\)\\]]$"
+  :description: Pattern for blocks to hide from user-selection
+  :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
+  :opt_name: block_name_include_match
+  :procname: val_as_str
 - :default: ":(?<title>\\S+)( |$)"
   :env_var: MDE_BLOCK_NAME_MATCH
   :opt_name: block_name_match
+  :procname: val_as_str
+- :default: "^{.+}$"
+  :description: Pattern for block names to use as wrappers
+  :env_var: MDE_BLOCK_NAME_WRAPPER_MATCH
+  :opt_name: block_name_wrapper_match
   :procname: val_as_str
 - :default: "%\\([^\\)]+\\)"
   :env_var: MDE_BLOCK_CALLS_SCAN
@@ -358,7 +368,7 @@
   :env_var: MDE_MENU_INITIAL_DIVIDER
   :opt_name: menu_initial_divider
   :procname: val_as_str
-- :default: "[%{status}] %{name}"
+- :default: "%{name} [%{status}]"
   :description: format for menu tasks and demarcations
   :env_var: MDE_MENU_TASK_FORMAT
   :opt_name: menu_task_format

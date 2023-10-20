@@ -80,6 +80,7 @@ task :minitest do
     './lib/cached_nested_file_reader.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
+    './lib/markdown_block_manager.rb',
     './lib/mdoc.rb',
     './lib/object_present.rb',
     './lib/option_value.rb',
