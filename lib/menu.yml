@@ -368,6 +368,11 @@
   :env_var: MDE_MENU_INITIAL_DIVIDER
   :opt_name: menu_initial_divider
   :procname: val_as_str
+- :default: red
+  :description: Color of menu link
+  :env_var: MDE_MENU_LINK_COLOR
+  :opt_name: menu_link_color
+  :procname: val_as_str
 - :default: "%{name} [%{status}]"
   :description: format for menu tasks and demarcations
   :env_var: MDE_MENU_TASK_FORMAT

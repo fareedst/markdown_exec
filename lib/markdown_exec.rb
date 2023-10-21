@@ -444,7 +444,6 @@ module MarkdownExec
     def get_block_summary(call_options, fcb)
       opts = optsmerge call_options
       # return fcb.body unless opts[:struct]
-
       return fcb unless opts[:bash]
 
       fcb.call = fcb.title.match(Regexp.new(opts[:block_calls_scan]))&.fetch(1, nil)
@@ -456,7 +455,11 @@ module MarkdownExec
       bm = option_match_groups(titlexcall, opts[:block_name_match])
       fcb.stdin = option_match_groups(titlexcall, opts[:block_stdin_scan])
       fcb.stdout = option_match_groups(titlexcall, opts[:block_stdout_scan])
-      fcb.title = fcb.name = (bm && bm[1] ? bm[:title] : titlexcall)
+      fcb.name = (bm && bm[1] ? bm[:title] : titlexcall)
+      if fcb[:shell] == 'link'
+        fcb.name = fcb.name.send(opts[:menu_link_color].to_sym)
+      end
+      fcb.title = fcb.name
       fcb
     end
 
