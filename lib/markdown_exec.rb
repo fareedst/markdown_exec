@@ -272,7 +272,11 @@ module MarkdownExec
       # If approved, write the code to a file, execute it, and provide output.
       if opts[:ir_approve]
         write_command_file(opts, required_blocks)
-        command_execute(opts, required_blocks.flatten.join("\n"))
+        command_execute(
+          opts,
+          required_blocks.flatten.join("\n"),
+          args: opts.fetch(:pass_args, [])
+        )
         save_execution_output
         output_execution_summary
         output_execution_result
@@ -288,15 +292,14 @@ module MarkdownExec
     # :reek:DuplicateMethodCall
     # :reek:UncommunicativeVariableName { exclude: [ e ] }
     # :reek:LongYieldList
-    def command_execute(opts, command)
+    def command_execute(opts, command, args: [])
       #d 'execute command and yield outputs'
       @execute_files = Hash.new([])
       @execute_options = opts
       @execute_started_at = Time.now.utc
 
-      args = []
       Open3.popen3(@options[:shell], '-c',
-                   command, ARGV[0], *args) do |stdin, stdout, stderr, exec_thr|
+                   command, opts[:filename], *args) do |stdin, stdout, stderr, exec_thr|
         #d 'command started'
         Thread.new do
           until (line = stdout.gets).nil?
@@ -864,7 +867,7 @@ module MarkdownExec
     def options_finalize(rest)
       ## position 0: file or folder (optional)
       #
-      if (pos = rest.fetch(0, nil))&.present?
+      if (pos = rest.shift)&.present?
         if Dir.exist?(pos)
           @options[:path] = pos
         elsif File.exist?(pos)
@@ -876,7 +879,7 @@ module MarkdownExec
 
       ## position 1: block name (optional)
       #
-      block_name = rest.fetch(1, nil)
+      block_name = rest.shift
       @options[:block_name] = block_name if block_name.present?
     end
 
@@ -980,6 +983,9 @@ module MarkdownExec
       option_parser.environment # env defaults to the basename of the program
       # child_argv = arguments_for_child
       rest = option_parser.parse!(arguments_for_mde) # (into: options)
+
+      # pass through arguments excluded from OptionParser with `--`
+      @options[:pass_args] = ARGV[rest.count+1..]
 
       begin
         options_finalize rest

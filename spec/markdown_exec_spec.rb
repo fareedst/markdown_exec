@@ -285,7 +285,7 @@ RSpec.describe 'MarkdownExec' do
 
     it 'passes arguments to script' do
       expect_any_instance_of(MarkdownExec::MarkParse).to \
-        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a')
+        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a', {:args=>[]})
       mdoc = MarkdownExec::MDoc.new(
         mp.list_blocks_in_file(bash: true,
                                filename: 'fixtures/bash1.md',
@@ -568,6 +568,7 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/infile_config.md',
           'fixtures/linked1.md', 'fixtures/linked2.md',
           'fixtures/menu_divs.md',
+          'fixtures/pass-through.md',
           'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
           'fixtures/wrap.md',
