@@ -37,6 +37,10 @@ $stdout.sync = true
 
 BLOCK_SIZE = 1024
 
+# macros
+#
+LOAD_FILE = true
+
 # custom error: file specified is missing
 #
 class FileMissingError < StandardError; end
@@ -199,8 +203,31 @@ module MarkdownExec
       }
     end
 
+    # Execute a code block after approval and provide user interaction options.
+    #
+    # This method displays required code blocks, asks for user approval, and
+    # executes the code block if approved. It also allows users to copy the
+    # code to the clipboard or save it to a file.
+    #
+    # @param opts [Hash] Options hash containing configuration settings.
+    # @param mdoc [YourMDocClass] An instance of the MDoc class.
+    # @return [String] The name of the executed code block.
     def approve_and_execute_block(opts, mdoc)
+      selected = mdoc.get_block_by_name(opts[:block_name])
+      if selected[:shell] == 'link'
+        data = YAML.load(selected[:body].join("\n"))
+        opts[:filename] = data.fetch('file', nil)
+        return !LOAD_FILE unless opts[:filename]
+
+        data['vars'].each do |var|
+          ENV[var[0]] = var[1].to_s
+        end
+        return [LOAD_FILE, data.fetch('block', '')]
+      end
+
+      # Collect required code blocks based on the provided options.
       required_blocks = mdoc.collect_recursively_required_code(opts[:block_name])
+      # Display required code blocks if requested or required approval.
       if opts[:output_script] || opts[:user_must_approve]
         display_required_code(opts,
                               required_blocks)
@@ -209,16 +236,18 @@ module MarkdownExec
       allow = true
       if opts[:user_must_approve]
         loop do
-          (sel = @prompt.select(opts[:prompt_approve_block],
-                                filter: true) do |menu|
-             menu.default 1
-             menu.choice opts[:prompt_yes], 1
-             menu.choice opts[:prompt_no], 2
-             menu.choice opts[:prompt_script_to_clipboard], 3
-             menu.choice opts[:prompt_save_script], 4
-           end)
+          # Present a selection menu for user approval.
+          sel = @prompt.select(opts[:prompt_approve_block],
+                               filter: true) do |menu|
+            menu.default 1
+            menu.choice opts[:prompt_yes], 1
+            menu.choice opts[:prompt_no], 2
+            menu.choice opts[:prompt_script_to_clipboard], 3
+            menu.choice opts[:prompt_save_script], 4
+          end
           allow = (sel == 1)
           if sel == 3
+            # Copy the code to the clipboard.
             text = required_blocks.flatten.join($INPUT_RECORD_SEPARATOR)
             Clipboard.copy(text)
             fout "Clipboard updated: #{required_blocks.count} blocks," /
@@ -226,6 +255,7 @@ module MarkdownExec
                  " #{text.length} characters"
           end
           if sel == 4
+            # Save the code to a file.
             write_command_file(opts.merge(save_executed_script: true),
                                required_blocks)
             fout "File saved: #{@options[:saved_filespec]}"
@@ -233,19 +263,22 @@ module MarkdownExec
           break if [1, 2].include? sel
         end
       end
-      (opts[:ir_approve] = allow)
 
-      selected = mdoc.get_block_by_name opts[:block_name]
+      opts[:ir_approve] = allow
 
+      # Get the selected code block by name.
+      mdoc.get_block_by_name(opts[:block_name])
+
+      # If approved, write the code to a file, execute it, and provide output.
       if opts[:ir_approve]
-        write_command_file opts, required_blocks
-        command_execute opts, required_blocks.flatten.join("\n")
+        write_command_file(opts, required_blocks)
+        command_execute(opts, required_blocks.flatten.join("\n"))
         save_execution_output
         output_execution_summary
         output_execution_result
       end
 
-      selected[:name]
+      [!LOAD_FILE, '']
     end
 
     def cfile
@@ -429,7 +462,6 @@ module MarkdownExec
     # :reek:NestedIterators
     def iter_blocks_in_file(opts = {})
       # opts = optsmerge call_options, options_block
-
       unless opts[:filename]&.present?
         fout 'No blocks found.'
         return
@@ -452,7 +484,6 @@ module MarkdownExec
 
       cfile.readlines(opts[:filename]).each.with_index do |line, _line_num|
         continue unless line
-
         if opts[:menu_blocks_with_headings]
           if (lm = line.match(Regexp.new(opts[:heading3_match])))
             headings = [headings[0], headings[1], lm[:name]]
@@ -535,6 +566,12 @@ module MarkdownExec
 
       [true_list, false_list]
     end
+
+    # # Example usage:
+    # array = [1, 2, 3, 4, 5]
+    # result = split_array(array) { |num| num.even? }
+    # puts "True List: #{result[0]}"   # Output: True List: [2, 4]
+    # puts "False List: #{result[1]}"  # Output: False List: [1, 3, 5]
 
     # return body, title if option.struct
     # return body if not struct
@@ -1002,54 +1039,70 @@ module MarkdownExec
       File.write(@options[:logged_stdout_filespec], ol.join)
     end
 
+    # Select and execute a code block from a Markdown document.
+    #
+    # This method allows the user to interactively select a code block from a
+    # Markdown document, obtain approval, and execute the chosen block of code.
+    #
+    # @param call_options [Hash] Initial options for the method.
+    # @param options_block [Block] Block of options to be merged with call_options.
+    # @return [Nil] Returns nil if no code block is selected or an error occurs.
     def select_approve_and_execute_block(call_options, &options_block)
-      opts = optsmerge call_options, options_block
-      blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
-      mdoc = MDoc.new(blocks_in_file) do |nopts|
-        opts.merge!(nopts)
-      end
-      blocks_menu = mdoc.fcbs_per_options(opts.merge(struct: true))
-
+      opts = optsmerge(call_options, options_block)
       repeat_menu = true && !opts[:block_name].present?
+
+      load_file = !LOAD_FILE
       loop do
-        unless opts[:block_name].present?
-          pt = (opts[:prompt_select_block]).to_s
+        loop do
+          blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
+          mdoc = MDoc.new(blocks_in_file) do |nopts|
+            opts.merge!(nopts)
+          end
+          blocks_menu = mdoc.fcbs_per_options(opts.merge(struct: true))
+          unless opts[:block_name].present?
+            pt = opts[:prompt_select_block].to_s
 
-          bm = blocks_menu.map do |fcb|
-            # next if fcb.fetch(:disabled, false)
-            # next unless fcb.fetch(:name, '').present?
+            bm = blocks_menu.map do |fcb|
+              # next if fcb.fetch(:disabled, false)
+              # next unless fcb.fetch(:name, '').present?
 
-            fcb.merge!(
-              label: BlockLabel.make(
-                body: fcb[:body],
-                filename: opts[:filename],
-                headings: fcb.fetch(:headings, []),
-                menu_blocks_with_docname: opts[:menu_blocks_with_docname],
-                menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-                text: fcb[:text],
-                title: fcb[:title]
+              fcb.merge!(
+                label: BlockLabel.make(
+                  body: fcb[:body],
+                  filename: opts[:filename],
+                  headings: fcb.fetch(:headings, []),
+                  menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+                  menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+                  text: fcb[:text],
+                  title: fcb[:title]
+                )
               )
-            )
 
-            fcb.to_h
-          end.compact
-          return nil if bm.count.zero?
+              fcb.to_h
+            end.compact
+            return nil if bm.count.zero?
 
-          sel = prompt_with_quit pt, bm,
-                                 per_page: opts[:select_page_height]
-          return nil if sel.nil?
+            sel = prompt_with_quit(pt, bm, per_page: opts[:select_page_height])
+            return nil if sel.nil?
 
-          ## store selected option
-          #
-          label_block = blocks_in_file.select do |fcb|
-            fcb[:label] == sel
-          end.fetch(0, nil)
-          opts[:block_name] = @options[:block_name] = label_block.fetch(:name, '')
+            ## store selected option
+            #
+            label_block = blocks_in_file.select do |fcb|
+              fcb[:label] == sel
+            end.fetch(0, nil)
+            opts[:block_name] = @options[:block_name] = label_block.fetch(:name, '')
+          end
+          load_file, block_name = approve_and_execute_block(opts, mdoc)
+
+          opts[:block_name] = block_name
+          if load_file == LOAD_FILE
+            repeat_menu = true
+            break
+          end
+
+          break unless repeat_menu
         end
-        approve_and_execute_block opts, mdoc
-        break unless repeat_menu
-
-        opts[:block_name] = ''
+        break if load_file != LOAD_FILE
       end
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.select_approve_and_execute_block(); #{err.inspect}")

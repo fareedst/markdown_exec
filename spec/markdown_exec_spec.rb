@@ -566,6 +566,7 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/import0.md', 'fixtures/import1.md',
           'fixtures/include.md',
           'fixtures/infile_config.md',
+          'fixtures/linked1.md', 'fixtures/linked2.md',
           'fixtures/menu_divs.md',
           'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
