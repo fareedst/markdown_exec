@@ -568,9 +568,11 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/infile_config.md',
           'fixtures/linked1.md', 'fixtures/linked2.md',
           'fixtures/menu_divs.md',
+          'fixtures/opts.md',
           'fixtures/pass-through.md',
           'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
+          'fixtures/vars.md',
           'fixtures/wrap.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
     expect(mp.list_files_specified(specified_folder: 'fixtures',

@@ -40,14 +40,6 @@ _mde() {
             
               -f) COMPREPLY="."; return 0 ;;
             
-              --path) COMPREPLY="."; return 0 ;;
-            
-              -p) COMPREPLY="."; return 0 ;;
-            
-              --user-must-approve) COMPREPLY="1"; return 0 ;;
-            
-              -q) COMPREPLY="1"; return 0 ;;
-            
               --list-count) COMPREPLY="32"; return 0 ;;
             
               --output-execution-summary) COMPREPLY="0"; return 0 ;;
@@ -56,6 +48,10 @@ _mde() {
             
               --output-stdout) COMPREPLY="1"; return 0 ;;
             
+              --path) COMPREPLY="."; return 0 ;;
+            
+              -p) COMPREPLY="."; return 0 ;;
+            
               --save-executed-script) COMPREPLY="0"; return 0 ;;
             
               --save-execution-output) COMPREPLY="0"; return 0 ;;
@@ -63,6 +59,10 @@ _mde() {
               --saved-script-folder) COMPREPLY="logs"; return 0 ;;
             
               --saved-stdout-folder) COMPREPLY="logs"; return 0 ;;
+            
+              --user-must-approve) COMPREPLY="1"; return 0 ;;
+            
+              -q) COMPREPLY="1"; return 0 ;;
             
               --display-level) COMPREPLY="1"; return 0 ;;
             
@@ -74,7 +74,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--filename" "--help" "--path" "--user-must-approve" "--version" "--exit" "--list-blocks" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--select-recent-output" "--select-recent-script" "--tab-completions" "--run-last-script" "--pwd" "--list-count" "--output-execution-summary" "--output-script" "--output-stdout" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--exit" "--filename" "--help" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -101,14 +101,6 @@ _mde() {
         
           -f) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
-          --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
-          -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
-          --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
-        
-          -q) COMPREPLY=".BOOL."; return 0 ;;
-        
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
           --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
@@ -117,6 +109,10 @@ _mde() {
         
           --output-stdout) COMPREPLY=".BOOL."; return 0 ;;
         
+          --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
           --save-executed-script) COMPREPLY=".BOOL."; return 0 ;;
         
           --save-execution-output) COMPREPLY=".BOOL."; return 0 ;;
@@ -124,6 +120,10 @@ _mde() {
           --saved-script-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           --saved-stdout-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
+        
+          -q) COMPREPLY=".BOOL."; return 0 ;;
         
           --display-level) COMPREPLY=".INT.0-3."; return 0 ;;
         

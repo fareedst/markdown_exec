@@ -1,11 +1,55 @@
 ---
+- :description: Show current configuration values
+  :procname: show_config
+  :short_name: '0'
+- :arg_name: BOOL
+  :default: false
+  :description: Display only blocks of type "bash"
+  :env_var: MDE_BASH_ONLY
+  :opt_name: bash_only
+  :procname: val_as_bool
+- :default: "%\\([^\\)]+\\)"
+  :env_var: MDE_BLOCK_CALLS_SCAN
+  :opt_name: block_calls_scan
+  :procname: val_as_str
 - :arg_name: NAME
   :compreply: false
   :description: Name of block
   :env_var: MDE_BLOCK_NAME
   :long_name: block-name
   :opt_name: block_name
+  :procname: val_as_str
   :short_name: b
+- :default: "^-.+-$"
+  :description: Pattern for blocks to hide from user-selection
+  :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
+  :opt_name: block_name_hidden_match
+  :procname: val_as_str
+- :default: "^[\\(\\[].*[\\)\\]]$"
+  :description: Pattern for blocks to hide from user-selection
+  :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
+  :opt_name: block_name_include_match
+  :procname: val_as_str
+- :default: ":(?<title>\\S+)( |$)"
+  :env_var: MDE_BLOCK_NAME_MATCH
+  :opt_name: block_name_match
+  :procname: val_as_str
+- :default: "^{.+}$"
+  :description: Pattern for block names to use as wrappers
+  :env_var: MDE_BLOCK_NAME_WRAPPER_MATCH
+  :opt_name: block_name_wrapper_match
+  :procname: val_as_str
+- :default: "\\+\\S+"
+  :env_var: MDE_BLOCK_REQUIRED_SCAN
+  :opt_name: block_required_scan
+  :procname: val_as_str
+- :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+  :env_var: MDE_BLOCK_STDIN_SCAN
+  :opt_name: block_stdin_scan
+  :procname: val_as_str
+- :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+  :env_var: MDE_BLOCK_STDOUT_SCAN
+  :opt_name: block_stdout_scan
   :procname: val_as_str
 - :arg_name: PATH
   :default: "."
@@ -17,101 +61,12 @@
   :description: Debug output
   :env_var: MDE_DEBUG
   :long_name: debug
-  :short_name: d
   :procname: debug
-- :arg_name: RELATIVE_PATH
-  :compreply: "."
-  :description: Name of document
-  :env_var: MDE_FILENAME
-  :long_name: filename
-  :opt_name: filename
-  :short_name: f
+  :short_name: d
+- :default: "> "
+  :env_var: MDE_DISPLAY_LEVEL_XBASE_PREFIX
+  :opt_name: display_level_xbase_prefix
   :procname: val_as_str
-- :description: App help
-  :long_name: help
-  :short_name: h
-  :procname: help
-- :arg_name: RELATIVE_PATH
-  :default: "."
-  :description: Path to documents
-  :env_var: MDE_PATH
-  :long_name: path
-  :opt_name: path
-  :short_name: p
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Pause for user to approve script
-  :env_var: MDE_USER_MUST_APPROVE
-  :long_name: user-must-approve
-  :opt_name: user_must_approve
-  :short_name: q
-  :procname: val_as_bool
-- :description: Print the gem's version
-  :long_name: version
-  :short_name: v
-  :procname: version
-- :description: Exit app
-  :long_name: exit
-  :short_name: x
-  :procname: exit
-- :description: Show current configuration values
-  :short_name: '0'
-  :procname: show_config
-- :description: List blocks
-  :long_name: list-blocks
-  :opt_name: list_blocks
-  :procname: val_as_bool
-- :description: List default configuration as environment variables
-  :long_name: list-default-env
-  :opt_name: list_default_env
-- :description: List default configuration as YAML
-  :long_name: list-default-yaml
-  :opt_name: list_default_yaml
-- :description: List docs in current folder
-  :long_name: list-docs
-  :opt_name: list_docs
-  :procname: val_as_bool
-- :description: List recent saved output
-  :long_name: list-recent-output
-  :opt_name: list_recent_output
-  :procname: val_as_bool
-- :description: List recent saved scripts
-  :long_name: list-recent-scripts
-  :opt_name: list_recent_scripts
-  :procname: val_as_bool
-- :description: Select and execute a recently saved output
-  :long_name: select-recent-output
-  :opt_name: select_recent_output
-  :procname: val_as_bool
-- :description: Select and execute a recently saved script
-  :long_name: select-recent-script
-  :opt_name: select_recent_script
-  :procname: val_as_bool
-- :description: List tab completions
-  :long_name: tab-completions
-  :opt_name: tab_completions
-  :procname: val_as_bool
-- :description: Run most recently saved script
-  :long_name: run-last-script
-  :opt_name: run_last_script
-  :procname: val_as_bool
-- :description: Gem home folder
-  :long_name: pwd
-  :opt_name: pwd
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Display only blocks of type "bash"
-  :env_var: MDE_BASH_ONLY
-  :opt_name: bash_only
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Hide decorative menu entries
-  :env_var: MDE_NO_CHROME
-  :opt_name: no_chrome
-  :procname: val_as_bool
 - :arg_name: REGEX
   :default:
   :description: Exclude blocks with name matching
@@ -130,6 +85,42 @@
   :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
+- :description: Exit app
+  :long_name: exit
+  :procname: exit
+  :short_name: x
+- :default: "^`{3,}"
+  :env_var: MDE_FENCED_START_AND_END_MATCH
+  :opt_name: fenced_start_and_end_match
+  :procname: val_as_str
+- :default: "^`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
+  :env_var: MDE_FENCED_START_EX_MATCH
+  :opt_name: fenced_start_ex_match
+  :procname: val_as_str
+- :arg_name: RELATIVE_PATH
+  :compreply: "."
+  :description: Name of document
+  :env_var: MDE_FILENAME
+  :long_name: filename
+  :opt_name: filename
+  :procname: val_as_str
+  :short_name: f
+- :default: "^# *(?<name>[^#]*?) *$"
+  :env_var: MDE_HEADING1_MATCH
+  :opt_name: heading1_match
+  :procname: val_as_str
+- :default: "^## *(?<name>[^#]*?) *$"
+  :env_var: MDE_HEADING2_MATCH
+  :opt_name: heading2_match
+  :procname: val_as_str
+- :default: "^### *(?<name>.+?) *$"
+  :env_var: MDE_HEADING3_MATCH
+  :opt_name: heading3_match
+  :procname: val_as_str
+- :description: App help
+  :long_name: help
+  :procname: help
+  :short_name: h
 - :arg_name: BOOL
   :default: true
   :description: |-
@@ -138,6 +129,14 @@
   :env_var: MDE_HIDE_BLOCKS_BY_NAME
   :opt_name: hide_blocks_by_name
   :procname: val_as_bool
+- :default: "^ *@import (.+)$"
+  :env_var: MDE_IMPORT_PATTERN
+  :opt_name: import_pattern
+  :procname: val_as_str
+- :description: List blocks
+  :long_name: list-blocks
+  :opt_name: list_blocks
+  :procname: val_as_bool
 - :arg_name: INT.1-
   :default: 32
   :description: Max. items to return in list
@@ -145,11 +144,42 @@
   :long_name: list-count
   :opt_name: list_count
   :procname: val_as_int
+- :description: List default configuration as environment variables
+  :long_name: list-default-env
+  :opt_name: list_default_env
+- :description: List default configuration as YAML
+  :long_name: list-default-yaml
+  :opt_name: list_default_yaml
+- :description: List docs in current folder
+  :long_name: list-docs
+  :opt_name: list_docs
+  :procname: val_as_bool
+- :description: List recent saved output
+  :long_name: list-recent-output
+  :opt_name: list_recent_output
+  :procname: val_as_bool
+- :description: List recent saved scripts
+  :long_name: list-recent-scripts
+  :opt_name: list_recent_scripts
+  :procname: val_as_bool
 - :arg_name: PREFIX
   :default: mde
   :description: Name prefix for stdout files
   :env_var: MDE_LOGGED_STDOUT_FILENAME_PREFIX
   :opt_name: logged_stdout_filename_prefix
+  :procname: val_as_str
+- :default: "*.[Mm][Dd]"
+  :env_var: MDE_MD_FILENAME_GLOB
+  :opt_name: md_filename_glob
+  :procname: val_as_str
+- :default: ".+\\.md"
+  :env_var: MDE_MD_FILENAME_MATCH
+  :opt_name: md_filename_match
+  :procname: val_as_str
+- :default: plain
+  :description: Color of menu bash
+  :env_var: MDE_MENU_BASH_COLOR
+  :opt_name: menu_bash_color
   :procname: val_as_str
 - :arg_name: BOOL
   :default: false
@@ -163,18 +193,119 @@
   :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
   :opt_name: menu_blocks_with_headings
   :procname: val_as_bool
+- :default: magenta
+  :description: Color of menu divider
+  :env_var: MDE_MENU_DIVIDER_COLOR
+  :opt_name: menu_divider_color
+  :procname: val_as_str
+- :default: "-:=   %s   =:-"
+  :description: format for menu dividers and demarcations
+  :env_var: MDE_MENU_DIVIDER_FORMAT
+  :opt_name: menu_divider_format
+  :procname: val_as_str
+- :default: "^::: +(?<name>.+?)$"
+  :description: Pattern for topics/dividers in block selection menu
+  :env_var: MDE_MENU_DIVIDER_MATCH
+  :opt_name: menu_divider_match
+  :procname: val_as_str
+- :default: ">"
+  :description: Symbol before each divider
+  :env_var: MDE_MENU_DIVIDER_SYMBOL
+  :opt_name: menu_divider_symbol
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: true
   :description: Display Exit option at top of menu
   :env_var: MDE_MENU_EXIT_AT_TOP
   :opt_name: menu_exit_at_top
   :procname: val_as_bool
+- :default: "~~~"
+  :description: closing demarcations for menu
+  :env_var: MDE_MENU_FINAL_DIVIDER
+  :opt_name: menu_final_divider
+  :procname: val_as_str
+- :default: ''
+  :description: opening demarcation for menu
+  :env_var: MDE_MENU_INITIAL_DIVIDER
+  :opt_name: menu_initial_divider
+  :procname: val_as_str
+- :default: red
+  :description: Color of menu link
+  :env_var: MDE_MENU_LINK_COLOR
+  :opt_name: menu_link_color
+  :procname: val_as_str
+- :default: blue
+  :description: Color of menu opts
+  :env_var: MDE_MENU_OPTS_COLOR
+  :opt_name: menu_opts_color
+  :procname: val_as_str
+- :default: cyan
+  :description: Color of menu opts
+  :env_var: MDE_MENU_OPTS_SET_COLOR
+  :opt_name: menu_opts_set_color
+  :procname: val_as_str
+- :default: "%{key} = %{value}\n"
+  :description: format for menu opts output
+  :env_var: MDE_MENU_OPTS_SET_FORMAT
+  :opt_name: menu_opts_set_format
+  :procname: val_as_str
+- :default: cyan
+  :description: Color of menu task
+  :env_var: MDE_MENU_TASK_COLOR
+  :opt_name: menu_task_color
+  :procname: val_as_str
+- :default: "%{name} [%{status}]"
+  :description: format for menu tasks and demarcations
+  :env_var: MDE_MENU_TASK_FORMAT
+  :opt_name: menu_task_format
+  :procname: val_as_str
+- :default: "^ *\\[(?<status>.{1,4})\\] *(?<name>.*) *$"
+  :description: Pattern for tasks
+  :env_var: MDE_MENU_TASK_MATCH
+  :opt_name: menu_task_match
+  :procname: val_as_str
+- :default: ">"
+  :description: Symbol before each task
+  :env_var: MDE_MENU_TASK_SYMBOL
+  :opt_name: menu_task_symbol
+  :procname: val_as_str
+- :default: blue
+  :description: Color of menu vars
+  :env_var: MDE_MENU_VARS_COLOR
+  :opt_name: menu_vars_color
+  :procname: val_as_str
+- :default: cyan
+  :description: Color of menu vars
+  :env_var: MDE_MENU_VARS_SET_COLOR
+  :opt_name: menu_vars_set_color
+  :procname: val_as_str
+- :default: "%{key} = %{value}\n"
+  :description: format for menu vars output
+  :env_var: MDE_MENU_VARS_SET_FORMAT
+  :opt_name: menu_vars_set_format
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: true
   :description: Display Exit option in menu
   :env_var: MDE_MENU_WITH_EXIT
   :opt_name: menu_with_exit
   :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
+  :description: Hide decorative menu entries
+  :env_var: MDE_NO_CHROME
+  :opt_name: no_chrome
+  :procname: val_as_bool
+- :default: " #=#=#"
+  :description: Output divider
+  :env_var: MDE_OUTPUT_DIVIDER
+  :opt_name: output_divider
+  :procname: val_as_str
+- :default: yellow
+  :description: Color of output divider
+  :env_var: MDE_OUTPUT_DIVIDER_COLOR
+  :opt_name: output_divider_color
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: false
   :description: Display summary for execution
@@ -201,6 +332,66 @@
   :env_var: MDE_OUTPUT_STDOUT
   :long_name: output-stdout
   :opt_name: output_stdout
+  :procname: val_as_bool
+- :description: Options for viewing saved output file
+  :env_var: MDE_OUTPUT_VIEWER_OPTIONS
+  :opt_name: output_viewer_options
+  :procname: val_as_str
+- :arg_name: RELATIVE_PATH
+  :default: "."
+  :description: Path to documents
+  :env_var: MDE_PATH
+  :long_name: path
+  :opt_name: path
+  :procname: val_as_str
+  :short_name: p
+- :default: Process?
+  :description: Prompt to approve a block
+  :env_var: MDE_PROMPT_APPROVE_BLOCK
+  :opt_name: prompt_approve_block
+  :procname: val_as_str
+- :default: 'No'
+  :description: Prompt for no
+  :env_var: MDE_PROMPT_NO
+  :opt_name: prompt_no
+  :procname: val_as_str
+- :default: Save script
+  :description: Prompt to save script
+  :env_var: MDE_PROMPT_SAVE_SCRIPT
+  :opt_name: prompt_save_script
+  :procname: val_as_str
+- :default: Copy script to clipboard
+  :description: Prompt to copy script to clipboard
+  :env_var: MDE_PROMPT_SCRIPT_TO_CLIPBOARD
+  :opt_name: prompt_script_to_clipboard
+  :procname: val_as_str
+- :default: 'Choose a block:'
+  :description: Prompt to select a block
+  :env_var: MDE_PROMPT_SELECT_BLOCK
+  :opt_name: prompt_select_block
+  :procname: val_as_str
+- :default: 'Choose a file:'
+  :description: Prompt to select a markdown document
+  :env_var: MDE_PROMPT_SELECT_MD
+  :opt_name: prompt_select_md
+  :procname: val_as_str
+- :default: 'Choose a file:'
+  :description: Prompt to select a saved file
+  :env_var: MDE_PROMPT_SELECT_OUTPUT
+  :opt_name: prompt_select_output
+  :procname: val_as_str
+- :default: 'Yes'
+  :description: Prompt for yes
+  :env_var: MDE_PROMPT_YES
+  :opt_name: prompt_yes
+  :procname: val_as_str
+- :description: Gem home folder
+  :long_name: pwd
+  :opt_name: pwd
+  :procname: val_as_bool
+- :description: Run most recently saved script
+  :long_name: run-last-script
+  :opt_name: run_last_script
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
@@ -266,141 +457,19 @@
   :env_var: MDE_SELECT_BY_SHELL_REGEX
   :opt_name: select_by_shell_regex
   :procname: val_as_str
-- :default: "^-.+-$"
-  :description: Pattern for blocks to hide from user-selection
-  :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
-  :opt_name: block_name_hidden_match
-  :procname: val_as_str
-- :default: "^[\\(\\[].*[\\)\\]]$"
-  :description: Pattern for blocks to hide from user-selection
-  :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
-  :opt_name: block_name_include_match
-  :procname: val_as_str
-- :default: ":(?<title>\\S+)( |$)"
-  :env_var: MDE_BLOCK_NAME_MATCH
-  :opt_name: block_name_match
-  :procname: val_as_str
-- :default: "^{.+}$"
-  :description: Pattern for block names to use as wrappers
-  :env_var: MDE_BLOCK_NAME_WRAPPER_MATCH
-  :opt_name: block_name_wrapper_match
-  :procname: val_as_str
-- :default: "%\\([^\\)]+\\)"
-  :env_var: MDE_BLOCK_CALLS_SCAN
-  :opt_name: block_calls_scan
-  :procname: val_as_str
-- :default: "\\+\\S+"
-  :env_var: MDE_BLOCK_REQUIRED_SCAN
-  :opt_name: block_required_scan
-  :procname: val_as_str
-- :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
-  :env_var: MDE_BLOCK_STDIN_SCAN
-  :opt_name: block_stdin_scan
-  :procname: val_as_str
-- :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
-  :env_var: MDE_BLOCK_STDOUT_SCAN
-  :opt_name: block_stdout_scan
-  :procname: val_as_str
-- :default: "> "
-  :env_var: MDE_DISPLAY_LEVEL_XBASE_PREFIX
-  :opt_name: display_level_xbase_prefix
-  :procname: val_as_str
-- :default: "^`{3,}"
-  :env_var: MDE_FENCED_START_AND_END_MATCH
-  :opt_name: fenced_start_and_end_match
-  :procname: val_as_str
-- :default: "^`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
-  :env_var: MDE_FENCED_START_EX_MATCH
-  :opt_name: fenced_start_ex_match
-  :procname: val_as_str
-- :default: "^# *(?<name>[^#]*?) *$"
-  :env_var: MDE_HEADING1_MATCH
-  :opt_name: heading1_match
-  :procname: val_as_str
-- :default: "^## *(?<name>[^#]*?) *$"
-  :env_var: MDE_HEADING2_MATCH
-  :opt_name: heading2_match
-  :procname: val_as_str
-- :default: "^### *(?<name>.+?) *$"
-  :env_var: MDE_HEADING3_MATCH
-  :opt_name: heading3_match
-  :procname: val_as_str
-- :default: "^ *@import (.+)$"
-  :env_var: MDE_IMPORT_PATTERN
-  :opt_name: import_pattern
-  :procname: val_as_str
-- :default: "*.[Mm][Dd]"
-  :env_var: MDE_MD_FILENAME_GLOB
-  :opt_name: md_filename_glob
-  :procname: val_as_str
-- :default: ".+\\.md"
-  :env_var: MDE_MD_FILENAME_MATCH
-  :opt_name: md_filename_match
-  :procname: val_as_str
-- :default: "-:=   %s   =:-"
-  :description: format for menu dividers and demarcations
-  :env_var: MDE_MENU_DIVIDER_FORMAT
-  :opt_name: menu_divider_format
-  :procname: val_as_str
-- :default: magenta
-  :description: Color of menu divider
-  :env_var: MDE_MENU_DIVIDER_COLOR
-  :opt_name: menu_divider_color
-  :procname: val_as_str
-- :default: "^::: +(?<name>.+?)$"
-  :description: Pattern for topics/dividers in block selection menu
-  :env_var: MDE_MENU_DIVIDER_MATCH
-  :opt_name: menu_divider_match
-  :procname: val_as_str
-- :default: ">"
-  :description: Symbol before each divider
-  :env_var: MDE_MENU_DIVIDER_SYMBOL
-  :opt_name: menu_divider_symbol
-  :procname: val_as_str
-- :default: "~~~"
-  :description: closing demarcations for menu
-  :env_var: MDE_MENU_FINAL_DIVIDER
-  :opt_name: menu_final_divider
-  :procname: val_as_str
-- :default: ''
-  :description: opening demarcation for menu
-  :env_var: MDE_MENU_INITIAL_DIVIDER
-  :opt_name: menu_initial_divider
-  :procname: val_as_str
-- :default: red
-  :description: Color of menu link
-  :env_var: MDE_MENU_LINK_COLOR
-  :opt_name: menu_link_color
-  :procname: val_as_str
-- :default: "%{name} [%{status}]"
-  :description: format for menu tasks and demarcations
-  :env_var: MDE_MENU_TASK_FORMAT
-  :opt_name: menu_task_format
-  :procname: val_as_str
-- :default: cyan
-  :description: Color of menu task
-  :env_var: MDE_MENU_TASK_COLOR
-  :opt_name: menu_task_color
-  :procname: val_as_str
-- :default: "^ *\\[(?<status>.{1,4})\\] *(?<name>.*) *$"
-  :description: Pattern for tasks
-  :env_var: MDE_MENU_TASK_MATCH
-  :opt_name: menu_task_match
-  :procname: val_as_str
-- :default: ">"
-  :description: Symbol before each task
-  :env_var: MDE_MENU_TASK_SYMBOL
-  :opt_name: menu_task_symbol
-  :procname: val_as_str
-- :description: Options for viewing saved output file
-  :env_var: MDE_OUTPUT_VIEWER_OPTIONS
-  :opt_name: output_viewer_options
-  :procname: val_as_str
 - :default: 36
   :description: 'Maximum # of rows in select list'
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int
+- :description: Select and execute a recently saved output
+  :long_name: select-recent-output
+  :opt_name: select_recent_output
+  :procname: val_as_bool
+- :description: Select and execute a recently saved script
+  :long_name: select-recent-script
+  :opt_name: select_recent_script
+  :procname: val_as_bool
 - :default: "#!/usr/bin/env"
   :description: Shebang for saved scripts
   :env_var: MDE_SHEBANG
@@ -411,53 +480,19 @@
   :env_var: MDE_SHELL
   :opt_name: shell
   :procname: val_as_str
-- :default: Process?
-  :description: Prompt to approve a block
-  :env_var: MDE_PROMPT_APPROVE_BLOCK
-  :opt_name: prompt_approve_block
-  :procname: val_as_str
-- :default: 'Choose a block:'
-  :description: Prompt to select a block
-  :env_var: MDE_PROMPT_SELECT_BLOCK
-  :opt_name: prompt_select_block
-  :procname: val_as_str
-- :default: 'Choose a file:'
-  :description: Prompt to select a markdown document
-  :env_var: MDE_PROMPT_SELECT_MD
-  :opt_name: prompt_select_md
-  :procname: val_as_str
-- :default: 'Choose a file:'
-  :description: Prompt to select a saved file
-  :env_var: MDE_PROMPT_SELECT_OUTPUT
-  :opt_name: prompt_select_output
-  :procname: val_as_str
-- :default: Copy script to clipboard
-  :description: Prompt to copy script to clipboard
-  :env_var: MDE_PROMPT_SCRIPT_TO_CLIPBOARD
-  :opt_name: prompt_script_to_clipboard
-  :procname: val_as_str
-- :default: Save script
-  :description: Prompt to save script
-  :env_var: MDE_PROMPT_SAVE_SCRIPT
-  :opt_name: prompt_save_script
-  :procname: val_as_str
-- :default: 'No'
-  :description: Prompt for no
-  :env_var: MDE_PROMPT_NO
-  :opt_name: prompt_no
-  :procname: val_as_str
-- :default: 'Yes'
-  :description: Prompt for yes
-  :env_var: MDE_PROMPT_YES
-  :opt_name: prompt_yes
-  :procname: val_as_str
-- :default: " #=#=#"
-  :description: Output divider
-  :env_var: MDE_OUTPUT_DIVIDER
-  :opt_name: output_divider
-  :procname: val_as_str
-- :default: yellow
-  :description: Color of output divider
-  :env_var: MDE_OUTPUT_DIVIDER_COLOR
-  :opt_name: output_divider_color
-  :procname: val_as_str
+- :description: List tab completions
+  :long_name: tab-completions
+  :opt_name: tab_completions
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: true
+  :description: Pause for user to approve script
+  :env_var: MDE_USER_MUST_APPROVE
+  :long_name: user-must-approve
+  :opt_name: user_must_approve
+  :procname: val_as_bool
+  :short_name: q
+- :description: Print the gem's version
+  :long_name: version
+  :procname: version
+  :short_name: v

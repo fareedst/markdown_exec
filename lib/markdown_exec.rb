@@ -125,6 +125,13 @@ module MarkdownExec
   FNR11 = '/'
   FNR12 = ',~'
 
+  SHELL_COLOR_OPTIONS = {
+    'bash' => :menu_bash_color,
+    'link' => :menu_link_color,
+    'opts' => :menu_opts_color,
+    'vars' => :menu_vars_color
+  }.freeze
+
   ##
   #
   # rubocop:disable Layout/LineLength
@@ -225,12 +232,47 @@ module MarkdownExec
         return [LOAD_FILE, data.fetch('block', '')]
       end
 
+      # apply hash in opts block to opts variable
+      #
+      if selected[:shell] == 'opts'
+        data = YAML.load(selected[:body].join("\n"))
+        data.each_key do |key|
+          opts[key.to_sym] = value = data[key].to_s
+          ### set opt var name to value
+          if opts[:menu_opts_set_format].present?
+            print format(
+                    opts[:menu_opts_set_format],
+                    { key: key,
+                      value: value }
+                  ).send(opts[:menu_opts_set_color].to_sym)
+          end
+        end
+        return [!LOAD_FILE, '']
+      end
+
+      # apply hash in opts block to environment variables
+      #
+      if selected[:shell] == 'vars'
+        data = YAML.load(selected[:body].join("\n"))
+        data.each_key do |key|
+          ENV[key] = value = data[key].to_s
+          ### recognize key as opt name and set opt
+          if opts[:menu_vars_set_format].present?
+            print format(
+                    opts[:menu_vars_set_format],
+                    { key: key,
+                      value: value }
+                  ).send(opts[:menu_vars_set_color].to_sym)
+          end
+        end
+        return [!LOAD_FILE, '']
+      end
+
       # Collect required code blocks based on the provided options.
       required_blocks = mdoc.collect_recursively_required_code(opts[:block_name])
       # Display required code blocks if requested or required approval.
       if opts[:output_script] || opts[:user_must_approve]
-        display_required_code(opts,
-                              required_blocks)
+        display_required_code(opts, required_blocks)
       end
 
       allow = true
@@ -455,11 +497,15 @@ module MarkdownExec
       bm = option_match_groups(titlexcall, opts[:block_name_match])
       fcb.stdin = option_match_groups(titlexcall, opts[:block_stdin_scan])
       fcb.stdout = option_match_groups(titlexcall, opts[:block_stdout_scan])
-      fcb.name = (bm && bm[1] ? bm[:title] : titlexcall)
-      if fcb[:shell] == 'link'
-        fcb.name = fcb.name.send(opts[:menu_link_color].to_sym)
+
+      shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
+      fcb.name = bm && bm[1] ? bm[:title] : titlexcall
+      if shell_color_option && opts[shell_color_option].present?
+        fcb.name = fcb.name.send(opts[shell_color_option].to_sym)
       end
+
       fcb.title = fcb.name
+
       fcb
     end
 
@@ -988,7 +1034,7 @@ module MarkdownExec
       rest = option_parser.parse!(arguments_for_mde) # (into: options)
 
       # pass through arguments excluded from OptionParser with `--`
-      @options[:pass_args] = ARGV[rest.count+1..]
+      @options[:pass_args] = ARGV[rest.count + 1..]
 
       begin
         options_finalize rest
