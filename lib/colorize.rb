@@ -2,67 +2,81 @@
 
 # encoding=utf-8
 
-# │0  │ to restore default    │
-# │   │ color                 │
-# ├───┼───────────────────────┤
-# │   │                       │
-# │1  │ for brighter colors   │
-# ├───┼───────────────────────┤
-# │   │                       │
-# │4  │ for underlined text   │
-# ├───┼───────────────────────┤
-# │   │                       │
-# │5  │ for flashing text
 class String
+  alias_method :original_method_missing, :method_missing
+
+  def method_missing(method_name, *args, &block)
+    if /^fg_rgb_/ =~ method_name.to_s
+      fg_rgb_color($'.gsub('_', ';'))
+    else
+      original_method_missing(method_name, *args, &block)
+    end
+  end
+
+  # control sequence with reset
+  #
+  def ansi_control_sequence
+    "\033[#{self}\033[0m"
+  end
+
+  # use 24-bit RGB foreground color spec
+  # ex: 1;2;3
+  #
+  def fg_rgb_color(rgb)
+    "38;2;#{rgb}m#{self}".ansi_control_sequence
+  end
+
   def plain
     self
   end
 
+  # named colors
+  #
   def black
-    "\033[30m#{self}\033[0m"
+    "30m#{self}".ansi_control_sequence
   end
 
   def red
-    "\033[31m#{self}\033[0m"
+    "31m#{self}".ansi_control_sequence
   end
 
   def bred
-    "\033[1;31m#{self}\033[0m"
+    "1;31m#{self}".ansi_control_sequence
   end
 
   def green
-    "\033[32m#{self}\033[0m"
+    "32m#{self}".ansi_control_sequence
   end
 
   def bgreen
-    "\033[1;32m#{self}\033[0m"
+    "1;32m#{self}".ansi_control_sequence
   end
 
   def yellow
-    "\033[33m#{self}\033[0m"
+    "33m#{self}".ansi_control_sequence
   end
 
   def byellow
-    "\033[1;33m#{self}\033[0m"
+    "1;33m#{self}".ansi_control_sequence
   end
 
   def blue
-    "\033[34m#{self}\033[0m"
+    "34m#{self}".ansi_control_sequence
   end
 
   def magenta
-    "\033[35m#{self}\033[0m"
+    "35m#{self}".ansi_control_sequence
   end
 
   def cyan
-    "\033[36m#{self}\033[0m"
+    "36m#{self}".ansi_control_sequence
   end
 
   def white
-    "\033[37m#{self}\033[0m"
+    "37m#{self}".ansi_control_sequence
   end
 
   def bwhite
-    "\033[1;37m#{self}\033[0m"
+    "1;37m#{self}".ansi_control_sequence
   end
 end
