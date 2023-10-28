@@ -69,7 +69,6 @@ if $PROGRAM_NAME == __FILE__
       @file1 = Tempfile.new('test1.txt')
       @file1.write("Line1\nLine2\n #insert #{@file2.path}\nLine3")
       @file1.rewind
-      # binding.pry
       @reader = CachedNestedFileReader.new(import_pattern: /^ *#insert (.+)$/)
     end
 

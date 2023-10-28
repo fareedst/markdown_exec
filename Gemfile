@@ -8,6 +8,7 @@ source 'https://rubygems.org'
 gemspec
 gem 'clipboard'
 gem 'erb'
+gem 'mocha', require: false
 gem 'minitest', require: false
 gem 'pry-nav'
 gem 'pry-stack_explorer'

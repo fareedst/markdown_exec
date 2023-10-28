@@ -39,7 +39,10 @@ BLOCK_SIZE = 1024
 
 # macros
 #
+BACK_OPTION = '* Back'
+EXIT_OPTION = '* Exit'
 LOAD_FILE = true
+VN = 'MDE_MENU_HISTORY'
 
 # custom error: file specified is missing
 #
@@ -62,6 +65,18 @@ class Hash
   end
 end
 
+# integer value for comparison
+#
+def options_fetch_display_level(options)
+  options.fetch(:display_level, 1)
+end
+
+# integer value for comparison
+#
+def options_fetch_display_level_xbase_prefix(options)
+  options.fetch(:level_xbase_prefix, '')
+end
+
 # stdout manager
 #
 module FOUT
@@ -81,7 +96,7 @@ module FOUT
   end
 
   def approved_fout?(level)
-    level <= @options[:display_level]
+    level <= options_fetch_display_level(@options)
   end
 
   # display output at level or lower than filter (DISPLAY_LEVEL_DEFAULT)
@@ -89,7 +104,7 @@ module FOUT
   def lout(str, level: DISPLAY_LEVEL_BASE)
     return unless approved_fout? level
 
-    fout level == DISPLAY_LEVEL_BASE ? str : @options[:display_level_xbase_prefix] + str
+    fout level == DISPLAY_LEVEL_BASE ? str : options_fetch_display_level_xbase_prefix(@options) + str
   end
 end
 
@@ -127,7 +142,7 @@ module MarkdownExec
 
   SHELL_COLOR_OPTIONS = {
     'bash' => :menu_bash_color,
-    'link' => :menu_link_color,
+    BLOCK_TYPE_LINK => :menu_link_color,
     'opts' => :menu_opts_color,
     'vars' => :menu_vars_color
   }.freeze
@@ -173,17 +188,6 @@ module MarkdownExec
       end
     end
 
-    # return arguments after `--`
-    #
-    def arguments_for_child(argv = ARGV)
-      case ind = argv.find_index('--')
-      when nil, argv.count - 1
-        []
-      else
-        argv[ind + 1..-1]
-      end
-    end
-
     ##
     # options necessary to start, parse input, defaults for cli options
     #
@@ -219,173 +223,170 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     # @return [String] The name of the executed code block.
+    #
     def approve_and_execute_block(opts, mdoc)
       selected = mdoc.get_block_by_name(opts[:block_name])
-      if selected[:shell] == 'link'
-        data = YAML.load(selected[:body].join("\n"))
-        opts[:filename] = data.fetch('file', nil)
-        return !LOAD_FILE unless opts[:filename]
-
-        data['vars'].each do |var|
-          ENV[var[0]] = var[1].to_s
+      if selected[:shell] == BLOCK_TYPE_LINK
+        handle_link_shell(opts, selected)
+      elsif selected[:shell] == 'opts'
+        handle_opts_shell(opts, selected)
+      else
+        required_lines = collect_required_code_blocks(opts, mdoc, selected)
+        # Display required code blocks if requested or required approval.
+        if opts[:output_script] || opts[:user_must_approve]
+          display_required_code(opts, required_lines)
         end
-        return [LOAD_FILE, data.fetch('block', '')]
+
+        allow = true
+        allow = user_approval(opts, required_lines) if opts[:user_must_approve]
+        opts[:ir_approve] = allow
+        mdoc.get_block_by_name(opts[:block_name])
+        execute_approved_block(opts, required_lines) if opts[:ir_approve]
+
+        [!LOAD_FILE, '']
+      end
+    end
+
+    def handle_link_shell(opts, selected)
+      data = YAML.load(selected[:body].join("\n"))
+
+      # add to front of history
+      #
+      ENV[VN] = opts[:filename] + opts[:history_document_separator] + ENV.fetch(VN, '')
+
+      opts[:filename] = data.fetch('file', nil)
+      return !LOAD_FILE unless opts[:filename]
+
+      data.fetch('vars', []).each do |var|
+        ENV[var[0]] = var[1].to_s
       end
 
-      # apply hash in opts block to opts variable
-      #
-      if selected[:shell] == 'opts'
-        data = YAML.load(selected[:body].join("\n"))
-        data.each_key do |key|
-          opts[key.to_sym] = value = data[key].to_s
-          ### set opt var name to value
-          if opts[:menu_opts_set_format].present?
-            print format(
-                    opts[:menu_opts_set_format],
-                    { key: key,
-                      value: value }
-                  ).send(opts[:menu_opts_set_color].to_sym)
-          end
-        end
-        return [!LOAD_FILE, '']
+      [LOAD_FILE, data.fetch('block', '')]
+    end
+
+    def handle_opts_shell(opts, selected)
+      data = YAML.load(selected[:body].join("\n"))
+      data.each_key do |key|
+        opts[key.to_sym] = value = data[key].to_s
+        next unless opts[:menu_opts_set_format].present?
+
+        print format(
+          opts[:menu_opts_set_format],
+          { key: key,
+            value: value }
+        ).send(opts[:menu_opts_set_color].to_sym)
+      end
+      [!LOAD_FILE, '']
+    end
+
+    def user_approval(opts, required_lines)
+      # Present a selection menu for user approval.
+      sel = @prompt.select(opts[:prompt_approve_block], filter: true) do |menu|
+        menu.default 1
+        menu.choice opts[:prompt_yes], 1
+        menu.choice opts[:prompt_no], 2
+        menu.choice opts[:prompt_script_to_clipboard], 3
+        menu.choice opts[:prompt_save_script], 4
       end
 
-      # apply hash in opts block to environment variables
-      #
-      if selected[:shell] == 'vars'
+      if sel == 3
+        copy_to_clipboard(required_lines)
+      elsif sel == 4
+        save_to_file(opts, required_lines)
+      end
+
+      sel == 1
+    end
+
+    def execute_approved_block(opts, required_lines)
+      write_command_file(opts, required_lines)
+      command_execute(
+        opts,
+        required_lines.flatten.join("\n"),
+        args: opts.fetch(:pass_args, [])
+      )
+      save_execution_output
+      output_execution_summary
+      output_execution_result
+    end
+
+    # Collect required code blocks based on the provided options.
+    #
+    # @param opts [Hash] Options hash containing configuration settings.
+    # @param mdoc [YourMDocClass] An instance of the MDoc class.
+    # @return [Array<String>] Required code blocks as an array of lines.
+    def collect_required_code_blocks(opts, mdoc, selected)
+      required = mdoc.collect_recursively_required_code(opts[:block_name])
+      required_lines = required[:code]
+      required[:blocks]
+
+      # Apply hash in opts block to environment variables
+      if selected[:shell] == BLOCK_TYPE_VARS
         data = YAML.load(selected[:body].join("\n"))
         data.each_key do |key|
           ENV[key] = value = data[key].to_s
-          ### recognize key as opt name and set opt
-          if opts[:menu_vars_set_format].present?
-            print format(
-                    opts[:menu_vars_set_format],
-                    { key: key,
-                      value: value }
-                  ).send(opts[:menu_vars_set_color].to_sym)
-          end
-        end
-        return [!LOAD_FILE, '']
-      end
+          next unless opts[:menu_vars_set_format].present?
 
-      # Collect required code blocks based on the provided options.
-      required_blocks = mdoc.collect_recursively_required_code(opts[:block_name])
-      # Display required code blocks if requested or required approval.
-      if opts[:output_script] || opts[:user_must_approve]
-        display_required_code(opts, required_blocks)
-      end
-
-      allow = true
-      if opts[:user_must_approve]
-        loop do
-          # Present a selection menu for user approval.
-          sel = @prompt.select(opts[:prompt_approve_block],
-                               filter: true) do |menu|
-            menu.default 1
-            menu.choice opts[:prompt_yes], 1
-            menu.choice opts[:prompt_no], 2
-            menu.choice opts[:prompt_script_to_clipboard], 3
-            menu.choice opts[:prompt_save_script], 4
-          end
-          allow = (sel == 1)
-          if sel == 3
-            # Copy the code to the clipboard.
-            text = required_blocks.flatten.join($INPUT_RECORD_SEPARATOR)
-            Clipboard.copy(text)
-            fout "Clipboard updated: #{required_blocks.count} blocks," /
-                 " #{required_blocks.flatten.count} lines," /
-                 " #{text.length} characters"
-          end
-          if sel == 4
-            # Save the code to a file.
-            write_command_file(opts.merge(save_executed_script: true),
-                               required_blocks)
-            fout "File saved: #{@options[:saved_filespec]}"
-          end
-          break if [1, 2].include? sel
+          print format(
+            opts[:menu_vars_set_format],
+            { key: key,
+              value: value }
+          ).send(opts[:menu_vars_set_color].to_sym)
         end
       end
 
-      opts[:ir_approve] = allow
-
-      # Get the selected code block by name.
-      mdoc.get_block_by_name(opts[:block_name])
-
-      # If approved, write the code to a file, execute it, and provide output.
-      if opts[:ir_approve]
-        write_command_file(opts, required_blocks)
-        command_execute(
-          opts,
-          required_blocks.flatten.join("\n"),
-          args: opts.fetch(:pass_args, [])
-        )
-        save_execution_output
-        output_execution_summary
-        output_execution_result
-      end
-
-      [!LOAD_FILE, '']
+      required_lines
     end
 
     def cfile
       @cfile ||= CachedNestedFileReader.new(import_pattern: @options.fetch(:import_pattern))
     end
 
-    # :reek:DuplicateMethodCall
-    # :reek:UncommunicativeVariableName { exclude: [ e ] }
-    # :reek:LongYieldList
+    EF_STDOUT = :stdout
+    EF_STDERR = :stderr
+    EF_STDIN  = :stdin
+
+    # Handles reading and processing lines from a given IO stream
+    #
+    # @param stream [IO] The IO stream to read from (e.g., stdout, stderr, stdin).
+    # @param file_type [Symbol] The type of file to which the stream corresponds.
+    def handle_stream(opts, stream, file_type, swap: false)
+      Thread.new do
+        until (line = stream.gets).nil?
+          @execute_files[file_type] = @execute_files[file_type] + [line.strip]
+          print line if opts[:output_stdout]
+          yield line if block_given?
+        end
+      rescue IOError
+        #d 'stdout IOError, thread killed, do nothing'
+      end
+    end
+
+    # Existing command_execute method
     def command_execute(opts, command, args: [])
-      #d 'execute command and yield outputs'
       @execute_files = Hash.new([])
       @execute_options = opts
       @execute_started_at = Time.now.utc
 
-      Open3.popen3(@options[:shell], '-c',
-                   command, opts[:filename], *args) do |stdin, stdout, stderr, exec_thr|
-        #d 'command started'
-        Thread.new do
-          until (line = stdout.gets).nil?
-            @execute_files[EF_STDOUT] = @execute_files[EF_STDOUT] + [line]
-            print line if opts[:output_stdout]
-            yield nil, line, nil, exec_thr if block_given?
-          end
-        rescue IOError
-          #d 'stdout IOError, thread killed, do nothing'
+      Open3.popen3(opts[:shell], '-c', command, opts[:filename],
+                   *args) do |stdin, stdout, stderr, exec_thr|
+        handle_stream(opts, stdout, EF_STDOUT) do |line|
+          yield nil, line, nil, exec_thr if block_given?
+        end
+        handle_stream(opts, stderr, EF_STDERR) do |line|
+          yield nil, nil, line, exec_thr if block_given?
         end
 
-        Thread.new do
-          until (line = stderr.gets).nil?
-            @execute_files[EF_STDERR] = @execute_files[EF_STDERR] + [line]
-            print line if opts[:output_stdout]
-            yield nil, nil, line, exec_thr if block_given?
-          end
-        rescue IOError
-          #d 'stderr IOError, thread killed, do nothing'
+        in_thr = handle_stream(opts, $stdin, EF_STDIN) do |line|
+          stdin.puts(line)
+          yield line, nil, nil, exec_thr if block_given?
         end
 
-        in_thr = Thread.new do
-          while exec_thr.alive? # reading input until the child process ends
-            stdin.puts(line = $stdin.gets)
-            @execute_files[EF_STDIN] = @execute_files[EF_STDIN] + [line]
-            yield line, nil, nil, exec_thr if block_given?
-          end
-          #d 'exec_thr now dead'
-        rescue StandardError
-          #d 'stdin error, thread killed, do nothing'
-        end
-
-        #d 'join exec_thr'
         exec_thr.join
-
-        #d 'wait before closing stdin'
         sleep 0.1
-
-        #d 'kill stdin thread'
-        in_thr.kill
-        # @return_code = exec_thr.value
-        #d 'command end'
+        in_thr.kill if in_thr&.alive?
       end
-      #d 'command completed'
+
       @execute_completed_at = Time.now.utc
     rescue Errno::ENOENT => err
       #d 'command error ENOENT triggered by missing command in script'
@@ -404,19 +405,19 @@ module MarkdownExec
     end
 
     def count_blocks_in_filename
-      fenced_start_and_end_match = Regexp.new @options[:fenced_start_and_end_match]
+      fenced_start_and_end_regex = Regexp.new @options[:fenced_start_and_end_regex]
       cnt = 0
       cfile.readlines(@options[:filename]).each do |line|
-        cnt += 1 if line.match(fenced_start_and_end_match)
+        cnt += 1 if line.match(fenced_start_and_end_regex)
       end
       cnt / 2
     end
 
     # :reek:DuplicateMethodCall
-    def display_required_code(opts, required_blocks)
+    def display_required_code(opts, required_lines)
       frame = opts[:output_divider].send(opts[:output_divider_color].to_sym)
       fout frame
-      required_blocks.each { |cb| fout cb }
+      required_lines.each { |cb| fout cb }
       fout frame
     end
 
@@ -499,21 +500,21 @@ module MarkdownExec
       fcb.stdout = option_match_groups(titlexcall, opts[:block_stdout_scan])
 
       shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
-      fcb.name = bm && bm[1] ? bm[:title] : titlexcall
-      if shell_color_option && opts[shell_color_option].present?
-        fcb.name = fcb.name.send(opts[shell_color_option].to_sym)
-      end
-
-      fcb.title = fcb.name
-
+      fcb.title = fcb.oname = bm && bm[1] ? bm[:title] : titlexcall
+      fcb.dname = if shell_color_option && opts[shell_color_option].present?
+                    fcb.oname.send(opts[shell_color_option].to_sym)
+                  else
+                    fcb.oname
+                  end
       fcb
     end
 
     # :reek:DuplicateMethodCall
     # :reek:LongYieldList
     # :reek:NestedIterators
-    def iter_blocks_in_file(opts = {})
-      # opts = optsmerge call_options, options_block
+    #---
+
+    def iter_blocks_in_file(opts = {}, &block)
       unless opts[:filename]&.present?
         fout 'No blocks found.'
         return
@@ -524,10 +525,10 @@ module MarkdownExec
         return
       end
 
-      fenced_start_and_end_match = Regexp.new opts[:fenced_start_and_end_match]
-      fenced_start_ex = Regexp.new opts[:fenced_start_ex_match]
+      fenced_start_and_end_regex = Regexp.new opts[:fenced_start_and_end_regex]
+      fenced_start_extended_regex = Regexp.new opts[:fenced_start_extended_regex]
       fcb = FCB.new
-      in_block = false
+      in_fenced_block = false
       headings = []
 
       ## get type of messages to select
@@ -536,72 +537,78 @@ module MarkdownExec
 
       cfile.readlines(opts[:filename]).each.with_index do |line, _line_num|
         continue unless line
-        if opts[:menu_blocks_with_headings]
-          if (lm = line.match(Regexp.new(opts[:heading3_match])))
-            headings = [headings[0], headings[1], lm[:name]]
-          elsif (lm = line.match(Regexp.new(opts[:heading2_match])))
-            headings = [headings[0], lm[:name]]
-          elsif (lm = line.match(Regexp.new(opts[:heading1_match])))
-            headings = [lm[:name]]
-          end
-        end
+        headings = update_headings(line, headings, opts) if opts[:menu_blocks_with_headings]
 
-        if line.match(fenced_start_and_end_match)
-          if in_block
-            # end fcb
-            #
-            fcb.name = fcb.title || ''
-            if fcb.body
-              if fcb.title.nil? || fcb.title.empty?
-                fcb.title = fcb.body.join(' ').gsub(/  +/, ' ')[0..64]
-              end
-
-              if block_given? &&
-                 selected_messages.include?(:blocks) &&
-                 Filter.fcb_select?(opts, fcb)
-                yield :blocks, fcb
-              end
-            end
-            in_block = false
+        if line.match(fenced_start_and_end_regex)
+          if in_fenced_block
+            process_fenced_block(fcb, opts, selected_messages, &block)
+            in_fenced_block = false
           else
-            # start fcb
-            #
-            in_block = true
-
-            fcb_title_groups = line.match(fenced_start_ex).named_captures.sym_keys
-            fcb = FCB.new
-            fcb.headings = headings
-            fcb.name = fcb_title_groups.fetch(:name, '')
-            fcb.shell = fcb_title_groups.fetch(:shell, '')
-            fcb.title = fcb_title_groups.fetch(:name, '')
-
-            # selected fcb
-            #
-            fcb.body = []
-
-            rest = fcb_title_groups.fetch(:rest, '')
-            fcb.reqs, fcb.wraps =
-              split_array(rest.scan(/\+[^\s]+/).map { |req| req[1..-1] }) do |name|
-              !name.match(Regexp.new(opts[:block_name_wrapper_match]))
-            end
-            fcb.call = rest.match(Regexp.new(opts[:block_calls_scan]))&.to_a&.first
-            fcb.stdin = if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
-                          tn.named_captures.sym_keys
-                        end
-            fcb.stdout = if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
-                           tn.named_captures.sym_keys
-                         end
+            fcb = start_fenced_block(opts, line, headings, fenced_start_extended_regex)
+            in_fenced_block = true
           end
-        elsif in_block && fcb.body
+        elsif in_fenced_block && fcb.body
           dp 'append line to fcb body'
           fcb.body += [line.chomp]
-        elsif block_given? && selected_messages.include?(:line)
-          dp 'text outside of fcb'
-          fcb = FCB.new
-          fcb.body = [line]
-          yield :line, fcb
+        else
+          process_line(line, opts, selected_messages, &block)
         end
       end
+    end
+
+    def start_fenced_block(opts, line, headings, fenced_start_extended_regex)
+      fcb_title_groups = line.match(fenced_start_extended_regex).named_captures.sym_keys
+      fcb = FCB.new
+      fcb.headings = headings
+      fcb.oname = fcb.dname = fcb_title_groups.fetch(:name, '')
+      fcb.shell = fcb_title_groups.fetch(:shell, '')
+      fcb.title = fcb_title_groups.fetch(:name, '')
+
+      # selected fcb
+      fcb.body = []
+
+      rest = fcb_title_groups.fetch(:rest, '')
+      fcb.reqs, fcb.wraps =
+        split_array(rest.scan(/\+[^\s]+/).map { |req| req[1..-1] }) do |name|
+        !name.match(Regexp.new(opts[:block_name_wrapper_match]))
+      end
+      fcb.call = rest.match(Regexp.new(opts[:block_calls_scan]))&.to_a&.first
+      fcb.stdin = if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
+                    tn.named_captures.sym_keys
+                  end
+      fcb.stdout = if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
+                     tn.named_captures.sym_keys
+                   end
+      fcb
+    end
+
+    def process_fenced_block(fcb, opts, selected_messages, &block)
+      fcb.oname = fcb.dname = fcb.title || ''
+      return unless fcb.body
+
+      set_fcb_title(fcb)
+
+      if block &&
+         selected_messages.include?(:blocks) &&
+         Filter.fcb_select?(opts, fcb)
+        block.call :blocks, fcb
+      end
+    end
+
+    def process_line(line, _opts, selected_messages, &block)
+      return unless block && selected_messages.include?(:line)
+
+      #  dp 'text outside of fcb'
+      fcb = FCB.new
+      fcb.body = [line]
+      block.call(:line, fcb)
+    end
+
+    # set the title of an FCB object based on its body if it is nil or empty
+    def set_fcb_title(fcb)
+      return unless fcb.title.nil? || fcb.title.empty?
+
+      fcb.title = (fcb&.body || []).join(' ').gsub(/  +/, ' ')[0..64]
     end
 
     def split_array(arr)
@@ -619,11 +626,17 @@ module MarkdownExec
       [true_list, false_list]
     end
 
-    # # Example usage:
-    # array = [1, 2, 3, 4, 5]
-    # result = split_array(array) { |num| num.even? }
-    # puts "True List: #{result[0]}"   # Output: True List: [2, 4]
-    # puts "False List: #{result[1]}"  # Output: False List: [1, 3, 5]
+    def update_headings(line, headings, opts)
+      if (lm = line.match(Regexp.new(opts[:heading3_match])))
+        [headings[0], headings[1], lm[:name]]
+      elsif (lm = line.match(Regexp.new(opts[:heading2_match])))
+        [headings[0], lm[:name]]
+      elsif (lm = line.match(Regexp.new(opts[:heading1_match])))
+        [lm[:name]]
+      else
+        headings
+      end
+    end
 
     # return body, title if option.struct
     # return body if not struct
@@ -637,10 +650,11 @@ module MarkdownExec
         blocks.push FCB.new({
                               # name: '',
                               chrome: true,
-                              name: format(
+                              dname: format(
                                 opts[:menu_divider_format],
                                 opts[:menu_initial_divider]
                               ).send(opts[:menu_divider_color].to_sym),
+                              oname: opts[:menu_initial_divider],
                               disabled: '' # __LINE__.to_s
                             })
       end
@@ -661,8 +675,9 @@ module MarkdownExec
               blocks.push FCB.new(
                 { chrome: true,
                   disabled: '',
-                  name: format(opts[:menu_divider_format],
-                               mbody[:name]).send(opts[:menu_divider_color].to_sym) }
+                  dname: format(opts[:menu_divider_format],
+                                mbody[:name]).send(opts[:menu_divider_color].to_sym),
+                  oname: mbody[:name] }
               )
             end
           elsif opts[:menu_task_match].present? &&
@@ -671,10 +686,14 @@ module MarkdownExec
               blocks.push FCB.new(
                 { chrome: true,
                   disabled: '',
-                  name: format(
+                  dname: format(
                     opts[:menu_task_format],
                     $~.named_captures.transform_keys(&:to_sym)
-                  ).send(opts[:menu_task_color].to_sym) }
+                  ).send(opts[:menu_task_color].to_sym),
+                  oname: format(
+                    opts[:menu_task_format],
+                    $~.named_captures.transform_keys(&:to_sym)
+                  ) }
               )
             end
           else
@@ -691,9 +710,10 @@ module MarkdownExec
         blocks.push FCB.new(
           { chrome: true,
             disabled: '',
-            name: format(opts[:menu_divider_format],
-                         opts[:menu_final_divider])
-                                 .send(opts[:menu_divider_color].to_sym) }
+            dname: format(opts[:menu_divider_format],
+                          opts[:menu_final_divider])
+                                 .send(opts[:menu_divider_color].to_sym),
+            oname: opts[:menu_final_divider] }
         )
       end
       blocks
@@ -774,7 +794,7 @@ module MarkdownExec
       else
         # blocks.map(&:name)
         blocks.map do |block|
-          block.fetch(:text, nil) || block.fetch(:name, nil)
+          block.fetch(:text, nil) || block.oname
         end
       end.compact.reject(&:empty?)
     end
@@ -867,10 +887,10 @@ module MarkdownExec
         when :line
           if options[:menu_divider_match] &&
              (mbody = fcb.body[0].match(options[:menu_divider_match]))
-            menu.push FCB.new({ name: mbody[:name], disabled: '' })
+            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name], disabled: '' })
           end
         when :blocks
-          menu += [fcb.name]
+          menu += [fcb.oname]
         end
       end
       menu
@@ -975,13 +995,31 @@ module MarkdownExec
       }
     end
 
+    ## insert back option at head or tail
+    #
+    ## Adds a back option at the head or tail of a menu
+    #
+    def prompt_menu_add_back(items, label = BACK_OPTION)
+      return items unless @options[:menu_with_back]
+
+      history = ENV.fetch('MDE_MENU_HISTORY', '')
+      return items unless history.present?
+
+      @hs_curr, @hs_rest = split_string_on_first_char(
+        history,
+        @options[:history_document_separator]
+      )
+
+      @options[:menu_back_at_top] ? [label] + items : items + [label]
+    end
+
     ## insert exit option at head or tail
     #
-    def prompt_menu_add_exit(_prompt_text, items, exit_option, _opts = {})
+    def prompt_menu_add_exit(items, label = EXIT_OPTION)
       if @options[:menu_exit_at_top]
-        (@options[:menu_with_exit] ? [exit_option] : []) + items
+        (@options[:menu_with_exit] ? [label] : []) + items
       else
-        items + (@options[:menu_with_exit] ? [exit_option] : [])
+        items + (@options[:menu_with_exit] ? [label] : [])
       end
     end
 
@@ -990,10 +1028,31 @@ module MarkdownExec
     # return selected option or nil
     #
     def prompt_with_quit(prompt_text, items, opts = {})
-      exit_option = '* Exit'
-      sel = @prompt.select(prompt_text, prompt_menu_add_exit(prompt_text, items, exit_option, opts),
+      obj = prompt_with_quit2(prompt_text, items, opts)
+      if obj.fetch(:option, nil)
+        nil
+      else
+        obj[:selected]
+      end
+    end
+
+    ## tty prompt to select
+    # insert exit option at head or tail
+    # return option:, selected option:
+    #
+    def prompt_with_quit2(prompt_text, items, opts = {})
+      sel = @prompt.select(prompt_text,
+                           prompt_menu_add_exit(
+                             prompt_menu_add_back(items)
+                           ),
                            opts.merge(filter: true))
-      sel == exit_option ? nil : sel
+      if sel == BACK_OPTION
+        { option: sel, curr: @hs_curr, rest: @hs_rest }
+      elsif sel == EXIT_OPTION
+        { option: sel }
+      else
+        { selected: sel }
+      end
     end
 
     # :reek:UtilityFunction ### temp
@@ -1006,12 +1065,8 @@ module MarkdownExec
 
     # :reek:NestedIterators
     def run
-      ## default configuration
-      #
       @options = base_options
 
-      ## read local configuration file
-      #
       read_configuration_file! @options,
                                ".#{MarkdownExec::APP_NAME.downcase}.yml"
 
@@ -1027,10 +1082,8 @@ module MarkdownExec
           menu_option_append opts, options, item
         end
       end
-      option_parser.load # filename defaults to basename of the program
-      # without suffix in a directory ~/.options
-      option_parser.environment # env defaults to the basename of the program
-      # child_argv = arguments_for_child
+      option_parser.load
+      option_parser.environment
       rest = option_parser.parse!(arguments_for_mde) # (into: options)
 
       # pass through arguments excluded from OptionParser with `--`
@@ -1094,6 +1147,31 @@ module MarkdownExec
       File.write(@options[:logged_stdout_filespec], ol.join)
     end
 
+    # Prepare the blocks menu by adding labels and other necessary details.
+    #
+    # @param blocks_in_file [Array<Hash>] The list of blocks from the file.
+    # @param opts [Hash] The options hash.
+    # @return [Array<Hash>] The updated blocks menu.
+    def prepare_blocks_menu(blocks_in_file, opts)
+      # next if fcb.fetch(:disabled, false)
+      # next unless fcb.fetch(:name, '').present?
+      blocks_in_file.map do |fcb|
+        fcb.merge!(
+          name: fcb.dname,
+          label: BlockLabel.make(
+            body: fcb[:body],
+            filename: opts[:filename],
+            headings: fcb.fetch(:headings, []),
+            menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+            menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+            text: fcb[:text],
+            title: fcb[:title]
+          )
+        )
+        fcb.to_h
+      end.compact
+    end
+
     # Select and execute a code block from a Markdown document.
     #
     # This method allows the user to interactively select a code block from a
@@ -1108,7 +1186,12 @@ module MarkdownExec
 
       load_file = !LOAD_FILE
       loop do
+        # load file
+        #
         loop do
+          # repeat menu
+          #
+          load_file = !LOAD_FILE
           blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
           mdoc = MDoc.new(blocks_in_file) do |nopts|
             opts.merge!(nopts)
@@ -1116,37 +1199,35 @@ module MarkdownExec
           blocks_menu = mdoc.fcbs_per_options(opts.merge(struct: true))
           unless opts[:block_name].present?
             pt = opts[:prompt_select_block].to_s
-
-            bm = blocks_menu.map do |fcb|
-              # next if fcb.fetch(:disabled, false)
-              # next unless fcb.fetch(:name, '').present?
-
-              fcb.merge!(
-                label: BlockLabel.make(
-                  body: fcb[:body],
-                  filename: opts[:filename],
-                  headings: fcb.fetch(:headings, []),
-                  menu_blocks_with_docname: opts[:menu_blocks_with_docname],
-                  menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-                  text: fcb[:text],
-                  title: fcb[:title]
-                )
-              )
-
-              fcb.to_h
-            end.compact
+            bm = prepare_blocks_menu(blocks_menu, opts)
             return nil if bm.count.zero?
 
-            sel = prompt_with_quit(pt, bm, per_page: opts[:select_page_height])
-            return nil if sel.nil?
+            # sel = prompt_with_quit(pt, bm, per_page: opts[:select_page_height])
+            # return nil if sel.nil?
+            obj = prompt_with_quit2(pt, bm, per_page: opts[:select_page_height])
+            case obj.fetch(:option, nil)
+            when EXIT_OPTION
+              return nil
+            when BACK_OPTION
+              opts[:filename] = obj[:curr]
+              opts[:block_name] = @options[:block_name] = ''
+              ENV['MDE_MENU_HISTORY'] = obj[:rest]
+              load_file = LOAD_FILE # later: exit menu, load file
+            else
+              sel = obj[:selected]
 
-            ## store selected option
-            #
-            label_block = blocks_in_file.select do |fcb|
-              fcb[:label] == sel
-            end.fetch(0, nil)
-            opts[:block_name] = @options[:block_name] = label_block.fetch(:name, '')
+              ## store selected option
+              #
+              label_block = blocks_in_file.select do |fcb|
+                fcb.dname == sel
+              end.fetch(0, nil)
+              opts[:block_name] = @options[:block_name] = label_block.oname
+            end
           end
+          break if load_file == LOAD_FILE
+
+          # later: load file
+
           load_file, block_name = approve_and_execute_block(opts, mdoc)
 
           opts[:block_name] = block_name
@@ -1219,6 +1300,22 @@ module MarkdownExec
       end.to_yaml
     end
 
+    # Splits the given string on the first occurrence of the specified character.
+    # Returns an array containing the portion of the string before the character and the rest of the string.
+    #
+    # @param input_str [String] The string to be split.
+    # @param split_char [String] The character on which to split the string.
+    # @return [Array<String>] An array containing two elements: the part of the string before split_char, and the rest of the string.
+    def split_string_on_first_char(input_str, split_char)
+      split_index = input_str.index(split_char)
+
+      if split_index.nil?
+        [input_str, '']
+      else
+        [input_str[0...split_index], input_str[(split_index + 1)..-1]]
+      end
+    end
+
     def tab_completions(data = menu_for_optparse)
       data.map do |item|
         "--#{item[:long_name]}" if item[:long_name]
@@ -1236,7 +1333,7 @@ module MarkdownExec
       @options
     end
 
-    def write_command_file(call_options, required_blocks)
+    def write_command_file(call_options, required_lines)
       return unless call_options[:save_executed_script]
 
       time_now = Time.now.utc
@@ -1263,7 +1360,7 @@ module MarkdownExec
                                             "# file_name: #{opts[:filename]}\n" \
                                             "# block_name: #{opts[:block_name]}\n" \
                                             "# time: #{time_now}\n" \
-                                            "#{required_blocks.flatten.join("\n")}\n")
+                                            "#{required_lines.flatten.join("\n")}\n")
       return if @options[:saved_script_chmod].zero?
 
       File.chmod @options[:saved_script_chmod], @options[:saved_filespec]
@@ -1271,4 +1368,69 @@ module MarkdownExec
   end # class MarkParse
 end # module MarkdownExec
 
-require 'minitest/autorun' if $PROGRAM_NAME == __FILE__
+if $PROGRAM_NAME == __FILE__
+  require 'bundler/setup'
+  Bundler.require(:default)
+
+  require 'minitest/autorun'
+
+  module MarkdownExec
+    class TestMarkParse < Minitest::Test
+      require 'mocha/minitest'
+
+      def test_calling_execute_approved_block_calls_command_execute_with_argument_args_value
+        pigeon = 'E'
+        obj = { pass_args: pigeon }
+
+        c = MarkdownExec::MarkParse.new
+
+        # Expect that method command_execute is called with argument args having value pigeon
+        c.expects(:command_execute).with(
+          obj,
+          '',
+          args: pigeon)
+
+        # Call method execute_approved_block
+        c.execute_approved_block(obj, [])
+      end
+
+      def setup
+        @mark_parse = MarkdownExec::MarkParse.new
+      end
+
+      def test_set_fcb_title
+        # sample input and output data for testing set_fcb_title method
+        input_output_data = [
+          {
+            input: FCB.new(title: nil, body: ["puts 'Hello, world!'"]),
+            output: "puts 'Hello, world!'"
+          },
+          {
+            input: FCB.new(title: '', body: ['def add(x, y)', '  x + y', 'end']),
+            output: 'def add(x, y) x + y end'
+          },
+          {
+            input: FCB.new(title: 'foo', body: %w[bar baz]),
+            output: 'foo' # expect the title to remain unchanged
+          }
+        ]
+
+        # iterate over the input and output data and assert that the method sets the title as expected
+        input_output_data.each do |data|
+          input = data[:input]
+          output = data[:output]
+          @mark_parse.set_fcb_title(input)
+          assert_equal output, input.title
+        end
+      end
+    end
+
+    ###
+
+    # result = split_string_on_first_char("hello-world", "-")
+    # puts result.inspect  # Output should be ["hello", "world"]
+
+    # result = split_string_on_first_char("hello", "-")
+    # puts result.inspect  # Output should be ["hello", ""]
+  end
+end

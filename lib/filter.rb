@@ -35,10 +35,10 @@ module MarkdownExec
         wrap_name: nil
       }
 
-      name = fcb.fetch(:name, '')
+      name = fcb.oname
       shell = fcb.fetch(:shell, '')
 
-      apply_name_filters(options, filters, name)
+      apply_name_filters(options, filters, name) #if shell == 'bash'
       apply_shell_filters(options, filters, shell)
       apply_other_filters(options, filters, fcb)
 
@@ -107,7 +107,7 @@ module MarkdownExec
     # @param fcb [Hash] The fenced code block to be evaluated.
     #
     def self.apply_other_filters(options, filters, fcb)
-      name = fcb.fetch(:name, '')
+      name = fcb.oname
       shell = fcb.fetch(:shell, '')
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
 
@@ -166,13 +166,17 @@ if $PROGRAM_NAME == __FILE__
   require 'bundler/setup'
   Bundler.require(:default)
 
+  require 'fcb'
   require 'minitest/autorun'
 
   module MarkdownExec
     class FilterTest < Minitest::Test
       def setup
         @options = {}
-        @fcb = {}
+        @fcb = FCB.new(
+          dname: nil,
+          oname: nil
+        )
       end
 
       # Tests for fcb_select? method
@@ -191,27 +195,27 @@ if $PROGRAM_NAME == __FILE__
       def test_hidden_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_hidden_match] = 'hidden'
-        @fcb[:name] = 'hidden_block'
+        @fcb[:oname] = 'hidden_block'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
       def test_include_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_indlude_match] = 'include'
-        @fcb[:name] = 'include_block'
+        @fcb[:oname] = 'include_block'
         assert Filter.fcb_select?(@options, @fcb)
       end
 
       def test_wrap_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_wrapper_match] = 'wrap'
-        @fcb[:name] = 'wrap_block'
+        @fcb[:oname] = 'wrap_block'
         assert Filter.fcb_select?(@options, @fcb)
       end
 
       def test_name_exclude_condition
         @options[:block_name] = 'test'
-        @fcb[:name] = 'sample'
+        @fcb[:oname] = 'sample'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
@@ -223,7 +227,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_name_select_condition
         @options[:select_by_name_regex] = 'select'
-        @fcb[:name] = 'select_this'
+        @fcb[:oname] = 'select_this'
         assert Filter.fcb_select?(@options, @fcb)
       end
 

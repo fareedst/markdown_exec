@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (1.3.8.6)
+# MDE - Markdown Executor (1.3.8.17)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -91,12 +91,12 @@
   :procname: exit
   :short_name: x
 - :default: "^`{3,}"
-  :env_var: MDE_FENCED_START_AND_END_MATCH
-  :opt_name: fenced_start_and_end_match
+  :env_var: MDE_FENCED_START_AND_END_REGEX
+  :opt_name: fenced_start_and_end_regex
   :procname: val_as_str
 - :default: "^`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
-  :env_var: MDE_FENCED_START_EX_MATCH
-  :opt_name: fenced_start_ex_match
+  :env_var: MDE_FENCED_START_EXTENDED_REGEX
+  :opt_name: fenced_start_extended_regex
   :procname: val_as_str
 - :arg_name: RELATIVE_PATH
   :compreply: "."
@@ -130,6 +130,10 @@
   :env_var: MDE_HIDE_BLOCKS_BY_NAME
   :opt_name: hide_blocks_by_name
   :procname: val_as_bool
+- :default: ","
+  :env_var: MDE_HISTORY_DOCUMENT_SEPARATOR
+  :opt_name: history_document_separator
+  :procname: val_as_str
 - :default: "^ *@import (.+)$"
   :env_var: MDE_IMPORT_PATTERN
   :opt_name: import_pattern
@@ -177,6 +181,12 @@
   :env_var: MDE_MD_FILENAME_MATCH
   :opt_name: md_filename_match
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Display Back option at top of menu (vs bottom)
+  :env_var: MDE_MENU_BACK_AT_TOP
+  :opt_name: menu_back_at_top
+  :procname: val_as_bool
 - :default: plain
   :description: Color of menu bash
   :env_var: MDE_MENU_BASH_COLOR
@@ -216,7 +226,7 @@
   :procname: val_as_str
 - :arg_name: BOOL
   :default: true
-  :description: Display Exit option at top of menu
+  :description: Display Exit option at top of menu (vs bottom)
   :env_var: MDE_MENU_EXIT_AT_TOP
   :opt_name: menu_exit_at_top
   :procname: val_as_bool
@@ -285,6 +295,12 @@
   :env_var: MDE_MENU_VARS_SET_FORMAT
   :opt_name: menu_vars_set_format
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Display Back option in menu
+  :env_var: MDE_MENU_WITH_BACK
+  :opt_name: menu_with_back
+  :procname: val_as_bool
 - :arg_name: BOOL
   :default: true
   :description: Display Exit option in menu

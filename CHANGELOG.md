@@ -230,8 +230,8 @@ e.g. `MDE_OUTPUT_VIEWER_OPTIONS="-a '/Applications/Sublime Text.app'" mde --sele
 | block_name_hidden_match | MDE_BLOCK_NAME_HIDDEN_MATCH  | `^\(.+\)$` |
 | block_name_match | MDE_BLOCK_NAME_MATCH  | `:(?<title>\S+)( \|$)` |
 | block_required_scan | MDE_BLOCK_REQUIRED_SCAN  | `\+\S+` |
-| fenced_start_and_end_match | MDE_FENCED_START_AND_END_MATCH  | ``^`{3,}`` |
-| fenced_start_ex_match | MDE_FENCED_START_EX_MATCH  | ``^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$`` |
+| fenced_start_and_end_regex | MDE_FENCED_START_AND_END_REGEX  | ``^`{3,}`` |
+| fenced_start_extended_regex | MDE_FENCED_START_EXTENDED_REGEX  | ``^`{3,}(?<shell>[^`\s]*) *(?<name>.*)$`` |
 | heading1_match | MDE_HEADING1_MATCH  | `^# *(?<name>[^#]*?) *$` |
 | heading2_match | MDE_HEADING2_MATCH  | `^## *(?<name>[^#]*?) *$` |
 | heading3_match | MDE_HEADING3_MATCH  | `^### *(?<name>.+?) *$` |

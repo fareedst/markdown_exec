@@ -3,6 +3,7 @@
 require 'bundler/gem_tasks'
 require 'rake/testtask'
 require 'erb'
+require 'pry'
 # require 'rspec'
 require 'rubocop'
 require 'yaml'
@@ -80,7 +81,7 @@ task :minitest do
     './lib/cached_nested_file_reader.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
-    './lib/markdown_block_manager.rb',
+    './lib/markdown_exec.rb',
     './lib/mdoc.rb',
     './lib/object_present.rb',
     './lib/option_value.rb',
@@ -90,18 +91,22 @@ task :minitest do
   ]
 
   commands.each do |command|
-    begin
-      raise "Failed: #{command}" unless system("bundle exec ruby #{command}")
-    rescue StandardError => e
-      puts "Error: #{e.message}"
-      exit 1
-    end
+    raise "Failed: #{command}" unless system("bundle exec ruby #{command}")
+  rescue StandardError => err
+    puts "Error: #{err.message}"
+    exit 1
   end
 end
 
 desc 'reek'
 task :reek do
   `reek --config .reek .`
+end
+
+desc 'test'
+task :test do
+  Rake::Task['minitest'].execute
+  system 'bundle exec rspec'
 end
 
 private

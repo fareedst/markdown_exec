@@ -192,11 +192,14 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it 'formats tasks' do
-      expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
-        { name: 'one', text: nil },
-        { name: 'two', text: nil },
-        { name: '<task>', text: nil }
-      ]
+      expect(mp.list_blocks_in_file.map do |block|
+               pp block
+               block.slice(:dname, :text)
+             end).to eq [
+               { dname: 'one', text: nil },
+               { dname: 'two', text: nil },
+               { dname: '<task>', text: nil }
+             ]
     end
   end
 
@@ -209,17 +212,17 @@ RSpec.describe 'MarkdownExec' do
 
     it 'test_get_blocks' do
       expect(mp.list_named_blocks_in_file.map do |block|
-               block[:name]
+               block[:oname]
              end).to eq %w[one two]
     end
 
     it 'formats dividers' do
-      expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
-        { name: '<BINDIV>', text: nil },
-        { name: 'one', text: nil },
-        { name: '<divider>', text: nil },
-        { name: 'two', text: nil },
-        { name: '<FINDIV>', text: nil }
+      expect(mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) }).to eq [
+        { dname: '<BINDIV>', text: nil },
+        { dname: 'one', text: nil },
+        { dname: '<divider>', text: nil },
+        { dname: 'two', text: nil },
+        { dname: '<FINDIV>', text: nil }
       ]
     end
   end
@@ -227,7 +230,7 @@ RSpec.describe 'MarkdownExec' do
   ## presence of chrome
   #
   describe 'presence of chrome' do
-    subject(:blocks) { mp.list_blocks_in_file.map { |block| block.slice(:name, :text) } }
+    subject(:blocks) { mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) } }
 
     let(:menu_divider_format) { '<%s>' }
     let(:menu_initial_divider) { 'BINDIV' }
@@ -237,9 +240,9 @@ RSpec.describe 'MarkdownExec' do
 
       it '' do
         expect(blocks).to eq [
-          { name: '<BINDIV>', text: nil },
-          { name: 'one', text: nil },
-          { name: 'two', text: nil }
+          { dname: '<BINDIV>', text: nil },
+          { dname: 'one', text: nil },
+          { dname: 'two', text: nil }
         ]
       end
     end
@@ -249,8 +252,8 @@ RSpec.describe 'MarkdownExec' do
 
       it '' do
         expect(blocks).to eq [
-          { name: 'one', text: nil },
-          { name: 'two', text: nil }
+          { dname: 'one', text: nil },
+          { dname: 'two', text: nil }
         ]
       end
     end
@@ -265,10 +268,10 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it '' do
-      expect(mp.list_blocks_in_file.map { |block| block.slice(:name, :text) }).to eq [
-        { name: 'one', text: nil },
-        { name: 'two', text: nil },
-        { name: '<task>', text: nil }
+      expect(mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) }).to eq [
+        { dname: 'one', text: nil },
+        { dname: 'two', text: nil },
+        { dname: '<task>', text: nil }
       ]
     end
   end
@@ -278,14 +281,15 @@ RSpec.describe 'MarkdownExec' do
   describe 'calculates arguments for child script' do
     let(:argv) { %w[one -- b c] }
 
-    it 'passes reserved arguments to executed script' do
-      expect(mp.arguments_for_child(argv)).to eq %w[b c]
-      expect(mp.arguments_for_mde(argv)).to eq %w[one]
-    end
+    # it 'passes reserved arguments to executed script' do
+    #   expect(mp.arguments_for_child(argv)).to eq %w[b c]
+    #   expect(mp.arguments_for_mde(argv)).to eq %w[one]
+    # end
 
     it 'passes arguments to script' do
       expect_any_instance_of(MarkdownExec::MarkParse).to \
-        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a', {:args=>[]})
+        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a',
+                                       { args: [] })
       mdoc = MarkdownExec::MDoc.new(
         mp.list_blocks_in_file(bash: true,
                                filename: 'fixtures/bash1.md',
@@ -333,22 +337,22 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_get_blocks' do
     expect(mp.list_named_blocks_in_file.map do |block|
-             block[:name]
+             block[:oname]
            end).to eq %w[one two]
   end
 
   it 'test_get_blocks_filter' do
     expect(mp.list_named_blocks_in_file(bash_only: true).map do |block|
-             block[:name]
+             block[:oname]
            end).to eq %w[two]
   end
 
   it 'test_get_blocks_struct' do
     expect(mp.list_blocks_in_file(struct: true).map do |block|
-             block.slice(:body, :name)
+             block.slice(:body, :oname)
            end).to eq [
-             { body: %w[a], name: 'one' },
-             { body: %w[b], name: 'two' }
+             { body: %w[a], oname: 'one' },
+             { body: %w[b], oname: 'two' }
            ]
   end
 
@@ -362,14 +366,14 @@ RSpec.describe 'MarkdownExec' do
       MarkdownExec::MDoc.new(list_blocks_bash1)
                   .collect_recursively_required_blocks('four')
                   .map do |block|
-                    block[:name]
+                    block[:oname]
                   end
     ).to eq %w[one two three four]
   end
 
   it 'test_called_parse_hidden_get_required_code' do
     expect(MarkdownExec::MDoc.new(list_blocks_bash1)
-                                   .collect_recursively_required_code('four')).to \
+                                   .collect_recursively_required_code('four')[:code]).to \
                                      eq %w[a b c d]
   end
 
@@ -377,7 +381,7 @@ RSpec.describe 'MarkdownExec' do
     expect(mp.list_named_blocks_in_file do |opts|
              opts.merge(bash_only: true)
            end.map do |block|
-             block[:name]
+             block[:oname]
            end).to eq %w[two]
   end
 
@@ -400,30 +404,27 @@ RSpec.describe 'MarkdownExec' do
       block.is_a?(MarkdownExec::FCB) ? block.slice(:name, :disabled) : block
     end).to \
       eq([
-           # { name: 'menu divider 11', disabled: '' },
            'block11',
-           # { name: 'menu divider 21', disabled: '' },
            'block21',
-           # { name: 'menu divider 31', disabled: '' },
            'block31'
          ])
   end
 
   it 'test_parse_bash_blocks' do
-    expect(list_blocks_bash1.map { |block| block.slice(:name, :reqs) }).to \
+    expect(list_blocks_bash1.map { |block| block.slice(:oname, :reqs) }).to \
       eq([
-           { name: 'one', reqs: [] },
-           { name: 'two', reqs: ['one'] },
-           { name: 'three', reqs: %w[two one] },
-           { name: 'four', reqs: ['three'] }
+           { oname: 'one', reqs: [] },
+           { oname: 'two', reqs: ['one'] },
+           { oname: 'three', reqs: %w[two one] },
+           { oname: 'four', reqs: ['three'] }
          ])
   end
 
   it 'test_parse_bash_code' do
     expect(list_blocks_bash1.map do |block|
-             { name: block[:name],
+             { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash1)
-                     .collect_recursively_required_code(block[:name]) }
+                     .collect_recursively_required_code(block[:oname])[:code] }
            end).to eq([
                         { name: 'one', code: ['a'] },
                         { name: 'two', code: %w[a b] },
@@ -435,9 +436,9 @@ RSpec.describe 'MarkdownExec' do
   # :reek:UncommunicativeMethodName ### temp
   it 'test_parse_bash2' do
     expect(list_blocks_bash2.map do |block|
-             { name: block[:name],
+             { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash2)
-                     .collect_recursively_required_code(block[:name]) }
+                     .collect_recursively_required_code(block[:oname])[:code] }
            end).to eq([
                         { name: 'one', code: %w[a] },
                         { name: 'two', code: %w[a b] },
@@ -449,44 +450,44 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_parse_exclude_expect_blocks' do
     expect(list_blocks_exclude_expect_blocks.map do |block|
-             block.slice(:name, :title)
+             block.slice(:oname, :title)
            end).to eq([
-                        { name: 'one', title: 'one' }
+                        { oname: 'one', title: 'one' }
                       ])
   end
 
   it 'test_parse_headings' do
-    expect(list_blocks_headings.map { |block| block.slice(:headings, :name) }).to \
+    expect(list_blocks_headings.map { |block| block.slice(:headings, :oname) }).to \
       eq([
-           { headings: [], name: 'one' },
-           { headings: %w[h1], name: 'two' },
-           { headings: %w[h1 h2], name: 'three' },
-           { headings: %w[h1 h2 h3], name: 'four' },
-           { headings: %w[h1 h2 h4], name: 'five' }
+           { headings: [], oname: 'one' },
+           { headings: %w[h1], oname: 'two' },
+           { headings: %w[h1 h2], oname: 'three' },
+           { headings: %w[h1 h2 h3], oname: 'four' },
+           { headings: %w[h1 h2 h4], oname: 'five' }
          ])
   end
 
   it 'test_parse_hide_blocks_by_name' do
-    expect(list_blocks_hide_blocks_by_name.map { |block| block.slice(:name) }).to \
+    expect(list_blocks_hide_blocks_by_name.map { |block| block.slice(:oname) }).to \
       eq([
-           { name: 'one' },
-           { name: '(two)' },
-           { name: 'three' },
-           { name: '()' }
+           { oname: 'one' },
+           { oname: '(two)' },
+           { oname: 'three' },
+           { oname: '()' }
          ])
   end
 
   it 'test_parse_title' do
-    expect(list_blocks_title.map { |block| block.slice(:name, :title) }).to \
+    expect(list_blocks_title.map { |block| block.slice(:oname, :title) }).to \
       eq([
-           { name: 'no name', title: 'no name' },
-           { name: 'name1', title: 'name1' }
+           { oname: 'no name', title: 'no name' },
+           { oname: 'name1', title: 'name1' }
          ])
   end
 
   it 'test_recursively_required_reqs' do
     expect(list_blocks_bash1.map do |block|
-             { name: block[:name],
+             { name: block[:oname],
                allreqs: MarkdownExec::MDoc.new(list_blocks_bash1)
                                           .recursively_required(block[:reqs]) }
            end).to eq([
@@ -499,18 +500,21 @@ RSpec.describe 'MarkdownExec' do
 
   it 'fcbs_per_options' do
     mdoc = MarkdownExec::MDoc.new(list_blocks_bash1)
-    expect(mdoc.fcbs_per_options(options).map(&:name)).to eq %w[one two three four]
+    expect(mdoc.fcbs_per_options(options)
+               .map(&:oname)).to eq %w[one two three four]
   end
 
   if RUN_INTERACTIVE
     it 'test_select_block_approve' do
-      expect(MarkdownExec::Filter.fcb_select?({
-                                                approve: true,
-                                                display: true,
-                                                execute: true,
-                                                filename: 'fixtures/exec1.md',
-                                                prompt: 'Execute'
-                                              }, fcb)).to eq 'ls'
+      expect(
+        MarkdownExec::Filter.fcb_select?({
+                                           approve: true,
+                                           display: true,
+                                           execute: true,
+                                           filename: 'fixtures/exec1.md',
+                                           prompt: 'Execute'
+                                         }, fcb)
+      ).to eq 'ls'
     end
 
     it 'test_select_block_display' do
@@ -532,17 +536,19 @@ RSpec.describe 'MarkdownExec' do
   end # RUN_INTERACTIVE
 
   it 'test_exclude_by_name_regex' do
-    expect(mp.exclude_block(exclude_by_name_regex: 'w')[:name]).to eq 'one' if RUN_INTERACTIVE
-    expect(mp.list_named_blocks_in_file(exclude_by_name_regex: 'w').map do |block|
-             block[:name]
+    expect(mp.exclude_block(exclude_by_name_regex: 'w')[:oname]).to eq 'one' if RUN_INTERACTIVE
+    expect(mp.list_named_blocks_in_file(
+      exclude_by_name_regex: 'w'
+    ).map do |block|
+             block[:oname]
            end).to eq %w[one]
   end
 
   it 'test_select_by_name_regex' do
-    # fcb.name = 'awe'
-    # puts MarkdownExec::Filter.fcb_select?({ select_by_name_regex: 'w' }, fcb) ###
-    expect(mp.list_named_blocks_in_file(select_by_name_regex: 'w').map do |block|
-             block[:name]
+    expect(mp.list_named_blocks_in_file(
+      select_by_name_regex: 'w'
+    ).map do |block|
+             block[:oname]
            end).to eq %w[two]
   end
 
@@ -552,64 +558,67 @@ RSpec.describe 'MarkdownExec' do
 
   # :reek:UncommunicativeMethodName ### temp
   it 'test_target_default_path_and_default_filename1' do
-    expect(mp.list_files_specified(default_filename: 'README.md',
-                                   default_folder: '.')).to eq ['./README.md']
+    expect(mp.list_files_specified(
+             default_filename: 'README.md',
+             default_folder: '.'
+           )).to eq ['./README.md']
   end
 
   # :reek:UncommunicativeMethodName ### temp
   it 'test_target_default_path_and_default_filename2' do
     ft = ['fixtures/bash1.md', 'fixtures/bash2.md',
           'fixtures/block_exclude.md',
-          'fixtures/duplicate_block.md',
           'fixtures/exclude1.md', 'fixtures/exclude2.md',
           'fixtures/exec1.md', 'fixtures/heading1.md',
-          'fixtures/import0.md', 'fixtures/import1.md',
-          'fixtures/include.md',
-          'fixtures/infile_config.md',
-          'fixtures/linked1.md', 'fixtures/linked2.md',
           'fixtures/menu_divs.md',
-          'fixtures/opts.md',
-          'fixtures/pass-through.md',
-          'fixtures/plant.md',
           'fixtures/sample1.md', 'fixtures/title1.md',
-          'fixtures/vars.md',
-          'fixtures/wrap.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
-    expect(mp.list_files_specified(specified_folder: 'fixtures',
-                                   default_filename: 'README.md',
-                                   default_folder: '.').sort).to eq ft
+    rs = mp.list_files_specified(
+      specified_folder: 'fixtures',
+      default_filename: 'README.md',
+      default_folder: '.'
+    ).sort
+    expect(rs).to eq ft.sort
   end
 
   it 'test_target_default_path_and_default_filename' do
     ft = ["#{default_path}/#{default_filename}"]
-    expect(mp.list_files_specified(default_filename: default_filename,
-                                   default_folder: default_path,
-                                   filetree: ft)).to eq ft
+    expect(mp.list_files_specified(
+             default_filename: default_filename,
+             default_folder: default_path,
+             filetree: ft
+           )).to eq ft
   end
 
   it 'test_target_default_path_and_specified_filename' do
     ft = ["#{default_path}/#{specified_filename}"]
-    expect(mp.list_files_specified(specified_filename: specified_filename,
-                                   default_filename: default_filename,
-                                   default_folder: default_path,
-                                   filetree: ft)).to eq ft
+    expect(mp.list_files_specified(
+             specified_filename: specified_filename,
+             default_filename: default_filename,
+             default_folder: default_path,
+             filetree: ft
+           )).to eq ft
   end
 
   it 'test_target_specified_path_and_filename' do
     ft = ["#{specified_path}/#{specified_filename}"]
-    expect(mp.list_files_specified(specified_filename: specified_filename,
-                                   specified_folder: specified_path,
-                                   default_filename: default_filename,
-                                   default_folder: default_path,
-                                   filetree: ft)).to eq ft
+    expect(mp.list_files_specified(
+             specified_filename: specified_filename,
+             specified_folder: specified_path,
+             default_filename: default_filename,
+             default_folder: default_path,
+             filetree: ft
+           )).to eq ft
   end
 
   it 'test_target_specified_path' do
     ft = ["#{specified_path}/any.md"]
-    expect(mp.list_files_specified(specified_folder: specified_path,
-                                   default_filename: default_filename,
-                                   default_folder: default_path,
-                                   filetree: ft)).to eq ft
+    expect(mp.list_files_specified(
+             specified_folder: specified_path,
+             default_filename: default_filename,
+             default_folder: default_path,
+             filetree: ft
+           )).to eq ft
   end
 
   it 'test_value_for_hash' do
@@ -627,28 +636,28 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_parse_called_get_named_blocks' do
-    expect(list_blocks_yaml1.map { |block| block.slice(:name) }).to eq [
-      { name: '[summarize_fruits]' },
-      { name: '(make_fruit_file)' },
-      { name: 'show_fruit_yml' }
+    expect(list_blocks_yaml1.map { |block| block.slice(:oname) }).to eq [
+      { oname: '[summarize_fruits]' },
+      { oname: '(make_fruit_file)' },
+      { oname: 'show_fruit_yml' }
     ]
   end
 
   it 'test_parse_called_collect_recursively_required_blocks' do
     expect(mdoc_yaml1.collect_recursively_required_blocks('show_fruit_yml').map do |block|
-      block.slice(:call, :name)
+      block.slice(:call, :oname)
            .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
-      { call: nil, name: '(make_fruit_file)', stdout_name: 'fruit.yml' },
-      { call: nil, name: '[summarize_fruits]' },
+      { call: nil, oname: '(make_fruit_file)', stdout_name: 'fruit.yml' },
+      { call: nil, oname: '[summarize_fruits]' },
       { call: '%(summarize_fruits <fruit.yml >$fruit_summary)',
-        name: 'show_fruit_yml',
+        oname: 'show_fruit_yml',
         stdout_name: 'fruit_summary' }
     ]
   end
 
   it 'test_parse_called_get_required_code' do
-    expect(mdoc_yaml1.collect_recursively_required_code('show_fruit_yml')).to eq [
+    expect(mdoc_yaml1.collect_recursively_required_code('show_fruit_yml')[:code]).to eq [
       [
         %q(cat > 'fruit.yml' <<"EOF"),
         'fruit:',
@@ -666,30 +675,30 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_vars_parse_called_get_named_blocks' do
-    expect(list_blocks_yaml2.map { |block| block.slice(:name) }).to eq [
-      { name: '[extract_coins_report]' },
-      { name: '(make_coins_file)' },
-      { name: 'show_coins_var' },
-      { name: 'report_coins_yml' }
+    expect(list_blocks_yaml2.map { |block| block.slice(:oname) }).to eq [
+      { oname: '[extract_coins_report]' },
+      { oname: '(make_coins_file)' },
+      { oname: 'show_coins_var' },
+      { oname: 'report_coins_yml' }
     ]
   end
 
   it 'test_vars_parse_called_collect_recursively_required_blocks' do
     expect(mdoc_yaml2.collect_recursively_required_blocks('show_coins_var').map do |block|
-             block.slice(:call, :cann, :name)
+             block.slice(:call, :cann, :oname)
            end).to eq [
-             { call: nil, name: '(make_coins_file)' },
+             { call: nil, oname: '(make_coins_file)' },
              { call: nil,
                cann: '%(extract_coins_report <$coins >$coins_report)',
-               name: '[extract_coins_report]' },
+               oname: '[extract_coins_report]' },
              { call: '%(extract_coins_report <$coins >$coins_report)',
-               name: 'show_coins_var' }
+               oname: 'show_coins_var' }
            ]
   end
 
   # rubocop:disable Layout/LineLength
   it 'test_vars_parse_called_get_required_code' do
-    expect(mdoc_yaml2.collect_recursively_required_code('show_coins_var')).to eq [
+    expect(mdoc_yaml2.collect_recursively_required_code('show_coins_var')[:code]).to eq [
       %(export coins=$(cat <<"EOF"\ncoins:\n  - name: bitcoin\n    price: 21000\n  - name: ethereum\n    price: 1000\nEOF\n)),
       %q(export coins_report=$(echo "$coins" | yq '.coins | map(. | { "name": .name, "price": .price })')),
       %(export coins_report=$(cat <<"EOF"\necho "coins_report:"\necho "${coins_report:-MISSING}"\nEOF\n))
@@ -734,7 +743,7 @@ RSpec.describe 'MarkdownExec' do
       doc_fcblocks = mp.list_blocks_in_file(o2)
       mdoc = MarkdownExec::MDoc.new(doc_fcblocks)
       bs = mdoc.fcbs_per_options(o2)
-      expect(bs.map(&:name)).to eq names
+      expect(bs.map(&:oname)).to eq names
     end
   end
 
@@ -822,7 +831,7 @@ RSpec.describe MarkdownExec::MarkParse do
       let(:options) { { menu_with_exit: false, menu_exit_at_top: false } }
 
       it 'returns the items without the exit option' do
-        expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq(items)
+        expect(instance.prompt_menu_add_exit(items, exit_option)).to eq(items)
       end
     end
 
@@ -833,7 +842,7 @@ RSpec.describe MarkdownExec::MarkParse do
         let(:menu_exit_at_top) { true }
 
         it 'returns items with exit option at the top' do
-          expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq([exit_option] + items)
+          expect(instance.prompt_menu_add_exit(items, exit_option)).to eq([exit_option] + items)
         end
       end
 
@@ -841,7 +850,7 @@ RSpec.describe MarkdownExec::MarkParse do
         let(:menu_exit_at_top) { false }
 
         it 'returns items with exit option at the end' do
-          expect(instance.prompt_menu_add_exit('', items, exit_option)).to eq(items + [exit_option])
+          expect(instance.prompt_menu_add_exit(items, exit_option)).to eq(items + [exit_option])
         end
       end
     end
