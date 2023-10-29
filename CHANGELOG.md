@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.3.9] - 2023-10-29
+
+Add block types for linking and variable control
+
+Rename options to match use.
+
+### Added
+
+- Pass-through arguments after "--" to the executed script.
+  See document `examples/pass-through.md`.
+
+- Add RGB color specification to basic ANSI color names.
+  Foreground R, G, and B values are encoded in the name "fg_rgb_R_G_B" with their decimal values.
+  e.g. red = "fg_rgb_255_0_0"
+  e.g. green = "fg_rgb_0_255_0"
+  e.g. blue = "fg_rgb_0_0_255"
+
+- Add a "link" fenced code block type as a menu choice to load a different document.
+  The `link` block can specify:
+  - environment variables and values to set prior to loading the document,
+  - a block name to execute in the loaded document.
+  In the resulting menu, an automatic option (Back) allows the user to return to the original document.
+  See documents `examples/linked1.md`, `examples/linked2.md`.
+
+- Add an "opts" fenced code block type as a menu choice to set current MDE options.
+  See document `examples/opts.md`.
+
+- Add a "vars" fenced code block type as a menu choice to set current environment variables.
+  See document `examples/vars.md`.
+  These blocks can be hidden blocks and required in a script.
+
+- Add a "wrap" fenced code block type to facilitate script generation.
+  See document `examples/wrap.md`.
+  These blocks are hidden and can be required by one or more blocks.
+
+### Changed
+
+- Rename RegExp options to match use.
+
 ## [1.3.8] - 2023-10-20
 
 ### Added
