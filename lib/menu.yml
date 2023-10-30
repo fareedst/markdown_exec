@@ -52,6 +52,10 @@
   :env_var: MDE_BLOCK_STDOUT_SCAN
   :opt_name: block_stdout_scan
   :procname: val_as_str
+- :default: ": ${%{key}:=%{value}}"
+  :env_var: MDE_BLOCK_TYPE_PORT_SET_FORMAT
+  :opt_name: block_type_port_set_format
+  :procname: val_as_str
 - :arg_name: PATH
   :default: "."
   :description: Read configuration file
@@ -244,6 +248,16 @@
   :description: Color of menu link
   :env_var: MDE_MENU_LINK_COLOR
   :opt_name: menu_link_color
+  :procname: val_as_str
+- :default: "* Back"
+  :description: Text for Back option
+  :env_var: MDE_MENU_OPTION_BACK_NAME
+  :opt_name: menu_option_back_name
+  :procname: val_as_str
+- :default: "* Exit"
+  :description: Text for Exit option
+  :env_var: MDE_MENU_OPTION_EXIT_NAME
+  :opt_name: menu_option_exit_name
   :procname: val_as_str
 - :default: blue
   :description: Color of menu opts

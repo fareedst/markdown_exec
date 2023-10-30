@@ -403,10 +403,10 @@ RSpec.describe 'MarkdownExec' do
     expect(mp.menu_for_blocks(options_parse_menu_for_blocks).map do |block|
       block.is_a?(MarkdownExec::FCB) ? block.slice(:name, :disabled) : block
     end).to \
-      eq([
-           'block11',
-           'block21',
-           'block31'
+      eq(%w[
+           block11
+           block21
+           block31
          ])
   end
 
@@ -530,8 +530,8 @@ RSpec.describe 'MarkdownExec' do
       )
     end
 
-    it 'test_select_md_file' do
-      expect(mp.select_md_file).to eq 'README.md'
+    it 'test_select_document_if_multiple' do
+      expect(mp.select_document_if_multiple).to eq 'README.md'
     end
   end # RUN_INTERACTIVE
 
@@ -559,8 +559,10 @@ RSpec.describe 'MarkdownExec' do
   # :reek:UncommunicativeMethodName ### temp
   it 'test_target_default_path_and_default_filename1' do
     expect(mp.list_files_specified(
-             default_filename: 'README.md',
-             default_folder: '.'
+             mp.determine_filename(
+               default_filename: 'README.md',
+               default_folder: '.'
+             )
            )).to eq ['./README.md']
   end
 
@@ -574,9 +576,11 @@ RSpec.describe 'MarkdownExec' do
           'fixtures/sample1.md', 'fixtures/title1.md',
           'fixtures/yaml1.md', 'fixtures/yaml2.md']
     rs = mp.list_files_specified(
-      specified_folder: 'fixtures',
-      default_filename: 'README.md',
-      default_folder: '.'
+      mp.determine_filename(
+        specified_folder: 'fixtures',
+        default_filename: 'README.md',
+        default_folder: '.'
+      )
     ).sort
     expect(rs).to eq ft.sort
   end
@@ -584,40 +588,52 @@ RSpec.describe 'MarkdownExec' do
   it 'test_target_default_path_and_default_filename' do
     ft = ["#{default_path}/#{default_filename}"]
     expect(mp.list_files_specified(
-             default_filename: default_filename,
-             default_folder: default_path,
-             filetree: ft
+             mp.determine_filename(
+               default_filename: default_filename,
+               default_folder: default_path,
+               filetree: ft
+             ),
+             ft
            )).to eq ft
   end
 
   it 'test_target_default_path_and_specified_filename' do
     ft = ["#{default_path}/#{specified_filename}"]
     expect(mp.list_files_specified(
-             specified_filename: specified_filename,
-             default_filename: default_filename,
-             default_folder: default_path,
-             filetree: ft
+             mp.determine_filename(
+               specified_filename: specified_filename,
+               default_filename: default_filename,
+               default_folder: default_path,
+               filetree: ft
+             ),
+             ft
            )).to eq ft
   end
 
   it 'test_target_specified_path_and_filename' do
     ft = ["#{specified_path}/#{specified_filename}"]
     expect(mp.list_files_specified(
-             specified_filename: specified_filename,
-             specified_folder: specified_path,
-             default_filename: default_filename,
-             default_folder: default_path,
-             filetree: ft
+             mp.determine_filename(
+               specified_filename: specified_filename,
+               specified_folder: specified_path,
+               default_filename: default_filename,
+               default_folder: default_path,
+               filetree: ft
+             ),
+             ft
            )).to eq ft
   end
 
   it 'test_target_specified_path' do
     ft = ["#{specified_path}/any.md"]
     expect(mp.list_files_specified(
-             specified_folder: specified_path,
-             default_filename: default_filename,
-             default_folder: default_path,
-             filetree: ft
+             mp.determine_filename(
+               specified_folder: specified_path,
+               default_filename: default_filename,
+               default_folder: default_path,
+               filetree: ft
+             ),
+             ft
            )).to eq ft
   end
 

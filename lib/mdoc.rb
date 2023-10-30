@@ -25,6 +25,44 @@ module MarkdownExec
       @table = table
     end
 
+    def collect_block_code_cann(fcb)
+      body = fcb[:body].join("\n")
+      xcall = fcb[:cann][1..-2]
+      mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
+      mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
+
+      yqcmd = if mstdin[:type]
+                "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
+              else
+                "yq e '#{body}' '#{mstdin[:name]}'"
+              end
+      if mstdout[:type]
+        "export #{mstdout[:name]}=$(#{yqcmd})"
+      else
+        "#{yqcmd} > '#{mstdout[:name]}'"
+      end
+    end
+
+    def collect_block_code_shell(fcb)
+      # write named variables to block at top of script
+      #
+      fcb[:body].join(' ').split.compact.map do |key|
+        format(opts[:block_type_port_set_format], { key: key, value: ENV.fetch(key, nil) })
+      end
+    end
+
+    def collect_block_code_stdout(fcb)
+      stdout = fcb[:stdout]
+      body = fcb[:body].join("\n")
+      if stdout[:type]
+        %(export #{stdout[:name]}=$(cat <<"EOF"\n#{body}\nEOF\n))
+      else
+        "cat > '#{stdout[:name]}' <<\"EOF\"\n" \
+          "#{body}\n" \
+          "EOF\n"
+      end
+    end
+
     # Retrieves code blocks that are required by a specified code block.
     #
     # @param name [String] The name of the code block to start the retrieval from.
@@ -56,49 +94,18 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(name)
+    def collect_recursively_required_code(name, opts: {})
       code = collect_wrapped_blocks(
         blocks = collect_recursively_required_blocks(name)
       ).map do |fcb|
-        body = fcb[:body].join("\n")
-
         if fcb[:cann]
-          xcall = fcb[:cann][1..-2]
-          mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
-          mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
-
-          yqcmd = if mstdin[:type]
-                    "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
-                  else
-                    "yq e '#{body}' '#{mstdin[:name]}'"
-                  end
-          if mstdout[:type]
-            "export #{mstdout[:name]}=$(#{yqcmd})"
-          else
-            "#{yqcmd} > '#{mstdout[:name]}'"
-          end
+          collect_block_code_cann(fcb)
         elsif fcb[:stdout]
-          stdout = fcb[:stdout]
-          body = fcb[:body].join("\n")
-          if stdout[:type]
-            %(export #{stdout[:name]}=$(cat <<"EOF"\n#{body}\nEOF\n))
-          else
-            "cat > '#{stdout[:name]}' <<\"EOF\"\n" \
-              "#{body}\n" \
-              "EOF\n"
-          end
-        # elsif fcb[:shell] == 'opts' || fcb[:shell] == 'vars'
+          collect_block_code_stdout(fcb)
         elsif [BLOCK_TYPE_OPTS, BLOCK_TYPE_VARS].include? fcb[:shell]
           nil
         elsif fcb[:shell] == BLOCK_TYPE_PORT
-          ### if opts[:block_type_include_vars_set_format].present?
-            # write named variables to block at top of script
-            #
-            fcb[:body].join(' ').split(' ').compact.map do |key|
-              # format(opts[:block_type_include_vars_set_format],
-              format(': ${%{key}:=%{value}}', { key: key, value: ENV[key] })
-            end
-          ### end
+          collect_block_code_shell(fcb)
         else
           fcb[:body]
         end
@@ -285,29 +292,25 @@ if $PROGRAM_NAME == __FILE__
 
       def test_collect_wrapped_blocks
         # Test case 1: blocks with wraps
-        block = OpenStruct.new(oname: 'block1')
+        OpenStruct.new(oname: 'block1')
 
         assert_equal(%w[{wrap1} a],
                      @mdoc.collect_wrapped_blocks(
                        [OpenStruct.new(oname: 'a',
-                          wraps: ['{wrap1}'])]
-                     ).map do |block|
-                       block.oname
-                     end)
+                                       wraps: ['{wrap1}'])]
+                     ).map(&:oname))
 
         assert_equal(%w[{wrap2-before} {wrap2} b {wrap2-after}],
                      @mdoc.collect_wrapped_blocks(
                        [OpenStruct.new(oname: 'b',
-                          wraps: ['{wrap2}'])]
-                     ).map do |block|
-                       block.oname
-                     end)
+                                       wraps: ['{wrap2}'])]
+                     ).map(&:oname))
 
         assert_equal(%w[{wrap2-before} {wrap2} {wrap3-before} {wrap3} c {wrap3-after} {wrap2-after}],
                      @mdoc.collect_wrapped_blocks(
-                       [OpenStruct.new( oname: 'c',
-                          wraps: %w[{wrap2} {wrap3}] )]
-                     ).map { |block| block.oname })
+                       [OpenStruct.new(oname: 'c',
+                                       wraps: %w[{wrap2} {wrap3}])]
+                     ).map(&:oname))
 
         # Test case 2: blocks with no wraps
         blocks = @mdoc.collect_wrapped_blocks([])
@@ -316,9 +319,8 @@ if $PROGRAM_NAME == __FILE__
         # Test case 3: blocks with missing wraps
         assert_equal(
           %w[block4],
-          @mdoc.collect_wrapped_blocks([OpenStruct.new(oname: 'block4', wraps: ['wrap4'])]).map do |block|
-            block.oname
-          end
+          @mdoc.collect_wrapped_blocks([OpenStruct.new(oname: 'block4',
+                                                       wraps: ['wrap4'])]).map(&:oname)
         )
       end
     end

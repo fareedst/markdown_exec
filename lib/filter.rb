@@ -38,7 +38,7 @@ module MarkdownExec
       name = fcb.oname
       shell = fcb.fetch(:shell, '')
 
-      apply_name_filters(options, filters, name) #if shell == 'bash'
+      apply_name_filters(options, filters, name)
       apply_shell_filters(options, filters, shell)
       apply_other_filters(options, filters, fcb)
 
@@ -125,7 +125,7 @@ module MarkdownExec
 
       return unless options[:bash_only]
 
-      filters[:shell_default] = (shell == 'bash')
+      filters[:shell_default] = (shell == BLOCK_TYPE_BASH)
     end
 
     # Evaluates the filter settings to make a final decision on
@@ -239,7 +239,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_bash_only_condition_true
         @options[:bash_only] = true
-        @fcb[:shell] = 'bash'
+        @fcb[:shell] = BLOCK_TYPE_BASH
         assert Filter.fcb_select?(@options, @fcb)
       end
 

@@ -64,6 +64,9 @@ Style/DoubleNegation:
 Style/EmptyElse:
   Enabled: false
 
+Style/FormatStringToken:
+  Enabled: false
+
 Style/GlobalVars:
   Enabled: false
 
@@ -71,6 +74,9 @@ Style/MixinUsage:
   Enabled: false
 
 Style/MultilineBlockChain:
+  Enabled: false
+
+Style/RegexpLiteral:
   Enabled: false
 
 Style/SlicingWithRange:
