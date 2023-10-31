@@ -134,9 +134,13 @@
   :env_var: MDE_HIDE_BLOCKS_BY_NAME
   :opt_name: hide_blocks_by_name
   :procname: val_as_bool
-- :default: ","
+- :default: "|"
   :env_var: MDE_HISTORY_DOCUMENT_SEPARATOR
   :opt_name: history_document_separator
+  :procname: val_as_str
+- :default: "&"
+  :env_var: MDE_HISTORY_PROPERTY_SEPARATOR
+  :opt_name: history_property_separator
   :procname: val_as_str
 - :default: "^ *@import (.+)$"
   :env_var: MDE_IMPORT_PATTERN

@@ -102,7 +102,7 @@ module MarkdownExec
           collect_block_code_cann(fcb)
         elsif fcb[:stdout]
           collect_block_code_stdout(fcb)
-        elsif [BLOCK_TYPE_OPTS, BLOCK_TYPE_VARS].include? fcb[:shell]
+        elsif [BLOCK_TYPE_LINK, BLOCK_TYPE_OPTS, BLOCK_TYPE_VARS].include? fcb[:shell]
           nil
         elsif fcb[:shell] == BLOCK_TYPE_PORT
           collect_block_code_shell(fcb)

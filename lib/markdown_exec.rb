@@ -195,9 +195,6 @@ module MarkdownExec
     include FOUT
 
     def initialize(options = {})
-      @options = options
-      # hide disabled symbol
-      @prompt = TTY::Prompt.new(interrupt: :exit, symbols: { cross: ' ' })
       @execute_aborted_at = nil
       @execute_completed_at = nil
       @execute_error = nil
@@ -207,6 +204,8 @@ module MarkdownExec
       @execute_script_filespec = nil
       @execute_started_at = nil
       @option_parser = nil
+      @options = options
+      @prompt = tty_prompt_without_disabled_symbol
     end
 
     ##
@@ -215,7 +214,7 @@ module MarkdownExec
     def append_block_summary(blocks, fcb, opts)
       ## enhance fcb with block summary
       #
-      blocks.push get_block_summary(opts, fcb) ### if Filter.fcb_select? opts, fcb
+      blocks.push get_block_summary(opts, fcb)
     end
 
     ##
@@ -260,29 +259,18 @@ module MarkdownExec
     #
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
-    # @return [String] The name of the executed code block.
     #
     def approve_and_execute_block(opts, mdoc)
       selected = mdoc.get_block_by_name(opts[:block_name])
 
       if selected.fetch(:shell, '') == BLOCK_TYPE_LINK
-        handle_link_shell(opts, selected.fetch(:body, ''))
+        handle_shell_link(opts, selected.fetch(:body, ''), mdoc)
       elsif opts.fetch(:back, false)
-        handle_link_back(opts)
+        handle_back_link(opts)
       elsif selected[:shell] == BLOCK_TYPE_OPTS
-        handle_opts_shell(opts, selected)
+        handle_shell_opts(opts, selected)
       else
-        required_lines = collect_required_code_blocks(mdoc, selected, opts: opts)
-        if opts[:output_script] || opts[:user_must_approve]
-          display_required_code(opts, required_lines)
-        end
-
-        allow = opts[:user_must_approve] ? prompt_for_user_approval(opts, required_lines) : true
-        opts[:ir_approve] = allow
-        # mdoc.get_block_by_name(opts[:block_name])
-        execute_approved_block(opts, required_lines) if opts[:ir_approve]
-
-        [!LOAD_FILE, '']
+        handle_remainder_blocks(mdoc, opts, selected)
       end
     end
 
@@ -347,15 +335,16 @@ module MarkdownExec
       true
     end
 
+    def clear_required_file
+      ENV['MDE_LINK_REQUIRED_FILE'] = ''
+    end
+
     # Collect required code blocks based on the provided options.
     #
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     # @return [Array<String>] Required code blocks as an array of lines.
-    def collect_required_code_blocks(mdoc, selected, opts: {})
-      required = mdoc.collect_recursively_required_code(opts[:block_name], opts: opts)
-      required_lines = required[:code]
-
+    def collect_required_code_lines(mdoc, selected, opts: {})
       # Apply hash in opts block to environment variables
       if selected[:shell] == BLOCK_TYPE_VARS
         data = YAML.load(selected[:body].join("\n"))
@@ -371,7 +360,8 @@ module MarkdownExec
         end
       end
 
-      required_lines
+      required = mdoc.collect_recursively_required_code(opts[:block_name], opts: opts)
+      read_required_blocks_from_temp_file + required[:code]
     end
 
     def cfile
@@ -446,12 +436,24 @@ module MarkdownExec
     def create_and_write_file_with_permissions(file_path, content, chmod_value)
       dirname = File.dirname(file_path)
       FileUtils.mkdir_p dirname
-
       File.write(file_path, content)
-
       return if chmod_value.zero?
 
       File.chmod chmod_value, file_path
+    end
+
+    # Deletes a required temporary file specified by an environment variable.
+    # The function checks if the file exists before attempting to delete it.
+    # Clears the environment variable after deletion.
+    #
+    def delete_required_temp_file
+      temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
+
+      return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+
+      FileUtils.rm_f(temp_blocks_file_path)
+
+      clear_required_file
     end
 
     ## Determines the correct filename to use for searching files
@@ -633,27 +635,46 @@ module MarkdownExec
       raise StandardError, error
     end
 
-    def handle_link_back(opts)
-      filename, rest = StringUtil.partition_at_first(
-        ENV.fetch(MDE_HISTORY_ENV_NAME, ''),
-        opts[:history_document_separator]
-      )
-
-      ENV[MDE_HISTORY_ENV_NAME] = rest
-      opts[:filename] = filename
-
+    # Handles the link-back operation.
+    #
+    # @param opts [Hash] Configuration options hash.
+    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and an empty string.
+    def handle_back_link(opts)
+      history_state_pop(opts)
       [LOAD_FILE, '']
     end
 
-    def handle_link_shell(opts, body)
+    # Handles the execution and display of remainder blocks from a selected menu item.
+    #
+    # @param mdoc [Object] Document object containing code blocks.
+    # @param opts [Hash] Configuration options hash.
+    # @param selected [Hash] Selected item from the menu.
+    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and an empty string.
+    # @note The function can prompt the user for approval before executing code if opts[:user_must_approve] is true.
+    def handle_remainder_blocks(mdoc, opts, selected)
+      required_lines = collect_required_code_lines(mdoc, selected, opts: opts)
+      if opts[:output_script] || opts[:user_must_approve]
+        display_required_code(opts, required_lines)
+      end
+      allow = opts[:user_must_approve] ? prompt_for_user_approval(opts, required_lines) : true
+      opts[:ir_approve] = allow
+      execute_approved_block(opts, required_lines) if opts[:ir_approve]
+
+      [!LOAD_FILE, '']
+    end
+
+    # Handles the link-shell operation.
+    #
+    # @param opts [Hash] Configuration options hash.
+    # @param body [Array<String>] The body content.
+    # @param mdoc [Object] Document object containing code blocks.
+    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and a block name.
+    def handle_shell_link(opts, body, mdoc)
       data = body.present? ? YAML.load(body.join("\n")) : {}
+      data_file = data.fetch('file', nil)
+      return [!LOAD_FILE, ''] unless data_file
 
-      # add to front of history
-      #
-      ENV[MDE_HISTORY_ENV_NAME] = opts[:filename] + opts[:history_document_separator] + ENV.fetch(MDE_HISTORY_ENV_NAME, '')
-
-      opts[:filename] = data.fetch('file', nil)
-      return !LOAD_FILE unless opts[:filename]
+      history_state_push(mdoc, data_file, opts)
 
       data.fetch('vars', []).each do |var|
         ENV[var[0]] = var[1].to_s
@@ -662,7 +683,12 @@ module MarkdownExec
       [LOAD_FILE, data.fetch('block', '')]
     end
 
-    def handle_opts_shell(opts, selected)
+    # Handles options for the shell.
+    #
+    # @param opts [Hash] Configuration options hash.
+    # @param selected [Hash] Selected item from the menu.
+    # @return [Array<Symbol, String>] A tuple containing a NOT_LOAD_FILE flag and an empty string.
+    def handle_shell_opts(opts, selected)
       data = YAML.load(selected[:body].join("\n"))
       data.each_key do |key|
         opts[key.to_sym] = value = data[key].to_s
@@ -691,6 +717,36 @@ module MarkdownExec
       rescue IOError
         #d 'stdout IOError, thread killed, do nothing'
       end
+    end
+
+    def history_state_exist?
+      history = ENV.fetch(MDE_HISTORY_ENV_NAME, '')
+      history.present? ? history : nil
+    end
+
+    def history_state_partition(opts)
+      unit, rest = StringUtil.partition_at_first(
+        ENV.fetch(MDE_HISTORY_ENV_NAME, ''),
+        opts[:history_document_separator]
+      )
+      { unit: unit, rest: rest }.tap_inspect
+    end
+
+    def history_state_pop(opts)
+      state = history_state_partition(opts)
+      opts[:filename] = state[:unit]
+      ENV[MDE_HISTORY_ENV_NAME] = state[:rest]
+      delete_required_temp_file
+    end
+
+    def history_state_push(mdoc, data_file, opts)
+      [data_file, opts[:block_name]].tap_inspect 'filename, blockname'
+      new_history = opts[:filename] +
+                    opts[:history_document_separator] +
+                    ENV.fetch(MDE_HISTORY_ENV_NAME, '')
+      opts[:filename] = data_file
+      write_required_blocks_to_temp_file(mdoc, opts[:block_name], opts)
+      ENV[MDE_HISTORY_ENV_NAME] = new_history
     end
 
     ## Sets up the options and returns the parsed arguments
@@ -1166,16 +1222,11 @@ module MarkdownExec
     ## Adds a back option at the head or tail of a menu
     #
     def prompt_menu_add_back(items, label)
-      return items unless @options[:menu_with_back]
+      return items unless @options[:menu_with_back] && history_state_exist?
 
-      history = ENV.fetch(MDE_HISTORY_ENV_NAME, '')
-      return items unless history.present?
-
-      @hs_curr, @hs_rest = StringUtil.partition_at_first(
-        history,
-        @options[:history_document_separator]
-      )
-
+      state = history_state_partition(@options)
+      @hs_curr = state[:unit]
+      @hs_rest = state[:rest]
       @options[:menu_back_at_top] ? [label] + items : items + [label]
     end
 
@@ -1197,8 +1248,27 @@ module MarkdownExec
         .transform_keys(&:to_sym))
     end
 
+    # Reads required code blocks from a temporary file specified by an environment variable.
+    #
+    # @return [Array<String>] An array containing the lines read from the temporary file.
+    # @note Relies on the 'MDE_LINK_REQUIRED_FILE' environment variable to locate the file.
+    def read_required_blocks_from_temp_file
+      temp_blocks = []
+
+      temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
+      return temp_blocks if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+
+      if File.exist?(temp_blocks_file_path)
+        temp_blocks = File.readlines(temp_blocks_file_path, chomp: true)
+      end
+
+      temp_blocks
+    end
+
     def run
+      clear_required_file
       execute_block_with_error_handling(initialize_and_parse_cli_options)
+      delete_required_temp_file
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.run(); #{err.inspect}")
       binding.pry if $tap_enable
@@ -1393,6 +1463,10 @@ module MarkdownExec
       end.compact
     end
 
+    def tty_prompt_without_disabled_symbol
+      TTY::Prompt.new(interrupt: :exit, symbols: { cross: ' ' })
+    end
+
     ##
     # Updates the hierarchy of document headings based on the given line and existing headings.
     # The function uses regular expressions specified in the `opts` to identify different levels of headings.
@@ -1537,6 +1611,25 @@ module MarkdownExec
       ol += ["\n"]
       File.write(@options[:logged_stdout_filespec], ol.join)
     end
+
+    # Writes required code blocks to a temporary file and sets an environment variable with its path.
+    #
+    # @param block_name [String] The name of the block to collect code for.
+    # @param opts [Hash] Additional options for collecting code.
+    # @note Sets the 'MDE_LINK_REQUIRED_FILE' environment variable to the temporary file path.
+    def write_required_blocks_to_temp_file(mdoc, block_name, opts = {})
+      code_blocks = (read_required_blocks_from_temp_file +
+                     mdoc.collect_recursively_required_code(
+                       block_name,
+                       opts: opts
+                     )[:code]).join("\n")
+
+      Dir::Tmpname.create(self.class.to_s) do |path|
+        pp path
+        File.write(path, code_blocks)
+        ENV['MDE_LINK_REQUIRED_FILE'] = path
+      end
+    end
   end # class MarkParse
 end # module MarkdownExec
 
@@ -1588,7 +1681,8 @@ if $PROGRAM_NAME == __FILE__
           }
         ]
 
-        # iterate over the input and output data and assert that the method sets the title as expected
+        # iterate over the input and output data and
+        # assert that the method sets the title as expected
         input_output_data.each do |data|
           input = data[:input]
           output = data[:output]
