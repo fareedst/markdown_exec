@@ -76,7 +76,16 @@ Style/MixinUsage:
 Style/MultilineBlockChain:
   Enabled: false
 
+Style/PerlBackrefs: # Prefer ::Regexp.last_match.post_match over $'.
+  Enabled: false
+
 Style/RegexpLiteral:
+  Enabled: false
+
+Style/Semicolon: # Do not use semicolons to terminate expressions.
+  Enabled: false
+
+Style/SingleLineMethods: # Avoid single-line method definitions.
   Enabled: false
 
 Style/SlicingWithRange:
