@@ -9,6 +9,7 @@ require 'fileutils'
 require 'open3'
 require 'optparse'
 require 'shellwords'
+require 'tmpdir'
 require 'tty-prompt'
 require 'yaml'
 
@@ -505,13 +506,14 @@ module MarkdownExec
     #
     def execute_block_with_error_handling(rest)
       finalize_cli_argument_processing(rest)
-      execute_code_block_based_on_options(@options, @options[:block_name])
+      @options[:cli_rest] = rest
+      execute_code_block_based_on_options(@options)
     rescue FileMissingError => err
       puts "File missing: #{err}"
     end
 
     # Main method to execute a block based on options and block_name
-    def execute_code_block_based_on_options(options, _block_name = '')
+    def execute_code_block_based_on_options(options)
       options = calculated_options.merge(options)
       update_options(options, over: false)
 
@@ -1088,6 +1090,15 @@ module MarkdownExec
       ].compact)
     end
 
+    def next_block_name_from_command_line_arguments(opts)
+      if opts[:cli_rest].present?
+        opts[:block_name] = opts[:cli_rest].pop
+        false # repeat_menu
+      else
+        true # repeat_menu
+      end
+    end
+
     # :reek:ControlParameter
     def optsmerge(call_options = {}, options_block = nil)
       class_call_options = @options.merge(call_options || {})
@@ -1337,11 +1348,12 @@ module MarkdownExec
           load_file, next_block_name = approve_and_execute_block(opts, mdoc)
           default = load_file == LOAD_FILE ? 1 : opts[:block_name]
           opts[:block_name] = next_block_name
-
           break if state == :continue && load_file == LOAD_FILE
           break unless repeat_menu
         end
         break if load_file != LOAD_FILE
+
+        repeat_menu = next_block_name_from_command_line_arguments(opts)
       end
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.select_approve_and_execute_block(); #{err.inspect}")
@@ -1625,7 +1637,6 @@ module MarkdownExec
                      )[:code]).join("\n")
 
       Dir::Tmpname.create(self.class.to_s) do |path|
-        pp path
         File.write(path, code_blocks)
         ENV['MDE_LINK_REQUIRED_FILE'] = path
       end

@@ -11,7 +11,6 @@ colorize_env_vars 'vars for page2' PAGE2_VAR_VIA_INHERIT page2_var_via_environme
 colorize_env_vars 'vars for page3' PAGE3_VAR_VIA_INHERIT page3_var_via_environment
 ```
 
-
 ::: This Link block requires a block that
 ::: 1. sets environment variable PAGE3_VAR_VIA_INHERIT,
 ::: 2. navigates to document 3, and

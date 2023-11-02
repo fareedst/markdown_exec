@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.1] - 2023-11-02
+
+### Added
+
+- Support for nested links.
+  A Link block name can be followed by the block name to execute in the linked document.
+  Nested links result in scripts with nested required blocks.
+
+## [1.4] - 2023-10-31
+
+### Added
+
+- Add required code blocks to link block types.
+  Allows for nested required code as links are navigated.
+
+- Add fg_rgbh_* methods to process hex RGB specifications.
+
 ## [1.3.9] - 2023-10-29
 
 Add block types for linking and variable control
