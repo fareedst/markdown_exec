@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5] - 2023-11-08
+
+### Added
+
+- Confirmation between execution of block and display of next menu.
+- Option for block loaded automatically per document.
+- Options for note lines copied from source into menu.
+- Options to format menu chrome.
+- Options to generate title for a block without a name.
+- Remove consecutive blank lines from menu.
+- Restore options between menu choices. Add options for "notes" in menu.
+
 ## [1.4.1] - 2023-11-02
 
 ### Added
