@@ -125,7 +125,7 @@ module MarkdownExec
 
       return unless options[:bash_only]
 
-      filters[:shell_default] = (shell == BLOCK_TYPE_BASH)
+      filters[:shell_default] = (shell == BlockType::BASH)
     end
 
     # Evaluates the filter settings to make a final decision on
@@ -138,8 +138,8 @@ module MarkdownExec
     # if it should be excluded.
     #
     def self.evaluate_filters(options, filters)
-      if options[:no_chrome] && filters[:fcb_chrome] == true
-        false
+      if filters[:fcb_chrome] == true
+        !options[:no_chrome]
       elsif options[:exclude_expect_blocks] && filters[:shell_expect] == true
         false
       elsif filters[:hidden_name] == true
@@ -158,6 +158,17 @@ module MarkdownExec
       else
         true
       end
+    end
+
+    # blocks for menu, without missing exit and back chrome
+    # remove hidden blocks
+    #
+    def self.prepared_not_in_menu?(options, fcb)
+      fcb[:shell] == BlockType::BASH &&
+        ((options[:block_name_include_match].present? &&
+                  fcb[:oname] =~ /#{options[:block_name_include_match]}/) ||
+         (options[:block_name_wrapper_match].present? &&
+                  fcb[:oname] =~ /#{options[:block_name_wrapper_match]}/))
     end
   end
 end
@@ -239,7 +250,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_bash_only_condition_true
         @options[:bash_only] = true
-        @fcb[:shell] = BLOCK_TYPE_BASH
+        @fcb[:shell] = BlockType::BASH
         assert Filter.fcb_select?(@options, @fcb)
       end
 

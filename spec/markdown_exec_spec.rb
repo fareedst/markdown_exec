@@ -71,7 +71,7 @@ RSpec.describe 'MarkdownExec' do
     MarkdownExec::MDoc.new(doc_fcblocks)
   end
   let(:doc_fcblocks) do
-    mp.list_blocks_in_file(doc_blocks_options)
+    mp.menu_from_file(doc_blocks_options)
   end
   ## blocks
   #
@@ -88,7 +88,7 @@ RSpec.describe 'MarkdownExec' do
     MarkdownExec::MDoc.new(list_blocks_yaml2)
   end
   let(:list_blocks_yaml2) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: false,
       filename: 'fixtures/yaml2.md',
       hide_blocks_by_name: false,
@@ -104,7 +104,7 @@ RSpec.describe 'MarkdownExec' do
   #  it 'test_list_default_yaml; end' do
 
   let(:list_blocks_yaml1) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: false,
       filename: 'fixtures/yaml1.md',
       hide_blocks_by_name: false,
@@ -126,7 +126,7 @@ RSpec.describe 'MarkdownExec' do
   end
   let(:fcb) { MarkdownExec::FCB.new }
   let(:list_blocks_title) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: true,
       filename: 'fixtures/title1.md',
       struct: true
@@ -141,7 +141,7 @@ RSpec.describe 'MarkdownExec' do
     )
   end
   let(:list_blocks_headings) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: true,
       filename: 'fixtures/heading1.md',
       menu_blocks_with_headings: true,
@@ -156,7 +156,7 @@ RSpec.describe 'MarkdownExec' do
     )
   end
   let(:list_blocks_exclude_expect_blocks) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: true,
       exclude_expect_blocks: true,
       filename: 'fixtures/exclude1.md',
@@ -164,7 +164,7 @@ RSpec.describe 'MarkdownExec' do
     )
   end
   let(:list_blocks_bash2) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: true,
       filename: 'fixtures/bash2.md',
       struct: true
@@ -174,7 +174,7 @@ RSpec.describe 'MarkdownExec' do
     options.merge({ filename: 'fixtures/menu_divs.md' })
   end
   let(:list_blocks_bash1) do
-    mp.list_blocks_in_file(
+    mp.menu_from_file(
       bash: true,
       filename: 'fixtures/bash1.md',
       struct: true
@@ -192,7 +192,7 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it 'formats tasks' do
-      expect(mp.list_blocks_in_file.map do |block|
+      expect(mp.menu_from_file.map do |block|
                pp block
                block.slice(:dname, :text)
              end).to eq [
@@ -206,8 +206,10 @@ RSpec.describe 'MarkdownExec' do
   context 'with menu divider format' do
     let(:menu_divider_format) { '<%s>' }
     let(:menu_divider_match) { ymds[:menu_divider_match] }
-    let(:menu_final_divider) { 'FINDIV' }
-    let(:menu_initial_divider) { 'BINDIV' }
+    # let(:menu_final_divider) { { line: 'FINDIV' }.to_s }
+    let(:menu_final_divider) { "'FINDIV'" }
+    # let(:menu_initial_divider) { { line: 'BINDIV' }.to_s }
+    let(:menu_initial_divider) { "'BINDIV'" }
     let(:menu_task_match) { nil }
 
     it 'test_get_blocks' do
@@ -217,12 +219,13 @@ RSpec.describe 'MarkdownExec' do
     end
 
     it 'formats dividers' do
-      expect(mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) }).to eq [
-        { dname: '<BINDIV>', text: nil },
+      expect(mp.menu_from_file.map { |block| block.slice(:dname, :text) }).to eq [
+        # { dname: '<BINDIV>', text: nil },
         { dname: 'one', text: nil },
-        { dname: '<divider>', text: nil },
+        # { dname: '<divider>', text: nil },
+        { dname: '<{:line=>"divider"}>', text: nil },
         { dname: 'two', text: nil },
-        { dname: '<FINDIV>', text: nil }
+        # { dname: '<FINDIV>', text: nil }
       ]
     end
   end
@@ -230,17 +233,16 @@ RSpec.describe 'MarkdownExec' do
   ## presence of chrome
   #
   describe 'presence of chrome' do
-    subject(:blocks) { mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) } }
+    subject(:blocks) { mp.menu_from_file.map { |block| block.slice(:dname, :text) } }
 
     let(:menu_divider_format) { '<%s>' }
-    let(:menu_initial_divider) { 'BINDIV' }
+    let(:menu_initial_divider) { "'BINDIV'" }
 
     context 'with chrome' do
       let(:no_chrome) { false }
 
       it '' do
         expect(blocks).to eq [
-          { dname: '<BINDIV>', text: nil },
           { dname: 'one', text: nil },
           { dname: 'two', text: nil }
         ]
@@ -268,7 +270,7 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it '' do
-      expect(mp.list_blocks_in_file.map { |block| block.slice(:dname, :text) }).to eq [
+      expect(mp.menu_from_file.map { |block| block.slice(:dname, :text) }).to eq [
         { dname: 'one', text: nil },
         { dname: 'two', text: nil },
         { dname: '<task>', text: nil }
@@ -288,14 +290,14 @@ RSpec.describe 'MarkdownExec' do
 
     it 'passes arguments to script' do
       expect_any_instance_of(MarkdownExec::MarkParse).to \
-        receive(:command_execute).with({ block_name: 'one', ir_approve: true }, 'a',
+        receive(:command_execute).with({ block_name: 'one', s_ir_approve: true }, 'a',
                                        { args: [] })
       mdoc = MarkdownExec::MDoc.new(
-        mp.list_blocks_in_file(bash: true,
+        mp.menu_from_file(bash: true,
                                filename: 'fixtures/bash1.md',
                                struct: true)
       )
-      mp.approve_and_execute_block({ block_name: 'one' }, mdoc)
+      mp.approve_and_execute_block(MarkdownExec::FCB.new, { block_name: 'one' }, mdoc)
     end
   end
 
@@ -348,7 +350,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_get_blocks_struct' do
-    expect(mp.list_blocks_in_file(struct: true).map do |block|
+    expect(mp.menu_from_file(struct: true).map do |block|
              block.slice(:body, :oname)
            end).to eq [
              { body: %w[a], oname: 'one' },
@@ -756,7 +758,7 @@ RSpec.describe 'MarkdownExec' do
                       struct: true }]
     ].each.with_index do |(names, opts), _ind|
       mp = MarkdownExec::MarkParse.new(o2 = options.merge(opts))
-      doc_fcblocks = mp.list_blocks_in_file(o2)
+      doc_fcblocks = mp.menu_from_file(o2)
       mdoc = MarkdownExec::MDoc.new(doc_fcblocks)
       bs = mdoc.fcbs_per_options(o2)
       expect(bs.map(&:oname)).to eq names
@@ -826,48 +828,6 @@ RSpec.describe 'MarkdownExec' do
 
       it 'makes label' do
         expect(bl_make).to eq "#{title}  #{h1} # #{h2}  #{filename}"
-      end
-    end
-  end
-end
-
-RSpec.describe MarkdownExec::MarkParse do
-  let(:instance) { described_class.new(options) }
-  let(:options) { {} }
-
-  describe '#prompt_menu_add_exit' do
-    let(:exit_option) { 'Exit' }
-    let(:items) { %w[item1 item2 item3] }
-
-    before do
-      allow(instance).to receive(:@options).and_return(options)
-    end
-
-    context 'when menu_with_exit is false' do
-      let(:options) { { menu_with_exit: false, menu_exit_at_top: false } }
-
-      it 'returns the items without the exit option' do
-        expect(instance.prompt_menu_add_exit(items, exit_option)).to eq(items)
-      end
-    end
-
-    context 'when menu_with_exit is true' do
-      let(:options) { { menu_with_exit: true, menu_exit_at_top: menu_exit_at_top } }
-
-      context 'and menu_exit_at_top is true' do
-        let(:menu_exit_at_top) { true }
-
-        it 'returns items with exit option at the top' do
-          expect(instance.prompt_menu_add_exit(items, exit_option)).to eq([exit_option] + items)
-        end
-      end
-
-      context 'and menu_exit_at_top is false' do
-        let(:menu_exit_at_top) { false }
-
-        it 'returns items with exit option at the end' do
-          expect(instance.prompt_menu_add_exit(items, exit_option)).to eq(items + [exit_option])
-        end
       end
     end
   end

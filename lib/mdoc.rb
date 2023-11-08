@@ -47,7 +47,8 @@ module MarkdownExec
       # write named variables to block at top of script
       #
       fcb[:body].join(' ').split.compact.map do |key|
-        format(opts[:block_type_port_set_format], { key: key, value: ENV.fetch(key, nil) })
+        format(opts[:block_type_port_set_format],
+               { key: key, value: ENV.fetch(key, nil) })
       end
     end
 
@@ -69,19 +70,19 @@ module MarkdownExec
     # @return [Array<Hash>] An array of code blocks required by the specified code block.
     #
     def collect_recursively_required_blocks(name)
-      name_block = get_block_by_name(name)
-      raise "Named code block `#{name}` not found." if name_block.nil? || name_block.keys.empty?
+      name_block = get_block_by_anyname(name)
+      if name_block.nil? || name_block.keys.empty?
+        raise "Named code block `#{name}` not found."
+      end
 
-      # all = [name_block.fetch(:name, '')] + recursively_required(name_block[:reqs])
       all = [name_block.oname] + recursively_required(name_block[:reqs])
 
       # in order of appearance in document
       # insert function blocks
-      # @table.select { |fcb| all.include? fcb.fetch(:name, '') }
       @table.select { |fcb| all.include? fcb.oname }
             .map do |fcb|
         if (call = fcb[:call])
-          [get_block_by_name("[#{call.match(/^%\((\S+) |\)/)[1]}]")
+          [get_block_by_oname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
             .merge({ cann: call })]
         else
           []
@@ -102,9 +103,10 @@ module MarkdownExec
           collect_block_code_cann(fcb)
         elsif fcb[:stdout]
           collect_block_code_stdout(fcb)
-        elsif [BLOCK_TYPE_LINK, BLOCK_TYPE_OPTS, BLOCK_TYPE_VARS].include? fcb[:shell]
+        elsif [BlockType::LINK, BlockType::OPTS,
+               BlockType::VARS].include? fcb[:shell]
           nil
-        elsif fcb[:shell] == BLOCK_TYPE_PORT
+        elsif fcb[:shell] == BlockType::PORT
           collect_block_code_shell(fcb)
         else
           fcb[:body]
@@ -147,12 +149,16 @@ module MarkdownExec
       ### hide rows correctly
 
       if opts[:hide_blocks_by_name]
-        selrows.reject { |block| hide_menu_block_per_options opts, block }
-      else
-        selrows
-      end.map do |block|
-        # block[:name] = block[:text] if block[:name].nil?
-        block
+        selrows = selrows.reject do |block|
+          hide_menu_block_per_options opts, block
+        end
+      end
+
+      # remove
+      # . empty chrome between code; edges are same as blanks
+      #
+      select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
+        !(current[:chrome] && !current[:oname].present?) || !(!prev_element.nil? && prev_element[:shell].present? && !next_element.nil? && next_element[:shell].present?)
       end
     end
 
@@ -162,8 +168,22 @@ module MarkdownExec
     # @param default [Hash] The default value to return if the code block is not found.
     # @return [Hash] The code block as a hash or the default value if not found.
     #
-    def get_block_by_name(name, default = {})
-      @table.select { |fcb| fcb.fetch(:oname, '') == name }.fetch(0, default)
+    def get_block_by_anyname(name, default = {})
+      @table.select do |fcb|
+        fcb.fetch(:dname, '') == name || fcb.fetch(:oname, '') == name
+      end.fetch(0, default)
+    end
+
+    def get_block_by_dname(name, default = {})
+      @table.select do |fcb|
+        fcb.fetch(:dname, '') == name
+      end.fetch(0, default)
+    end
+
+    def get_block_by_oname(name, default = {})
+      @table.select do |fcb|
+        fcb.fetch(:oname, '') == name
+      end.fetch(0, default)
     end
 
     # Checks if a code block should be hidden based on the given options.
@@ -174,15 +194,19 @@ module MarkdownExec
     #
     # :reek:UtilityFunction
     def hide_menu_block_per_options(opts, block)
-      (opts[:hide_blocks_by_name] &&
-              ((opts[:block_name_hidden_match]&.present? &&
-                block.oname&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
-               (opts[:block_name_include_match]&.present? &&
-                block.oname&.match(Regexp.new(opts[:block_name_include_match]))) ||
-               (opts[:block_name_wrapper_match]&.present? &&
-                block.oname&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
-              (block.oname&.present? || block[:label]&.present?)
-      )
+      if block.fetch(:chrome, false)
+        false
+      else
+        (opts[:hide_blocks_by_name] &&
+                ((opts[:block_name_hidden_match]&.present? &&
+                  block.oname&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
+                 (opts[:block_name_include_match]&.present? &&
+                  block.oname&.match(Regexp.new(opts[:block_name_include_match]))) ||
+                 (opts[:block_name_wrapper_match]&.present? &&
+                  block.oname&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
+                (block.oname&.present? || block[:label]&.present?)
+        )
+      end
     end
 
     # Recursively fetches required code blocks for a given list of requirements.
@@ -200,13 +224,57 @@ module MarkdownExec
           next if memo.include? req
 
           memo += [req]
-          get_block_by_name(req).fetch(:reqs, [])
+          get_block_by_oname(req).fetch(:reqs, [])
         end
                  .compact
                  .flatten(1)
       end
       memo
     end
+
+    def select_elements_with_neighbor_conditions(array,
+                                                 last_selected_placeholder = nil, next_selected_placeholder = nil)
+      selected_elements = []
+      last_selected = last_selected_placeholder
+
+      array.each_with_index do |current, index|
+        next_element = if index < array.size - 1
+                         array[index + 1]
+                       else
+                         next_selected_placeholder
+                       end
+
+        if yield(last_selected, current, next_element)
+          selected_elements << current
+          last_selected = current
+        end
+      end
+
+      selected_elements
+    end
+
+    # def select_elements_with_neighbor_conditions(array)
+    #   # This function filters elements from the array where the current element has property A set to true
+    #   # and both the previous and next elements have property B set to true.
+    #   selected_elements = []
+
+    #   array.each_with_index do |element, index|
+    #     next if index.zero? # Skip the first element since it has no previous element
+    #     break if index >= array.size - 1 # Break before the last to avoid out-of-bound errors
+
+    #     prev_element = array[index - 1]
+    #     next_element = array[index + 1]
+
+    #     # Check the conditions for property A on the current element and property B on adjacent elements
+    #     unless element[:chrome] && !element[:oname].present? && prev_element[:shell].present? && next_element[:shell].present?
+    #       selected_elements << element
+    #     # else
+    # # pp 'SKIPPING', element
+    #     end
+    #   end
+
+    #   selected_elements
+    # end
   end
 end
 
@@ -220,9 +288,11 @@ if $PROGRAM_NAME == __FILE__
     class TestMDoc < Minitest::Test
       def setup
         @table = [
-          { oname: 'block1', body: ['code for block1'], reqs: ['block2'] },
+          { oname: 'block1', body: ['code for block1'],
+            reqs: ['block2'] },
           { oname: 'block2', body: ['code for block2'], reqs: nil },
-          { oname: 'block3', body: ['code for block3'], reqs: ['block1'] }
+          { oname: 'block3', body: ['code for block3'],
+            reqs: ['block1'] }
         ]
         @doc = MDoc.new(@table)
       end
@@ -234,10 +304,10 @@ if $PROGRAM_NAME == __FILE__
       # end
 
       def test_get_block_by_name
-        result = @doc.get_block_by_name('block1')
+        result = @doc.get_block_by_oname('block1')
         assert_equal @table[0], result
 
-        result_missing = @doc.get_block_by_name('missing_block')
+        result_missing = @doc.get_block_by_oname('missing_block')
         assert_equal({}, result_missing)
       end
 
@@ -253,8 +323,9 @@ if $PROGRAM_NAME == __FILE__
       # end
 
       def test_hide_menu_block_per_options
-        opts = { hide_blocks_by_name: true, block_name_hidden_match: 'block1' }
-        block = OpenStruct.new(oname: 'block1')
+        opts = { hide_blocks_by_name: true,
+                 block_name_hidden_match: 'block1' }
+        block = FCB.new(oname: 'block1')
         result = @doc.hide_menu_block_per_options(opts, block)
         assert result # this should be true based on the given logic
       end

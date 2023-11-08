@@ -38,10 +38,6 @@ $stdout.sync = true
 
 MDE_HISTORY_ENV_NAME = 'MDE_MENU_HISTORY'
 
-# macros
-#
-LOAD_FILE = true
-
 # custom error: file specified is missing
 #
 class FileMissingError < StandardError; end
@@ -61,6 +57,17 @@ class Hash
       transform_keys(&:to_sym)
     end
   end
+end
+
+class LoadFile
+  Load = true
+  Reuse = false
+end
+
+class MenuState
+  BACK = :back
+  CONTINUE = :continue
+  EXIT = :exit
 end
 
 # integer value for comparison
@@ -113,13 +120,15 @@ end
 public
 
 # :reek:UtilityFunction
-def list_recent_output(saved_stdout_folder, saved_stdout_glob, list_count)
+def list_recent_output(saved_stdout_folder, saved_stdout_glob,
+                       list_count)
   SavedFilesMatcher.most_recent_list(saved_stdout_folder,
                                      saved_stdout_glob, list_count)
 end
 
 # :reek:UtilityFunction
-def list_recent_scripts(saved_script_folder, saved_script_glob, list_count)
+def list_recent_scripts(saved_script_folder, saved_script_glob,
+                        list_count)
   SavedFilesMatcher.most_recent_list(saved_script_folder,
                                      saved_script_glob, list_count)
 end
@@ -174,10 +183,10 @@ module MarkdownExec
   FNR12 = ',~'
 
   SHELL_COLOR_OPTIONS = {
-    BLOCK_TYPE_BASH => :menu_bash_color,
-    BLOCK_TYPE_LINK => :menu_link_color,
-    BLOCK_TYPE_OPTS => :menu_opts_color,
-    BLOCK_TYPE_VARS => :menu_vars_color
+    BlockType::BASH => :menu_bash_color,
+    BlockType::LINK => :menu_link_color,
+    BlockType::OPTS => :menu_opts_color,
+    BlockType::VARS => :menu_vars_color
   }.freeze
 
   ##
@@ -209,6 +218,22 @@ module MarkdownExec
       @prompt = tty_prompt_without_disabled_symbol
     end
 
+    # Adds Back and Exit options to the CLI menu
+    #
+    # @param blocks_in_file [Array] The current blocks in the menu
+    def add_menu_chrome_blocks!(blocks_in_file)
+      return unless @options[:menu_link_format].present?
+
+      if @options[:menu_with_back] && history_state_exist?
+        append_chrome_block(blocks_in_file, MenuState::BACK)
+      end
+      if @options[:menu_with_exit]
+        append_chrome_block(blocks_in_file, MenuState::EXIT)
+      end
+      append_divider(blocks_in_file, @options, :initial)
+      append_divider(blocks_in_file, @options, :final)
+    end
+
     ##
     # Appends a summary of a block (FCB) to the blocks array.
     #
@@ -218,38 +243,58 @@ module MarkdownExec
       blocks.push get_block_summary(opts, fcb)
     end
 
-    ##
-    # Appends a final divider to the blocks array if it is specified in options.
+    # Appends a chrome block, which is a menu option for Back or Exit
     #
-    def append_final_divider(blocks, opts)
-      return unless opts[:menu_divider_format].present? && opts[:menu_final_divider].present?
+    # @param blocks_in_file [Array] The current blocks in the menu
+    # @param type [Symbol] The type of chrome block to add (:back or :exit)
+    def append_chrome_block(blocks_in_file, type)
+      case type
+      when MenuState::BACK
+        state = history_state_partition(@options)
+        @hs_curr = state[:unit]
+        @hs_rest = state[:rest]
+        option_name = @options[:menu_option_back_name]
+        insert_at_top = @options[:menu_back_at_top]
+      when MenuState::EXIT
+        option_name = @options[:menu_option_exit_name]
+        insert_at_top = @options[:menu_exit_at_top]
+      end
 
-      blocks.push FCB.new(
-        { chrome: true,
-          disabled: '',
-          dname: format(opts[:menu_divider_format],
-                        opts[:menu_final_divider])
-                               .send(opts[:menu_divider_color].to_sym),
-          oname: opts[:menu_final_divider] }
+      formatted_name = format(@options[:menu_link_format],
+                              safeval(option_name))
+      chrome_block = FCB.new(
+        chrome: true,
+        dname: formatted_name.send(@options[:menu_link_color].to_sym),
+        oname: formatted_name
       )
+
+      if insert_at_top
+        blocks_in_file.unshift(chrome_block)
+      else
+        blocks_in_file.push(chrome_block)
+      end
     end
 
-    ##
-    # Appends an initial divider to the blocks array if it is specified in options.
-    #
-    def append_initial_divider(blocks, opts)
-      return unless opts[:menu_initial_divider].present?
+    # Appends a divider to the blocks array.
+    # @param blocks [Array] The array of block elements.
+    # @param opts [Hash] Options containing divider configuration.
+    # @param position [Symbol] :initial or :final divider position.
+    def append_divider(blocks, opts, position)
+      divider_key = position == :initial ? :menu_initial_divider : :menu_final_divider
+      unless opts[:menu_divider_format].present? && opts[divider_key].present?
+        return
+      end
 
-      blocks.push FCB.new({
-                            # name: '',
-                            chrome: true,
-                            dname: format(
-                              opts[:menu_divider_format],
-                              opts[:menu_initial_divider]
-                            ).send(opts[:menu_divider_color].to_sym),
-                            oname: opts[:menu_initial_divider],
-                            disabled: '' # __LINE__.to_s
-                          })
+      oname = format(opts[:menu_divider_format],
+                     safeval(opts[divider_key]))
+      divider = FCB.new(
+        chrome: true,
+        disabled: '',
+        dname: oname.send(opts[:menu_divider_color].to_sym),
+        oname: oname
+      )
+
+      position == :initial ? blocks.unshift(divider) : blocks.push(divider)
     end
 
     # Execute a code block after approval and provide user interaction options.
@@ -261,14 +306,12 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     #
-    def approve_and_execute_block(opts, mdoc)
-      selected = mdoc.get_block_by_name(opts[:block_name])
-
-      if selected.fetch(:shell, '') == BLOCK_TYPE_LINK
+    def approve_and_execute_block(selected, opts, mdoc)
+      if selected.fetch(:shell, '') == BlockType::LINK
         handle_shell_link(opts, selected.fetch(:body, ''), mdoc)
-      elsif opts.fetch(:back, false)
+      elsif opts.fetch(:s_back, false)
         handle_back_link(opts)
-      elsif selected[:shell] == BLOCK_TYPE_OPTS
+      elsif selected[:shell] == BlockType::OPTS
         handle_shell_opts(opts, selected)
       else
         handle_remainder_blocks(mdoc, opts, selected)
@@ -302,8 +345,21 @@ module MarkdownExec
                   env_str(item[:env_var],
                           default: OptionValue.for_hash(item_default))
                 end
-        [item[:opt_name], item[:proccode] ? item[:proccode].call(value) : value]
+        [item[:opt_name],
+         item[:proccode] ? item[:proccode].call(value) : value]
       end.compact.to_h
+    end
+
+    # Finds the first hash-like element within an enumerable collection where the specified key
+    # matches the given value. Returns a default value if no match is found.
+    #
+    # @param blocks [Enumerable] An enumerable collection of hash-like objects.
+    # @param key [Object] The key to look up in each hash-like object.
+    # @param value [Object] The value to compare against the value associated with the key.
+    # @param default [Object] The default value to return if no match is found (optional).
+    # @return [Object, nil] The found hash-like object, or the default value if no match is found.
+    def block_find(blocks, key, value, default = nil)
+      blocks.find { |item| item[key] == value } || default
     end
 
     def blocks_per_opts(blocks, opts)
@@ -347,7 +403,7 @@ module MarkdownExec
     # @return [Array<String>] Required code blocks as an array of lines.
     def collect_required_code_lines(mdoc, selected, opts: {})
       # Apply hash in opts block to environment variables
-      if selected[:shell] == BLOCK_TYPE_VARS
+      if selected[:shell] == BlockType::VARS
         data = YAML.load(selected[:body].join("\n"))
         data.each_key do |key|
           ENV[key] = value = data[key].to_s
@@ -361,7 +417,8 @@ module MarkdownExec
         end
       end
 
-      required = mdoc.collect_recursively_required_code(opts[:block_name], opts: opts)
+      required = mdoc.collect_recursively_required_code(opts[:block_name],
+                                                        opts: opts)
       read_required_blocks_from_temp_file + required[:code]
     end
 
@@ -417,6 +474,20 @@ module MarkdownExec
       fout "Error ENOENT: #{err.inspect}"
     end
 
+    def command_or_user_selected_block(blocks_in_file, blocks_menu, default,
+                                       opts)
+      if opts[:block_name].present?
+        block = blocks_in_file.find do |item|
+          item[:oname] == opts[:block_name]
+        end
+      else
+        block, state = wait_for_user_selected_block(blocks_in_file, blocks_menu, default,
+                                                    opts)
+      end
+
+      [block, state]
+    end
+
     def copy_to_clipboard(required_lines)
       text = required_lines.flatten.join($INPUT_RECORD_SEPARATOR)
       Clipboard.copy(text)
@@ -434,7 +505,48 @@ module MarkdownExec
       cnt / 2
     end
 
-    def create_and_write_file_with_permissions(file_path, content, chmod_value)
+    ##
+    # Creates and adds a formatted block to the blocks array based on the provided match and format options.
+    # @param blocks [Array] The array of blocks to add the new block to.
+    # @param fcb [FCB] The file control block containing the line to match against.
+    # @param match_data [MatchData] The match data containing named captures for formatting.
+    # @param format_option [String] The format string to be used for the new block.
+    # @param color_method [Symbol] The color method to apply to the block's display name.
+    def create_and_add_chrome_block(blocks, _fcb, match_data, format_option,
+                                    color_method)
+      oname = format(format_option,
+                     match_data.named_captures.transform_keys(&:to_sym))
+      blocks.push FCB.new(
+        chrome: true,
+        disabled: '',
+        dname: oname.send(color_method),
+        oname: oname
+      )
+    end
+
+    ##
+    # Processes lines within the file and converts them into blocks if they match certain criteria.
+    # @param blocks [Array] The array to append new blocks to.
+    # @param fcb [FCB] The file control block being processed.
+    # @param opts [Hash] Options containing configuration for line processing.
+    # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
+    def create_and_add_chrome_blocks(blocks, fcb, opts, use_chrome)
+      return unless use_chrome
+
+      if opts[:menu_note_match].present? && (mbody = fcb.body[0].match opts[:menu_note_match])
+        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_note_format],
+                                    opts[:menu_note_color].to_sym)
+      elsif opts[:menu_divider_match].present? && (mbody = fcb.body[0].match opts[:menu_divider_match])
+        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_divider_format],
+                                    opts[:menu_divider_color].to_sym)
+      elsif opts[:menu_task_match].present? && (mbody = fcb.body[0].match opts[:menu_task_match])
+        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_task_format],
+                                    opts[:menu_task_color].to_sym)
+      end
+    end
+
+    def create_and_write_file_with_permissions(file_path, content,
+                                               chmod_value)
       dirname = File.dirname(file_path)
       FileUtils.mkdir_p dirname
       File.write(file_path, content)
@@ -450,11 +562,27 @@ module MarkdownExec
     def delete_required_temp_file
       temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
 
-      return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+      if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+        return
+      end
 
       FileUtils.rm_f(temp_blocks_file_path)
 
       clear_required_file
+    end
+
+    # Derives a title from the body of an FCB object.
+    # @param fcb [Object] The FCB object whose title is to be derived.
+    # @return [String] The derived title.
+    def derive_title_from_body(fcb)
+      body_content = fcb&.body
+      return '' unless body_content
+
+      if body_content.count == 1
+        body_content.first
+      else
+        format_multiline_body_as_title(body_content)
+      end
     end
 
     ## Determines the correct filename to use for searching files
@@ -464,7 +592,8 @@ module MarkdownExec
       if specified_filename&.present?
         return specified_filename if specified_filename.start_with?('/')
 
-        File.join(specified_folder || default_folder, specified_filename)
+        File.join(specified_folder || default_folder,
+                  specified_filename)
       elsif specified_folder&.present?
         File.join(specified_folder,
                   filetree ? @options[:md_filename_match] : @options[:md_filename_glob])
@@ -486,7 +615,7 @@ module MarkdownExec
       command_execute(
         opts,
         required_lines.flatten.join("\n"),
-        args: opts.fetch(:pass_args, [])
+        args: opts.fetch(:s_pass_args, [])
       )
       initialize_and_save_execution_output
       output_execution_summary
@@ -496,20 +625,22 @@ module MarkdownExec
     # Reports and executes block logic
     def execute_block_logic(files)
       @options[:filename] = select_document_if_multiple(files)
-      select_approve_and_execute_block({
-                                         bash: true,
-                                         struct: true
-                                       })
+      select_approve_and_execute_block({ bash: true,
+                                         struct: true })
     end
 
     ## Executes the block specified in the options
     #
     def execute_block_with_error_handling(rest)
       finalize_cli_argument_processing(rest)
-      @options[:cli_rest] = rest
+      @options[:s_cli_rest] = rest
       execute_code_block_based_on_options(@options)
     rescue FileMissingError => err
       puts "File missing: #{err}"
+    rescue StandardError => err
+      warn(error = "ERROR ** MarkParse.execute_block_with_error_handling(); #{err.inspect}")
+      binding.pry if $tap_enable
+      raise ArgumentError, error
     end
 
     # Main method to execute a block based on options and block_name
@@ -521,7 +652,8 @@ module MarkdownExec
         doc_glob: -> { fout options[:md_filename_glob] },
         list_blocks: lambda do
                        fout_list (files.map do |file|
-                                    make_block_labels(filename: file, struct: true)
+                                    menu_with_block_labels(filename: file,
+                                                           struct: true)
                                   end).flatten(1)
                      end,
         list_default_yaml: -> { fout_list list_default_yaml },
@@ -571,15 +703,6 @@ module MarkdownExec
       false
     end
 
-    ##
-    # Determines the types of blocks to select based on the filter.
-    #
-    def filter_block_types
-      ## return type of blocks to select
-      #
-      %i[blocks line]
-    end
-
     ## post-parse options configuration
     #
     def finalize_cli_argument_processing(rest)
@@ -601,6 +724,15 @@ module MarkdownExec
       @options[:block_name] = block_name if block_name.present?
     end
 
+    # Formats multiline body content as a title string.
+    # @param body_lines [Array<String>] The lines of body content.
+    # @return [String] Formatted title.
+    def format_multiline_body_as_title(body_lines)
+      body_lines.map.with_index do |line, index|
+        index.zero? ? line : "  #{line}"
+      end.join("\n") << "\n"
+    end
+
     ## summarize blocks
     #
     def get_block_summary(call_options, fcb)
@@ -614,9 +746,12 @@ module MarkdownExec
                    else
                      fcb.title
                    end
-      bm = extract_named_captures_from_option(titlexcall, opts[:block_name_match])
-      fcb.stdin = extract_named_captures_from_option(titlexcall, opts[:block_stdin_scan])
-      fcb.stdout = extract_named_captures_from_option(titlexcall, opts[:block_stdout_scan])
+      bm = extract_named_captures_from_option(titlexcall,
+                                              opts[:block_name_match])
+      fcb.stdin = extract_named_captures_from_option(titlexcall,
+                                                     opts[:block_stdin_scan])
+      fcb.stdout = extract_named_captures_from_option(titlexcall,
+                                                      opts[:block_stdout_scan])
 
       shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
       fcb.title = fcb.oname = bm && bm[1] ? bm[:title] : titlexcall
@@ -628,22 +763,13 @@ module MarkdownExec
       fcb
     end
 
-    ##
-    # Handles errors that occur during the block listing process.
-    #
-    def handle_error(err)
-      warn(error = "ERROR ** MarkParse.list_blocks_in_file(); #{err.inspect}")
-      warn(caller[0..4])
-      raise StandardError, error
-    end
-
     # Handles the link-back operation.
     #
     # @param opts [Hash] Configuration options hash.
-    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and an empty string.
+    # @return [Array<Symbol, String>] A tuple containing a LoadFile flag and an empty string.
     def handle_back_link(opts)
       history_state_pop(opts)
-      [LOAD_FILE, '']
+      [LoadFile::Load, '']
     end
 
     # Handles the execution and display of remainder blocks from a selected menu item.
@@ -651,18 +777,27 @@ module MarkdownExec
     # @param mdoc [Object] Document object containing code blocks.
     # @param opts [Hash] Configuration options hash.
     # @param selected [Hash] Selected item from the menu.
-    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and an empty string.
+    # @return [Array<Symbol, String>] A tuple containing a LoadFile flag and an empty string.
     # @note The function can prompt the user for approval before executing code if opts[:user_must_approve] is true.
     def handle_remainder_blocks(mdoc, opts, selected)
-      required_lines = collect_required_code_lines(mdoc, selected, opts: opts)
+      required_lines = collect_required_code_lines(mdoc, selected,
+                                                   opts: opts)
       if opts[:output_script] || opts[:user_must_approve]
         display_required_code(opts, required_lines)
       end
-      allow = opts[:user_must_approve] ? prompt_for_user_approval(opts, required_lines) : true
-      opts[:ir_approve] = allow
-      execute_approved_block(opts, required_lines) if opts[:ir_approve]
+      allow = if opts[:user_must_approve]
+                prompt_for_user_approval(opts,
+                                         required_lines)
+              else
+                true
+              end
+      opts[:s_ir_approve] = allow
+      if opts[:s_ir_approve]
+        execute_approved_block(opts,
+                               required_lines)
+      end
 
-      [!LOAD_FILE, '']
+      [LoadFile::Reuse, '']
     end
 
     # Handles the link-shell operation.
@@ -670,11 +805,11 @@ module MarkdownExec
     # @param opts [Hash] Configuration options hash.
     # @param body [Array<String>] The body content.
     # @param mdoc [Object] Document object containing code blocks.
-    # @return [Array<Symbol, String>] A tuple containing a LOAD_FILE flag and a block name.
+    # @return [Array<Symbol, String>] A tuple containing a LoadFile flag and a block name.
     def handle_shell_link(opts, body, mdoc)
       data = body.present? ? YAML.load(body.join("\n")) : {}
       data_file = data.fetch('file', nil)
-      return [!LOAD_FILE, ''] unless data_file
+      return [LoadFile::Reuse, ''] unless data_file
 
       history_state_push(mdoc, data_file, opts)
 
@@ -682,18 +817,19 @@ module MarkdownExec
         ENV[var[0]] = var[1].to_s
       end
 
-      [LOAD_FILE, data.fetch('block', '')]
+      [LoadFile::Load, data.fetch('block', '')]
     end
 
     # Handles options for the shell.
     #
     # @param opts [Hash] Configuration options hash.
     # @param selected [Hash] Selected item from the menu.
-    # @return [Array<Symbol, String>] A tuple containing a NOT_LOAD_FILE flag and an empty string.
-    def handle_shell_opts(opts, selected)
+    # @return [Array<Symbol, String>] A tuple containing a LoadFile::Reuse flag and an empty string.
+    def handle_shell_opts(opts, selected, tgt2 = nil)
       data = YAML.load(selected[:body].join("\n"))
       data.each_key do |key|
-        opts[key.to_sym] = value = data[key].to_s
+        opts[key.to_sym] = value = data[key]
+        tgt2[key.to_sym] = value if tgt2
         next unless opts[:menu_opts_set_format].present?
 
         print format(
@@ -702,7 +838,7 @@ module MarkdownExec
             value: value }
         ).send(opts[:menu_opts_set_color].to_sym)
       end
-      [!LOAD_FILE, '']
+      [LoadFile::Reuse, '']
     end
 
     # Handles reading and processing lines from a given IO stream
@@ -712,7 +848,8 @@ module MarkdownExec
     def handle_stream(opts, stream, file_type, swap: false)
       Thread.new do
         until (line = stream.gets).nil?
-          @execute_files[file_type] = @execute_files[file_type] + [line.strip]
+          @execute_files[file_type] =
+            @execute_files[file_type] + [line.strip]
           print line if opts[:output_stdout]
           yield line if block_given?
         end
@@ -755,7 +892,8 @@ module MarkdownExec
     #
     def initialize_and_parse_cli_options
       @options = base_options
-      read_configuration_file!(@options, ".#{MarkdownExec::APP_NAME.downcase}.yml")
+      read_configuration_file!(@options,
+                               ".#{MarkdownExec::APP_NAME.downcase}.yml")
 
       @option_parser = OptionParser.new do |opts|
         executable_name = File.basename($PROGRAM_NAME)
@@ -773,7 +911,7 @@ module MarkdownExec
       @option_parser.environment
 
       rest = @option_parser.parse!(arguments_for_mde)
-      @options[:pass_args] = ARGV[rest.count + 1..]
+      @options[:s_pass_args] = ARGV[rest.count + 1..]
 
       rest
     end
@@ -783,7 +921,8 @@ module MarkdownExec
 
       @options[:logged_stdout_filename] =
         SavedAsset.stdout_name(blockname: @options[:block_name],
-                               filename: File.basename(@options[:filename], '.*'),
+                               filename: File.basename(@options[:filename],
+                                                       '.*'),
                                prefix: @options[:logged_stdout_filename_prefix],
                                time: Time.now.utc)
 
@@ -812,83 +951,56 @@ module MarkdownExec
 
       state = initialize_state(opts)
 
-      # get type of messages to select
       selected_messages = yield :filter
 
       cfile.readlines(opts[:filename]).each do |line|
         next unless line
 
-        update_line_and_block_state(line, state, opts, selected_messages, &block)
+        update_line_and_block_state(line, state, opts, selected_messages,
+                                    &block)
       end
     end
 
     ##
-    # Returns a list of blocks in a given file, including dividers, tasks, and other types of blocks.
-    # The list can be customized via call_options and options_block.
-    #
-    # @param call_options [Hash] Options passed as an argument.
-    # @param options_block [Proc] Block for dynamic option manipulation.
-    # @return [Array<FCB>] An array of FCB objects representing the blocks.
-    #
-    def list_blocks_in_file(call_options = {}, &options_block)
-      opts = optsmerge(call_options, options_block)
-      use_chrome = !opts[:no_chrome]
-
-      blocks = []
-      append_initial_divider(blocks, opts) if use_chrome
-
-      iter_blocks_in_file(opts) do |btype, fcb|
-        case btype
-        when :filter
-          filter_block_types
-        when :line
-          process_line_blocks(blocks, fcb, opts, use_chrome)
-        when :blocks
-          append_block_summary(blocks, fcb, opts)
-        end
-      end
-
-      append_final_divider(blocks, opts) if use_chrome
-      blocks
-    rescue StandardError => err
-      handle_error(err)
-    end
-
-    ##
-    # Processes lines within the file and converts them into blocks if they match certain criteria.
-    #
-    def process_line_blocks(blocks, fcb, opts, use_chrome)
-      ## convert line to block
-      #
-      if opts[:menu_divider_match].present? &&
-         (mbody = fcb.body[0].match opts[:menu_divider_match])
-        if use_chrome
-          blocks.push FCB.new(
-            { chrome: true,
-              disabled: '',
-              dname: format(opts[:menu_divider_format],
-                            mbody[:name]).send(opts[:menu_divider_color].to_sym),
-              oname: mbody[:name] }
-          )
-        end
-      elsif opts[:menu_task_match].present? &&
-            (fcb.body[0].match opts[:menu_task_match])
-        if use_chrome
-          blocks.push FCB.new(
-            { chrome: true,
-              disabled: '',
-              dname: format(
-                opts[:menu_task_format],
-                $~.named_captures.transform_keys(&:to_sym)
-              ).send(opts[:menu_task_color].to_sym),
-              oname: format(
-                opts[:menu_task_format],
-                $~.named_captures.transform_keys(&:to_sym)
-              ) }
-          )
-        end
+    # Returns a lambda expression based on the given procname.
+    # @param procname [String] The name of the process to generate a lambda for.
+    # @param options [Hash] The options hash, necessary for some lambdas to access.
+    # @return [Lambda] The corresponding lambda expression.
+    def lambda_for_procname(procname, options)
+      case procname
+      when 'debug'
+        lambda { |value|
+          tap_config value: value
+        }
+      when 'exit'
+        ->(_) { exit }
+      when 'help'
+        lambda { |_|
+          fout menu_help
+          exit
+        }
+      when 'path'
+        ->(value) { read_configuration_file!(options, value) }
+      when 'show_config'
+        lambda { |_|
+          finalize_cli_argument_processing(options)
+          fout options.sort_by_key.to_yaml
+        }
+      when 'val_as_bool'
+        lambda { |value|
+          value.instance_of?(::String) ? (value.chomp != '0') : value
+        }
+      when 'val_as_int'
+        ->(value) { value.to_i }
+      when 'val_as_str'
+        ->(value) { value.to_s }
+      when 'version'
+        lambda { |_|
+          fout MarkdownExec::VERSION
+          exit
+        }
       else
-        # line not added
+        procname
       end
     end
 
@@ -944,38 +1056,68 @@ module MarkdownExec
     #
     def list_named_blocks_in_file(call_options = {}, &options_block)
       opts = optsmerge call_options, options_block
+      blocks_per_opts(
+        menu_from_file(opts.merge(struct: true)).select do |fcb|
+          Filter.fcb_select?(opts.merge(no_chrome: true), fcb)
+        end, opts
+      )
+    end
 
-      blocks = list_blocks_in_file(opts.merge(struct: true)).select do |fcb|
-        # fcb.fetch(:name, '') != '' && Filter.fcb_select?(opts, fcb)
-        Filter.fcb_select?(opts.merge(no_chrome: true), fcb)
+    # return true if values were modified
+    # execute block once per filename
+    #
+    def load_auto_blocks(opts, blocks_in_file)
+      return unless opts[:document_load_opts_block_name].present?
+      return if opts[:s_most_recent_filename] == opts[:filename]
+
+      block = block_find(blocks_in_file, :oname,
+                         opts[:document_load_opts_block_name])
+      return unless block
+
+      handle_shell_opts(opts, block, @options)
+      opts[:s_most_recent_filename] = opts[:filename]
+      true
+    end
+
+    def mdoc_and_menu_from_file(opts)
+      menu_blocks = menu_from_file(opts.merge(struct: true))
+      mdoc = MDoc.new(menu_blocks) do |nopts|
+        opts.merge!(nopts)
       end
-      blocks_per_opts(blocks, opts)
+      [menu_blocks, mdoc]
     end
 
     ## Handles the file loading and returns the blocks in the file and MDoc instance
     #
-    def load_file_and_prepare_menu(opts)
-      blocks_in_file = list_blocks_in_file(opts.merge(struct: true))
-      mdoc = MDoc.new(blocks_in_file) do |nopts|
-        opts.merge!(nopts)
+    def mdoc_menu_and_selected_from_file(opts)
+      blocks_in_file, mdoc = mdoc_and_menu_from_file(opts)
+      if load_auto_blocks(opts, blocks_in_file)
+        # recreate menu with new options
+        #
+        blocks_in_file, mdoc = mdoc_and_menu_from_file(opts)
       end
+
       blocks_menu = mdoc.fcbs_per_options(opts.merge(struct: true))
+      add_menu_chrome_blocks!(blocks_menu)
       [blocks_in_file, blocks_menu, mdoc]
     end
 
-    def make_block_labels(call_options = {})
-      opts = options.merge(call_options)
-      list_blocks_in_file(opts).map do |fcb|
-        BlockLabel.make(
-          filename: opts[:filename],
-          headings: fcb.fetch(:headings, []),
-          menu_blocks_with_docname: opts[:menu_blocks_with_docname],
-          menu_blocks_with_headings: opts[:menu_blocks_with_headings],
-          title: fcb[:title],
-          text: fcb[:text],
-          body: fcb[:body]
-        )
-      end.compact
+    def menu_chrome_colored_option(opts,
+                                   option_symbol = :menu_option_back_name)
+      if opts[:menu_chrome_color]
+        menu_chrome_formatted_option(opts,
+                                     option_symbol).send(opts[:menu_chrome_color].to_sym)
+      else
+        menu_chrome_formatted_option(opts, option_symbol)
+      end
+    end
+
+    def menu_chrome_formatted_option(opts,
+                                     option_symbol = :menu_option_back_name)
+      val1 = safeval(opts.fetch(option_symbol, ''))
+      val1 unless opts[:menu_chrome_format]
+
+      format(opts[:menu_chrome_format], val1)
     end
 
     def menu_export(data = menu_for_optparse)
@@ -995,7 +1137,13 @@ module MarkdownExec
         when :line
           if options[:menu_divider_match] &&
              (mbody = fcb.body[0].match(options[:menu_divider_match]))
-            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name], disabled: '' })
+            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name],
+                                disabled: '' })
+          end
+          if options[:menu_note_match] &&
+             (mbody = fcb.body[0].match(options[:menu_note_match]))
+            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name],
+                                disabled: '' })
           end
         when :blocks
           menu += [fcb.oname]
@@ -1004,55 +1152,47 @@ module MarkdownExec
       menu
     end
 
-    # :reek:DuplicateMethodCall
-    # :reek:NestedIterators
+    ##
+    # Generates a menu suitable for OptionParser from the menu items defined in YAML format.
+    # @return [Array<Hash>] The array of option hashes for OptionParser.
     def menu_for_optparse
       menu_from_yaml.map do |menu_item|
         menu_item.merge(
-          {
-            opt_name: menu_item[:opt_name]&.to_sym,
-            proccode: case menu_item[:procname]
-                      when 'debug'
-                        lambda { |value|
-                          tap_config value: value
-                        }
-                      when 'exit'
-                        lambda { |_|
-                          exit
-                        }
-                      when 'help'
-                        lambda { |_|
-                          fout menu_help
-                          exit
-                        }
-                      when 'path'
-                        lambda { |value|
-                          read_configuration_file!(options, value)
-                        }
-                      when 'show_config'
-                        lambda { |_|
-                          finalize_cli_argument_processing(options)
-                          fout options.sort_by_key.to_yaml
-                        }
-                      when 'val_as_bool'
-                        lambda { |value|
-                          value.instance_of?(::String) ? (value.chomp != '0') : value
-                        }
-                      when 'val_as_int'
-                        ->(value) { value.to_i }
-                      when 'val_as_str'
-                        ->(value) { value.to_s }
-                      when 'version'
-                        lambda { |_|
-                          fout MarkdownExec::VERSION
-                          exit
-                        }
-                      else
-                        menu_item[:procname]
-                      end
-          }
+          opt_name: menu_item[:opt_name]&.to_sym,
+          proccode: lambda_for_procname(menu_item[:procname], options)
         )
       end
+    end
+
+    ##
+    # Returns a list of blocks in a given file, including dividers, tasks, and other types of blocks.
+    # The list can be customized via call_options and options_block.
+    #
+    # @param call_options [Hash] Options passed as an argument.
+    # @param options_block [Proc] Block for dynamic option manipulation.
+    # @return [Array<FCB>] An array of FCB objects representing the blocks.
+    #
+    def menu_from_file(call_options = {},
+                       &options_block)
+      opts = optsmerge(call_options, options_block)
+      use_chrome = !opts[:no_chrome]
+
+      blocks = []
+      iter_blocks_in_file(opts) do |btype, fcb|
+        case btype
+        when :blocks
+          append_block_summary(blocks, fcb, opts)
+        when :filter # what btypes are responded to?
+          %i[blocks line]
+        when :line
+          create_and_add_chrome_blocks(blocks, fcb, opts, use_chrome)
+        end
+      end
+      blocks
+    rescue StandardError => err
+      warn(error = "ERROR ** MarkParse.menu_from_file(); #{err.inspect}")
+      warn(caller[0..4])
+      raise StandardError, error
     end
 
     def menu_help
@@ -1064,7 +1204,9 @@ module MarkdownExec
     end
 
     def menu_option_append(opts, options, item)
-      return unless item[:long_name].present? || item[:short_name].present?
+      unless item[:long_name].present? || item[:short_name].present?
+        return
+      end
 
       opts.on(*[
         # - long name
@@ -1077,7 +1219,9 @@ module MarkdownExec
 
         # - description and default
         [item[:description],
-         ("[#{value_for_cli item[:default]}]" if item[:default].present?)].compact.join('  '),
+         (if item[:default].present?
+            "[#{value_for_cli item[:default]}]"
+          end)].compact.join('  '),
 
         # apply proccode, if present, to value
         # save value to options hash if option is named
@@ -1090,9 +1234,24 @@ module MarkdownExec
       ].compact)
     end
 
+    def menu_with_block_labels(call_options = {})
+      opts = options.merge(call_options)
+      menu_from_file(opts).map do |fcb|
+        BlockLabel.make(
+          filename: opts[:filename],
+          headings: fcb.fetch(:headings, []),
+          menu_blocks_with_docname: opts[:menu_blocks_with_docname],
+          menu_blocks_with_headings: opts[:menu_blocks_with_headings],
+          title: fcb[:title],
+          text: fcb[:text],
+          body: fcb[:body]
+        )
+      end.compact
+    end
+
     def next_block_name_from_command_line_arguments(opts)
-      if opts[:cli_rest].present?
-        opts[:block_name] = opts[:cli_rest].pop
+      if opts[:s_cli_rest].present?
+        opts[:block_name] = opts[:s_cli_rest].pop
         false # repeat_menu
       else
         true # repeat_menu
@@ -1119,7 +1278,10 @@ module MarkdownExec
 
       [['Script', :saved_filespec],
        ['StdOut', :logged_stdout_filespec]].each do |label, name|
-        oq << [label, @options[name], DISPLAY_LEVEL_ADMIN] if @options[name]
+        if @options[name]
+          oq << [label, @options[name],
+                 DISPLAY_LEVEL_ADMIN]
+        end
       end
 
       oq.map do |label, value, level|
@@ -1150,7 +1312,9 @@ module MarkdownExec
     def prepare_blocks_menu(blocks_in_file, opts)
       # next if fcb.fetch(:disabled, false)
       # next unless fcb.fetch(:name, '').present?
-      blocks_in_file.map do |fcb|
+      replace_consecutive_blanks(blocks_in_file).map do |fcb|
+        next if Filter.prepared_not_in_menu?(opts, fcb)
+
         fcb.merge!(
           name: fcb.dname,
           label: BlockLabel.make(
@@ -1176,7 +1340,7 @@ module MarkdownExec
       fcb.oname = fcb.dname = fcb.title || ''
       return unless fcb.body
 
-      set_fcb_title(fcb)
+      update_title_from_body(fcb)
 
       if block &&
          selected_messages.include?(:blocks) &&
@@ -1192,6 +1356,13 @@ module MarkdownExec
       fcb = FCB.new
       fcb.body = [line]
       block.call(:line, fcb)
+    end
+
+    class MenuOptions
+      YES = 1
+      NO = 2
+      SCRIPT_TO_CLIPBOARD = 3
+      SAVE_SCRIPT = 4
     end
 
     ##
@@ -1211,44 +1382,40 @@ module MarkdownExec
     ##
     def prompt_for_user_approval(opts, required_lines)
       # Present a selection menu for user approval.
-      sel = @prompt.select(opts[:prompt_approve_block], filter: true) do |menu|
-        menu.default 1
-        menu.choice opts[:prompt_yes], 1
-        menu.choice opts[:prompt_no], 2
-        menu.choice opts[:prompt_script_to_clipboard], 3
-        menu.choice opts[:prompt_save_script], 4
+
+      sel = @prompt.select(opts[:prompt_approve_block],
+                           filter: true) do |menu|
+        menu.default MenuOptions::YES
+        menu.choice opts[:prompt_yes], MenuOptions::YES
+        menu.choice opts[:prompt_no], MenuOptions::NO
+        menu.choice opts[:prompt_script_to_clipboard],
+                    MenuOptions::SCRIPT_TO_CLIPBOARD
+        menu.choice opts[:prompt_save_script], MenuOptions::SAVE_SCRIPT
       end
 
-      if sel == 3
+      if sel == MenuOptions::SCRIPT_TO_CLIPBOARD
         copy_to_clipboard(required_lines)
-      elsif sel == 4
+      elsif sel == MenuOptions::SAVE_SCRIPT
         save_to_file(opts, required_lines)
       end
 
-      sel == 1
+      sel == MenuOptions::YES
+    rescue TTY::Reader::InputInterrupt
+      exit 1
     end
 
-    ## insert back option at head or tail
-    #
-    ## Adds a back option at the head or tail of a menu
-    #
-    def prompt_menu_add_back(items, label)
-      return items unless @options[:menu_with_back] && history_state_exist?
-
-      state = history_state_partition(@options)
-      @hs_curr = state[:unit]
-      @hs_rest = state[:rest]
-      @options[:menu_back_at_top] ? [label] + items : items + [label]
-    end
-
-    ## insert exit option at head or tail
-    #
-    def prompt_menu_add_exit(items, label)
-      if @options[:menu_exit_at_top]
-        (@options[:menu_with_exit] ? [label] : []) + items
-      else
-        items + (@options[:menu_with_exit] ? [label] : [])
+    def prompt_select_continue(opts)
+      sel = @prompt.select(
+        opts[:prompt_after_bash_exec],
+        filter: true,
+        quiet: true
+      ) do |menu|
+        menu.choice opts[:prompt_yes]
+        menu.choice opts[:prompt_exit]
       end
+      sel == opts[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
+    rescue TTY::Reader::InputInterrupt
+      exit 1
     end
 
     # :reek:UtilityFunction ### temp
@@ -1267,13 +1434,33 @@ module MarkdownExec
       temp_blocks = []
 
       temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
-      return temp_blocks if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+      if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+        return temp_blocks
+      end
 
       if File.exist?(temp_blocks_file_path)
         temp_blocks = File.readlines(temp_blocks_file_path, chomp: true)
       end
 
       temp_blocks
+    end
+
+    # Replace duplicate blanks (where :oname is not present) with a single blank line.
+    #
+    # @param [Array<Hash>] lines Array of hashes to process.
+    # @return [Array<Hash>] Cleaned array with consecutive blanks collapsed into one.
+    def replace_consecutive_blanks(lines)
+      lines.chunk_while do |i, j|
+        i[:oname].to_s.empty? && j[:oname].to_s.empty?
+      end.map do |chunk|
+        if chunk.any? do |line|
+             line[:oname].to_s.strip.empty?
+           end
+          chunk.first
+        else
+          chunk
+        end
+      end.flatten
     end
 
     def run
@@ -1293,7 +1480,15 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      select_approve_and_execute_block({})
+      select_approve_and_execute_block
+    end
+
+    def safeval(str)
+      eval(str)
+    rescue StandardError
+      warn $!
+      binding.pry if $tap_enable
+      raise StandardError, $!
     end
 
     def save_to_file(opts, required_lines)
@@ -1320,40 +1515,48 @@ module MarkdownExec
     # @param call_options [Hash] Initial options for the method.
     # @param options_block [Block] Block of options to be merged with call_options.
     # @return [Nil] Returns nil if no code block is selected or an error occurs.
-    def select_approve_and_execute_block(call_options, &options_block)
-      opts = optsmerge(call_options, options_block)
-      repeat_menu = true && !opts[:block_name].present?
-      load_file = !LOAD_FILE
-      default = 1
+    def select_approve_and_execute_block(call_options = {},
+                                         &options_block)
+      base_opts = optsmerge(call_options, options_block)
+      repeat_menu = true && !base_opts[:block_name].present?
+      load_file = LoadFile::Reuse
+      default = nil
+      block = nil
 
       loop do
         loop do
-          opts[:back] = false
-          blocks_in_file, blocks_menu, mdoc = load_file_and_prepare_menu(opts)
+          opts = base_opts.dup
+          opts[:s_back] = false
+          blocks_in_file, blocks_menu, mdoc = mdoc_menu_and_selected_from_file(opts)
+          block, state = command_or_user_selected_block(blocks_in_file, blocks_menu,
+                                                        default, opts)
+          return if state == MenuState::EXIT
 
-          unless opts[:block_name].present?
-            block_name, state = wait_for_user_selection(blocks_in_file, blocks_menu, default,
-                                                        opts)
-            case state
-            when :exit
-              return nil
-            when :back
-              opts[:block_name] = block_name[:option]
-              opts[:back] = true
-            when :continue
-              opts[:block_name] = block_name
-            end
+          load_file, next_block_name = approve_and_execute_block(block, opts,
+                                                                 mdoc)
+          default = load_file == LoadFile::Load ? nil : opts[:block_name]
+          base_opts[:block_name] = opts[:block_name] = next_block_name
+          base_opts[:filename] = opts[:filename]
+
+          # user prompt to exit if the menu will be displayed again
+          #
+          if repeat_menu &&
+             block[:shell] == BlockType::BASH &&
+             opts[:pause_after_bash_exec] &&
+             prompt_select_continue(opts) == MenuState::EXIT
+            return
           end
 
-          load_file, next_block_name = approve_and_execute_block(opts, mdoc)
-          default = load_file == LOAD_FILE ? 1 : opts[:block_name]
-          opts[:block_name] = next_block_name
-          break if state == :continue && load_file == LOAD_FILE
+          # exit current document/menu if loading next document or single block_name was specified
+          #
+          if state == MenuState::CONTINUE && load_file == LoadFile::Load
+            break
+          end
           break unless repeat_menu
         end
-        break if load_file != LOAD_FILE
+        break if load_file == LoadFile::Reuse
 
-        repeat_menu = next_block_name_from_command_line_arguments(opts)
+        repeat_menu = next_block_name_from_command_line_arguments(base_opts)
       end
     rescue StandardError => err
       warn(error = "ERROR ** MarkParse.select_approve_and_execute_block(); #{err.inspect}")
@@ -1383,21 +1586,24 @@ module MarkdownExec
     # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
     def select_option_with_metadata(prompt_text, items, opts = {})
       selection = @prompt.select(prompt_text,
-                                 prompt_menu_add_exit(
-                                   prompt_menu_add_back(
-                                     items,
-                                     opts[:menu_option_back_name]
-                                   ),
-                                   opts[:menu_option_exit_name]
-                                 ),
+                                 items,
                                  opts.merge(filter: true))
-      if selection == opts[:menu_option_back_name]
-        { option: selection, curr: @hs_curr, rest: @hs_rest, shell: BLOCK_TYPE_LINK }
-      elsif selection == opts[:menu_option_exit_name]
-        { option: selection }
-      else
-        { selected: selection }
-      end
+
+      items.find { |item| item[:dname] == selection }
+           .merge(
+             if selection == menu_chrome_colored_option(opts,
+                                                        :menu_option_back_name)
+               { option: selection, curr: @hs_curr, rest: @hs_rest,
+                 shell: BlockType::LINK }
+             elsif selection == menu_chrome_colored_option(opts,
+                                                           :menu_option_exit_name)
+               { option: selection }
+             else
+               { selected: selection }
+             end
+           )
+    rescue TTY::Reader::InputInterrupt
+      exit 1
     end
 
     def select_recent_output
@@ -1429,21 +1635,13 @@ module MarkdownExec
 
       saved_name_split(filename)
 
-      select_approve_and_execute_block({
-                                         bash: true,
+      select_approve_and_execute_block({ bash: true,
                                          save_executed_script: false,
-                                         struct: true
-                                       })
+                                         struct: true })
     end
 
-    # set the title of an FCB object based on its body if it is nil or empty
-    def set_fcb_title(fcb)
-      return unless fcb.title.nil? || fcb.title.empty?
-
-      fcb.title = (fcb&.body || []).join(' ').gsub(/  +/, ' ')[0..64]
-    end
-
-    def start_fenced_block(opts, line, headings, fenced_start_extended_regex)
+    def start_fenced_block(opts, line, headings,
+                           fenced_start_extended_regex)
       fcb_title_groups = line.match(fenced_start_extended_regex).named_captures.sym_keys
       rest = fcb_title_groups.fetch(:rest, '')
 
@@ -1476,7 +1674,11 @@ module MarkdownExec
     end
 
     def tty_prompt_without_disabled_symbol
-      TTY::Prompt.new(interrupt: :exit, symbols: { cross: ' ' })
+      TTY::Prompt.new(interrupt: lambda {
+                                   puts;
+                                   raise TTY::Reader::InputInterrupt
+                                 },
+                      symbols: { cross: ' ' })
     end
 
     ##
@@ -1523,7 +1725,8 @@ module MarkdownExec
     #
     # @return [Void] The function modifies the `state` and `selected_messages` arguments in place.
     ##
-    def update_line_and_block_state(line, state, opts, selected_messages, &block)
+    def update_line_and_block_state(line, state, opts, selected_messages,
+                                    &block)
       if opts[:menu_blocks_with_headings]
         state[:headings] =
           update_document_headings(line, state[:headings], opts)
@@ -1531,7 +1734,8 @@ module MarkdownExec
 
       if line.match(state[:fenced_start_and_end_regex])
         if state[:in_fenced_block]
-          process_fenced_block(state[:fcb], opts, selected_messages, &block)
+          process_fenced_block(state[:fcb], opts, selected_messages,
+                               &block)
           state[:in_fenced_block] = false
         else
           state[:fcb] =
@@ -1557,26 +1761,59 @@ module MarkdownExec
       @options
     end
 
-    ## Handles the menu interaction and returns selected block name and option state
+    # Updates the title of an FCB object from its body content if the title is nil or empty.
+    def update_title_from_body(fcb)
+      return unless fcb.title.nil? || fcb.title.empty?
+
+      fcb.title = derive_title_from_body(fcb)
+    end
+
+    def wait_for_user_selected_block(blocks_in_file, blocks_menu,
+                                     default, opts)
+      block, state = wait_for_user_selection(blocks_in_file, blocks_menu,
+                                             default, opts)
+      case state
+      when MenuState::BACK
+        opts[:block_name] = block[:dname]
+        opts[:s_back] = true
+      when MenuState::CONTINUE
+        opts[:block_name] = block[:dname]
+      end
+
+      [block, state]
+    end
+
+    ## Handles the menu interaction and returns selected block and option state
     #
-    def wait_for_user_selection(blocks_in_file, blocks_menu, default, opts)
+    def wait_for_user_selection(blocks_in_file, blocks_menu, default,
+                                opts)
       pt = opts[:prompt_select_block].to_s
       bm = prepare_blocks_menu(blocks_menu, opts)
-      return [nil, :exit] if bm.count.zero?
+      return [nil, MenuState::EXIT] if bm.count.zero?
 
-      obj = select_option_with_metadata(pt, bm, opts.merge(
-                                                  default: default,
+      o2 = if default
+             opts.merge(default: default)
+           else
+             opts
+           end
+
+      obj = select_option_with_metadata(pt, bm, o2.merge(
                                                   per_page: opts[:select_page_height]
                                                 ))
-      case obj.fetch(:option, nil)
-      when opts[:menu_option_exit_name]
-        [nil, :exit]
-      when opts[:menu_option_back_name]
-        [obj, :back]
+
+      case obj.fetch(:oname, nil)
+      when menu_chrome_formatted_option(opts, :menu_option_exit_name)
+        [nil, MenuState::EXIT]
+      when menu_chrome_formatted_option(opts, :menu_option_back_name)
+        [obj, MenuState::BACK]
       else
-        label_block = blocks_in_file.find { |fcb| fcb.dname == obj[:selected] }
-        [label_block.oname, :continue]
+        [obj, MenuState::CONTINUE]
       end
+    rescue StandardError => err
+      warn(error = "ERROR ** MarkParse.wait_for_user_selection(); #{err.inspect}")
+      warn caller.take(3)
+      binding.pry if $tap_enable
+      raise ArgumentError, error
     end
 
     # Handles the core logic for generating the command file's metadata and content.
@@ -1593,7 +1830,8 @@ module MarkdownExec
 
       @execute_script_filespec =
         @options[:saved_filespec] =
-          File.join opts[:saved_script_folder], opts[:saved_script_filename]
+          File.join opts[:saved_script_folder],
+                    opts[:saved_script_filename]
 
       shebang = if @options[:shebang]&.present?
                   "#{@options[:shebang]} #{@options[:shell]}\n"
@@ -1656,7 +1894,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_calling_execute_approved_block_calls_command_execute_with_argument_args_value
         pigeon = 'E'
-        obj = { pass_args: pigeon }
+        obj = { s_pass_args: pigeon }
 
         c = MarkdownExec::MarkParse.new
 
@@ -1676,15 +1914,17 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_set_fcb_title
-        # sample input and output data for testing set_fcb_title method
+        # sample input and output data for testing update_title_from_body method
         input_output_data = [
           {
             input: FCB.new(title: nil, body: ["puts 'Hello, world!'"]),
             output: "puts 'Hello, world!'"
           },
           {
-            input: FCB.new(title: '', body: ['def add(x, y)', '  x + y', 'end']),
-            output: 'def add(x, y) x + y end'
+            input: FCB.new(title: '',
+                           body: ['def add(x, y)',
+                                  '  x + y', 'end']),
+            output: "def add(x, y)\n    x + y\n  end\n"
           },
           {
             input: FCB.new(title: 'foo', body: %w[bar baz]),
@@ -1697,10 +1937,20 @@ if $PROGRAM_NAME == __FILE__
         input_output_data.each do |data|
           input = data[:input]
           output = data[:output]
-          @mark_parse.set_fcb_title(input)
+          @mark_parse.update_title_from_body(input)
           assert_equal output, input.title
         end
       end
     end
-  end
-end
+
+    def test_select_block
+      blocks = [block1, block2]
+      menu = [m1, m2]
+
+      block, state = obj.select_block(blocks, menu, nil, {})
+
+      assert_equal block1, block
+      assert_equal MenuState::CONTINUE, state
+    end
+  end # module MarkdownExec
+end  # if
