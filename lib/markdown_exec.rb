@@ -1657,6 +1657,7 @@ module MarkdownExec
       fcb = FCB.new
       fcb.headings = headings
       fcb.oname = fcb.dname = fcb_title_groups.fetch(:name, '')
+      fcb.indent = fcb_title_groups.fetch(:indent, '')
       fcb.shell = fcb_title_groups.fetch(:shell, '')
       fcb.title = fcb_title_groups.fetch(:name, '')
       fcb.body = []
@@ -1753,7 +1754,13 @@ module MarkdownExec
           state[:in_fenced_block] = true
         end
       elsif state[:in_fenced_block] && state[:fcb].body
-        state[:fcb].body += [line.chomp]
+        ## add line to fenced code block
+        # remove fcb indent if possible
+        #
+        state[:fcb].body += [
+          line.chomp.sub(/^#{state[:fcb].indent}/, '')
+        ]
+
       else
         process_line(line, opts, selected_messages, &block)
       end

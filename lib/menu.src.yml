@@ -118,12 +118,14 @@
   :procname: exit
   :short_name: x
 
-- :default: "^`{3,}"
+## match fenced code indented by spaces
+#
+- :default: "^(?<indent> *)`{3,}"
   :env_var: MDE_FENCED_START_AND_END_REGEX
   :opt_name: fenced_start_and_end_regex
   :procname: val_as_str
 
-- :default: "^`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
+- :default: "^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
   :opt_name: fenced_start_extended_regex
   :procname: val_as_str
