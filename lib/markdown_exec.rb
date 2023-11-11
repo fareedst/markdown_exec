@@ -533,15 +533,24 @@ module MarkdownExec
     def create_and_add_chrome_blocks(blocks, fcb, opts, use_chrome)
       return unless use_chrome
 
-      if opts[:menu_note_match].present? && (mbody = fcb.body[0].match opts[:menu_note_match])
-        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_note_format],
-                                    opts[:menu_note_color].to_sym)
-      elsif opts[:menu_divider_match].present? && (mbody = fcb.body[0].match opts[:menu_divider_match])
-        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_divider_format],
-                                    opts[:menu_divider_color].to_sym)
-      elsif opts[:menu_task_match].present? && (mbody = fcb.body[0].match opts[:menu_task_match])
-        create_and_add_chrome_block(blocks, fcb, mbody, opts[:menu_task_format],
-                                    opts[:menu_task_color].to_sym)
+      match_criteria = [
+        { match: :menu_task_match, format: :menu_task_format,
+          color: :menu_task_color },
+        { match: :menu_divider_match, format: :menu_divider_format,
+          color: :menu_divider_color },
+        { match: :menu_note_match, format: :menu_note_format,
+          color: :menu_note_color }
+      ]
+
+      match_criteria.each do |criteria|
+        unless opts[criteria[:match]].present? &&
+               (mbody = fcb.body[0].match opts[criteria[:match]])
+          next
+        end
+
+        create_and_add_chrome_block(blocks, fcb, mbody, opts[criteria[:format]],
+                                    opts[criteria[:color]].to_sym)
+        break
       end
     end
 
