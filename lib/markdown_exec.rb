@@ -903,7 +903,7 @@ module MarkdownExec
     # @param indent [String] The string used for indentation (default is an empty string).
     # @return [String] A single string with each line indented as specified.
     def indent_all_lines(body, indent = nil)
-      body unless indent.present?
+      return body if !indent.present?
 
       body.lines.map { |line| indent + line.chomp }.join("\n")
     end

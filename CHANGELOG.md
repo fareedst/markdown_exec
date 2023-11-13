@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6] - 2023-11-13
+
+### Added
+
+- Options to remember a block's indentation in the source document and to display with same indentation in the menu.
+
+### Changed
+
+- Note option matches the remaining lines in the document and they are displayed in the menu.
+
 ## [1.5] - 2023-11-08
 
 ### Added
