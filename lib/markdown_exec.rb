@@ -734,6 +734,7 @@ module MarkdownExec
     end
 
     # Formats multiline body content as a title string.
+    # indents all but first line with two spaces so it displays correctly in menu
     # @param body_lines [Array<String>] The lines of body content.
     # @return [String] Formatted title.
     def format_multiline_body_as_title(body_lines)
@@ -895,6 +896,16 @@ module MarkdownExec
       opts[:filename] = data_file
       write_required_blocks_to_temp_file(mdoc, opts[:block_name], opts)
       ENV[MDE_HISTORY_ENV_NAME] = new_history
+    end
+
+    # Indents all lines in a given string with a specified indentation string.
+    # @param body [String] A multi-line string to be indented.
+    # @param indent [String] The string used for indentation (default is an empty string).
+    # @return [String] A single string with each line indented as specified.
+    def indent_all_lines(body, indent = nil)
+      body unless indent.present?
+
+      body.lines.map { |line| indent + line.chomp }.join("\n")
     end
 
     ## Sets up the options and returns the parsed arguments
@@ -1136,31 +1147,6 @@ module MarkdownExec
       end.to_yaml
     end
 
-    def menu_for_blocks(menu_options)
-      options = calculated_options.merge menu_options
-      menu = []
-      iter_blocks_in_file(options) do |btype, fcb|
-        case btype
-        when :filter
-          %i[blocks line]
-        when :line
-          if options[:menu_divider_match] &&
-             (mbody = fcb.body[0].match(options[:menu_divider_match]))
-            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name],
-                                disabled: '' })
-          end
-          if options[:menu_note_match] &&
-             (mbody = fcb.body[0].match(options[:menu_note_match]))
-            menu.push FCB.new({ dname: mbody[:name], oname: mbody[:name],
-                                disabled: '' })
-          end
-        when :blocks
-          menu += [fcb.oname]
-        end
-      end
-      menu
-    end
-
     ##
     # Generates a menu suitable for OptionParser from the menu items defined in YAML format.
     # @return [Array<Hash>] The array of option hashes for OptionParser.
@@ -1325,7 +1311,7 @@ module MarkdownExec
         next if Filter.prepared_not_in_menu?(opts, fcb)
 
         fcb.merge!(
-          name: fcb.dname,
+          name: indent_all_lines(fcb.dname, fcb.fetch(:indent, nil)),
           label: BlockLabel.make(
             body: fcb[:body],
             filename: opts[:filename],

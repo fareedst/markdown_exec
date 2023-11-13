@@ -276,7 +276,7 @@
   :env_var: MDE_MENU_LINK_FORMAT
   :opt_name: menu_link_format
   :procname: val_as_str
-- :default: fg_rgbh_44_44_44
+- :default: fg_rgbh_88_88_88
   :description: Color of menu note
   :env_var: MDE_MENU_NOTE_COLOR
   :opt_name: menu_note_color
@@ -286,7 +286,7 @@
   :env_var: MDE_MENU_NOTE_FORMAT
   :opt_name: menu_note_format
   :procname: val_as_str
-- :default: "^\\+ *(?<line>.*?) *$"
+- :default: "^(?<line>.*?) *$"
   :description: Pattern for notes in block selection menu
   :env_var: MDE_MENU_NOTE_MATCH
   :opt_name: menu_note_match

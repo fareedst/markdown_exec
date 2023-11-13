@@ -33,6 +33,7 @@ RSpec.describe 'MarkdownExec' do
   let(:menu_divider_match) { nil }
   let(:menu_final_divider) { nil }
   let(:menu_initial_divider) { nil }
+  let(:menu_note_match) { nil }
   let(:menu_task_color) { 'plain' }
   let(:menu_task_format) { '-:   %s   :-' }
   let(:menu_task_match) { nil }
@@ -49,6 +50,7 @@ RSpec.describe 'MarkdownExec' do
         menu_divider_match: menu_divider_match,
         menu_final_divider: menu_final_divider,
         menu_initial_divider: menu_initial_divider,
+        menu_note_match: menu_note_match,
         menu_task_color: menu_task_color,
         menu_task_format: menu_task_format,
         menu_task_match: menu_task_match,
@@ -170,7 +172,7 @@ RSpec.describe 'MarkdownExec' do
       struct: true
     )
   end
-  let(:options_parse_menu_for_blocks) do
+  let(:options_parse_) do
     options.merge({ filename: 'fixtures/menu_divs.md' })
   end
   let(:list_blocks_bash1) do
@@ -385,31 +387,6 @@ RSpec.describe 'MarkdownExec' do
            end.map do |block|
              block[:oname]
            end).to eq %w[two]
-  end
-
-  # let(:options_parse_menu_for_blocks_sample1) do
-  #   options.merge({ filename: 'fixtures/sample1.md' })
-  # end
-
-  it 'test_parse_menu_for_blocks_sample1' do
-    expect(mp.menu_for_blocks(options.merge({ filename: 'fixtures/sample1.md' })).map do |block|
-      block.is_a?(MarkdownExec::FCB) ? block.slice(:name, :disabled) : block
-    end).to \
-      eq(%w[
-           one
-           two
-         ])
-  end
-
-  it 'test_parse_menu_for_blocks' do
-    expect(mp.menu_for_blocks(options_parse_menu_for_blocks).map do |block|
-      block.is_a?(MarkdownExec::FCB) ? block.slice(:name, :disabled) : block
-    end).to \
-      eq(%w[
-           block11
-           block21
-           block31
-         ])
   end
 
   it 'test_parse_bash_blocks' do
