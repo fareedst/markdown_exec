@@ -16,11 +16,6 @@ DISPLAY_LEVEL_DUMP = 3
 DISPLAY_LEVEL_DEFAULT = DISPLAY_LEVEL_ADMIN
 DISPLAY_LEVEL_MAX = DISPLAY_LEVEL_DUMP
 
-# @execute_files[ind] = @execute_files[ind] + [block]
-EF_STDOUT = 0
-EF_STDERR = 1
-EF_STDIN = 2
-
 LOCAL_YML = 'menu.yml'
 MENU_YML = "lib/#{LOCAL_YML}"
 

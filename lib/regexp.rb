@@ -25,15 +25,13 @@
 # captures_hash[:file_name] = $~.pre_match.split("\n").last
 # captures_hash[:line_number] = $~.pre_match.count("\n") + 1
 # captures_hash[:line] = $&
-
-require 'English'
 class Regexp
   def gsub_format(input_str, format_str, context: {})
     input_str.gsub(self) do
       format(
         format_str,
-        context.merge($LAST_MATCH_INFO.names.each_with_object({}) do |name, hash|
-          hash[name.to_sym] = $LAST_MATCH_INFO[name]
+        context.merge($~.names.each_with_object({}) do |name, hash|
+          hash[name.to_sym] = $~[name]
         end)
       )
     end

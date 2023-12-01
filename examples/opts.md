@@ -4,10 +4,19 @@
 
 ```opts :opts1
 menu_divider_color: yellow
+menu_note_match:
 menu_task_color: fg_rgb_255_63_255
 ```
 
 ```opts :opts2
-menu_divider_color: fg_rgb_255_0_255
+menu_divider_color: red
+menu_note_color: yellow
+menu_note_match: "^\\+ +(?<line>.+?) *$"
 menu_task_color: fg_rgb_127_127_255
+```
+
+```opts :(document_options)
+menu_divider_color: green
+menu_link_color: fg_rgbh_88_cc_66
+menu_note_color: yellow
 ```

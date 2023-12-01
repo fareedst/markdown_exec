@@ -1,0 +1,2709 @@
+# encoding=utf-8
+# frozen_string_literal: true
+
+require 'English'
+require 'clipboard'
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'set'
+require 'shellwords'
+require 'tmpdir'
+require 'tty-prompt'
+require 'yaml'
+
+require_relative 'array'
+require_relative 'array_util'
+require_relative 'block_label'
+require_relative 'block_types'
+require_relative 'cached_nested_file_reader'
+require_relative 'constants'
+require_relative 'exceptions'
+require_relative 'fcb'
+require_relative 'filter'
+require_relative 'fout'
+require_relative 'hash'
+require_relative 'mdoc'
+require_relative 'string_util'
+
+class String
+  # Checks if the string is not empty.
+  # @return [Boolean] Returns true if the string is not empty, false otherwise.
+  def non_empty?
+    !empty?
+  end
+end
+
+module MarkdownExec
+  class DebugHelper
+    # Class-level variable to store history of printed messages
+    @@printed_messages = Set.new
+
+    # Outputs a warning message only once for a unique set of inputs
+    #
+    # @param str [Array] Variable number of arguments to be printed
+    def self.d(*str)
+      return if @@printed_messages.include?(str)
+
+      warn(*str)
+      @@printed_messages.add(str)
+    end
+  end
+
+  class HashDelegator
+    attr_accessor :run_state
+
+    def initialize(delegate_object = {})
+      @delegate_object = delegate_object
+      @prompt = tty_prompt_without_disabled_symbol
+
+      @run_state = OpenStruct.new(
+        link_history: []
+      )
+      @fout = FOut.new(@delegate_object) ### slice only relevant keys
+
+      @process_mutex = Mutex.new
+      @process_cv = ConditionVariable.new
+    end
+
+    # private
+
+    #   def [](key)
+    #     @delegate_object[key]
+    #   end
+
+    #   def []=(key, value)
+    #     @delegate_object[key] = value
+    #   end
+
+    # Modifies the provided menu blocks array by adding 'Back' and 'Exit' options,
+    # along with initial and final dividers, based on the delegate object's configuration.
+    #
+    # @param menu_blocks [Array] The array of menu block elements to be modified.
+    def add_menu_chrome_blocks!(menu_blocks)
+      return unless @delegate_object[:menu_link_format].present?
+
+      add_back_option(menu_blocks) if should_add_back_option?
+      add_exit_option(menu_blocks) if @delegate_object[:menu_with_exit]
+      add_dividers(menu_blocks)
+    end
+
+    private
+
+    def should_add_back_option?
+      @delegate_object[:menu_with_back] && history_env_state_exist?
+    end
+
+    def add_back_option(menu_blocks)
+      append_chrome_block(menu_blocks, MenuState::BACK)
+    end
+
+    def add_exit_option(menu_blocks)
+      append_chrome_block(menu_blocks, MenuState::EXIT)
+    end
+
+    def add_dividers(menu_blocks)
+      append_divider(menu_blocks, :initial)
+      append_divider(menu_blocks, :final)
+    end
+
+    public
+
+    # Appends a chrome block, which is a menu option for Back or Exit
+    #
+    # @param all_blocks [Array] The current blocks in the menu
+    # @param type [Symbol] The type of chrome block to add (:back or :exit)
+    def append_chrome_block(menu_blocks, type)
+      case type
+      when MenuState::BACK
+        state = history_state_partition
+        @hs_curr = state[:unit]
+        @hs_rest = state[:rest]
+        option_name = @delegate_object[:menu_option_back_name]
+        insert_at_top = @delegate_object[:menu_back_at_top]
+      when MenuState::EXIT
+        option_name = @delegate_object[:menu_option_exit_name]
+        insert_at_top = @delegate_object[:menu_exit_at_top]
+      end
+
+      formatted_name = format(@delegate_object[:menu_link_format],
+                              safeval(option_name))
+      chrome_block = FCB.new(
+        chrome: true,
+
+        # dname: formatted_name.send(@delegate_object[:menu_link_color].to_sym),
+        dname: HashDelegator.new(@delegate_object).string_send_color(
+          formatted_name, :menu_link_color
+        ),
+        #dname: @delegate_object.string_send_color(formatted_name, :menu_link_color),
+
+        oname: formatted_name
+      )
+
+      if insert_at_top
+        menu_blocks.unshift(chrome_block)
+      else
+        menu_blocks.push(chrome_block)
+      end
+    end
+
+    # Appends a formatted divider to the specified position in a menu block array.
+    # The method checks for the presence of formatting options before appending.
+    #
+    # @param menu_blocks [Array] The array of menu block elements.
+    # @param position [Symbol] The position to insert the divider (:initial or :final).
+    def append_divider(menu_blocks, position)
+      return unless divider_formatting_present?(position)
+
+      divider = create_divider(position)
+      position == :initial ? menu_blocks.unshift(divider) : menu_blocks.push(divider)
+    end
+
+    # private
+
+    def divider_formatting_present?(position)
+      divider_key = position == :initial ? :menu_initial_divider : :menu_final_divider
+      @delegate_object[:menu_divider_format].present? && @delegate_object[divider_key].present?
+    end
+
+    def create_divider(position)
+      divider_key = position == :initial ? :menu_initial_divider : :menu_final_divider
+      oname = format(@delegate_object[:menu_divider_format],
+                     safeval(@delegate_object[divider_key]))
+
+      FCB.new(
+        chrome: true,
+        disabled: '',
+        dname: string_send_color(oname, :menu_divider_color),
+        oname: oname
+      )
+    end
+
+    # Execute a code block after approval and provide user interaction options.
+    #
+    # This method displays required code blocks, asks for user approval, and
+    # executes the code block if approved. It also allows users to copy the
+    # code to the clipboard or save it to a file.
+    #
+    # @param opts [Hash] Options hash containing configuration settings.
+    # @param mdoc [YourMDocClass] An instance of the MDoc class.
+    #
+    def approve_and_execute_block(selected, mdoc)
+      if selected.fetch(:shell, '') == BlockType::LINK
+        handle_link_block(selected.fetch(:body, ''), mdoc, selected)
+      elsif @menu_user_clicked_back_link
+        handle_back_link
+      elsif selected[:shell] == BlockType::OPTS
+        handle_opts_block(selected, @menu_base_options)
+      else
+        handle_generic_block(mdoc, selected)
+      end
+    end
+
+    # private
+
+    # Searches for the first element in a collection where the specified key matches a given value.
+    # This method is particularly useful for finding a specific hash-like object within an enumerable collection.
+    # If no match is found, it returns a specified default value.
+    #
+    # @param blocks [Enumerable] The collection of hash-like objects to search.
+    # @param key [Object] The key to search for in each element of the collection.
+    # @param value [Object] The value to match against each element's corresponding key value.
+    # @param default [Object, nil] The default value to return if no match is found (optional).
+    # @return [Object, nil] The first matching element or the default value if no match is found.
+    def block_find(blocks, key, value, default = nil)
+      blocks.find { |item| item[key] == value } || default
+    end
+
+    # Iterates through nested files to collect various types of blocks, including dividers, tasks, and others.
+    # The method categorizes blocks based on their type and processes them accordingly.
+    #
+    # @return [Array<FCB>] An array of FCB objects representing the blocks.
+    def blocks_from_nested_files
+      blocks = []
+      iter_blocks_from_nested_files do |btype, fcb|
+        process_block_based_on_type(blocks, btype, fcb)
+      end
+      blocks
+    rescue StandardError
+      error_handler('blocks_from_nested_files')
+    end
+
+    # private
+
+    def process_block_based_on_type(blocks, btype, fcb)
+      case btype
+      when :blocks
+        blocks.push(get_block_summary(fcb))
+      when :filter
+        %i[blocks line]
+      when :line
+        unless @delegate_object[:no_chrome]
+          create_and_add_chrome_blocks(blocks,
+                                       fcb)
+        end
+      end
+    end
+
+    # private
+
+    def cfile
+      @cfile ||= CachedNestedFileReader.new(
+        import_pattern: @delegate_object.fetch(:import_pattern) #, "^ *@import +(?<name>.+?) *$")
+      )
+    end
+
+    # Check whether the document exists and is readable
+    def check_file_existence(filename)
+      unless filename&.present?
+        @fout.fout 'No blocks found.'
+        return false
+      end
+
+      unless File.exist? filename
+        @fout.fout 'Document is missing.'
+        return false
+      end
+      true
+    end
+
+    # Collects required code lines based on the selected block and the delegate object's configuration.
+    # If the block type is VARS, it also sets environment variables based on the block's content.
+    #
+    # @param mdoc [YourMDocClass] An instance of the MDoc class.
+    # @param selected [Hash] The selected block.
+    # @return [Array<String>] Required code blocks as an array of lines.
+    def collect_required_code_lines(mdoc, selected)
+      if selected[:shell] == BlockType::VARS
+        set_environment_variables(selected)
+      end
+
+      required = mdoc.collect_recursively_required_code(
+        @delegate_object[:block_name], opts: @delegate_object
+      )
+      read_required_blocks_from_temp_file + required[:code]
+    end
+
+    # private
+
+    def set_environment_variables(selected)
+      YAML.load(selected[:body].join("\n")).each do |key, value|
+        ENV[key] = value.to_s
+        next unless @delegate_object[:menu_vars_set_format].present?
+
+        formatted_string = format(@delegate_object[:menu_vars_set_format],
+                                  { key: key, value: value })
+        print string_send_color(formatted_string, :menu_vars_set_color)
+      end
+    end
+
+    def command_execute(command, args: [])
+      @run_state.files = Hash.new([])
+      @run_state.options = @delegate_object
+      @run_state.started_at = Time.now.utc
+
+      Open3.popen3(@delegate_object[:shell],
+                   '-c', command,
+                   @delegate_object[:filename],
+                   *args) do |stdin, stdout, stderr, exec_thr|
+        handle_stream(stdout, ExecutionStreams::StdOut) do |line|
+          yield nil, line, nil, exec_thr if block_given?
+        end
+        handle_stream(stderr, ExecutionStreams::StdErr) do |line|
+          yield nil, nil, line, exec_thr if block_given?
+        end
+
+        in_thr = handle_stream($stdin, ExecutionStreams::StdIn) do |line|
+          stdin.puts(line)
+          yield line, nil, nil, exec_thr if block_given?
+        end
+
+        wait_for_stream_processing
+        exec_thr.join
+        sleep 0.1
+        in_thr.kill if in_thr&.alive?
+      end
+
+      @run_state.completed_at = Time.now.utc
+    rescue Errno::ENOENT => err
+      # Handle ENOENT error
+      @run_state.aborted_at = Time.now.utc
+      @run_state.error_message = err.message
+      @run_state.error = err
+      @run_state.files[ExecutionStreams::StdErr] += [@run_state.error_message]
+      @fout.fout "Error ENOENT: #{err.inspect}"
+    rescue SignalException => err
+      # Handle SignalException
+      @run_state.aborted_at = Time.now.utc
+      @run_state.error_message = 'SIGTERM'
+      @run_state.error = err
+      @run_state.files[ExecutionStreams::StdErr] += [@run_state.error_message]
+      @fout.fout "Error ENOENT: #{err.inspect}"
+    end
+
+    def command_or_user_selected_block(all_blocks, menu_blocks, default)
+      if @delegate_object[:block_name].present?
+        block = all_blocks.find do |item|
+          item[:oname] == @delegate_object[:block_name]
+        end
+      else
+        block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
+                                                   default)
+        block = block_state.block
+        state = block_state.state
+      end
+
+      SelectedBlockMenuState.new(block, state)
+    rescue StandardError
+      error_handler('command_or_user_selected_block')
+    end
+
+    def copy_to_clipboard(required_lines)
+      text = required_lines.flatten.join($INPUT_RECORD_SEPARATOR)
+      Clipboard.copy(text)
+      @fout.fout "Clipboard updated: #{required_lines.count} blocks," \
+                 " #{required_lines.flatten.count} lines," \
+                 " #{text.length} characters"
+    end
+
+    # Counts the number of fenced code blocks in a file.
+    # It reads lines from a file and counts occurrences of lines matching the fenced block regex.
+    # Assumes that every fenced block starts and ends with a distinct line (hence divided by 2).
+    #
+    # @return [Integer] The count of fenced code blocks in the file.
+    def count_blocks_in_filename
+      regex = Regexp.new(@delegate_object[:fenced_start_and_end_regex])
+      lines = cfile.readlines(@delegate_object[:filename])
+      count_matches_in_lines(lines, regex) / 2
+    end
+
+    # private
+
+    def count_matches_in_lines(lines, regex)
+      lines.count { |line| line.to_s.match(regex) }
+    end
+
+    # private
+
+    ##
+    # Creates and adds a formatted block to the blocks array based on the provided match and format options.
+    # @param blocks [Array] The array of blocks to add the new block to.
+    # @param match_data [MatchData] The match data containing named captures for formatting.
+    # @param format_option [String] The format string to be used for the new block.
+    # @param color_method [Symbol] The color method to apply to the block's display name.
+    def create_and_add_chrome_block(blocks, match_data, format_option,
+                                    color_method)
+      oname = format(format_option,
+                     match_data.named_captures.transform_keys(&:to_sym))
+      blocks.push FCB.new(
+        chrome: true,
+        disabled: '',
+        dname: oname.send(color_method),
+        oname: oname
+      )
+    end
+
+    ##
+    # Processes lines within the file and converts them into blocks if they match certain criteria.
+    # @param blocks [Array] The array to append new blocks to.
+    # @param fcb [FCB] The file control block being processed.
+    # @param opts [Hash] Options containing configuration for line processing.
+    # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
+    def create_and_add_chrome_blocks(blocks, fcb)
+      match_criteria = [
+        { match: :menu_task_match, format: :menu_task_format,
+          color: :menu_task_color },
+        { match: :menu_divider_match, format: :menu_divider_format,
+          color: :menu_divider_color },
+        { match: :menu_note_match, format: :menu_note_format,
+          color: :menu_note_color }
+      ]
+      match_criteria.each do |criteria|
+        unless @delegate_object[criteria[:match]].present? &&
+               (mbody = fcb.body[0].match @delegate_object[criteria[:match]])
+          next
+        end
+
+        create_and_add_chrome_block(blocks, mbody, @delegate_object[criteria[:format]],
+                                    @delegate_object[criteria[:color]].to_sym)
+        break
+      end
+    end
+
+    # Creates a file at the specified path, writes the given content to it,
+    # and sets file permissions if required. Handles any errors encountered during the process.
+    #
+    # @param file_path [String] The path where the file will be created.
+    # @param content [String] The content to write into the file.
+    # @param chmod_value [Integer] The file permission value to set; skips if zero.
+    def create_and_write_file_with_permissions(file_path, content,
+                                               chmod_value)
+      create_directory_for_file(file_path)
+      write_file_content(file_path, content)
+      set_file_permissions(file_path, chmod_value) unless chmod_value.zero?
+    rescue StandardError
+      error_handler('create_and_write_file_with_permissions')
+    end
+
+    # private
+
+    def create_directory_for_file(file_path)
+      FileUtils.mkdir_p(File.dirname(file_path))
+    end
+
+    def write_file_content(file_path, content)
+      File.write(file_path, content)
+    end
+
+    def set_file_permissions(file_path, chmod_value)
+      File.chmod(chmod_value, file_path)
+    end
+
+    # Creates a temporary file, writes the provided code blocks into it,
+    # and sets an environment variable with the file path.
+    # @param code_blocks [String] Code blocks to write into the file.
+    def create_temp_file_with_code(code_blocks)
+      temp_file_path = create_temp_file
+      write_to_file(temp_file_path, code_blocks)
+      set_environment_variable(temp_file_path)
+    end
+
+    # private
+
+    def create_temp_file
+      Dir::Tmpname.create(self.class.to_s) { |path| path }
+    end
+
+    def write_to_file(path, content)
+      File.write(path, content)
+    end
+
+    def set_environment_variable(path)
+      ENV['MDE_LINK_REQUIRED_FILE'] = path
+    end
+
+    # Updates the title of an FCB object from its body content if the title is nil or empty.
+    def default_block_title_from_body(fcb)
+      return unless fcb.title.nil? || fcb.title.empty?
+
+      fcb.derive_title_from_body
+    end
+
+    def delete_blank_lines_next_to_chrome!(blocks_menu)
+      blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, next_item|
+        (prev_item&.fetch(:chrome, nil) || next_item&.fetch(:chrome, nil)) &&
+          current_item&.fetch(:chrome, nil) &&
+          !current_item&.fetch(:oname).present?
+      end
+    end
+
+    # Deletes a temporary file specified by an environment variable.
+    # Checks if the file exists before attempting to delete it and clears the environment variable afterward.
+    # Any errors encountered during deletion are handled gracefully.
+    def delete_required_temp_file
+      temp_blocks_file_path = fetch_temp_blocks_file_path
+
+      return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+
+      safely_remove_file(temp_blocks_file_path)
+      clear_required_file
+    rescue StandardError
+      error_handler('delete_required_temp_file')
+    end
+
+    # private
+
+    def fetch_temp_blocks_file_path
+      ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
+    end
+
+    def safely_remove_file(path)
+      FileUtils.rm_f(path)
+    end
+
+    # Determines the state of a selected block in the menu based on the selected option.
+    # It categorizes the selected option into either EXIT, BACK, or CONTINUE state.
+    #
+    # @param selected_option [Hash] The selected menu option.
+    # @return [SelectedBlockMenuState] An object representing the state of the selected block.
+    def determine_block_state(selected_option)
+      option_name = selected_option.fetch(:oname, nil)
+      if option_name == menu_chrome_formatted_option(:menu_option_exit_name)
+        return SelectedBlockMenuState.new(nil,
+                                          MenuState::EXIT)
+      end
+      if option_name == menu_chrome_formatted_option(:menu_option_back_name)
+        return SelectedBlockMenuState.new(selected_option,
+                                          MenuState::BACK)
+      end
+
+      SelectedBlockMenuState.new(selected_option, MenuState::CONTINUE)
+    end
+
+    # Displays the required lines of code with color formatting for the preview section.
+    # It wraps the code lines between a formatted header and tail.
+    #
+    # @param required_lines [Array<String>] The lines of code to be displayed.
+    def display_required_code(required_lines)
+      output_color_formatted(:script_preview_head,
+                             :script_preview_frame_color)
+      required_lines.each { |cb| @fout.fout cb }
+      output_color_formatted(:script_preview_tail,
+                             :script_preview_frame_color)
+    end
+
+    # private
+
+    def output_color_formatted(data_sym, color_sym)
+      formatted_string = string_send_color(@delegate_object[data_sym],
+                                           color_sym)
+      @fout.fout formatted_string
+    end
+
+    def error_handler(name = '', opts = {})
+      Exceptions.error_handler(
+        "HashDelegator.#{name} -- #{$!}",
+        opts
+      )
+    end
+
+    # public
+
+    # Executes a block of code that has been approved for execution.
+    # It sets the script block name, writes command files if required, and handles the execution
+    # including output formatting and summarization.
+    #
+    # @param required_lines [Array<String>] The lines of code to be executed.
+    # @param selected [FCB] The selected functional code block object.
+    def execute_approved_block(required_lines = [], selected = FCB.new)
+      set_script_block_name(selected)
+      write_command_file_if_needed(required_lines)
+      format_and_execute_command(required_lines)
+      post_execution_process
+    end
+
+    # private
+
+    def set_script_block_name(selected)
+      @run_state.script_block_name = selected[:oname]
+    end
+
+    def write_command_file_if_needed(lines)
+      write_command_file(lines) if @delegate_object[:save_executed_script]
+    end
+
+    def format_and_execute_command(lines)
+      formatted_command = lines.flatten.join("\n")
+      @fout.fout fetch_color(data_sym: :script_execution_head,
+                             color_sym: :script_execution_frame_color)
+      command_execute(formatted_command,
+                      args: @delegate_object.fetch(:s_pass_args, []))
+      @fout.fout fetch_color(data_sym: :script_execution_tail,
+                             color_sym: :script_execution_frame_color)
+    end
+
+    def post_execution_process
+      initialize_and_save_execution_output
+      output_execution_summary
+      output_execution_result
+    end
+
+    # Retrieves a specific data symbol from the delegate object, converts it to a string,
+    # and applies a color style based on the specified color symbol.
+    #
+    # @param default [String] The default value if the data symbol is not found.
+    # @param data_sym [Symbol] The symbol key to fetch data from the delegate object.
+    # @param color_sym [Symbol] The symbol key to fetch the color option for styling.
+    # @return [String] The color-styled string.
+    def fetch_color(default: '',
+                    data_sym: :execution_report_preview_head,
+                    color_sym: :execution_report_preview_frame_color)
+      data_string = @delegate_object.fetch(data_sym, default).to_s
+      string_send_color(data_string, color_sym)
+    end
+
+    # Formats a string based on a given context and applies color styling to it.
+    # It retrieves format and color information from the delegate object and processes accordingly.
+    #
+    # @param default [String] The default value if the format symbol is not found (unused in current implementation).
+    # @param context [Hash] Contextual data used for string formatting.
+    # @param format_sym [Symbol] Symbol key to fetch the format string from the delegate object.
+    # @param color_sym [Symbol] Symbol key to fetch the color option for string styling.
+    # @return [String] The formatted and color-styled string.
+    def format_references_send_color(default: '', context: {},
+                                     format_sym: :output_execution_label_format,
+                                     color_sym: :execution_report_preview_frame_color)
+      formatted_string = format(@delegate_object.fetch(format_sym, ''),
+                                context).to_s
+      string_send_color(formatted_string, color_sym)
+    end
+
+    # Formats and returns the execution streams (like stdin, stdout, stderr) for a given key.
+    # It concatenates the array of strings found under the specified key in the run_state's files.
+    #
+    # @param key [Symbol] The key corresponding to the desired execution stream.
+    # @return [String] A concatenated string of the execution stream's contents.
+    def format_execution_streams(key)
+      files = @run_state.files || {}
+      files.fetch(key, []).join
+    end
+
+    # Processes a block to generate its summary, modifying its attributes based on various matching criteria.
+    # It handles special formatting for bash blocks, extracting and setting properties like call, stdin, stdout, and dname.
+    #
+    # @param fcb [Object] An object representing a functional code block.
+    # @return [Object] The modified functional code block with updated summary attributes.
+    def get_block_summary(fcb)
+      return fcb unless @delegate_object[:bash]
+
+      fcb.call = fcb.title.match(Regexp.new(@delegate_object[:block_calls_scan]))&.fetch(1, nil)
+      titlexcall = fcb.call ? fcb.title.sub("%#{fcb.call}", '') : fcb.title
+      bm = extract_named_captures_from_option(titlexcall,
+                                              @delegate_object[:block_name_match])
+
+      fcb.stdin = extract_named_captures_from_option(titlexcall,
+                                                     @delegate_object[:block_stdin_scan])
+      fcb.stdout = extract_named_captures_from_option(titlexcall,
+                                                      @delegate_object[:block_stdout_scan])
+
+      shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
+      fcb.title = fcb.oname = bm && bm[1] ? bm[:title] : titlexcall
+      fcb.dname = apply_shell_color_option(fcb.oname, shell_color_option)
+
+      fcb
+    end
+
+    # private
+
+    # Applies shell color options to the given string if applicable.
+    #
+    # @param name [String] The name to potentially colorize.
+    # @param shell_color_option [Symbol, nil] The shell color option to apply.
+    # @return [String] The colorized or original name string.
+    def apply_shell_color_option(name, shell_color_option)
+      if shell_color_option && @delegate_object[shell_color_option].present?
+        string_send_color(name, shell_color_option)
+      else
+        name
+      end
+    end
+
+    # This method handles the back-link operation in the Markdown execution context.
+    # It updates the history state and prepares to load the next block.
+    #
+    # @return [LoadFileNextBlock] An object indicating the action to load the next block.
+    def handle_back_link
+      history_state_pop
+      LoadFileNextBlock.new(LoadFile::Load, '')
+    end
+
+    # private
+    # Updates the delegate object's state based on the provided block state.
+    # It sets the block name and determines if the user clicked the back link in the menu.
+    #
+    # @param block_state [Object] An object representing the state of a block in the menu.
+    def handle_block_state(block_state)
+      unless [MenuState::BACK,
+              MenuState::CONTINUE].include?(block_state.state)
+        return
+      end
+
+      @delegate_object[:block_name] = block_state.block[:dname]
+      @menu_user_clicked_back_link = block_state.state == MenuState::BACK
+    end
+
+    # This method is responsible for handling the execution of generic blocks in a markdown document.
+    # It collects the required code lines from the document and, depending on the configuration,
+    # may display the code for user approval before execution. It then executes the approved block.
+    #
+    # @param mdoc [Object] The markdown document object containing code blocks.
+    # @param selected [Hash] The selected item from the menu to be executed.
+    # @return [LoadFileNextBlock] An object indicating whether to load the next block or reuse the current one.
+    def handle_generic_block(mdoc, selected)
+      required_lines = collect_required_code_lines(mdoc, selected)
+      output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
+
+      display_required_code(required_lines) if output_or_approval
+
+      allow_execution = @delegate_object[:user_must_approve] ? prompt_for_user_approval(required_lines) : true
+
+      @delegate_object[:s_ir_approve] = allow_execution
+      execute_approved_block(required_lines, selected) if allow_execution
+
+      LoadFileNextBlock.new(LoadFile::Reuse, '')
+    end
+
+    # Handles the processing of a link block in Markdown Execution.
+    # It loads YAML data from the body content, pushes the state to history,
+    # sets environment variables, and decides on the next block to load.
+    #
+    # @param body [Array<String>] The body content as an array of strings.
+    # @param mdoc [Object] Markdown document object.
+    # @param selected [Boolean] Selected state.
+    # @return [LoadFileNextBlock] Object indicating the next action for file loading.
+    def handle_link_block(body, mdoc, selected)
+      data = parse_yaml_data_from_body(body)
+      data_file = data['file']
+      return LoadFileNextBlock.new(LoadFile::Reuse, '') unless data_file
+
+      history_state_push(mdoc, data_file, selected)
+      set_environment_variables(data['vars'])
+
+      LoadFileNextBlock.new(LoadFile::Load, data['block'] || '')
+    end
+
+    # private
+
+    def parse_yaml_data_from_body(body)
+      body.any? ? YAML.load(body.join("\n")) : {}
+    end
+
+    def set_environment_variables(vars)
+      vars ||= []
+      vars.each { |key, value| ENV[key] = value.to_s }
+    end
+
+    # Processes YAML data from the selected menu item, updating delegate objects and optionally printing formatted output.
+    # @param selected [Hash] Selected item from the menu containing a YAML body.
+    # @param tgt2 [Hash, nil] An optional target hash to update with YAML data.
+    # @return [LoadFileNextBlock] An instance indicating the next action for loading files.
+    def handle_opts_block(selected, tgt2 = nil)
+      data = YAML.load(selected[:body].join("\n"))
+      data.each do |key, value|
+        update_delegate_and_target(key, value, tgt2)
+        if @delegate_object[:menu_opts_set_format].present?
+          print_formatted_option(key,
+                                 value)
+        end
+      end
+      LoadFileNextBlock.new(LoadFile::Reuse, '')
+    end
+
+    # private
+
+    def update_delegate_and_target(key, value, tgt2)
+      sym_key = key.to_sym
+      @delegate_object[sym_key] = value
+      tgt2[sym_key] = value if tgt2
+    end
+
+    def print_formatted_option(key, value)
+      formatted_str = format(@delegate_object[:menu_opts_set_format],
+                             { key: key, value: value })
+      print string_send_color(formatted_str, :menu_opts_set_color)
+    end
+
+    def handle_stream(stream, file_type, swap: false)
+      @process_mutex.synchronize do
+        Thread.new do
+          stream.each_line do |line|
+            line.strip!
+            @run_state.files[file_type] << line
+
+            if @delegate_object[:output_stdout]
+              # print line
+              puts line
+            end
+
+            yield line if block_given?
+          end
+        rescue IOError
+          # Handle IOError
+        ensure
+          @process_cv.signal
+        end
+      end
+    end
+
+    def wait_for_stream_processing
+      @process_mutex.synchronize do
+        @process_cv.wait(@process_mutex)
+      end
+    end
+
+    # Partitions the history state from the environment variable based on the document separator.
+    # @return [Hash] A hash containing two parts: :unit (first part) and :rest (remaining part).
+    def history_state_partition
+      history_env_value = ENV.fetch(MDE_HISTORY_ENV_NAME, '')
+      separator = @delegate_object[:history_document_separator]
+
+      unit, rest = StringUtil.partition_at_first(history_env_value, separator)
+      { unit: unit, rest: rest }
+    end
+
+    # Pops the last entry from the history state, updating the delegate object and environment variable.
+    # It also deletes the required temporary file and updates the run state link history.
+    def history_state_pop
+      state = history_state_partition
+      @delegate_object[:filename] = state[:unit]
+      ENV[MDE_HISTORY_ENV_NAME] = state[:rest]
+      delete_required_temp_file
+      @run_state.link_history.pop
+    end
+
+    # Updates the history state by pushing a new entry and managing environment variables.
+    # @param mdoc [Object] The Markdown document object.
+    # @param data_file [String] The data file to be processed.
+    # @param selected [Hash] Hash containing the selected block's name.
+    def history_state_push(mdoc, data_file, selected)
+      # Construct new history string
+      new_history = [@delegate_object[:filename],
+                     @delegate_object[:history_document_separator],
+                     ENV.fetch(MDE_HISTORY_ENV_NAME, '')].join
+
+      # Update delegate object and environment variable
+      @delegate_object[:filename] = data_file
+      ENV[MDE_HISTORY_ENV_NAME] = new_history
+
+      # Write required blocks to temp file and update run state
+      write_required_blocks_to_temp_file(mdoc, @delegate_object[:block_name])
+      @run_state.link_history.push(block_name: selected[:oname],
+                                   filename: data_file)
+    end
+
+    # Indents all lines in a given string with a specified indentation string.
+    # @param body [String] A multi-line string to be indented.
+    # @param indent [String] The string used for indentation (default is an empty string).
+    # @return [String] A single string with each line indented as specified.
+    def indent_all_lines(body, indent = nil)
+      return body unless indent&.non_empty?
+
+      body.lines.map { |line| indent + line.chomp }.join("\n")
+    end
+
+    def initialize_fcb_names(fcb)
+      fcb.oname = fcb.dname = fcb.title || ''
+    end
+
+    # Initializes variables for regex and other states
+    def initial_state
+      {
+        fenced_start_and_end_regex: Regexp.new(@delegate_object.fetch(
+                                                 :fenced_start_and_end_regex, '^(?<indent> *)`{3,}'
+                                               )),
+        fenced_start_extended_regex: Regexp.new(@delegate_object.fetch(
+                                                  :fenced_start_and_end_regex, '^(?<indent> *)`{3,}'
+                                                )),
+        fcb: MarkdownExec::FCB.new,
+        in_fenced_block: false,
+        headings: []
+      }
+    end
+
+    def initialize_and_save_execution_output
+      return unless @delegate_object[:save_execution_output]
+
+      @delegate_object[:logged_stdout_filename] =
+        SavedAsset.stdout_name(blockname: @delegate_object[:block_name],
+                               filename: File.basename(@delegate_object[:filename],
+                                                       '.*'),
+                               prefix: @delegate_object[:logged_stdout_filename_prefix],
+                               time: Time.now.utc)
+
+      @logged_stdout_filespec =
+        @delegate_object[:logged_stdout_filespec] =
+          File.join @delegate_object[:saved_stdout_folder],
+                    @delegate_object[:logged_stdout_filename]
+      @logged_stdout_filespec = @delegate_object[:logged_stdout_filespec]
+      write_execution_output_to_file
+    end
+
+    # Iterates through blocks in a file, applying the provided block to each line.
+    # The iteration only occurs if the file exists.
+    # @yield [Symbol] :filter Yields to obtain selected messages for processing.
+    def iter_blocks_from_nested_files(&block)
+      return unless check_file_existence(@delegate_object[:filename])
+
+      state = initial_state
+      selected_messages = yield :filter
+
+      cfile.readlines(@delegate_object[:filename]).each do |nested_line|
+        if nested_line
+          update_line_and_block_state(nested_line, state, selected_messages,
+                                      &block)
+        end
+      end
+    end
+
+    # Loads auto blocks based on delegate object settings and updates if new filename is detected.
+    # Executes a specified block once per filename.
+    # @param all_blocks [Array] Array of all block elements.
+    # @return [Boolean, nil] True if values were modified, nil otherwise.
+    def load_auto_blocks(all_blocks)
+      block_name = @delegate_object[:document_load_opts_block_name]
+      unless block_name.present? && @delegate_object[:s_most_recent_filename] != @delegate_object[:filename]
+        return
+      end
+
+      block = block_find(all_blocks, :oname, block_name)
+      return unless block
+
+      handle_opts_block(block, @delegate_object)
+      @delegate_object[:s_most_recent_filename] = @delegate_object[:filename]
+      true
+    end
+
+    # DebugHelper.d ["HDmm method_name: #{method_name}", "#{first_n_caller_items 1}"]
+    def first_n_caller_items(n)
+      # Get the call stack
+      call_stack = caller
+      base_path = File.realpath('.')
+
+      # Modify the call stack to remove the base path and keep only the first n items
+      call_stack.take(n + 1)[1..].map do |line|
+        " . #{line.sub(/^#{Regexp.escape(base_path)}\//, '')}"
+      end.join("\n")
+    end
+
+    # Checks if a history environment variable is set and returns its value if present.
+    # @return [String, nil] The value of the history environment variable or nil if not present.
+    def history_env_state_exist?
+      ENV.fetch(MDE_HISTORY_ENV_NAME, '').present?
+    end
+
+    # def history_env_state_exist?
+    #   history = ENV.fetch(MDE_HISTORY_ENV_NAME, '')
+    #   history.present? ? history : nil
+    # end
+
+    # If a method is missing, treat it as a key for the @delegate_object.
+    def method_missing(method_name, *args, &block)
+      if @delegate_object.respond_to?(method_name)
+        @delegate_object.send(method_name, *args, &block)
+      elsif method_name.to_s.end_with?('=') && args.size == 1
+        @delegate_object[method_name.to_s.chop.to_sym] = args.first
+      else
+        @delegate_object[method_name]
+        # super
+      end
+    end
+
+    def mdoc_and_blocks_from_nested_files
+      menu_blocks = blocks_from_nested_files
+      mdoc = MDoc.new(menu_blocks) do |nopts|
+        @delegate_object.merge!(nopts)
+      end
+      [menu_blocks, mdoc]
+    end
+
+    ## Handles the file loading and returns the blocks in the file and MDoc instance
+    #
+    def mdoc_menu_and_blocks_from_nested_files
+      all_blocks, mdoc = mdoc_and_blocks_from_nested_files
+
+      # recreate menu with new options
+      #
+      if load_auto_blocks(all_blocks)
+        all_blocks, mdoc = mdoc_and_blocks_from_nested_files
+      end
+
+      menu_blocks = mdoc.fcbs_per_options(@delegate_object)
+      add_menu_chrome_blocks!(menu_blocks)
+      delete_blank_lines_next_to_chrome!(menu_blocks)
+      [all_blocks, menu_blocks, mdoc]
+    end
+
+    # Formats and optionally colors a menu option based on delegate object's configuration.
+    # @param option_symbol [Symbol] The symbol key for the menu option in the delegate object.
+    # @return [String] The formatted and possibly colored value of the menu option.
+    def menu_chrome_colored_option(option_symbol = :menu_option_back_name)
+      formatted_option = menu_chrome_formatted_option(option_symbol)
+      return formatted_option unless @delegate_object[:menu_chrome_color]
+
+      string_send_color(formatted_option, :menu_chrome_color)
+    end
+
+    # Formats a menu option based on the delegate object's configuration.
+    # It safely evaluates the value of the option and optionally formats it.
+    # @param option_symbol [Symbol] The symbol key for the menu option in the delegate object.
+    # @return [String] The formatted or original value of the menu option.
+    def menu_chrome_formatted_option(option_symbol = :menu_option_back_name)
+      option_value = safeval(@delegate_object.fetch(option_symbol, ''))
+
+      if @delegate_object[:menu_chrome_format]
+        format(@delegate_object[:menu_chrome_format], option_value)
+      else
+        option_value
+      end
+    end
+
+    def next_block_name_from_command_line_arguments
+      return MenuControl::Repeat unless @delegate_object[:s_cli_rest].present?
+
+      @delegate_object[:block_name] = @delegate_object[:s_cli_rest].pop
+      MenuControl::Fresh
+    end
+
+    def output_execution_result
+      @fout.fout fetch_color(data_sym: :execution_report_preview_head,
+                             color_sym: :execution_report_preview_frame_color)
+      [
+        ['Block', @run_state.script_block_name],
+        ['Command', ([MarkdownExec::BIN_NAME, @delegate_object[:filename]] +
+                     (@run_state.link_history.map { |item|
+                        item[:block_name]
+                      }) +
+                     [@run_state.script_block_name]).join(' ')],
+        ['Script', @run_state.saved_filespec],
+        ['StdOut', @delegate_object[:logged_stdout_filespec]]
+      ].each do |label, value|
+        next unless value
+
+        output_labeled_value(label, value, DISPLAY_LEVEL_ADMIN)
+      end
+      @fout.fout fetch_color(data_sym: :execution_report_preview_tail,
+                             color_sym: :execution_report_preview_frame_color)
+    end
+
+    def output_execution_summary
+      return unless @delegate_object[:output_execution_summary]
+
+      fout_section 'summary', {
+        execute_aborted_at: @run_state.aborted_at,
+        execute_completed_at: @run_state.completed_at,
+        execute_error: @run_state.error,
+        execute_error_message: @run_state.error_message,
+        execute_files: @run_state.files,
+        execute_options: @run_state.options,
+        execute_started_at: @run_state.started_at,
+        script_block_name: @run_state.script_block_name,
+        saved_filespec: @run_state.saved_filespec
+      }
+    end
+
+    def output_labeled_value(label, value, level)
+      @fout.lout format_references_send_color(
+        context: { name: string_send_color(label, :output_execution_label_name_color),
+                   value: string_send_color(value.to_s,
+                                            :output_execution_label_value_color) },
+        format_sym: :output_execution_label_format
+      ), level: level
+    end
+
+    # Prepare the blocks menu by adding labels and other necessary details.
+    #
+    # @param all_blocks [Array<Hash>] The list of blocks from the file.
+    # @param opts [Hash] The options hash.
+    # @return [Array<Hash>] The updated blocks menu.
+    def prepare_blocks_menu(menu_blocks)
+      ### replace_consecutive_blanks(menu_blocks).map do |fcb|
+      menu_blocks.map do |fcb|
+        next if Filter.prepared_not_in_menu?(@delegate_object, fcb,
+                                             %i[block_name_include_match block_name_wrapper_match])
+
+        fcb.merge!(
+          name: indent_all_lines(fcb.dname, fcb.fetch(:indent, nil)),
+          label: BlockLabel.make(
+            body: fcb[:body],
+            filename: @delegate_object[:filename],
+            headings: fcb.fetch(:headings, []),
+            menu_blocks_with_docname: @delegate_object[:menu_blocks_with_docname],
+            menu_blocks_with_headings: @delegate_object[:menu_blocks_with_headings],
+            text: fcb[:text],
+            title: fcb[:title]
+          )
+        )
+        fcb.to_h
+      end.compact
+    end
+
+    ##
+    # Presents a menu to the user for approving an action and performs additional tasks based on the selection.
+    # The function provides options for approval, rejection, copying data to clipboard, or saving data to a file.
+    #
+    # @param opts [Hash] A hash containing various options for the menu.
+    # @param required_lines [Array<String>] Lines of text or code that are subject to user approval.
+    #
+    # @option opts [String] :prompt_approve_block Prompt text for the approval menu.
+    # @option opts [String] :prompt_yes Text for the 'Yes' choice in the menu.
+    # @option opts [String] :prompt_no Text for the 'No' choice in the menu.
+    # @option opts [String] :prompt_script_to_clipboard Text for the 'Copy to Clipboard' choice in the menu.
+    # @option opts [String] :prompt_save_script Text for the 'Save to File' choice in the menu.
+    #
+    # @return [Boolean] Returns true if the user approves (selects 'Yes'), false otherwise.
+    ##
+    def prompt_for_user_approval(required_lines)
+      # Present a selection menu for user approval.
+      sel = @prompt.select(
+        string_send_color(@delegate_object[:prompt_approve_block],
+                          :prompt_color_after_script_execution),
+        filter: true
+      ) do |menu|
+        # sel = @prompt.select(@delegate_object[:prompt_approve_block], filter: true) do |menu|
+        menu.default MenuOptions::YES
+        menu.choice @delegate_object[:prompt_yes], MenuOptions::YES
+        menu.choice @delegate_object[:prompt_no], MenuOptions::NO
+        menu.choice @delegate_object[:prompt_script_to_clipboard],
+                    MenuOptions::SCRIPT_TO_CLIPBOARD
+        menu.choice @delegate_object[:prompt_save_script],
+                    MenuOptions::SAVE_SCRIPT
+      end
+
+      if sel == MenuOptions::SCRIPT_TO_CLIPBOARD
+        copy_to_clipboard(required_lines)
+      elsif sel == MenuOptions::SAVE_SCRIPT
+        save_to_file(required_lines)
+      end
+
+      sel == MenuOptions::YES
+    rescue TTY::Reader::InputInterrupt
+      exit 1
+    end
+
+    def prompt_select_continue
+      sel = @prompt.select(
+        string_send_color(@delegate_object[:prompt_after_script_execution],
+                          :prompt_color_after_script_execution),
+        filter: true,
+        quiet: true
+      ) do |menu|
+        menu.choice @delegate_object[:prompt_yes]
+        menu.choice @delegate_object[:prompt_exit]
+      end
+      sel == @delegate_object[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
+    rescue TTY::Reader::InputInterrupt
+      exit 1
+    end
+
+    def save_to_file(required_lines)
+      write_command_file(required_lines)
+      @fout.fout "File saved: #{@run_state.saved_filespec}"
+    end
+
+    # public
+
+    # Reads required code blocks from a temporary file specified by an environment variable.
+    # @return [Array<String>] Lines read from the temporary file, or an empty array if file is not found or path is empty.
+    def read_required_blocks_from_temp_file
+      temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
+      return [] if temp_blocks_file_path.to_s.empty?
+
+      if File.exist?(temp_blocks_file_path)
+        File.readlines(
+          temp_blocks_file_path, chomp: true
+        )
+      else
+        []
+      end
+    end
+
+    # Evaluates the given string as Ruby code and rescues any StandardErrors.
+    # If an error occurs, it calls the error_handler method with 'safeval'.
+    # @param str [String] The string to be evaluated.
+    # @return [Object] The result of evaluating the string.
+    def safeval(str)
+      eval(str)
+    rescue StandardError
+      error_handler('safeval')
+    end
+
+    # def safeval(str)
+    #   eval(str)
+    # rescue StandardError
+    #   error_handler('safeval')
+    # end
+
+    # Select and execute a code block from a Markdown document.
+    #
+    # This method allows the user to interactively select a code block from a
+    # Markdown document, obtain approval, and execute the chosen block of code.
+    #
+    # @return [Nil] Returns nil if no code block is selected or an error occurs.
+    def select_approve_and_execute_block
+      @menu_base_options = @delegate_object
+      repeat_menu = @menu_base_options[:block_name].present? ? MenuControl::Fresh : MenuControl::Repeat
+      load_file_next_block = LoadFileNextBlock.new(LoadFile::Reuse)
+      default = nil
+
+      @menu_state_filename = @menu_base_options[:filename]
+      @menu_state_block_name = @menu_base_options[:block_name]
+
+      loop do
+        loop do
+          @delegate_object = @menu_base_options.dup
+          @menu_base_options[:filename] = @menu_state_filename
+          @menu_base_options[:block_name] = @menu_state_block_name
+          @menu_state_filename = nil
+          @menu_state_block_name = nil
+
+          @menu_user_clicked_back_link = false
+          blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
+          block_state = command_or_user_selected_block(blocks_in_file,
+                                                       menu_blocks, default)
+          return if block_state.state == MenuState::EXIT
+
+          if block_state.block.nil?
+            warn_format('select_approve_and_execute_block', "Block not found -- #{@delegate_object[:block_name]}",
+                        { abort: true })
+            # error_handler("Block not found -- #{opts[:block_name]}", { abort: true })
+          end
+
+          load_file_next_block = approve_and_execute_block(block_state.block,
+                                                           mdoc)
+          default = load_file_next_block.load_file == LoadFile::Load ? nil : @delegate_object[:block_name]
+          @menu_base_options[:block_name] =
+            @delegate_object[:block_name] = load_file_next_block.next_block
+          @menu_base_options[:filename] = @delegate_object[:filename]
+
+          # user prompt to exit if the menu will be displayed again
+          #
+          if repeat_menu == MenuControl::Repeat &&
+             block_state.block[:shell] == BlockType::BASH &&
+             @delegate_object[:pause_after_script_execution] &&
+             prompt_select_continue == MenuState::EXIT
+            return
+          end
+
+          # exit current document/menu if loading next document or single block_name was specified
+          #
+          if block_state.state == MenuState::CONTINUE && load_file_next_block.load_file == LoadFile::Load
+            break
+          end
+          break if repeat_menu == MenuControl::Fresh
+        end
+        break if load_file_next_block.load_file == LoadFile::Reuse
+
+        repeat_menu = next_block_name_from_command_line_arguments
+        @menu_state_filename = @menu_base_options[:filename]
+        @menu_state_block_name = @menu_base_options[:block_name]
+      end
+    rescue StandardError
+      error_handler('select_approve_and_execute_block',
+                    { abort: true })
+    end
+
+    # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
+    def select_option_with_metadata(prompt_text, names, opts = {})
+      selection = @prompt.select(prompt_text,
+                                 names,
+                                 opts.merge(filter: true))
+      item = if names.first.instance_of?(String)
+               { dname: selection }
+             else
+               names.find { |item| item[:dname] == selection }
+             end
+
+      item.merge(
+        if selection == menu_chrome_colored_option(:menu_option_back_name)
+          { option: selection, curr: @hs_curr, rest: @hs_rest,
+            shell: BlockType::LINK }
+        elsif selection == menu_chrome_colored_option(:menu_option_exit_name)
+          { option: selection }
+        else
+          { selected: selection }
+        end
+      )
+    rescue TTY::Reader::InputInterrupt
+      exit 1
+    rescue StandardError
+      error_handler('select_option_with_metadata')
+    end
+
+    # Initializes a new fenced code block (FCB) object based on the provided line and heading information.
+    # @param line [String] The line initiating the fenced block.
+    # @param headings [Array<String>] Current headings hierarchy.
+    # @param fenced_start_extended_regex [Regexp] Regular expression to identify fenced block start.
+    # @return [MarkdownExec::FCB] A new FCB instance with the parsed attributes.
+    def start_fenced_block(line, headings, fenced_start_extended_regex)
+      fcb_title_groups = line.match(fenced_start_extended_regex).named_captures.sym_keys
+      rest = fcb_title_groups.fetch(:rest, '')
+      reqs, wraps =
+        ArrayUtil.partition_by_predicate(rest.scan(/\+[^\s]+/).map do |req|
+                                           req[1..-1]
+                                         end) do |name|
+        !name.match(Regexp.new(@delegate_object[:block_name_wrapper_match]))
+      end
+
+      MarkdownExec::FCB.new(
+        body: [],
+        call: rest.match(Regexp.new(@delegate_object[:block_calls_scan]))&.to_a&.first,
+        dname: fcb_title_groups.fetch(:name, ''),
+        headings: headings,
+        indent: fcb_title_groups.fetch(:indent, ''),
+        oname: fcb_title_groups.fetch(:name, ''),
+        reqs: reqs,
+        shell: fcb_title_groups.fetch(:shell, ''),
+        stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
+                 tn.named_captures.sym_keys
+               end,
+        stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
+                  tn.named_captures.sym_keys
+                end,
+        title: fcb_title_groups.fetch(:name, ''),
+        wraps: wraps
+      )
+    end
+
+    # Applies a color method to a string based on the provided color symbol.
+    # The color method is fetched from @delegate_object and applied to the string.
+    # @param string [String] The string to which the color will be applied.
+    # @param color_sym [Symbol] The symbol representing the color method.
+    # @param default [String] Default color method to use if color_sym is not found in @delegate_object.
+    # @return [String] The string with the applied color method.
+    def string_send_color(string, color_sym, default: 'plain')
+      color_method = @delegate_object.fetch(color_sym, default).to_sym
+      string.to_s.send(color_method)
+    end
+
+    # Creates a TTY prompt with custom settings. Specifically, it disables the default 'cross' symbol and
+    # defines a lambda function to handle interrupts.
+    # @return [TTY::Prompt] A new TTY::Prompt instance with specified configurations.
+    def tty_prompt_without_disabled_symbol
+      TTY::Prompt.new(
+        interrupt: lambda {
+          puts
+          raise TTY::Reader::InputInterrupt
+        },
+        symbols: { cross: ' ' }
+      )
+    end
+
+    # Updates the hierarchy of document headings based on the given line.
+    # Utilizes regular expressions to identify heading levels.
+    # @param line [String] The line of text to check for headings.
+    # @param headings [Array<String>] Current headings hierarchy.
+    # @return [Array<String>] Updated headings hierarchy.
+    def update_document_headings(line, headings)
+      heading3_match = Regexp.new(@delegate_object[:heading3_match])
+      heading2_match = Regexp.new(@delegate_object[:heading2_match])
+      heading1_match = Regexp.new(@delegate_object[:heading1_match])
+
+      case line
+      when heading3_match
+        [headings[0], headings[1], $~[:name]]
+      when heading2_match
+        [headings[0], $~[:name]]
+      when heading1_match
+        [$~[:name]]
+      else
+        headings
+      end
+    end
+
+    ##
+    # Processes an individual line within a loop, updating headings and handling fenced code blocks.
+    # This function is designed to be called within a loop that iterates through each line of a document.
+    #
+    # @param line [String] The current line being processed.
+    # @param state [Hash] The current state of the parser, including flags and data related to the processing.
+    # @param opts [Hash] A hash containing various options for line and block processing.
+    # @param selected_messages [Array<String>] Accumulator for lines or messages that are subject to further processing.
+    # @param block [Proc] An optional block for further processing or transformation of lines.
+    #
+    # @option state [Array<String>] :headings Current headings to be updated based on the line.
+    # @option state [Regexp] :fenced_start_and_end_regex Regular expression to match the start and end of a fenced block.
+    # @option state [Boolean] :in_fenced_block Flag indicating whether the current line is inside a fenced block.
+    # @option state [Object] :fcb An object representing the current fenced code block being processed.
+    #
+    # @option opts [Boolean] :menu_blocks_with_headings Flag indicating whether to update headings while processing.
+    #
+    # @return [Void] The function modifies the `state` and `selected_messages` arguments in place.
+    ##
+    def update_line_and_block_state(nested_line, state, selected_messages,
+                                    &block)
+      line = nested_line.to_s
+      if @delegate_object[:menu_blocks_with_headings]
+        state[:headings] = update_document_headings(line, state[:headings])
+      end
+
+      if line.match(@delegate_object[:fenced_start_and_end_regex])
+        if state[:in_fenced_block]
+          ## end of code block
+          #
+          update_menu_attrib_yield_selected(state[:fcb], selected_messages,
+                                            &block)
+          state[:in_fenced_block] = false
+        else
+          ## start of code block
+          #
+          state[:fcb] =
+            start_fenced_block(line, state[:headings],
+                               @delegate_object[:fenced_start_extended_regex])
+          state[:fcb][:depth] = nested_line[:depth]
+          state[:in_fenced_block] = true
+        end
+      elsif state[:in_fenced_block] && state[:fcb].body
+        ## add line to fenced code block
+        # remove fcb indent if possible
+        #
+        # if nested_line[:depth].zero? || opts[:menu_include_imported_blocks]
+        # if add_import_block?(nested_line)
+        state[:fcb].body += [
+          line.chomp.sub(/^#{state[:fcb].indent}/, '')
+        ]
+        # end
+      elsif nested_line[:depth].zero? || @delegate_object[:menu_include_imported_notes]
+        # add line if it is depth 0 or option allows it
+        #
+        yield_line_if_selected(line, selected_messages, &block)
+      end
+    end
+
+    # Updates the attributes of the given fcb object and conditionally yields to a block.
+    # It initializes fcb names and sets the default block title from fcb's body.
+    # If the fcb has a body and meets certain conditions, it yields to the given block.
+    #
+    # @param fcb [Object] The fcb object whose attributes are to be updated.
+    # @param selected_messages [Array<Symbol>] A list of message types to determine if yielding is applicable.
+    # @param block [Block] An optional block to yield to if conditions are met.
+    def update_menu_attrib_yield_selected(fcb, selected_messages, &block)
+      initialize_fcb_names(fcb)
+      return unless fcb.body
+
+      default_block_title_from_body(fcb)
+      yield_to_block_if_applicable(fcb, selected_messages, &block)
+    end
+
+    def wait_for_user_selected_block(all_blocks, menu_blocks, default)
+      block_state = wait_for_user_selection(all_blocks, menu_blocks, default)
+      handle_block_state(block_state)
+
+      block_state
+    rescue StandardError
+      error_handler('wait_for_user_selected_block')
+    end
+
+    def wait_for_user_selection(_all_blocks, menu_blocks, default)
+      prompt_title = string_send_color(
+        @delegate_object[:prompt_select_block].to_s, :prompt_color_after_script_execution
+      )
+
+      block_menu = prepare_blocks_menu(menu_blocks)
+      if block_menu.empty?
+        return SelectedBlockMenuState.new(nil, MenuState::EXIT)
+      end
+
+      selection_opts = default ? @delegate_object.merge(default: default) : @delegate_object
+      selection_opts.merge!(per_page: @delegate_object[:select_page_height])
+
+      selected_option = select_option_with_metadata(prompt_title, block_menu,
+                                                    selection_opts)
+      determine_block_state(selected_option)
+    end
+
+    # Handles the core logic for generating the command file's metadata and content.
+    def write_command_file(required_lines)
+      return unless @delegate_object[:save_executed_script]
+
+      time_now = Time.now.utc
+      @run_state.saved_script_filename =
+        SavedAsset.script_name(blockname: @delegate_object[:block_name],
+                               filename: @delegate_object[:filename],
+                               prefix: @delegate_object[:saved_script_filename_prefix],
+                               time: time_now)
+
+      @run_state.saved_filespec =
+        File.join(@delegate_object[:saved_script_folder],
+                  @run_state.saved_script_filename)
+
+      shebang = if @delegate_object[:shebang]&.present?
+                  "#{@delegate_object[:shebang]} #{@delegate_object[:shell]}\n"
+                else
+                  ''
+                end
+
+      content = shebang +
+                "# file_name: #{@delegate_object[:filename]}\n" \
+                "# block_name: #{@delegate_object[:block_name]}\n" \
+                "# time: #{time_now}\n" \
+                "#{required_lines.flatten.join("\n")}\n"
+
+      create_and_write_file_with_permissions(
+        @run_state.saved_filespec,
+        content,
+        @delegate_object[:saved_script_chmod]
+      )
+    rescue StandardError
+      error_handler('write_command_file')
+    end
+
+    def write_execution_output_to_file
+      FileUtils.mkdir_p File.dirname(@delegate_object[:logged_stdout_filespec])
+
+      File.write(
+        @delegate_object[:logged_stdout_filespec],
+        ["-STDOUT-\n",
+         format_execution_streams(ExecutionStreams::StdOut),
+         "-STDERR-\n",
+         format_execution_streams(ExecutionStreams::StdErr),
+         "-STDIN-\n",
+         format_execution_streams(ExecutionStreams::StdIn),
+         "\n"].join
+      )
+    end
+
+    # Writes required code blocks to a temporary file and sets an environment variable with its path.
+    #
+    # @param mdoc [Object] The Markdown document object.
+    # @param block_name [String] The name of the block to collect code for.
+    def write_required_blocks_to_temp_file(mdoc, block_name)
+      c1 = if mdoc
+             mdoc.collect_recursively_required_code(
+               block_name,
+               opts: @delegate_object
+             )[:code]
+           else
+             []
+           end
+
+      code_blocks = (read_required_blocks_from_temp_file +
+                     c1).join("\n")
+
+      create_temp_file_with_code(code_blocks)
+    end
+
+    # Yields a line as a new block if the selected message type includes :line.
+    # @param [String] line The line to be processed.
+    # @param [Array<Symbol>] selected_messages A list of message types to check.
+    # @param [Proc] block The block to be called with the line data.
+    def yield_line_if_selected(line, selected_messages, &block)
+      return unless block && selected_messages.include?(:line)
+
+      block.call(:line, FCB.new(body: [line]))
+    end
+
+    # Yields to the provided block with specified parameters if certain conditions are met.
+    # The method checks if a block is given, if the selected_messages include :blocks,
+    # and if the fcb_select? method from MarkdownExec::Filter returns true for the given fcb.
+    #
+    # @param fcb [Object] The object to be evaluated and potentially passed to the block.
+    # @param selected_messages [Array<Symbol>] A collection of message types, one of which must be :blocks.
+    # @param block [Block] A block to be called if conditions are met.
+    def yield_to_block_if_applicable(fcb, selected_messages, &block)
+      if block_given? && selected_messages.include?(:blocks) &&
+         MarkdownExec::Filter.fcb_select?(@delegate_object, fcb)
+        block.call :blocks, fcb
+      end
+    end
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  require 'bundler/setup'
+  Bundler.require(:default)
+
+  require 'minitest/autorun'
+  require 'mocha/minitest'
+
+  module MarkdownExec
+    class TestHashDelegator < Minitest::Test
+      def setup
+        @hd = HashDelegator.new
+        @mdoc = mock('MarkdownDocument')
+      end
+
+      def test_calling_execute_approved_block_calls_command_execute_with_argument_args_value
+        pigeon = 'E'
+        obj = {
+          output_execution_label_format: '',
+          output_execution_label_name_color: 'plain',
+          output_execution_label_value_color: 'plain',
+          s_pass_args: pigeon
+          # shell: 'bash'
+        }
+
+        c = MarkdownExec::HashDelegator.new(obj)
+
+        # Expect that method opts_command_execute is called with argument args having value pigeon
+        c.expects(:command_execute).with(
+          # obj,
+          '',
+          args: pigeon
+        )
+
+        # Call method opts_execute_approved_block
+        c.execute_approved_block([], MarkdownExec::FCB.new)
+      end
+
+      # Test case for empty body
+      def test_handle_link_block_with_empty_body
+        assert_equal LoadFileNextBlock.new(LoadFile::Reuse, ''),
+                     @hd.handle_link_block([], nil, false)
+      end
+
+      # Test case for non-empty body without 'file' key
+      def test_handle_link_block_without_file_key
+        body = ["vars:\n  KEY: VALUE"]
+        assert_equal LoadFileNextBlock.new(LoadFile::Reuse, ''),
+                     @hd.handle_link_block(body, nil, false)
+      end
+
+      # Test case for non-empty body with 'file' key
+      def test_handle_link_block_with_file_key
+        body = ["file: sample_file\nblock: sample_block\nvars:\n  KEY: VALUE"]
+        expected_result = LoadFileNextBlock.new(LoadFile::Load,
+                                                'sample_block')
+        # mdoc = MDoc.new()
+        assert_equal expected_result,
+                     @hd.handle_link_block(body, nil, FCB.new)
+      end
+
+      def test_history_env_state_exist_with_value
+        ENV[MDE_HISTORY_ENV_NAME] = 'history_value'
+        assert @hd.history_env_state_exist?
+      end
+
+      def test_history_env_state_exist_without_value
+        ENV[MDE_HISTORY_ENV_NAME] = ''
+        refute @hd.history_env_state_exist?
+      end
+
+      def test_history_env_state_exist_not_set
+        ENV.delete(MDE_HISTORY_ENV_NAME)
+        refute @hd.history_env_state_exist?
+      end
+
+      def test_indent_all_lines_with_indent
+        body = "Line 1\nLine 2"
+        indent = '  ' # Two spaces
+        expected_result = "  Line 1\n  Line 2"
+        assert_equal expected_result, @hd.indent_all_lines(body, indent)
+      end
+
+      def test_indent_all_lines_without_indent
+        body = "Line 1\nLine 2"
+        indent = nil
+
+        assert_equal body, @hd.indent_all_lines(body, indent)
+      end
+
+      def test_indent_all_lines_with_empty_indent
+        body = "Line 1\nLine 2"
+        indent = ''
+
+        assert_equal body, @hd.indent_all_lines(body, indent)
+      end
+
+      def test_read_required_blocks_from_temp_file
+        Tempfile.create do |file|
+          file.write("Line 1\nLine 2")
+          file.rewind
+          ENV['MDE_LINK_REQUIRED_FILE'] = file.path
+
+          result = @hd.read_required_blocks_from_temp_file
+          assert_equal ['Line 1', 'Line 2'], result
+        end
+      end
+
+      def test_read_required_blocks_from_temp_file_no_file
+        ENV['MDE_LINK_REQUIRED_FILE'] = nil
+        assert_empty @hd.read_required_blocks_from_temp_file
+      end
+
+      def test_safeval_successful_evaluation
+        assert_equal 4, @hd.safeval('2 + 2')
+      end
+
+      def test_safeval_rescue_from_error
+        @hd.stubs(:error_handler).with('safeval')
+        assert_nil @hd.safeval('invalid code')
+      end
+
+      def test_set_fcb_title
+        # sample input and output data for testing default_block_title_from_body method
+        input_output_data = [
+          {
+            input: MarkdownExec::FCB.new(title: nil,
+                                         body: ["puts 'Hello, world!'"]),
+            output: "puts 'Hello, world!'"
+          },
+          {
+            input: MarkdownExec::FCB.new(title: '',
+                                         body: ['def add(x, y)',
+                                                '  x + y', 'end']),
+            output: "def add(x, y)\n    x + y\n  end\n"
+          },
+          {
+            input: MarkdownExec::FCB.new(title: 'foo', body: %w[bar baz]),
+            output: 'foo' # expect the title to remain unchanged
+          }
+        ]
+
+        # hd = HashDelegator.new
+
+        # iterate over the input and output data and
+        # assert that the method sets the title as expected
+        input_output_data.each do |data|
+          input = data[:input]
+          output = data[:output]
+          @hd.default_block_title_from_body(input)
+          assert_equal output, input.title
+        end
+      end
+
+      class TestHashDelegatorAppendDivider < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      menu_divider_format: 'Format',
+                                      menu_initial_divider: 'Initial Divider',
+                                      menu_final_divider: 'Final Divider',
+                                      menu_divider_color: :color
+                                    })
+          @hd.stubs(:string_send_color).returns('Formatted Divider')
+          @hd.stubs(:safeval).returns('Safe Value')
+        end
+
+        def test_append_divider_initial
+          menu_blocks = []
+          @hd.append_divider(menu_blocks, :initial)
+
+          assert_equal 1, menu_blocks.size
+          assert_equal 'Formatted Divider', menu_blocks.first.dname
+        end
+
+        def test_append_divider_final
+          menu_blocks = []
+          @hd.append_divider(menu_blocks, :final)
+
+          assert_equal 1, menu_blocks.size
+          assert_equal 'Formatted Divider', menu_blocks.last.dname
+        end
+
+        def test_append_divider_without_format
+          @hd.instance_variable_set(:@delegate_object, {})
+          menu_blocks = []
+          @hd.append_divider(menu_blocks, :initial)
+
+          assert_empty menu_blocks
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorBlockFind < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+        end
+
+        def test_block_find_with_match
+          blocks = [{ key: 'value1' }, { key: 'value2' }]
+          result = @hd.block_find(blocks, :key, 'value1')
+          assert_equal({ key: 'value1' }, result)
+        end
+
+        def test_block_find_without_match
+          blocks = [{ key: 'value1' }, { key: 'value2' }]
+          result = @hd.block_find(blocks, :key, 'value3')
+          assert_nil result
+        end
+
+        def test_block_find_with_default
+          blocks = [{ key: 'value1' }, { key: 'value2' }]
+          result = @hd.block_find(blocks, :key, 'value3', 'default')
+          assert_equal 'default', result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorBlocksFromNestedFiles < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.stubs(:iter_blocks_from_nested_files).yields(:blocks, FCB.new)
+          @hd.stubs(:get_block_summary).returns(FCB.new)
+          @hd.stubs(:create_and_add_chrome_blocks)
+          @hd.instance_variable_set(:@delegate_object, {})
+          @hd.stubs(:error_handler)
+        end
+
+        def test_blocks_from_nested_files
+          result = @hd.blocks_from_nested_files
+
+          assert_kind_of Array, result
+          assert_kind_of FCB, result.first
+        end
+
+        def test_blocks_from_nested_files_with_no_chrome
+          @hd.instance_variable_set(:@delegate_object, { no_chrome: true })
+          @hd.expects(:create_and_add_chrome_blocks).never
+
+          result = @hd.blocks_from_nested_files
+
+          assert_kind_of Array, result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorCollectRequiredCodeLines < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {})
+          @mdoc = mock('YourMDocClass')
+          @selected = { shell: BlockType::VARS, body: ['key: value'] }
+          @hd.stubs(:read_required_blocks_from_temp_file).returns([])
+          @hd.stubs(:string_send_color)
+          @hd.stubs(:print)
+        end
+
+        def test_collect_required_code_lines_with_vars
+          YAML.stubs(:load).returns({ 'key' => 'value' })
+          @mdoc.stubs(:collect_recursively_required_code).returns({ code: ['code line'] })
+          ENV.stubs(:[]=)
+
+          result = @hd.collect_required_code_lines(@mdoc, @selected)
+
+          assert_equal ['code line'], result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorCommandOrUserSelectedBlock < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {})
+          @hd.stubs(:error_handler)
+          @hd.stubs(:wait_for_user_selected_block)
+        end
+
+        def test_command_selected_block
+          all_blocks = [{ oname: 'block1' }, { oname: 'block2' }]
+          @hd.instance_variable_set(:@delegate_object,
+                                    { block_name: 'block1' })
+
+          result = @hd.command_or_user_selected_block(all_blocks, [], nil)
+
+          assert_equal all_blocks.first, result.block
+          assert_nil result.state
+        end
+
+        def test_user_selected_block
+          block_state = SelectedBlockMenuState.new({ oname: 'block2' },
+                                                   :some_state)
+          @hd.stubs(:wait_for_user_selected_block).returns(block_state)
+
+          result = @hd.command_or_user_selected_block([], [], nil)
+
+          assert_equal block_state.block, result.block
+          assert_equal :some_state, result.state
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorCountBlockInFilename < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object,
+                                    { fenced_start_and_end_regex: '^```',
+                                      filename: '/path/to/file' })
+          @hd.stubs(:cfile).returns(mock('cfile'))
+        end
+
+        def test_count_blocks_in_filename
+          file_content = ["```ruby\n", "puts 'Hello'\n", "```\n",
+                          "```python\n", "print('Hello')\n", "```\n"]
+          @hd.cfile.stubs(:readlines).with('/path/to/file').returns(file_content)
+
+          count = @hd.count_blocks_in_filename
+
+          assert_equal 2, count
+        end
+
+        def test_count_blocks_in_filename_with_no_matches
+          file_content = ["puts 'Hello'\n", "print('Hello')\n"]
+          @hd.cfile.stubs(:readlines).with('/path/to/file').returns(file_content)
+
+          count = @hd.count_blocks_in_filename
+
+          assert_equal 0, count
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorCreateAndWriteFile < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.stubs(:error_handler)
+          FileUtils.stubs(:mkdir_p)
+          File.stubs(:write)
+          File.stubs(:chmod)
+        end
+
+        def test_create_and_write_file_with_permissions
+          file_path = '/path/to/file'
+          content = 'sample content'
+          chmod_value = 0o644
+
+          FileUtils.expects(:mkdir_p).with('/path/to').once
+          File.expects(:write).with(file_path, content).once
+          File.expects(:chmod).with(chmod_value, file_path).once
+
+          @hd.create_and_write_file_with_permissions(file_path, content,
+                                                     chmod_value)
+
+          assert true # Placeholder for actual test assertions
+        end
+
+        def test_create_and_write_file_without_chmod
+          file_path = '/path/to/file'
+          content = 'sample content'
+          chmod_value = 0
+
+          FileUtils.expects(:mkdir_p).with('/path/to').once
+          File.expects(:write).with(file_path, content).once
+          File.expects(:chmod).never
+
+          @hd.create_and_write_file_with_permissions(file_path, content,
+                                                     chmod_value)
+
+          assert true # Placeholder for actual test assertions
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorCreateTempFile < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @temp_file_path = '/tmp/tempfile'
+        end
+
+        def test_create_temp_file_with_code
+          Dir::Tmpname.stubs(:create).returns(@temp_file_path)
+          File.stubs(:write).with(@temp_file_path, 'code_blocks')
+          # ENV.expects(:[]=).with('MDE_LINK_REQUIRED_FILE', @temp_file_path)
+
+          @hd.create_temp_file_with_code('code_blocks')
+
+          assert true # Placeholder for actual test assertions
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorDeleteRequiredTempFile < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.stubs(:error_handler)
+          @hd.stubs(:clear_required_file)
+          FileUtils.stubs(:rm_f)
+        end
+
+        def test_delete_required_temp_file_with_existing_file
+          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE',
+                                 nil).returns('/path/to/temp_file')
+          FileUtils.expects(:rm_f).with('/path/to/temp_file').once
+          @hd.expects(:clear_required_file).once
+
+          @hd.delete_required_temp_file
+
+          assert true # Placeholder for actual test assertions
+        end
+
+        def test_delete_required_temp_file_with_no_file
+          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE', nil).returns(nil)
+          FileUtils.expects(:rm_f).never
+          @hd.expects(:clear_required_file).never
+
+          @hd.delete_required_temp_file
+
+          assert true # Placeholder for actual test assertions
+        end
+
+        def test_delete_required_temp_file_with_error
+          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE',
+                                 nil).returns('/path/to/temp_file')
+          FileUtils.stubs(:rm_f).raises(StandardError)
+          @hd.expects(:error_handler).with('delete_required_temp_file').once
+
+          @hd.delete_required_temp_file
+
+          assert true # Placeholder for actual test assertions
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorDetermineBlockState < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.stubs(:menu_chrome_formatted_option).returns('Formatted Option')
+        end
+
+        def test_determine_block_state_exit
+          selected_option = { oname: 'Formatted Option' }
+          @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_exit_name).returns('Formatted Option')
+
+          result = @hd.determine_block_state(selected_option)
+
+          assert_equal MenuState::EXIT, result.state
+          assert_nil result.block
+        end
+
+        def test_determine_block_state_back
+          selected_option = { oname: 'Formatted Back Option' }
+          @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_back_name).returns('Formatted Back Option')
+          result = @hd.determine_block_state(selected_option)
+
+          assert_equal MenuState::BACK, result.state
+          assert_equal selected_option, result.block
+        end
+
+        def test_determine_block_state_continue
+          selected_option = { oname: 'Other Option' }
+
+          result = @hd.determine_block_state(selected_option)
+
+          assert_equal MenuState::CONTINUE, result.state
+          assert_equal selected_option, result.block
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorDisplayRequiredCode < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@fout, mock('fout'))
+          @hd.instance_variable_set(:@delegate_object, {})
+          @hd.stubs(:string_send_color)
+        end
+
+        def test_display_required_code
+          required_lines = %w[line1 line2]
+          @hd.instance_variable_get(:@delegate_object).stubs(:[]).with(:script_preview_head).returns('Header')
+          @hd.instance_variable_get(:@delegate_object).stubs(:[]).with(:script_preview_tail).returns('Footer')
+          @hd.instance_variable_get(:@fout).expects(:fout).times(4)
+
+          @hd.display_required_code(required_lines)
+
+          # Verifying that fout is called for each line and for header & footer
+          assert true # Placeholder for actual test assertions
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorFetchColor < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {})
+        end
+
+        def test_fetch_color_with_valid_data
+          @hd.instance_variable_get(:@delegate_object).stubs(:fetch).with(
+            :execution_report_preview_head, ''
+          ).returns('Data String')
+          @hd.stubs(:string_send_color).with('Data String',
+                                             :execution_report_preview_frame_color).returns('Colored Data String')
+
+          result = @hd.fetch_color
+
+          assert_equal 'Colored Data String', result
+        end
+
+        def test_fetch_color_with_missing_data
+          @hd.instance_variable_get(:@delegate_object).stubs(:fetch).with(
+            :execution_report_preview_head, ''
+          ).returns('')
+          @hd.stubs(:string_send_color).with('',
+                                             :execution_report_preview_frame_color).returns('Default Colored String')
+
+          result = @hd.fetch_color
+
+          assert_equal 'Default Colored String', result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorFormatReferencesSendColor < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {})
+        end
+
+        def test_format_references_send_color_with_valid_data
+          @hd.instance_variable_get(:@delegate_object).stubs(:fetch).with(
+            :output_execution_label_format, ''
+          ).returns('Formatted: %{key}')
+          @hd.stubs(:string_send_color).returns('Colored String')
+
+          result = @hd.format_references_send_color(context: { key: 'value' },
+                                                    color_sym: :execution_report_preview_frame_color)
+
+          assert_equal 'Colored String', result
+        end
+
+        def test_format_references_send_color_with_missing_format
+          @hd.instance_variable_get(:@delegate_object).stubs(:fetch).with(
+            :output_execution_label_format, ''
+          ).returns('')
+          @hd.stubs(:string_send_color).returns('Default Colored String')
+
+          result = @hd.format_references_send_color(context: { key: 'value' },
+                                                    color_sym: :execution_report_preview_frame_color)
+
+          assert_equal 'Default Colored String', result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorFormatExecutionStreams < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@run_state, mock('run_state'))
+        end
+
+        def test_format_execution_streams_with_valid_key
+          @hd.instance_variable_get(:@run_state).stubs(:files).returns({ stdout: %w[
+                                                                         output1 output2
+                                                                       ] })
+
+          result = @hd.format_execution_streams(:stdout)
+
+          assert_equal 'output1output2', result
+        end
+
+        def test_format_execution_streams_with_empty_key
+          @hd.instance_variable_get(:@run_state).stubs(:files).returns({})
+
+          result = @hd.format_execution_streams(:stderr)
+
+          assert_equal '', result
+        end
+
+        def test_format_execution_streams_with_nil_files
+          @hd.instance_variable_get(:@run_state).stubs(:files).returns(nil)
+
+          result = @hd.format_execution_streams(:stdin)
+
+          assert_equal '', result
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorHandleBackLink < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.stubs(:history_state_pop)
+        end
+
+        def test_handle_back_link
+          # Verifying that history_state_pop is called
+          @hd.expects(:history_state_pop).once
+
+          result = @hd.handle_back_link
+
+          # Asserting the result is an instance of LoadFileNextBlock
+          assert_instance_of LoadFileNextBlock, result
+          assert_equal LoadFile::Load, result.load_file
+          assert_equal '', result.next_block
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorHandleBlockState < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @mock_block_state = mock('block_state')
+        end
+
+        def test_handle_block_state_with_back
+          @mock_block_state.stubs(:state).returns(MenuState::BACK)
+          @mock_block_state.stubs(:block).returns({ dname: 'sample_block' })
+
+          @hd.handle_block_state(@mock_block_state)
+
+          assert_equal 'sample_block',
+                       @hd.instance_variable_get(:@delegate_object)[:block_name]
+          assert @hd.instance_variable_get(:@menu_user_clicked_back_link)
+        end
+
+        def test_handle_block_state_with_continue
+          @mock_block_state.stubs(:state).returns(MenuState::CONTINUE)
+          @mock_block_state.stubs(:block).returns({ dname: 'another_block' })
+
+          @hd.handle_block_state(@mock_block_state)
+
+          assert_equal 'another_block',
+                       @hd.instance_variable_get(:@delegate_object)[:block_name]
+          refute @hd.instance_variable_get(:@menu_user_clicked_back_link)
+        end
+
+        def test_handle_block_state_with_other
+          @mock_block_state.stubs(:state).returns(nil) # MenuState::OTHER
+          @mock_block_state.stubs(:block).returns({ dname: 'other_block' })
+
+          @hd.handle_block_state(@mock_block_state)
+
+          assert_nil @hd.instance_variable_get(:@delegate_object)[:block_name]
+          assert_nil @hd.instance_variable_get(:@menu_user_clicked_back_link)
+        end
+      end # class TestHashDelegator
+
+      class TestHashDelegatorHandleGenericBlock < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @mock_document = mock('MarkdownDocument')
+          @selected_item = mock('FCB')
+        end
+
+        def test_handle_generic_block_without_user_approval
+          # Mock the delegate object configuration
+          @hd.instance_variable_set(:@delegate_object,
+                                    { output_script: false,
+                                      user_must_approve: false })
+
+          # Test the method without user approval
+          # Expectations and assertions go here
+        end
+
+        def test_handle_generic_block_with_user_approval
+          # Mock the delegate object configuration
+          @hd.instance_variable_set(:@delegate_object,
+                                    { output_script: false,
+                                      user_must_approve: true })
+
+          # Test the method with user approval
+          # Expectations and assertions go here
+        end
+
+        def test_handle_generic_block_with_output_script
+          # Mock the delegate object configuration
+          @hd.instance_variable_set(:@delegate_object,
+                                    { output_script: true,
+                                      user_must_approve: false })
+
+          # Test the method with output script option
+          # Expectations and assertions go here
+        end
+      end
+
+      class TestHashDelegatorHandleOptsBlock < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object,
+                                    { menu_opts_set_format: 'Option: %<key>s, Value: %<value>s',
+                                      menu_opts_set_color: :blue })
+          @hd.stubs(:string_send_color)
+          @hd.stubs(:print)
+        end
+
+        def test_handle_opts_block
+          selected = { body: ['option1: value1'] }
+          tgt2 = {}
+
+          result = @hd.handle_opts_block(selected, tgt2)
+
+          assert_instance_of LoadFileNextBlock, result
+          assert_equal 'value1',
+                       @hd.instance_variable_get(:@delegate_object)[:option1]
+          assert_equal 'value1', tgt2[:option1]
+        end
+
+        def test_handle_opts_block_without_format
+          selected = { body: ['option2: value2'] }
+          @hd.instance_variable_set(:@delegate_object, {})
+
+          result = @hd.handle_opts_block(selected)
+
+          assert_instance_of LoadFileNextBlock, result
+          assert_equal 'value2',
+                       @hd.instance_variable_get(:@delegate_object)[:option2]
+        end
+
+        # Additional test cases can be added to cover more scenarios and edge cases.
+      end
+
+      # require 'stringio'
+
+      class TestHashDelegatorHandleStream < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@run_state,
+                                    OpenStruct.new(files: { stdout: [] }))
+          @hd.instance_variable_set(:@delegate_object,
+                                    { output_stdout: true })
+        end
+
+        def test_handle_stream
+          stream = StringIO.new("line 1\nline 2\n")
+          file_type = :stdout
+
+          Thread.new { @hd.handle_stream(stream, file_type) }
+
+          @hd.wait_for_stream_processing
+
+          assert_equal ['line 1', 'line 2'],
+                       @hd.instance_variable_get(:@run_state).files[:stdout]
+        end
+
+        def test_handle_stream_with_io_error
+          stream = StringIO.new("line 1\nline 2\n")
+          file_type = :stdout
+          stream.stubs(:each_line).raises(IOError)
+
+          Thread.new { @hd.handle_stream(stream, file_type) }
+
+          @hd.wait_for_stream_processing
+
+          assert_equal [],
+                       @hd.instance_variable_get(:@run_state).files[:stdout]
+        end
+      end
+
+      class TestHashDelegatorHistoryStatePartition < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      history_document_separator: '|'
+                                    })
+        end
+
+        def test_history_state_partition_with_value
+          ENV[MDE_HISTORY_ENV_NAME] = 'part1|part2'
+
+          result = @hd.history_state_partition
+          assert_equal({ unit: 'part1', rest: 'part2' }, result)
+        end
+
+        def test_history_state_partition_with_no_separator
+          ENV[MDE_HISTORY_ENV_NAME] = 'onlypart'
+
+          result = @hd.history_state_partition
+          assert_equal({ unit: 'onlypart', rest: '' }, result)
+        end
+
+        def test_history_state_partition_with_empty_env
+          ENV[MDE_HISTORY_ENV_NAME] = ''
+
+          result = @hd.history_state_partition
+          assert_equal({ unit: '', rest: '' }, result)
+        end
+
+        # Additional test cases can be added to cover more scenarios and edge cases.
+      end
+
+      class TestHashDelegatorHistoryStatePop < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object,
+                                    { filename: 'initial.md' })
+          @hd.instance_variable_set(:@run_state,
+                                    OpenStruct.new(link_history: [{ block_name: 'block1',
+                                                                    filename: 'file1.md' }]))
+          @hd.stubs(:history_state_partition).returns({ unit: 'file2.md',
+                                                        rest: 'history_data' })
+          @hd.stubs(:delete_required_temp_file)
+        end
+
+        def test_history_state_pop
+          ENV[MDE_HISTORY_ENV_NAME] = 'some_history'
+
+          @hd.history_state_pop
+
+          assert_equal 'file2.md',
+                       @hd.instance_variable_get(:@delegate_object)[:filename]
+          assert_equal 'history_data',
+                       ENV.fetch(MDE_HISTORY_ENV_NAME, nil)
+          assert_empty @hd.instance_variable_get(:@run_state).link_history
+        end
+
+        # Additional test cases can be added to cover more scenarios and edge cases.
+      end
+
+      class TestHashDelegatorHistoryStatePush < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      filename: 'test.md',
+                                      block_name: 'test_block',
+                                      history_document_separator: '||'
+                                    })
+          @hd.instance_variable_set(:@run_state,
+                                    OpenStruct.new(link_history: []))
+          @hd.stubs(:write_required_blocks_to_temp_file)
+        end
+
+        def test_history_state_push
+          mdoc = 'markdown content'
+          data_file = 'data.md'
+          selected = { oname: 'selected_block' }
+
+          ENV[MDE_HISTORY_ENV_NAME] = 'existing_history'
+
+          @hd.history_state_push(mdoc, data_file, selected)
+
+          assert_equal 'data.md',
+                       @hd.instance_variable_get(:@delegate_object)[:filename]
+          assert_equal 'test.md||existing_history',
+                       ENV.fetch(MDE_HISTORY_ENV_NAME, nil)
+          assert_includes @hd.instance_variable_get(:@run_state).link_history,
+                          { block_name: 'selected_block',
+                            filename: 'data.md' }
+        end
+
+        # Additional test cases can be added to cover more scenarios and edge cases.
+      end
+
+      class TestHashDelegatorIterBlocksFromNestedFiles < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object,
+                                    { filename: 'test.md' })
+          @hd.stubs(:check_file_existence).with('test.md').returns(true)
+          @hd.stubs(:initial_state).returns({})
+          @hd.stubs(:cfile).returns(Minitest::Mock.new)
+          @hd.stubs(:update_line_and_block_state)
+        end
+
+        def test_iter_blocks_from_nested_files
+          @hd.cfile.expect(:readlines, ['line 1', 'line 2'], ['test.md'])
+          selected_messages = ['filtered message']
+
+          result = @hd.iter_blocks_from_nested_files { selected_messages }
+          assert_equal ['line 1', 'line 2'], result
+
+          @hd.cfile.verify
+        end
+
+        def test_iter_blocks_from_nested_files_with_no_file
+          @hd.stubs(:check_file_existence).with('test.md').returns(false)
+
+          assert_nil(@hd.iter_blocks_from_nested_files do
+                       ['filtered message']
+                     end)
+        end
+      end
+
+      class TestHashDelegatorLoadAutoBlocks < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      document_load_opts_block_name: 'load_block',
+                                      s_most_recent_filename: 'old_file',
+                                      filename: 'new_file'
+                                    })
+          @hd.stubs(:block_find).returns({}) # Assuming it returns a block
+          @hd.stubs(:handle_opts_block)
+        end
+
+        def test_load_auto_blocks_with_new_filename
+          assert @hd.load_auto_blocks([])
+        end
+
+        def test_load_auto_blocks_with_same_filename
+          @hd.instance_variable_set(:@delegate_object, {
+                                      document_load_opts_block_name: 'load_block',
+                                      s_most_recent_filename: 'new_file',
+                                      filename: 'new_file'
+                                    })
+          assert_nil @hd.load_auto_blocks([])
+        end
+
+        def test_load_auto_blocks_without_block_name
+          @hd.instance_variable_set(:@delegate_object, {
+                                      document_load_opts_block_name: nil,
+                                      s_most_recent_filename: 'old_file',
+                                      filename: 'new_file'
+                                    })
+          assert_nil @hd.load_auto_blocks([])
+        end
+      end
+
+      class TestHashDelegatorMenuChromeColoredOption < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      menu_option_back_name: 'Back',
+                                      menu_chrome_color: :red,
+                                      menu_chrome_format: '-- %s --'
+                                    })
+          @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_back_name).returns('-- Back --')
+          @hd.stubs(:string_send_color).with('-- Back --',
+                                             :menu_chrome_color).returns('-- Back --'.red)
+        end
+
+        def test_menu_chrome_colored_option_with_color
+          assert_equal '-- Back --'.red,
+                       @hd.menu_chrome_colored_option(:menu_option_back_name)
+        end
+
+        def test_menu_chrome_colored_option_without_color
+          @hd.instance_variable_set(:@delegate_object,
+                                    { menu_option_back_name: 'Back' })
+          assert_equal '-- Back --',
+                       @hd.menu_chrome_colored_option(:menu_option_back_name)
+        end
+      end
+
+      class TestHashDelegatorMenuChromeFormattedOptionWithoutFormat < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object, {
+                                      menu_option_back_name: "'Back'",
+                                      menu_chrome_format: '-- %s --'
+                                    })
+          @hd.stubs(:safeval).with("'Back'").returns('Back')
+        end
+
+        def test_menu_chrome_formatted_option_with_format
+          assert_equal '-- Back --',
+                       @hd.menu_chrome_formatted_option(:menu_option_back_name)
+        end
+
+        def test_menu_chrome_formatted_option_without_format
+          @hd.instance_variable_set(:@delegate_object,
+                                    { menu_option_back_name: "'Back'" })
+          assert_equal 'Back',
+                       @hd.menu_chrome_formatted_option(:menu_option_back_name)
+        end
+      end
+
+      class TestHashDelegatorStartFencedBlock < Minitest::Test
+        def setup
+          @hd = HashDelegator.new({
+                                    block_name_wrapper_match: 'WRAPPER_REGEX',
+                                    block_calls_scan: 'CALLS_REGEX'
+                                  })
+        end
+
+        def test_start_fenced_block
+          line = '```fenced'
+          headings = ['Heading 1']
+          regex = /```(?<name>\w+)(?<rest>.*)/
+
+          fcb = @hd.start_fenced_block(line, headings, regex)
+
+          assert_instance_of MarkdownExec::FCB, fcb
+          assert_equal headings, fcb.headings
+          assert_equal 'fenced', fcb.dname
+        end
+      end
+
+      class TestHashDelegatorStringSendColor < Minitest::Test
+        def setup
+          @hd = HashDelegator.new
+          @hd.instance_variable_set(:@delegate_object,
+                                    { red: 'red', green: 'green' })
+        end
+
+        def test_string_send_color
+          assert_equal 'Hello'.red, @hd.string_send_color('Hello', :red)
+          assert_equal 'World'.green,
+                       @hd.string_send_color('World', :green)
+          assert_equal 'Default'.plain,
+                       @hd.string_send_color('Default', :blue)
+        end
+      end
+
+      def test_yield_line_if_selected_with_line
+        block_called = false
+        @hd.yield_line_if_selected('Test line', [:line]) do |type, content|
+          block_called = true
+          assert_equal :line, type
+          assert_equal 'Test line', content.body[0]
+        end
+        assert block_called
+      end
+
+      def test_yield_line_if_selected_without_line
+        block_called = false
+        @hd.yield_line_if_selected('Test line', [:other]) do |_|
+          block_called = true
+        end
+        refute block_called
+      end
+
+      def test_yield_line_if_selected_without_block
+        result = @hd.yield_line_if_selected('Test line', [:line])
+        assert_nil result
+      end
+    end # class TestHashDelegator
+
+    class TestHashDelegator < Minitest::Test
+      def setup
+        @hd = HashDelegator.new
+        @hd.instance_variable_set(:@delegate_object, {
+                                    heading1_match: '^# (?<name>.+)$',
+                                    heading2_match: '^## (?<name>.+)$',
+                                    heading3_match: '^### (?<name>.+)$'
+                                  })
+      end
+
+      def test_update_document_headings
+        assert_equal(['Heading 1'],
+                     @hd.update_document_headings('# Heading 1', []))
+        assert_equal(['Heading 1', 'Heading 2'],
+                     @hd.update_document_headings('## Heading 2',
+                                                  ['Heading 1']))
+        assert_equal(['Heading 1', 'Heading 2', 'Heading 3'],
+                     @hd.update_document_headings('### Heading 3',
+                                                  ['Heading 1', 'Heading 2']))
+        assert_equal([], @hd.update_document_headings('Regular text', []))
+      end
+    end
+
+    class TestHashDelegatorUpdateMenuAttribYieldSelectedWithBody < Minitest::Test
+      def setup
+        @hd = HashDelegator.new
+        @fcb = mock('Fcb')
+        @fcb.stubs(:body).returns(true)
+        @hd.stubs(:initialize_fcb_names)
+        @hd.stubs(:default_block_title_from_body)
+        @hd.stubs(:yield_to_block_if_applicable)
+      end
+
+      def test_update_menu_attrib_yield_selected_with_body
+        @hd.expects(:initialize_fcb_names).with(@fcb)
+        @hd.expects(:default_block_title_from_body).with(@fcb)
+        @hd.expects(:yield_to_block_if_applicable).with(@fcb, [:some_message])
+
+        @hd.update_menu_attrib_yield_selected(@fcb, [:some_message])
+      end
+
+      def test_update_menu_attrib_yield_selected_without_body
+        @fcb.stubs(:body).returns(nil)
+        @hd.expects(:initialize_fcb_names).with(@fcb)
+        @hd.update_menu_attrib_yield_selected(@fcb, [:some_message])
+      end
+    end
+
+    class TestHashDelegatorWaitForUserSelectedBlock < Minitest::Test
+      def setup
+        @hd = HashDelegator.new
+        @hd.stubs(:error_handler)
+      end
+
+      def test_wait_for_user_selected_block_with_back_state
+        mock_block_state = Struct.new(:state, :block).new(MenuState::BACK,
+                                                          { dname: 'back_block' })
+        @hd.stubs(:wait_for_user_selection).returns(mock_block_state)
+
+        result = @hd.wait_for_user_selected_block([], ['Block 1', 'Block 2'],
+                                                  nil)
+
+        assert_equal 'back_block',
+                     @hd.instance_variable_get(:@delegate_object)[:block_name]
+        assert @hd.instance_variable_get(:@menu_user_clicked_back_link)
+        assert_equal mock_block_state, result
+      end
+
+      def test_wait_for_user_selected_block_with_continue_state
+        mock_block_state = Struct.new(:state, :block).new(
+          MenuState::CONTINUE, { dname: 'continue_block' }
+        )
+        @hd.stubs(:wait_for_user_selection).returns(mock_block_state)
+
+        result = @hd.wait_for_user_selected_block([], ['Block 1', 'Block 2'],
+                                                  nil)
+
+        assert_equal 'continue_block',
+                     @hd.instance_variable_get(:@delegate_object)[:block_name]
+        refute @hd.instance_variable_get(:@menu_user_clicked_back_link)
+        assert_equal mock_block_state, result
+      end
+    end
+
+    ####
+    class TestHashDelegatorYieldToBlock < Minitest::Test
+      def setup
+        @hd = HashDelegator.new
+        @fcb = mock('Fcb')
+        MarkdownExec::Filter.stubs(:fcb_select?).returns(true)
+      end
+
+      def test_yield_to_block_if_applicable_with_correct_conditions
+        block_called = false
+        @hd.yield_to_block_if_applicable(@fcb, [:blocks]) do |type, fcb|
+          block_called = true
+          assert_equal :blocks, type
+          assert_equal @fcb, fcb
+        end
+        assert block_called
+      end
+
+      def test_yield_to_block_if_applicable_without_block
+        result = @hd.yield_to_block_if_applicable(@fcb, [:blocks])
+        assert_nil result
+      end
+
+      def test_yield_to_block_if_applicable_with_incorrect_conditions
+        block_called = false
+        MarkdownExec::Filter.stubs(:fcb_select?).returns(false)
+        @hd.yield_to_block_if_applicable(@fcb, [:non_blocks]) do |_|
+          block_called = true
+        end
+        refute block_called
+      end
+    end
+  end # module MarkdownExec
+end

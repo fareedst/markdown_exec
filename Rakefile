@@ -81,6 +81,7 @@ task :minitest do
     './lib/cached_nested_file_reader.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
+    './lib/hash_delegator.rb',
     './lib/markdown_exec.rb',
     './lib/mdoc.rb',
     './lib/object_present.rb',

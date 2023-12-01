@@ -43,7 +43,7 @@ class Object
       when 'FalseClass', 'TrueClass'
         true
       else
-        self && (!respond_to?(:blank?) || !blank?)
+        self && (!respond_to?(:present?) || !present?)
       end
     end
   end

@@ -5,6 +5,16 @@
 
 # version 2023-10-03
 
+require 'fileutils'
+require_relative 'exceptions'
+
+# a struct to hold the data for a single line
+NestedLine = Struct.new(:text, :depth) do
+  def to_s
+    text
+  end
+end
+
 ##
 # The CachedNestedFileReader class provides functionality to read file lines with the ability
 # to process '#import filename' directives. When such a directive is encountered in a file,
@@ -13,42 +23,58 @@
 # It allows clients to read lines with or without providing a block.
 #
 class CachedNestedFileReader
+  include Exceptions
+
   def initialize(import_pattern: /^ *#import (.+)$/)
     @file_cache = {}
     @import_pattern = import_pattern
   end
 
-  def readlines(filename, &block)
+  def error_handler(name = '', opts = {})
+    Exceptions.error_handler(
+      "CachedNestedFileReader.#{name} -- #{$!}",
+      opts
+    )
+  end
+
+  def warn_format(name, message, opts = {})
+    Exceptions.warn_format(
+      "CachedNestedFileReader.#{name} -- #{message}",
+      opts
+    )
+  end
+
+  def readlines(filename, depth = 0, &block)
     if @file_cache.key?(filename)
-      @file_cache[filename].each(&block) if block_given?
+      @file_cache[filename].each(&block) if block
       return @file_cache[filename]
     end
 
     directory_path = File.dirname(filename)
-    lines = File.readlines(filename, chomp: true)
+    # lines = File.readlines(filename, chomp: true)
     processed_lines = []
 
-    lines.each do |line|
-      if (match = line.match(@import_pattern))
-        included_file_path = if match[1].strip.match %r{^/}
-                               match[1].strip
+    File.readlines(filename, chomp: true).each do |line|
+      if Regexp.new(@import_pattern) =~ line
+        name_strip = $~[:name].strip
+        included_file_path = if name_strip =~ %r{^/}
+                               name_strip
                              else
-                               File.join(directory_path, match[1].strip)
+                               File.join(directory_path, name_strip)
                              end
-        processed_lines += readlines(included_file_path, &block)
+        processed_lines += readlines(included_file_path, depth + 1,
+                                     &block)
       else
-        processed_lines.push(line)
-        yield line if block_given?
+        nested_line = NestedLine.new(line, depth)
+        processed_lines.push(nested_line)
+        block&.call(nested_line)
       end
     end
 
     @file_cache[filename] = processed_lines
-  end
-
-  private
-
-  def fetch_lines(filename)
-    @fetch_lines_cache[filename] ||= File.readlines(filename, chomp: true)
+  rescue Errno::ENOENT
+    # Exceptions.error_handler('readlines', { abort: true })
+    warn_format('readlines', "No such file -- #{filename}", { abort: true })
   end
 end
 
@@ -56,10 +82,6 @@ if $PROGRAM_NAME == __FILE__
   require 'minitest/autorun'
   require 'tempfile'
 
-  ##
-  # The CachedNestedFileReaderTest class provides testing for
-  # the CachedNestedFileReader class.
-  #
   class CachedNestedFileReaderTest < Minitest::Test
     def setup
       @file2 = Tempfile.new('test2.txt')
@@ -69,7 +91,7 @@ if $PROGRAM_NAME == __FILE__
       @file1 = Tempfile.new('test1.txt')
       @file1.write("Line1\nLine2\n #insert #{@file2.path}\nLine3")
       @file1.rewind
-      @reader = CachedNestedFileReader.new(import_pattern: /^ *#insert (.+)$/)
+      @reader = CachedNestedFileReader.new(import_pattern: /^ *#insert (?'name'.+)$/)
     end
 
     def teardown
@@ -81,28 +103,26 @@ if $PROGRAM_NAME == __FILE__
     end
 
     def test_readlines_without_imports
-      result = []
-      @reader.readlines(@file2.path) { |line| result << line }
+      result = @reader.readlines(@file2.path).map(&:to_s)
       assert_equal %w[ImportedLine1 ImportedLine2], result
     end
 
     def test_readlines_with_imports
-      result = []
-      @reader.readlines(@file1.path) { |line| result << line }
-      assert_equal %w[Line1 Line2 ImportedLine1 ImportedLine2 Line3], result
+      result = @reader.readlines(@file1.path).map(&:to_s)
+      assert_equal %w[Line1 Line2 ImportedLine1 ImportedLine2 Line3],
+                   result
     end
 
     def test_caching_functionality
       # First read
-      result1 = []
-      @reader.readlines(@file2.path) { |line| result1 << line }
+
+      result1 = @reader.readlines(@file2.path).map(&:to_s)
 
       # Simulate file content change
       @file2.reopen(@file2.path, 'w') { |f| f.write('ChangedLine') }
 
       # Second read (should read from cache, not the changed file)
-      result2 = []
-      @reader.readlines(@file2.path) { |line| result2 << line }
+      result2 = @reader.readlines(@file2.path).map(&:to_s)
 
       assert_equal result1, result2
       assert_equal %w[ImportedLine1 ImportedLine2], result2

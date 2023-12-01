@@ -19,6 +19,7 @@ module MarkdownExec
         call: nil,
         headings: [],
         dname: nil,
+        indent: '',
         name: nil,
         oname: nil,
         reqs: [],
@@ -27,6 +28,39 @@ module MarkdownExec
         random: Random.new.rand,
         text: nil # displayable in menu
       }.merge(options)
+    end
+
+    def title=(value)
+      @attrs[:title] = value
+    end
+
+    # Derives a title from the body of an FCB object.
+    # @param fcb [Object] The FCB object whose title is to be derived.
+    # @return [String] The derived title.
+    def derive_title_from_body
+      body_content = @attrs[:body]
+      unless body_content
+        @attrs[:title] = ''
+        return
+      end
+
+      @attrs[:title] = if body_content.count == 1
+                         body_content.first
+                       else
+                         format_multiline_body_as_title(body_content)
+                       end
+    end
+
+    private
+
+    # Formats multiline body content as a title string.
+    # indents all but first line with two spaces so it displays correctly in menu
+    # @param body_lines [Array<String>] The lines of body content.
+    # @return [String] Formatted title.
+    def format_multiline_body_as_title(body_lines)
+      body_lines.map.with_index do |line, index|
+        index.zero? ? line : "  #{line}"
+      end.join("\n") << "\n"
     end
 
     # :reek:ManualDispatch
@@ -48,7 +82,9 @@ module MarkdownExec
       raise err # Here, we simply propagate the original error instead of wrapping it in a StandardError.
     end
 
-    def respond_to_missing?(method_name, _include_private = false)
+    public
+
+    def respond_to_missing?(method_name, include_private = false)
       @attrs.key?(method_name.to_sym) || super
     end
 
@@ -63,6 +99,9 @@ module MarkdownExec
 end
 
 if $PROGRAM_NAME == __FILE__
+  require 'bundler/setup'
+  Bundler.require(:default)
+
   require 'minitest/autorun'
   require 'yaml'
 
@@ -73,6 +112,7 @@ if $PROGRAM_NAME == __FILE__
         call: 'Sample call',
         headings: %w[Header1 Header2],
         dname: 'Sample name',
+        indent: '',
         name: 'Sample name',
         oname: 'Sample name',
         reqs: %w[req1 req2],

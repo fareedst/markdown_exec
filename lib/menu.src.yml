@@ -1,7 +1,7 @@
 ---
 - :description: Show current configuration values
   :procname: show_config
-  :short_name: '0'
+  :short_name: "0"
 
 - :arg_name: BOOL
   :default: false
@@ -113,6 +113,24 @@
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
 
+- :default: magenta
+  :description: execution_report_preview_frame_color
+  :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
+  :opt_name: execution_report_preview_frame_color
+  :procname: val_as_str
+
+- :default: "\n -^-"
+  :description: execution_report_preview_head
+  :env_var: MDE_EXECUTION_REPORT_PREVIEW_HEAD
+  :opt_name: execution_report_preview_head
+  :procname: val_as_str
+
+- :default: " -v-"
+  :description: execution_report_preview_tail
+  :env_var: MDE_EXECUTION_REPORT_PREVIEW_TAIL
+  :opt_name: execution_report_preview_tail
+  :procname: val_as_str
+
 - :description: Exit app
   :long_name: exit
   :procname: exit
@@ -178,7 +196,7 @@
   :opt_name: history_property_separator
   :procname: val_as_str
 
-- :default: "^ *@import (.+)$"
+- :default: "^ *@import +(?<name>.+?) *$"
   :env_var: MDE_IMPORT_PATTERN
   :opt_name: import_pattern
   :procname: val_as_str
@@ -312,6 +330,26 @@
   :env_var: MDE_MENU_FINAL_DIVIDER
   :opt_name: menu_final_divider
   :procname: val_as_str
+
+- :default: "0"
+  :description: Import levels for blocks to appear in menu. Empty is all.
+  :env_var: MDE_MENU_IMPORT_LEVEL_MATCH
+  :opt_name: menu_import_level_match
+  :procname: val_as_str
+
+- :arg_name: BOOL
+  :default: true
+  :description: Include imported blocks in menu
+  :env_var: MDE_MENU_INCLUDE_IMPORTED_BLOCKS
+  :opt_name: menu_include_imported_blocks
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: false
+  :description: Include imported notes in menu
+  :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
+  :opt_name: menu_include_imported_notes
+  :procname: val_as_bool
 
 - :default:
     :line: ""
@@ -447,18 +485,6 @@
   :opt_name: no_chrome
   :procname: val_as_bool
 
-- :default: " #=#=#"
-  :description: Output divider
-  :env_var: MDE_OUTPUT_DIVIDER
-  :opt_name: output_divider
-  :procname: val_as_str
-
-- :default: yellow
-  :description: Color of output divider
-  :env_var: MDE_OUTPUT_DIVIDER_COLOR
-  :opt_name: output_divider_color
-  :procname: val_as_str
-
 - :arg_name: BOOL
   :default: false
   :description: Display summary for execution
@@ -466,6 +492,24 @@
   :long_name: output-execution-summary
   :opt_name: output_execution_summary
   :procname: val_as_bool
+
+- :default: "%{name}: %{value}"
+  :description: format for menu dividers and demarcations
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_FORMAT
+  :opt_name: output_execution_label_format
+  :procname: val_as_str
+
+- :default: yellow
+  :description: Color of output_execution_label_name
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
+  :opt_name: output_execution_label_name_color
+  :procname: val_as_str
+
+- :default: plain
+  :description: Color of output_execution_label_value
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
+  :opt_name: output_execution_label_value_color
+  :procname: val_as_str
 
 - :arg_name: BOOL
   :default: false
@@ -507,20 +551,26 @@
 - :arg_name: BOOL
   :default: true
   :description: Pause afte executing a BASH block
-  :env_var: MDE_PAUSE_AFTER_BASH_EXEC
-  :opt_name: pause_after_bash_exec
+  :env_var: MDE_PAUSE_after_script_execution
+  :opt_name: pause_after_script_execution
   :procname: val_as_bool
 
-- :default: Continue?
-  :description: Prompt to continue
-  :env_var: MDE_PROMPT_AFTER_BASH_EXEC
-  :opt_name: prompt_after_bash_exec
+- :default: "\nContinue?"
+  :description: Prompt after script execution
+  :env_var: MDE_PROMPT_after_script_execution
+  :opt_name: prompt_after_script_execution
   :procname: val_as_str
 
-- :default: Process?
+- :default: "\nProcess?"
   :description: Prompt to approve a block
   :env_var: MDE_PROMPT_APPROVE_BLOCK
   :opt_name: prompt_approve_block
+  :procname: val_as_str
+
+- :default: cyan
+  :description: Color of prompt after script execution
+  :env_var: MDE_PROMPT_COLOR_AFTER_SCRIPT_EXECUTION
+  :opt_name: prompt_color_after_script_execution
   :procname: val_as_str
 
 - :default: Exit
@@ -529,7 +579,7 @@
   :opt_name: prompt_exit
   :procname: val_as_str
 
-- :default: 'No'
+- :default: "No"
   :description: Prompt for no
   :env_var: MDE_PROMPT_NO
   :opt_name: prompt_no
@@ -547,25 +597,25 @@
   :opt_name: prompt_script_to_clipboard
   :procname: val_as_str
 
-- :default: 'Choose a block:'
+- :default: "\nChoose a block:"
   :description: Prompt to select a block
   :env_var: MDE_PROMPT_SELECT_BLOCK
   :opt_name: prompt_select_block
   :procname: val_as_str
 
-- :default: 'Choose a file:'
+- :default: "\nChoose a file:"
   :description: Prompt to select a markdown document
   :env_var: MDE_PROMPT_SELECT_MD
   :opt_name: prompt_select_md
   :procname: val_as_str
 
-- :default: 'Choose a file:'
+- :default: "\nChoose a file:"
   :description: Prompt to select a saved file
   :env_var: MDE_PROMPT_SELECT_OUTPUT
   :opt_name: prompt_select_output
   :procname: val_as_str
 
-- :default: 'Yes'
+- :default: "Yes"
   :description: Prompt for yes
   :env_var: MDE_PROMPT_YES
   :opt_name: prompt_yes
@@ -596,6 +646,18 @@
   :long_name: save-execution-output
   :opt_name: save_execution_output
   :procname: val_as_bool
+
+- :default: "/"
+  :description: Pattern to replace in file names
+  :env_var: MDE_SAVED_FILENAME_PATTERN
+  :opt_name: saved_filename_pattern
+  :procname: val_as_str
+
+- :default: ",~"
+  :description: Replacement for pattern in file names
+  :env_var: MDE_SAVED_FILENAME_REPLACEMENT
+  :opt_name: saved_filename_replacement
+  :procname: val_as_str
 
 - :arg_name: INT
   :default: 493
@@ -641,6 +703,42 @@
   :opt_name: saved_stdout_glob
   :procname: val_as_str
 
+- :default: green
+  :description: script_execution_frame_color
+  :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
+  :opt_name: script_execution_frame_color
+  :procname: val_as_str
+
+- :default: "\n -^-"
+  :description: script_execution_head
+  :env_var: MDE_SCRIPT_EXECUTION_HEAD
+  :opt_name: script_execution_head
+  :procname: val_as_str
+
+- :default: " -v-\n"
+  :description: script_execution_tail
+  :env_var: MDE_SCRIPT_EXECUTION_TAIL
+  :opt_name: script_execution_tail
+  :procname: val_as_str
+
+- :default: yellow
+  :description: Color of output divider
+  :env_var: MDE_OUTPUT_DIVIDER_COLOR
+  :opt_name: script_preview_frame_color
+  :procname: val_as_str
+
+- :default: "\n -^-"
+  :description: script_preview_head
+  :env_var: MDE_SCRIPT_PREVIEW_HEAD
+  :opt_name: script_preview_head
+  :procname: val_as_str
+
+- :default: " -v-\n"
+  :description: script_preview_tail
+  :env_var: MDE_SCRIPT_PREVIEW_TAIL
+  :opt_name: script_preview_tail
+  :procname: val_as_str
+
 - :arg_name: REGEX
   :default:
   :description: Select blocks with name matching
@@ -656,7 +754,7 @@
   :procname: val_as_str
 
 - :default: 36
-  :description: 'Maximum # of rows in select list'
+  :description: "Maximum # of rows in select list"
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int
@@ -701,3 +799,15 @@
   :long_name: version
   :procname: version
   :short_name: v
+
+- :default: red
+  :description: Color of warning message
+  :env_var: MDE_WARNING_COLOR
+  :opt_name: warning_color
+  :procname: val_as_str
+
+- :default: "Error: %{error}"
+  :description: Format of warning message
+  :env_var: MDE_WARNING_FORMAT
+  :opt_name: warning_format
+  :procname: val_as_str

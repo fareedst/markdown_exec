@@ -38,14 +38,18 @@ module MarkdownExec
       name = fcb.oname
       shell = fcb.fetch(:shell, '')
 
+      ### filter in menu, not in source code
+      filters[:depth] =
+        fcb.fetch(:depth,
+                  0).positive? && !options[:menu_include_imported_blocks]
       apply_name_filters(options, filters, name)
       apply_shell_filters(options, filters, shell)
       apply_other_filters(options, filters, fcb)
 
       evaluate_filters(options, filters)
-    rescue StandardError => err
-      warn("ERROR ** Filter::fcb_select?(); #{err.inspect}")
-      raise err
+    rescue StandardError
+      warn("ERROR ** Filter::fcb_select?(); #{$!.inspect}")
+      raise ArgumentError, $!
     end
 
     # Applies name-based filters to determine whether to include or
@@ -68,14 +72,16 @@ module MarkdownExec
       end
 
       if name.present? && filters[:name_select].nil? && options[:select_by_name_regex].present?
-        filters[:name_select] = !!(name =~ /#{options[:select_by_name_regex]}/)
+        filters[:name_select] =
+          !!(name =~ /#{options[:select_by_name_regex]}/)
       end
 
       unless name.present? && filters[:name_exclude].nil? && options[:exclude_by_name_regex].present?
         return
       end
 
-      filters[:name_exclude] = !!(name =~ /#{options[:exclude_by_name_regex]}/)
+      filters[:name_exclude] =
+        !!(name =~ /#{options[:exclude_by_name_regex]}/)
     end
 
     # Applies shell-based filters to determine whether to include or
@@ -90,12 +96,16 @@ module MarkdownExec
       filters[:shell_expect] = shell == 'expect'
 
       if shell.present? && options[:select_by_shell_regex].present?
-        filters[:shell_select] = !!(shell =~ /#{options[:select_by_shell_regex]}/)
+        filters[:shell_select] =
+          !!(shell =~ /#{options[:select_by_shell_regex]}/)
       end
 
-      return unless shell.present? && options[:exclude_by_shell_regex].present?
+      unless shell.present? && options[:exclude_by_shell_regex].present?
+        return
+      end
 
-      filters[:shell_exclude] = !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
+      filters[:shell_exclude] =
+        !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
     end
 
     # Applies additional filters to determine whether to include or
@@ -138,7 +148,9 @@ module MarkdownExec
     # if it should be excluded.
     #
     def self.evaluate_filters(options, filters)
-      if filters[:fcb_chrome] == true
+      if filters[:depth] == true
+        false
+      elsif filters[:fcb_chrome] == true
         !options[:no_chrome]
       elsif options[:exclude_expect_blocks] && filters[:shell_expect] == true
         false
@@ -160,15 +172,18 @@ module MarkdownExec
       end
     end
 
-    # blocks for menu, without missing exit and back chrome
-    # remove hidden blocks
+    # check if a block is not in the menu based on multiple match patterns
     #
-    def self.prepared_not_in_menu?(options, fcb)
-      fcb[:shell] == BlockType::BASH &&
-        ((options[:block_name_include_match].present? &&
-                  fcb[:oname] =~ /#{options[:block_name_include_match]}/) ||
-         (options[:block_name_wrapper_match].present? &&
-                  fcb[:oname] =~ /#{options[:block_name_wrapper_match]}/))
+    # @param options [Hash] Options hash containing various settings
+    # @param fcb [Hash] Hash representing a file code block
+    # @param match_patterns [Array<String>] Array of regular expression patterns for matching
+    # @return [Boolean] True if the block should not be in the menu, false otherwise
+    def self.prepared_not_in_menu?(options, fcb, match_patterns)
+      return false unless fcb[:shell] == BlockType::BASH
+
+      match_patterns.any? do |pattern|
+        options[pattern].present? && fcb[:oname] =~ /#{options[pattern]}/
+      end
     end
   end
 end
