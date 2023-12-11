@@ -13,10 +13,12 @@ require 'tmpdir'
 require 'tty-prompt'
 require 'yaml'
 
+require_relative 'ansi_formatter'
 require_relative 'block_label'
 require_relative 'cached_nested_file_reader'
 require_relative 'cli'
 require_relative 'colorize'
+require_relative 'directory_searcher'
 require_relative 'env'
 require_relative 'exceptions'
 require_relative 'fcb'
@@ -225,9 +227,9 @@ module MarkdownExec
 
     ## Executes the block specified in the options
     #
-    def execute_block_with_error_handling(rest)
-      finalize_cli_argument_processing(rest)
-      @options[:s_cli_rest] = rest
+    def execute_block_with_error_handling
+      finalize_cli_argument_processing
+      @options[:input_cli_rest] = @rest
       execute_code_block_based_on_options(@options)
     rescue FileMissingError
       warn "File missing: #{$!}"
@@ -242,6 +244,7 @@ module MarkdownExec
 
       simple_commands = {
         doc_glob: -> { @fout.fout options[:md_filename_glob] },
+        list_blocks: -> { list_blocks },
         list_default_yaml: -> { @fout.fout_list list_default_yaml },
         list_docs: -> { @fout.fout_list files },
         list_default_env: -> { @fout.fout_list list_default_env },
@@ -290,7 +293,7 @@ module MarkdownExec
 
     ## post-parse options configuration
     #
-    def finalize_cli_argument_processing(rest)
+    def finalize_cli_argument_processing(rest = @rest)
       ## position 0: file or folder (optional)
       #
       if (pos = rest.shift)&.present?
@@ -340,9 +343,8 @@ module MarkdownExec
       end
       @option_parser.load
       @option_parser.environment
-
-      rest = @option_parser.parse!(arguments_for_mde)
-      @options[:s_pass_args] = ARGV[rest.count + 1..]
+      @rest = rest = @option_parser.parse!(arguments_for_mde)
+      @options.pass_args = ARGV[rest.count + 1..]
       @options.merge(@options.run_state.to_h)
 
       rest
@@ -356,25 +358,64 @@ module MarkdownExec
     def lambda_for_procname(procname, options)
       case procname
       when 'debug'
-        lambda { |value|
+        ->(value) {
           tap_config value: value
         }
       when 'exit'
         ->(_) { exit }
+
+      when 'find'
+        ->(value) {
+          # initialize_and_parse_cli_options
+          @fout.fout "Searching in: " \
+           "#{HashDelegator.new(@options).string_send_color(@options[:path], :menu_chrome_color)}"
+          searcher = DirectorySearcher.new(value, [@options[:path]])
+
+          @fout.fout 'In directory names'
+          @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
+            searcher.search_in_directory_names, highlight: [value]
+          )
+
+          @fout.fout 'In file names'
+          @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
+            searcher.search_in_file_names, highlight: [value]
+          ).join("\n")
+
+          @fout.fout 'In file contents'
+          hash = searcher.search_in_file_contents
+          hash.each.with_index do |(key, v2), i1|
+            @fout.fout format('- %3.d: %s', i1 + 1, key)
+            @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
+              v2.map { |nl| format('=%4.d: %s', nl.index, nl.line) },
+              highlight: [value]
+            )
+          end
+          exit
+        }
+
       when 'help'
-        lambda { |_|
+        ->(_) {
           @fout.fout menu_help
           exit
         }
+      # when %w[who what where why how which when whom]
+      when 'how'
+        ->(value) {
+          # value = 'color'
+          @fout.fout(list_default_yaml.select { |line| line.include? value })
+          exit
+        }
       when 'path'
-        ->(value) { read_configuration_file!(options, value) }
+        ->(value) {
+          read_configuration_file!(options, value)
+        }
       when 'show_config'
-        lambda { |_|
+        ->(_) {
           finalize_cli_argument_processing(options)
           @fout.fout options.sort_by_key.to_yaml
         }
       when 'val_as_bool'
-        lambda { |value|
+        ->(value) {
           value.instance_of?(::String) ? (value.chomp != '0') : value
         }
       when 'val_as_int'
@@ -390,6 +431,8 @@ module MarkdownExec
         procname
       end
     end
+
+    def list_blocks; end
 
     def list_default_env
       menu_iter do |item|
@@ -452,17 +495,6 @@ module MarkdownExec
       data.map(&block)
     end
 
-    def opts_list_files(options)
-      list_files_specified(
-        determine_filename(
-          specified_filename: options[:filename]&.present? ? options[:filename] : nil,
-          specified_folder: options[:path],
-          default_filename: 'README.md',
-          default_folder: '.'
-        )
-      )
-    end
-
     def menu_export(data = menu_for_optparse)
       data.map do |item|
         item.delete(:procname)
@@ -484,9 +516,7 @@ module MarkdownExec
 
         # - description and default
         [item[:description],
-         (if item[:default].present?
-            "[#{value_for_cli item[:default]}]"
-          end)].compact.join('  '),
+         ("[#{value_for_cli item[:default]}]" if item[:default].present?)].compact.join('  '),
 
         # apply proccode, if present, to value
         # save value to options hash if option is named
@@ -499,9 +529,15 @@ module MarkdownExec
       ].compact)
     end
 
-    # Prepares and fetches file listings
     def opts_prepare_file_list(options)
-      opts_list_files(options)
+      list_files_specified(
+        determine_filename(
+          specified_filename: options[:filename]&.present? ? options[:filename] : nil,
+          specified_folder: options[:path],
+          default_filename: 'README.md',
+          default_folder: '.'
+        )
+      )
     end
 
     # :reek:UtilityFunction ### temp
@@ -516,7 +552,8 @@ module MarkdownExec
 
     def run
       clear_required_file
-      execute_block_with_error_handling(initialize_and_parse_cli_options)
+      initialize_and_parse_cli_options
+      execute_block_with_error_handling
       @options.delete_required_temp_file
     rescue StandardError
       error_handler('run')

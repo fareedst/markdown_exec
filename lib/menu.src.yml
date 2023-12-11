@@ -92,6 +92,51 @@
   :opt_name: document_load_opts_block_name
   :procname: val_as_str
 
+- :arg_name: BOOL
+  :default: false
+  :description: Dump BlocksInFile (stage 1)
+  :env_var: MDE_DUMP_BLOCKS_IN_FILE
+  :opt_name: dump_blocks_in_file
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: false
+  :description: Dump MenuBlocks (stage 2)
+  :env_var: MDE_DUMP_MENU_BLOCKS
+  :opt_name: dump_menu_blocks
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: false
+  :description: Dump selected block
+  :env_var: MDE_DUMP_SELECTED_BLOCK
+  :opt_name: dump_selected_block
+  :procname: val_as_bool
+
+- :default: fg_rgbh_E0_E0_20 # Y
+  :description: Color of exception detail
+  :env_var: MDE_EXCEPTION_COLOR_DETAIL
+  :opt_name: exception_color_detail
+  :procname: val_as_str
+
+- :default: " - %{detail}\n"
+  :description: Format for exception detail
+  :env_var: MDE_EXCEPTION_FORMAT_DETAIL
+  :opt_name: exception_format_detail
+  :procname: val_as_str
+
+- :default: fg_rgbh_E0_20_20 # R
+  :description: Color of exception name
+  :env_var: MDE_EXCEPTION_COLOR_NAME
+  :opt_name: exception_color_name
+  :procname: val_as_str
+
+- :default: "\n%{name}"
+  :description: Format for exception name
+  :env_var: MDE_EXCEPTION_FORMAT_NAME
+  :opt_name: exception_format_name
+  :procname: val_as_str
+
 - :arg_name: REGEX
   :default:
   :description: Exclude blocks with name matching
@@ -113,7 +158,7 @@
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
 
-- :default: magenta
+- :default: fg_rgbh_20_80_80
   :description: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
   :opt_name: execution_report_preview_frame_color
@@ -157,6 +202,13 @@
   :procname: val_as_str
   :short_name: f
 
+- :arg_name: FIND
+  :default: ""
+  :description: Find in documents
+  :long_name: find
+  :procname: find
+  :short_name: "?"
+
 - :default: "^# *(?<name>[^#]*?) *$"
   :env_var: MDE_HEADING1_MATCH
   :opt_name: heading1_match
@@ -195,6 +247,13 @@
   :env_var: MDE_HISTORY_PROPERTY_SEPARATOR
   :opt_name: history_property_separator
   :procname: val_as_str
+
+- :arg_name: HOW
+  :default: ""
+  :description: Find in YAML configuration options
+  :long_name: how
+  :procname: how
+  :short_name: "?"
 
 - :default: "^ *@import +(?<name>.+?) *$"
   :env_var: MDE_IMPORT_PATTERN
@@ -261,7 +320,7 @@
   :opt_name: menu_back_at_top
   :procname: val_as_bool
 
-- :default: plain
+- :default: fg_rgbh_40_c0_f0
   :description: Color of menu bash
   :env_var: MDE_MENU_BASH_COLOR
   :opt_name: menu_bash_color
@@ -281,7 +340,7 @@
   :opt_name: menu_blocks_with_headings
   :procname: val_as_bool
 
-- :default: fg_rgbh_aa_bb_aa
+- :default: fg_rgbh_80_80_20
   :description: Color of menu chrome
   :env_var: MDE_MENU_CHROME_COLOR
   :opt_name: menu_chrome_color
@@ -293,7 +352,7 @@
   :opt_name: menu_chrome_format
   :procname: val_as_str
 
-- :default: magenta
+- :default: fg_rgbh_20_98_80
   :description: Color of menu divider
   :env_var: MDE_MENU_DIVIDER_COLOR
   :opt_name: menu_divider_color
@@ -358,7 +417,7 @@
   :opt_name: menu_initial_divider
   :procname: val_as_str
 
-- :default: red
+- :default: fg_rgbh_20_E0_20 # G
   :description: Color of menu link
   :env_var: MDE_MENU_LINK_COLOR
   :opt_name: menu_link_color
@@ -370,7 +429,7 @@
   :opt_name: menu_link_format
   :procname: val_as_str
 
-- :default: fg_rgbh_88_88_88
+- :default: fg_rgbh_40_a0_a0
   :description: Color of menu note
   :env_var: MDE_MENU_NOTE_COLOR
   :opt_name: menu_note_color
@@ -404,13 +463,13 @@
   :opt_name: menu_option_exit_name
   :procname: val_as_str
 
-- :default: blue
+- :default: fg_rgbh_E0_60_E0 # R
   :description: Color of menu opts
   :env_var: MDE_MENU_OPTS_COLOR
   :opt_name: menu_opts_color
   :procname: val_as_str
 
-- :default: cyan
+- :default: fg_rgbh_E0_20_20
   :description: Color of menu opts
   :env_var: MDE_MENU_OPTS_SET_COLOR
   :opt_name: menu_opts_set_color
@@ -422,7 +481,7 @@
   :opt_name: menu_opts_set_format
   :procname: val_as_str
 
-- :default: cyan
+- :default: fg_rgbh_A0_20_D0 # V
   :description: Color of menu task
   :env_var: MDE_MENU_TASK_COLOR
   :opt_name: menu_task_color
@@ -446,13 +505,13 @@
   :opt_name: menu_task_symbol
   :procname: val_as_str
 
-- :default: blue
+- :default: fg_rgbh_E0_80_20
   :description: Color of menu vars
   :env_var: MDE_MENU_VARS_COLOR
   :opt_name: menu_vars_color
   :procname: val_as_str
 
-- :default: cyan
+- :default: fg_rgbh_E0_80_20
   :description: Color of menu vars
   :env_var: MDE_MENU_VARS_SET_COLOR
   :opt_name: menu_vars_set_color
@@ -499,13 +558,13 @@
   :opt_name: output_execution_label_format
   :procname: val_as_str
 
-- :default: yellow
+- :default: fg_rgbh_20_D8_80
   :description: Color of output_execution_label_name
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
   :opt_name: output_execution_label_name_color
   :procname: val_as_str
 
-- :default: plain
+- :default: fg_rgbh_20_E0_80
   :description: Color of output_execution_label_value
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
   :opt_name: output_execution_label_value_color
@@ -567,7 +626,7 @@
   :opt_name: prompt_approve_block
   :procname: val_as_str
 
-- :default: cyan
+- :default: fg_rgbh_20_E8_80
   :description: Color of prompt after script execution
   :env_var: MDE_PROMPT_COLOR_AFTER_SCRIPT_EXECUTION
   :opt_name: prompt_color_after_script_execution
@@ -630,6 +689,12 @@
   :long_name: run-last-script
   :opt_name: run_last_script
   :procname: val_as_bool
+
+- :default: 1
+  :description: "Runtime exception error level (warn if < 0, ignore if 0, abort if > 0)"
+  :env_var: MDE_RUNTIME_EXCEPTION_ERROR_LEVEL
+  :opt_name: runtime_exception_error_level
+  :procname: val_as_int
 
 - :arg_name: BOOL
   :default: false
@@ -703,7 +768,7 @@
   :opt_name: saved_stdout_glob
   :procname: val_as_str
 
-- :default: green
+- :default: fg_rgbh_20_80_80
   :description: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
   :opt_name: script_execution_frame_color
@@ -721,7 +786,7 @@
   :opt_name: script_execution_tail
   :procname: val_as_str
 
-- :default: yellow
+- :default: fg_rgbh_20_80_80
   :description: Color of output divider
   :env_var: MDE_OUTPUT_DIVIDER_COLOR
   :opt_name: script_preview_frame_color
@@ -781,6 +846,18 @@
   :opt_name: shell
   :procname: val_as_str
 
+- :default: "#  -^-  +%{name}  -^-"
+  :description: shell_code_label_format_above
+  :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
+  :opt_name: shell_code_label_format_above
+  :procname: val_as_str
+
+- :default: "#  -v-  +%{name}  -v-"
+  :description: shell_code_label_format_below
+  :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
+  :opt_name: shell_code_label_format_below
+  :procname: val_as_str
+
 - :description: List tab completions
   :long_name: tab-completions
   :opt_name: tab_completions
@@ -800,7 +877,7 @@
   :procname: version
   :short_name: v
 
-- :default: red
+- :default: fg_rgbh_E0_E0_20 # Y
   :description: Color of warning message
   :env_var: MDE_WARNING_COLOR
   :opt_name: warning_color

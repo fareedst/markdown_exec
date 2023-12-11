@@ -368,17 +368,15 @@ RSpec.describe 'MarkdownExec' do
     it 'passes arguments to script' do
       expect_any_instance_of(MarkdownExec::HashDelegator).to \
         receive(:command_execute).with(
-          # {
-          #   block_name: 'one',
-          #   s_ir_approve: true
-          # },
           'a',
           { args: [] }
         )
       opts = mp.options.merge(
         bash: true,
         filename: 'fixtures/bash1.md',
-        user_must_approve: false
+        shell_code_label_format_above: nil,
+        shell_code_label_format_below: nil,
+        user_must_approve: false,
       )
       hopts = MarkdownExec::HashDelegator.new(opts)
       mdoc = MarkdownExec::MDoc.new(hopts.blocks_from_nested_files)
@@ -457,7 +455,7 @@ RSpec.describe 'MarkdownExec' do
   it 'test_called_parse_hidden_collect_recursively_required_blocks' do
     expect(
       MarkdownExec::MDoc.new(list_blocks_bash1)
-                  .collect_recursively_required_blocks('four')
+                  .collect_recursively_required_blocks('four')[:blocks]
                   .map do |block|
                     block[:oname]
                   end
@@ -734,7 +732,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_parse_called_collect_recursively_required_blocks' do
-    expect(mdoc_yaml1.collect_recursively_required_blocks('show_fruit_yml').map do |block|
+    expect(mdoc_yaml1.collect_recursively_required_blocks('show_fruit_yml')[:blocks].map do |block|
       block.slice(:call, :oname)
            .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
@@ -774,7 +772,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_vars_parse_called_collect_recursively_required_blocks' do
-    expect(mdoc_yaml2.collect_recursively_required_blocks('show_coins_var').map do |block|
+    expect(mdoc_yaml2.collect_recursively_required_blocks('show_coins_var')[:blocks].map do |block|
              block.slice(:call, :cann, :oname)
            end).to eq [
              { call: nil, oname: '(make_coins_file)' },

@@ -18,6 +18,7 @@ require_relative 'block_label'
 require_relative 'block_types'
 require_relative 'cached_nested_file_reader'
 require_relative 'constants'
+require_relative 'directory_searcher'
 require_relative 'exceptions'
 require_relative 'fcb'
 require_relative 'filter'
@@ -31,6 +32,56 @@ class String
   # @return [Boolean] Returns true if the string is not empty, false otherwise.
   def non_empty?
     !empty?
+  end
+end
+
+# This module provides methods for compacting and converting data structures.
+module CompactionHelpers
+  # Converts an array of key-value pairs into a hash, applying compaction to the values.
+  # Each value is processed by `compact_hash` to remove ineligible elements.
+  #
+  # @param array [Array] The array of key-value pairs to be converted.
+  # @return [Hash] A hash with keys from the array and compacted values.
+  def compact_and_convert_array_to_hash(array)
+    array.transform_values do |value|
+      compact_hash(value)
+    end
+  end
+
+  # Compacts a hash by removing ineligible elements.
+  # It filters out nil, empty arrays, empty hashes, and empty strings from its values.
+  # It also removes entries with :random as the key.
+  #
+  # @param hash [Hash] The hash to be compacted.
+  # @return [Hash] A compacted version of the input hash.
+  def compact_hash(hash)
+    hash.map do |key, value|
+      next if value_ineligible?(value) || key == :random
+
+      [key, value]
+    end.compact.to_h
+  end
+
+  # Converts a hash into another hash with indexed keys, applying compaction to the values.
+  # The keys are indexed, and the values are compacted using `compact_and_convert_array_to_hash`.
+  #
+  # @param hash [Hash] The hash to be converted and compacted.
+  # @return [Hash] A hash with indexed keys and the compacted original values.
+  def compact_and_index_hash(hash)
+    compact_and_convert_array_to_hash(hash.map.with_index do |value, index|
+                                        [index, value]
+                                      end.to_h)
+  end
+
+  private
+
+  # Determines if a value is ineligible for inclusion in a compacted hash.
+  # Ineligible values are nil, empty arrays, empty hashes, and empty strings.
+  #
+  # @param value [Object] The value to be checked.
+  # @return [Boolean] True if the value is ineligible, false otherwise.
+  def value_ineligible?(value)
+    [nil, [], {}, ''].include?(value)
   end
 end
 
@@ -51,12 +102,16 @@ module MarkdownExec
   end
 
   class HashDelegator
-    attr_accessor :run_state
+    attr_accessor :most_recent_loaded_filename, :pass_args, :run_state
+
+    include CompactionHelpers
 
     def initialize(delegate_object = {})
       @delegate_object = delegate_object
       @prompt = tty_prompt_without_disabled_symbol
 
+      @most_recent_loaded_filename = nil
+      @pass_args = []
       @run_state = OpenStruct.new(
         link_history: []
       )
@@ -267,6 +322,25 @@ module MarkdownExec
       true
     end
 
+    def runtime_exception(exception_sym, name, items)
+      if @delegate_object[exception_sym] != 0
+        data = { name: name, detail: items.join(', ') }
+        warn(
+          format(
+            @delegate_object.fetch(:exception_format_name, "\n%{name}"),
+            data
+          ).send(@delegate_object.fetch(:exception_color_name, :red)) +
+          format(
+            @delegate_object.fetch(:exception_format_detail, " - %{detail}\n"),
+            data
+          ).send(@delegate_object.fetch(:exception_color_detail, :yellow))
+        )
+      end
+      return unless (@delegate_object[exception_sym]).positive?
+
+      exit @delegate_object[exception_sym]
+    end
+
     # Collects required code lines based on the selected block and the delegate object's configuration.
     # If the block type is VARS, it also sets environment variables based on the block's content.
     #
@@ -274,13 +348,22 @@ module MarkdownExec
     # @param selected [Hash] The selected block.
     # @return [Array<String>] Required code blocks as an array of lines.
     def collect_required_code_lines(mdoc, selected)
-      if selected[:shell] == BlockType::VARS
-        set_environment_variables(selected)
-      end
+      set_environment_variables(selected) if selected[:shell] == BlockType::VARS
 
       required = mdoc.collect_recursively_required_code(
-        @delegate_object[:block_name], opts: @delegate_object
+        @delegate_object[:block_name],
+        label_format_above: @delegate_object[:shell_code_label_format_above],
+        label_format_below: @delegate_object[:shell_code_label_format_below]
       )
+      if required[:unmet_dependencies].present?
+        warn format_and_highlight_dependencies(required[:dependencies],
+                                               highlight: required[:unmet_dependencies])
+        runtime_exception(:runtime_exception_error_level,
+                          'unmet_dependencies, flag: runtime_exception_error_level', required[:unmet_dependencies])
+      elsif true
+        warn format_and_highlight_dependencies(required[:dependencies],
+                                               highlight: [@delegate_object[:block_name]])
+      end
       read_required_blocks_from_temp_file + required[:code]
     end
 
@@ -489,11 +572,11 @@ module MarkdownExec
       fcb.derive_title_from_body
     end
 
-    def delete_blank_lines_next_to_chrome!(blocks_menu)
-      blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, next_item|
-        (prev_item&.fetch(:chrome, nil) || next_item&.fetch(:chrome, nil)) &&
-          current_item&.fetch(:chrome, nil) &&
-          !current_item&.fetch(:oname).present?
+    # delete the current line if it is empty and the previous is also empty
+    def delete_consecutive_blank_lines!(blocks_menu)
+      blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, _next_item|
+        prev_item&.fetch(:chrome, nil) && !prev_item&.fetch(:oname).present? &&
+          current_item&.fetch(:chrome, nil) && !current_item&.fetch(:oname).present?
       end
     end
 
@@ -575,8 +658,8 @@ module MarkdownExec
     #
     # @param required_lines [Array<String>] The lines of code to be executed.
     # @param selected [FCB] The selected functional code block object.
-    def execute_approved_block(required_lines = [], selected = FCB.new)
-      set_script_block_name(selected)
+    def execute_approved_block(required_lines = [], _selected = FCB.new)
+      # set_script_block_name(selected)
       write_command_file_if_needed(required_lines)
       format_and_execute_command(required_lines)
       post_execution_process
@@ -596,8 +679,7 @@ module MarkdownExec
       formatted_command = lines.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
                              color_sym: :script_execution_frame_color)
-      command_execute(formatted_command,
-                      args: @delegate_object.fetch(:s_pass_args, []))
+      command_execute(formatted_command, args: @pass_args)
       @fout.fout fetch_color(data_sym: :script_execution_tail,
                              color_sym: :script_execution_frame_color)
     end
@@ -722,12 +804,8 @@ module MarkdownExec
     def handle_generic_block(mdoc, selected)
       required_lines = collect_required_code_lines(mdoc, selected)
       output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
-
       display_required_code(required_lines) if output_or_approval
-
       allow_execution = @delegate_object[:user_must_approve] ? prompt_for_user_approval(required_lines) : true
-
-      @delegate_object[:s_ir_approve] = allow_execution
       execute_approved_block(required_lines, selected) if allow_execution
 
       LoadFileNextBlock.new(LoadFile::Reuse, '')
@@ -769,7 +847,7 @@ module MarkdownExec
     # @return [LoadFileNextBlock] An instance indicating the next action for loading files.
     def handle_opts_block(selected, tgt2 = nil)
       data = YAML.load(selected[:body].join("\n"))
-      data.each do |key, value|
+      (data || []).each do |key, value|
         update_delegate_and_target(key, value, tgt2)
         if @delegate_object[:menu_opts_set_format].present?
           print_formatted_option(key,
@@ -931,7 +1009,7 @@ module MarkdownExec
     # @return [Boolean, nil] True if values were modified, nil otherwise.
     def load_auto_blocks(all_blocks)
       block_name = @delegate_object[:document_load_opts_block_name]
-      unless block_name.present? && @delegate_object[:s_most_recent_filename] != @delegate_object[:filename]
+      unless block_name.present? && @most_recent_loaded_filename != @delegate_object[:filename]
         return
       end
 
@@ -939,7 +1017,7 @@ module MarkdownExec
       return unless block
 
       handle_opts_block(block, @delegate_object)
-      @delegate_object[:s_most_recent_filename] = @delegate_object[:filename]
+      @most_recent_loaded_filename = @delegate_object[:filename]
       true
     end
 
@@ -999,7 +1077,7 @@ module MarkdownExec
 
       menu_blocks = mdoc.fcbs_per_options(@delegate_object)
       add_menu_chrome_blocks!(menu_blocks)
-      delete_blank_lines_next_to_chrome!(menu_blocks)
+      delete_consecutive_blank_lines!(menu_blocks) if true ### compress empty lines
       [all_blocks, menu_blocks, mdoc]
     end
 
@@ -1028,9 +1106,9 @@ module MarkdownExec
     end
 
     def next_block_name_from_command_line_arguments
-      return MenuControl::Repeat unless @delegate_object[:s_cli_rest].present?
+      return MenuControl::Repeat unless @delegate_object[:input_cli_rest].present?
 
-      @delegate_object[:block_name] = @delegate_object[:s_cli_rest].pop
+      @delegate_object[:block_name] = @delegate_object[:input_cli_rest].pop
       MenuControl::Fresh
     end
 
@@ -1209,7 +1287,7 @@ module MarkdownExec
     # Markdown document, obtain approval, and execute the chosen block of code.
     #
     # @return [Nil] Returns nil if no code block is selected or an error occurs.
-    def select_approve_and_execute_block
+    def select_approve_and_execute_block(_execute: true)
       @menu_base_options = @delegate_object
       repeat_menu = @menu_base_options[:block_name].present? ? MenuControl::Fresh : MenuControl::Repeat
       load_file_next_block = LoadFileNextBlock.new(LoadFile::Reuse)
@@ -1225,9 +1303,21 @@ module MarkdownExec
           @menu_base_options[:block_name] = @menu_state_block_name
           @menu_state_filename = nil
           @menu_state_block_name = nil
-
           @menu_user_clicked_back_link = false
+
           blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
+          if @delegate_object[:dump_blocks_in_file]
+            warn format_and_highlight_dependencies(
+              compact_and_index_hash(blocks_in_file),
+              label: 'blocks_in_file'
+            )
+          end
+          if @delegate_object[:dump_menu_blocks]
+            warn format_and_highlight_dependencies(
+              compact_and_index_hash(menu_blocks),
+              label: 'menu_blocks'
+            )
+          end
           block_state = command_or_user_selected_block(blocks_in_file,
                                                        menu_blocks, default)
           return if block_state.state == MenuState::EXIT
@@ -1236,6 +1326,10 @@ module MarkdownExec
             warn_format('select_approve_and_execute_block', "Block not found -- #{@delegate_object[:block_name]}",
                         { abort: true })
             # error_handler("Block not found -- #{opts[:block_name]}", { abort: true })
+          end
+
+          if @delegate_object[:dump_selected_block]
+            warn block_state.block.to_yaml.sub(/^(?:---\n)?/, "Block:\n")
           end
 
           load_file_next_block = approve_and_execute_block(block_state.block,
@@ -1469,11 +1563,15 @@ module MarkdownExec
       )
 
       block_menu = prepare_blocks_menu(menu_blocks)
-      if block_menu.empty?
-        return SelectedBlockMenuState.new(nil, MenuState::EXIT)
-      end
+      return SelectedBlockMenuState.new(nil, MenuState::EXIT) if block_menu.empty?
 
-      selection_opts = default ? @delegate_object.merge(default: default) : @delegate_object
+      # default value may not match if color is different from originating menu (opts changed while processing)
+      selection_opts = if default && menu_blocks.map(&:dname).include?(default)
+                         @delegate_object.merge(default: default)
+                       else
+                         @delegate_object
+                       end
+
       selection_opts.merge!(per_page: @delegate_object[:select_page_height])
 
       selected_option = select_option_with_metadata(prompt_title, block_menu,
@@ -1540,7 +1638,8 @@ module MarkdownExec
       c1 = if mdoc
              mdoc.collect_recursively_required_code(
                block_name,
-               opts: @delegate_object
+               label_format_above: @delegate_object[:shell_code_label_format_above],
+               label_format_below: @delegate_object[:shell_code_label_format_below]
              )[:code]
            else
              []
@@ -1597,16 +1696,14 @@ if $PROGRAM_NAME == __FILE__
         obj = {
           output_execution_label_format: '',
           output_execution_label_name_color: 'plain',
-          output_execution_label_value_color: 'plain',
-          s_pass_args: pigeon
-          # shell: 'bash'
+          output_execution_label_value_color: 'plain'
         }
 
         c = MarkdownExec::HashDelegator.new(obj)
+        c.pass_args = pigeon
 
         # Expect that method opts_command_execute is called with argument args having value pigeon
         c.expects(:command_execute).with(
-          # obj,
           '',
           args: pigeon
         )
@@ -2279,8 +2376,6 @@ if $PROGRAM_NAME == __FILE__
           assert_equal 'value2',
                        @hd.instance_variable_get(:@delegate_object)[:option2]
         end
-
-        # Additional test cases can be added to cover more scenarios and edge cases.
       end
 
       # require 'stringio'
@@ -2348,8 +2443,6 @@ if $PROGRAM_NAME == __FILE__
           result = @hd.history_state_partition
           assert_equal({ unit: '', rest: '' }, result)
         end
-
-        # Additional test cases can be added to cover more scenarios and edge cases.
       end
 
       class TestHashDelegatorHistoryStatePop < Minitest::Test
@@ -2376,8 +2469,6 @@ if $PROGRAM_NAME == __FILE__
                        ENV.fetch(MDE_HISTORY_ENV_NAME, nil)
           assert_empty @hd.instance_variable_get(:@run_state).link_history
         end
-
-        # Additional test cases can be added to cover more scenarios and edge cases.
       end
 
       class TestHashDelegatorHistoryStatePush < Minitest::Test
@@ -2410,8 +2501,6 @@ if $PROGRAM_NAME == __FILE__
                           { block_name: 'selected_block',
                             filename: 'data.md' }
         end
-
-        # Additional test cases can be added to cover more scenarios and edge cases.
       end
 
       class TestHashDelegatorIterBlocksFromNestedFiles < Minitest::Test
@@ -2447,32 +2536,30 @@ if $PROGRAM_NAME == __FILE__
       class TestHashDelegatorLoadAutoBlocks < Minitest::Test
         def setup
           @hd = HashDelegator.new
-          @hd.instance_variable_set(:@delegate_object, {
-                                      document_load_opts_block_name: 'load_block',
-                                      s_most_recent_filename: 'old_file',
-                                      filename: 'new_file'
-                                    })
-          @hd.stubs(:block_find).returns({}) # Assuming it returns a block
+          @hd.stubs(:block_find).returns({})
           @hd.stubs(:handle_opts_block)
         end
 
         def test_load_auto_blocks_with_new_filename
+          @hd.instance_variable_set(:@delegate_object, {
+                                      document_load_opts_block_name: 'load_block',
+                                      filename: 'new_file'
+                                    })
           assert @hd.load_auto_blocks([])
         end
 
         def test_load_auto_blocks_with_same_filename
           @hd.instance_variable_set(:@delegate_object, {
                                       document_load_opts_block_name: 'load_block',
-                                      s_most_recent_filename: 'new_file',
                                       filename: 'new_file'
                                     })
+          @hd.instance_variable_set(:@most_recent_loaded_filename, 'new_file')
           assert_nil @hd.load_auto_blocks([])
         end
 
         def test_load_auto_blocks_without_block_name
           @hd.instance_variable_set(:@delegate_object, {
                                       document_load_opts_block_name: nil,
-                                      s_most_recent_filename: 'old_file',
                                       filename: 'new_file'
                                     })
           assert_nil @hd.load_auto_blocks([])

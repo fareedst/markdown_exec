@@ -21,7 +21,7 @@ module MarkdownExec
     #
     # @param table [Array<Hash>] An array of hashes representing markdown sections.
     #
-    def initialize(table)
+    def initialize(table = [])
       @table = table
     end
 
@@ -47,8 +47,8 @@ module MarkdownExec
       # write named variables to block at top of script
       #
       fcb[:body].join(' ').split.compact.map do |key|
-        format(opts[:block_type_port_set_format],
-               { key: key, value: ENV.fetch(key, nil) })
+        ### format(opts[:block_type_port_set_format], { key: key, value: ENV.fetch(key, nil) })
+        "key: #{key}, value: #{ENV.fetch(key, nil)}"
       end
     end
 
@@ -72,22 +72,30 @@ module MarkdownExec
     def collect_recursively_required_blocks(name)
       name_block = get_block_by_anyname(name)
       if name_block.nil? || name_block.keys.empty?
-        raise "Named code block `#{name}` not found."
+        raise "Named code block `#{name}` not found. (@#{__LINE__})"
       end
 
-      all = [name_block.oname] + recursively_required(name_block[:reqs])
+      # all_dependency_names = [name_block.oname] + recursively_required(name_block[:reqs])
+      dependencies = collect_dependencies(name_block[:oname])
+      all_dependency_names = collect_unique_names(dependencies).push(name_block[:oname]).uniq
+      unmet_dependencies = all_dependency_names.dup
 
-      # in order of appearance in document
+      # in order of appearance in document (@table)
       # insert function blocks
-      @table.select { |fcb| all.include? fcb.oname }
-            .map do |fcb|
+      blocks = @table.select { |fcb| all_dependency_names.include? fcb[:oname] }
+                     .map do |fcb|
+        unmet_dependencies.delete(fcb[:oname]) # may not exist if block name is duplicated
         if (call = fcb[:call])
           [get_block_by_oname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
             .merge({ cann: call })]
         else
           []
         end + [fcb]
-      end.flatten(1)
+      end.flatten(1) #.tap { rbp }
+      { all_dependency_names: all_dependency_names, 
+        blocks: blocks, 
+        dependencies: dependencies, 
+        unmet_dependencies: unmet_dependencies }
     end
 
     # Collects recursively required code blocks and returns them as an array of strings.
@@ -95,10 +103,9 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(name, opts: {})
-      code = collect_wrapped_blocks(
-        blocks = collect_recursively_required_blocks(name)
-      ).map do |fcb|
+    def collect_recursively_required_code(name, label_body: true, label_format_above: nil, label_format_below: nil)
+      block_search = collect_recursively_required_blocks(name)
+      block_search.merge({ code: collect_wrapped_blocks(block_search[:blocks]).map do |fcb|
         if fcb[:cann]
           collect_block_code_cann(fcb)
         elsif fcb[:stdout]
@@ -108,11 +115,18 @@ module MarkdownExec
           nil
         elsif fcb[:shell] == BlockType::PORT
           collect_block_code_shell(fcb)
-        else
+        elsif label_body
+          [label_format_above && format(label_format_above, { name: fcb[:oname] })] + 
+           fcb[:body] + 
+           [label_format_below && format(label_format_below, { name: fcb[:oname] })]
+        else # raw body
           fcb[:body]
         end
-      end.compact.flatten(1)
-      { blocks: blocks, code: code }
+      end.compact.flatten(1).compact })
+    end
+
+    def collect_unique_names(hash)
+      hash.values.flatten.uniq
     end
 
     # Retrieves code blocks that are wrapped
@@ -219,7 +233,7 @@ module MarkdownExec
 
       rem = reqs
       memo = []
-      while rem.count.positive?
+      while rem && rem.count.positive?
         rem = rem.map do |req|
           next if memo.include? req
 
@@ -229,6 +243,54 @@ module MarkdownExec
                  .compact
                  .flatten(1)
       end
+      memo
+    end
+
+    # Recursively fetches required code blocks for a given list of requirements.
+    #
+    # @param source [String] The name of the code block to start the recursion from.
+    # @return [Hash] A list of code blocks required by each source code block.
+    #
+    def recursively_required_hash(source, memo = Hash.new([]))
+      return memo unless source
+      return memo if memo.keys.include? source
+
+      block = get_block_by_anyname(source)
+      if block.nil? || block.keys.empty?
+        raise "Named code block `#{source}` not found. (@#{__LINE__})"
+      end
+
+      memo[source] = block[:reqs]
+      return memo unless memo[source]&.count&.positive?
+
+      memo[source].each do |req|
+        next if memo.keys.include? req
+
+        recursively_required_hash(req, memo)
+      end
+      memo
+    end
+
+    # Recursively collects dependencies of a given source.
+    # @param source [String] The name of the initial source block.
+    # @param memo [Hash] A memoization hash to store resolved dependencies.
+    # @return [Hash] A hash mapping sources to their respective dependencies.
+    def collect_dependencies(source, memo = {})
+      return memo unless source
+
+      if (block = get_block_by_anyname(source)).nil? || block.keys.empty?
+        if true
+          return memo
+        else
+          raise "Named code block `#{source}` not found. (@#{__LINE__})"
+        end
+      end
+
+      return memo unless block[:reqs]
+
+      memo[source] = block[:reqs]
+
+      block[:reqs].each { |req| collect_dependencies(req, memo) unless memo.key?(req) }
       memo
     end
 
@@ -283,16 +345,64 @@ if $PROGRAM_NAME == __FILE__
   Bundler.require(:default)
 
   require 'minitest/autorun'
+  require 'mocha/minitest'
 
   module MarkdownExec
+    class TestMDocCollectDependencies < Minitest::Test
+      def setup
+        @mdoc = MDoc.new
+      end
+
+      def test_collect_dependencies_with_no_source
+        assert_empty @mdoc.collect_dependencies(nil)
+      end
+
+      if false # must raise error
+        def test_collect_dependencies_with_nonexistent_source
+          assert_raises(RuntimeError) { @mdoc.collect_dependencies('nonexistent') }
+        end
+      end
+
+      def test_collect_dependencies_with_valid_source
+        @mdoc.stubs(:get_block_by_anyname).with('source1').returns({ reqs: ['source2'] })
+        @mdoc.stubs(:get_block_by_anyname).with('source2').returns({ reqs: [] })
+
+        expected = { 'source1' => ['source2'], 'source2' => [] }
+        assert_equal expected, @mdoc.collect_dependencies('source1')
+      end
+    end
+
+    class TestCollectUniqueNames < Minitest::Test
+      def setup
+        @mdoc = MDoc.new
+      end
+
+      def test_empty_hash
+        assert_empty @mdoc.collect_unique_names({})
+      end
+
+      def test_single_key
+        input = { group1: %w[Alice Bob Charlie] }
+        assert_equal %w[Alice Bob Charlie], @mdoc.collect_unique_names(input)
+      end
+
+      def test_multiple_keys
+        input = { group1: %w[Alice Bob], group2: %w[Charlie Alice] }
+        assert_equal %w[Alice Bob Charlie], @mdoc.collect_unique_names(input)
+      end
+
+      def test_no_unique_names
+        input = { group1: ['Alice'], group2: ['Alice'] }
+        assert_equal ['Alice'], @mdoc.collect_unique_names(input)
+      end
+    end
+
     class TestMDoc < Minitest::Test
       def setup
         @table = [
-          { oname: 'block1', body: ['code for block1'],
-            reqs: ['block2'] },
+          { oname: 'block1', body: ['code for block1'], reqs: ['block2'] },
           { oname: 'block2', body: ['code for block2'], reqs: nil },
-          { oname: 'block3', body: ['code for block3'],
-            reqs: ['block1'] }
+          { oname: 'block3', body: ['code for block3'], reqs: ['block1'] }
         ]
         @doc = MDoc.new(@table)
       end
@@ -312,15 +422,15 @@ if $PROGRAM_NAME == __FILE__
       end
 
       ### broken test
-      # def test_collect_recursively_required_blocks
-      #   result = @doc.collect_recursively_required_blocks('block3')
-      #   expected_result = [@table[0], @table[1], @table[2]]
-      #   assert_equal expected_result, result
+      def test_collect_recursively_required_blocks
+        result = @doc.collect_recursively_required_blocks('block3')[:blocks]
+        expected_result = [@table[0], @table[1], @table[2]]
+        assert_equal expected_result, result
 
-      #   assert_raises(RuntimeError) do
-      #     @doc.collect_recursively_required_blocks('missing_block')
-      #   end
-      # end
+        assert_raises(RuntimeError) do
+          @doc.collect_recursively_required_blocks('missing_block')
+        end
+      end
 
       def test_hide_menu_block_per_options
         opts = { hide_blocks_by_name: true,
@@ -338,11 +448,12 @@ if $PROGRAM_NAME == __FILE__
       # end
 
       def test_recursively_required
-        result = @doc.recursively_required(['block3'])
-        assert_equal %w[block3 block1 block2], result
+        result = @doc.recursively_required_hash('block3')
+        assert_equal ({ 'block3' => ['block1'], 'block1' => ['block2'], 'block2' => nil }),
+                     result
 
-        result_no_reqs = @doc.recursively_required(nil)
-        assert_equal [], result_no_reqs
+        result_no_reqs = @doc.recursively_required_hash(nil)
+        assert_equal ({}), result_no_reqs
       end
     end
 

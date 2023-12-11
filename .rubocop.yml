@@ -70,6 +70,9 @@ Style/FormatStringToken:
 Style/GlobalVars:
   Enabled: false
 
+Style/Lambda:
+  Enabled: false
+
 Style/MixinUsage:
   Enabled: false
 
