@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.2] - 2023-12-12
+
+### Changed
+
+- Set default colors.
+
 ## [1.8.1] - 2023-12-11
 
 ### Changed

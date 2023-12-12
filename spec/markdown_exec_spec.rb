@@ -383,7 +383,7 @@ RSpec.describe 'MarkdownExec' do
 
       opts.merge!(block_name: 'one')
       hopts = MarkdownExec::HashDelegator.new(opts)
-      hopts.approve_and_execute_block(
+      hopts.execute_bash_and_special_blocks(
         MarkdownExec::FCB.new,
         mdoc
       )

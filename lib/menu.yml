@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (1.8.1)
+# MDE - Markdown Executor (1.8.2)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -95,7 +95,7 @@
   :env_var: MDE_DUMP_SELECTED_BLOCK
   :opt_name: dump_selected_block
   :procname: val_as_bool
-- :default: fg_rgbh_E0_E0_20
+- :default: fg_rgbh_ff_00_7f
   :description: Color of exception detail
   :env_var: MDE_EXCEPTION_COLOR_DETAIL
   :opt_name: exception_color_detail
@@ -105,7 +105,7 @@
   :env_var: MDE_EXCEPTION_FORMAT_DETAIL
   :opt_name: exception_format_detail
   :procname: val_as_str
-- :default: fg_rgbh_E0_20_20
+- :default: fg_rgbh_ff_00_00
   :description: Color of exception name
   :env_var: MDE_EXCEPTION_COLOR_NAME
   :opt_name: exception_color_name
@@ -135,7 +135,7 @@
   :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
-- :default: fg_rgbh_20_80_80
+- :default: fg_rgbh_7f_ff_00
   :description: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
   :opt_name: execution_report_preview_frame_color
@@ -270,7 +270,7 @@
   :env_var: MDE_MENU_BACK_AT_TOP
   :opt_name: menu_back_at_top
   :procname: val_as_bool
-- :default: fg_rgbh_40_c0_f0
+- :default: fg_rgbh_00_c0_c0
   :description: Color of menu bash
   :env_var: MDE_MENU_BASH_COLOR
   :opt_name: menu_bash_color
@@ -287,7 +287,7 @@
   :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
   :opt_name: menu_blocks_with_headings
   :procname: val_as_bool
-- :default: fg_rgbh_80_80_20
+- :default: fg_rgbh_40_c0_c0
   :description: Color of menu chrome
   :env_var: MDE_MENU_CHROME_COLOR
   :opt_name: menu_chrome_color
@@ -297,7 +297,7 @@
   :env_var: MDE_MENU_CHROME_FORMAT
   :opt_name: menu_chrome_format
   :procname: val_as_str
-- :default: fg_rgbh_20_98_80
+- :default: fg_rgbh_80_d0_c0
   :description: Color of menu divider
   :env_var: MDE_MENU_DIVIDER_COLOR
   :opt_name: menu_divider_color
@@ -352,7 +352,7 @@
   :env_var: MDE_MENU_INITIAL_DIVIDER
   :opt_name: menu_initial_divider
   :procname: val_as_str
-- :default: fg_rgbh_20_E0_20
+- :default: fg_rgbh_e0_e0_20
   :description: Color of menu link
   :env_var: MDE_MENU_LINK_COLOR
   :opt_name: menu_link_color
@@ -362,7 +362,7 @@
   :env_var: MDE_MENU_LINK_FORMAT
   :opt_name: menu_link_format
   :procname: val_as_str
-- :default: fg_rgbh_40_a0_a0
+- :default: fg_rgbh_b0_b0_b0
   :description: Color of menu note
   :env_var: MDE_MENU_NOTE_COLOR
   :opt_name: menu_note_color
@@ -389,12 +389,12 @@
   :env_var: MDE_MENU_OPTION_EXIT_NAME
   :opt_name: menu_option_exit_name
   :procname: val_as_str
-- :default: fg_rgbh_E0_60_E0
+- :default: fg_rgbh_ff_00_ff
   :description: Color of menu opts
   :env_var: MDE_MENU_OPTS_COLOR
   :opt_name: menu_opts_color
   :procname: val_as_str
-- :default: fg_rgbh_E0_20_20
+- :default: fg_rgbh_7f_00_ff
   :description: Color of menu opts
   :env_var: MDE_MENU_OPTS_SET_COLOR
   :opt_name: menu_opts_set_color
@@ -404,7 +404,7 @@
   :env_var: MDE_MENU_OPTS_SET_FORMAT
   :opt_name: menu_opts_set_format
   :procname: val_as_str
-- :default: fg_rgbh_A0_20_D0
+- :default: fg_rgbh_ff_ff_ff
   :description: Color of menu task
   :env_var: MDE_MENU_TASK_COLOR
   :opt_name: menu_task_color
@@ -424,12 +424,12 @@
   :env_var: MDE_MENU_TASK_SYMBOL
   :opt_name: menu_task_symbol
   :procname: val_as_str
-- :default: fg_rgbh_E0_80_20
+- :default: fg_rgbh_ff_a0_ff
   :description: Color of menu vars
   :env_var: MDE_MENU_VARS_COLOR
   :opt_name: menu_vars_color
   :procname: val_as_str
-- :default: fg_rgbh_E0_80_20
+- :default: fg_rgbh_00_ff_ff
   :description: Color of menu vars
   :env_var: MDE_MENU_VARS_SET_COLOR
   :opt_name: menu_vars_set_color
@@ -469,12 +469,12 @@
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_FORMAT
   :opt_name: output_execution_label_format
   :procname: val_as_str
-- :default: fg_rgbh_20_D8_80
+- :default: fg_rgbh_00_ff_00
   :description: Color of output_execution_label_name
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
   :opt_name: output_execution_label_name_color
   :procname: val_as_str
-- :default: fg_rgbh_20_E0_80
+- :default: fg_rgbh_00_ff_00
   :description: Color of output_execution_label_value
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
   :opt_name: output_execution_label_value_color
@@ -531,7 +531,7 @@
   :env_var: MDE_PROMPT_APPROVE_BLOCK
   :opt_name: prompt_approve_block
   :procname: val_as_str
-- :default: fg_rgbh_20_E8_80
+- :default: fg_rgbh_00_ff_00
   :description: Color of prompt after script execution
   :env_var: MDE_PROMPT_COLOR_AFTER_SCRIPT_EXECUTION
   :opt_name: prompt_color_after_script_execution
@@ -658,7 +658,7 @@
   :env_var: MDE_SAVED_STDOUT_GLOB
   :opt_name: saved_stdout_glob
   :procname: val_as_str
-- :default: fg_rgbh_20_80_80
+- :default: fg_rgbh_00_ff_7f
   :description: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
   :opt_name: script_execution_frame_color
@@ -675,7 +675,7 @@
   :env_var: MDE_SCRIPT_EXECUTION_TAIL
   :opt_name: script_execution_tail
   :procname: val_as_str
-- :default: fg_rgbh_20_80_80
+- :default: fg_rgbh_7f_ff_00
   :description: Color of output divider
   :env_var: MDE_OUTPUT_DIVIDER_COLOR
   :opt_name: script_preview_frame_color
@@ -753,7 +753,7 @@
   :long_name: version
   :procname: version
   :short_name: v
-- :default: fg_rgbh_E0_E0_20
+- :default: fg_rgbh_ff_7f_00
   :description: Color of warning message
   :env_var: MDE_WARNING_COLOR
   :opt_name: warning_color

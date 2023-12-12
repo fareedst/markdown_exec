@@ -222,7 +222,7 @@ module MarkdownExec
     # Reports and executes block logic
     def execute_block_logic(files)
       @options[:filename] = select_document_if_multiple(files)
-      @options.select_approve_and_execute_block
+      @options.select_execute_bash_and_special_blocks
     end
 
     ## Executes the block specified in the options
@@ -244,17 +244,17 @@ module MarkdownExec
 
       simple_commands = {
         doc_glob: -> { @fout.fout options[:md_filename_glob] },
-        list_blocks: -> { list_blocks },
+        # list_blocks: -> { list_blocks },
+        list_default_env: -> { @fout.fout_list list_default_env },
         list_default_yaml: -> { @fout.fout_list list_default_yaml },
         list_docs: -> { @fout.fout_list files },
-        list_default_env: -> { @fout.fout_list list_default_env },
-        list_recent_output: lambda {
+        list_recent_output: -> {
                               @fout.fout_list list_recent_output(
                                 @options[:saved_stdout_folder],
                                 @options[:saved_stdout_glob], @options[:list_count]
                               )
                             },
-        list_recent_scripts: lambda {
+        list_recent_scripts: -> {
                                @fout.fout_list list_recent_scripts(
                                  options[:saved_script_folder],
                                  options[:saved_script_glob], options[:list_count]
@@ -358,17 +358,14 @@ module MarkdownExec
     def lambda_for_procname(procname, options)
       case procname
       when 'debug'
-        ->(value) {
-          tap_config value: value
-        }
+        ->(value) { tap_config value: value }
       when 'exit'
         ->(_) { exit }
-
       when 'find'
         ->(value) {
-          # initialize_and_parse_cli_options
-          @fout.fout "Searching in: " \
-           "#{HashDelegator.new(@options).string_send_color(@options[:path], :menu_chrome_color)}"
+          @fout.fout 'Searching in: ' \
+                     "#{HashDelegator.new(@options).string_send_color(@options[:path],
+                                                                      :menu_chrome_color)}"
           searcher = DirectorySearcher.new(value, [@options[:path]])
 
           @fout.fout 'In directory names'
@@ -392,16 +389,13 @@ module MarkdownExec
           end
           exit
         }
-
       when 'help'
         ->(_) {
           @fout.fout menu_help
           exit
         }
-      # when %w[who what where why how which when whom]
       when 'how'
         ->(value) {
-          # value = 'color'
           @fout.fout(list_default_yaml.select { |line| line.include? value })
           exit
         }
@@ -432,7 +426,7 @@ module MarkdownExec
       end
     end
 
-    def list_blocks; end
+    # def list_blocks; end
 
     def list_default_env
       menu_iter do |item|
@@ -568,7 +562,7 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      @options.select_approve_and_execute_block
+      @options.select_execute_bash_and_special_blocks
     rescue StandardError
       error_handler('run_last_script')
     end
@@ -635,7 +629,7 @@ module MarkdownExec
 
       saved_name_split(filename)
 
-      @options.select_approve_and_execute_block ### ({ save_executed_script: false })
+      @options.select_execute_bash_and_special_blocks ### ({ save_executed_script: false })
     end
 
     public
