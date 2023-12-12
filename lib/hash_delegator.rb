@@ -790,7 +790,7 @@ module MarkdownExec
         return
       end
 
-      @delegate_object[:block_name] = block_state.block[:dname]
+      @delegate_object[:block_name] = block_state.block[:oname]
       @menu_user_clicked_back_link = block_state.state == MenuState::BACK
     end
 
@@ -1589,7 +1589,6 @@ module MarkdownExec
                                filename: @delegate_object[:filename],
                                prefix: @delegate_object[:saved_script_filename_prefix],
                                time: time_now)
-
       @run_state.saved_filespec =
         File.join(@delegate_object[:saved_script_folder],
                   @run_state.saved_script_filename)
@@ -2275,7 +2274,7 @@ if $PROGRAM_NAME == __FILE__
 
         def test_handle_block_state_with_back
           @mock_block_state.stubs(:state).returns(MenuState::BACK)
-          @mock_block_state.stubs(:block).returns({ dname: 'sample_block' })
+          @mock_block_state.stubs(:block).returns({ oname: 'sample_block' })
 
           @hd.handle_block_state(@mock_block_state)
 
@@ -2286,7 +2285,7 @@ if $PROGRAM_NAME == __FILE__
 
         def test_handle_block_state_with_continue
           @mock_block_state.stubs(:state).returns(MenuState::CONTINUE)
-          @mock_block_state.stubs(:block).returns({ dname: 'another_block' })
+          @mock_block_state.stubs(:block).returns({ oname: 'another_block' })
 
           @hd.handle_block_state(@mock_block_state)
 
@@ -2297,7 +2296,7 @@ if $PROGRAM_NAME == __FILE__
 
         def test_handle_block_state_with_other
           @mock_block_state.stubs(:state).returns(nil) # MenuState::OTHER
-          @mock_block_state.stubs(:block).returns({ dname: 'other_block' })
+          @mock_block_state.stubs(:block).returns({ oname: 'other_block' })
 
           @hd.handle_block_state(@mock_block_state)
 
@@ -2732,7 +2731,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_wait_for_user_selected_block_with_back_state
         mock_block_state = Struct.new(:state, :block).new(MenuState::BACK,
-                                                          { dname: 'back_block' })
+                                                          { oname: 'back_block' })
         @hd.stubs(:wait_for_user_selection).returns(mock_block_state)
 
         result = @hd.wait_for_user_selected_block([], ['Block 1', 'Block 2'],
@@ -2746,7 +2745,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_wait_for_user_selected_block_with_continue_state
         mock_block_state = Struct.new(:state, :block).new(
-          MenuState::CONTINUE, { dname: 'continue_block' }
+          MenuState::CONTINUE, { oname: 'continue_block' }
         )
         @hd.stubs(:wait_for_user_selection).returns(mock_block_state)
 

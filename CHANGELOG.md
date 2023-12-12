@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.8.1] - 2023-12-11
+
+### Changed
+
+- Name used in script saved file.
+
+## [1.8] - 2023-12-11
+
+### Changed
+
+- Default colors.
+
+### Added
+
+- Run-time exception for unmet dependencies.
+- Command to find text in directory name, file name, or file contents.
+- Options to detect and display block dependency graph and exceptions.
+- Options to dump parsed blocks structures.
+- Options to add labels to shell code blocks.
+
+## [1.7] - 2023-12-01
+
+### Added
+
+- Options to format menu and output blocks.
+- Control display of imported content.
+- Example documents.
+
 ## [1.6] - 2023-11-13
 
 ### Added
