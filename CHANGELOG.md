@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.4] - 2023-12-15
+
+### Added
+
+- Options to dump blocks when processed.
+
+### Changed
+
+- Refactor code generation for and after Link blocks
+
 ## [1.8.2] - 2023-12-12
 
 ### Changed

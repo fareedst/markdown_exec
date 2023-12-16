@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "1.8.2"
+  echo "1.8.4"
 }
 
 _mde() {
@@ -35,6 +35,12 @@ _mde() {
               --debug) COMPREPLY="0"; return 0 ;;
             
               -d) COMPREPLY="0"; return 0 ;;
+            
+              --dump-blocks-in-file) COMPREPLY="0"; return 0 ;;
+            
+              --dump-menu-blocks) COMPREPLY="0"; return 0 ;;
+            
+              --dump-selected-block) COMPREPLY="0"; return 0 ;;
             
               --filename) COMPREPLY="."; return 0 ;;
             
@@ -82,7 +88,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--exit" "--filename" "--find" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-blocks-in-file" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -104,6 +110,12 @@ _mde() {
           --debug) COMPREPLY=".BOOL."; return 0 ;;
         
           -d) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --dump-blocks-in-file) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --dump-menu-blocks) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --dump-selected-block) COMPREPLY=".BOOL."; return 0 ;;
         
           --filename) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
@@ -154,4 +166,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2023-12-12 16:10:29 UTC"
+# echo "Updated: 2023-12-15 23:59:17 UTC"

@@ -30,6 +30,7 @@ RSpec.describe 'MarkdownExec' do
   let(:block_calls_scan) { '%\\([^\\)]+\\)' }
   let(:block_name_match) { ':(?<title>\\S+)( |$)' }
   let(:block_name_wrapper_match) { '^{.+}$' }
+  let(:block_source) { { document_filename: '' } }
   let(:block_stdin_scan) do
     '<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))'
   end
@@ -376,7 +377,7 @@ RSpec.describe 'MarkdownExec' do
         filename: 'fixtures/bash1.md',
         shell_code_label_format_above: nil,
         shell_code_label_format_below: nil,
-        user_must_approve: false,
+        user_must_approve: false
       )
       hopts = MarkdownExec::HashDelegator.new(opts)
       mdoc = MarkdownExec::MDoc.new(hopts.blocks_from_nested_files)
@@ -385,7 +386,8 @@ RSpec.describe 'MarkdownExec' do
       hopts = MarkdownExec::HashDelegator.new(opts)
       hopts.execute_bash_and_special_blocks(
         MarkdownExec::FCB.new,
-        mdoc
+        mdoc,
+        block_source: block_source
       )
     end
   end
@@ -464,8 +466,10 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_called_parse_hidden_get_required_code' do
     expect(MarkdownExec::MDoc.new(list_blocks_bash1)
-                                   .collect_recursively_required_code('four')[:code]).to \
-                                     eq %w[a b c d]
+                                   .collect_recursively_required_code(
+                                     'four',
+                                     block_source: block_source
+                                   )[:code]).to eq %w[a b c d]
   end
 
   xit 'test_list_yield' do
@@ -490,7 +494,10 @@ RSpec.describe 'MarkdownExec' do
     expect(list_blocks_bash1.map do |block|
              { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash1)
-                     .collect_recursively_required_code(block[:oname])[:code] }
+                     .collect_recursively_required_code(
+                       block[:oname],
+                       block_source: block_source
+                     )[:code] }
            end).to eq([
                         { name: 'one', code: ['a'] },
                         { name: 'two', code: %w[a b] },
@@ -504,7 +511,10 @@ RSpec.describe 'MarkdownExec' do
     expect(list_blocks_bash2.map do |block|
              { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash2)
-                     .collect_recursively_required_code(block[:oname])[:code] }
+                     .collect_recursively_required_code(
+                       block[:oname],
+                       block_source: block_source
+                     )[:code] }
            end).to eq([
                         { name: 'one', code: %w[a] },
                         { name: 'two', code: %w[a b] },
@@ -606,9 +616,7 @@ RSpec.describe 'MarkdownExec' do
   end # RUN_INTERACTIVE
 
   it 'test_exclude_by_name_regex' do
-    if RUN_INTERACTIVE
-      expect(mp.exclude_block(exclude_by_name_regex: 'w')[:oname]).to eq 'one'
-    end
+    expect(mp.exclude_block(exclude_by_name_regex: 'w')[:oname]).to eq 'one' if RUN_INTERACTIVE
     # expect(mp.list_named_blocks_in_file(
     #   exclude_by_name_regex: 'w'
     # ).map do |block|
@@ -745,7 +753,10 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_parse_called_get_required_code' do
-    expect(mdoc_yaml1.collect_recursively_required_code('show_fruit_yml')[:code]).to eq [
+    expect(mdoc_yaml1.collect_recursively_required_code(
+      'show_fruit_yml',
+      block_source: block_source
+    )[:code]).to eq [
       [
         %q(cat > 'fruit.yml' <<"EOF"),
         'fruit:',
@@ -786,7 +797,10 @@ RSpec.describe 'MarkdownExec' do
 
   # rubocop:disable Layout/LineLength
   it 'test_vars_parse_called_get_required_code' do
-    expect(mdoc_yaml2.collect_recursively_required_code('show_coins_var')[:code]).to eq [
+    expect(mdoc_yaml2.collect_recursively_required_code(
+      'show_coins_var',
+      block_source: block_source
+    )[:code]).to eq [
       %(export coins=$(cat <<"EOF"\ncoins:\n  - name: bitcoin\n    price: 21000\n  - name: ethereum\n    price: 1000\nEOF\n)),
       %q(export coins_report=$(echo "$coins" | yq '.coins | map(. | { "name": .name, "price": .price })')),
       %(export coins_report=$(cat <<"EOF"\necho "coins_report:"\necho "${coins_report:-MISSING}"\nEOF\n))

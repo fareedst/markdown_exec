@@ -96,6 +96,7 @@
   :default: false
   :description: Dump BlocksInFile (stage 1)
   :env_var: MDE_DUMP_BLOCKS_IN_FILE
+  :long_name: dump-blocks-in-file
   :opt_name: dump_blocks_in_file
   :procname: val_as_bool
 
@@ -103,6 +104,7 @@
   :default: false
   :description: Dump MenuBlocks (stage 2)
   :env_var: MDE_DUMP_MENU_BLOCKS
+  :long_name: dump-menu-blocks
   :opt_name: dump_menu_blocks
   :procname: val_as_bool
 
@@ -110,6 +112,7 @@
   :default: false
   :description: Dump selected block
   :env_var: MDE_DUMP_SELECTED_BLOCK
+  :long_name: dump-selected-block
   :opt_name: dump_selected_block
   :procname: val_as_bool
 
@@ -846,13 +849,13 @@
   :opt_name: shell
   :procname: val_as_str
 
-- :default: "#  -^-  +%{name}  -^-"
+- :default: "#  -^-  +%{block_name}  -o-  %{document_filename}  -^-"
   :description: shell_code_label_format_above
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
   :opt_name: shell_code_label_format_above
   :procname: val_as_str
 
-- :default: "#  -v-  +%{name}  -v-"
+- :default: "#  -v-  +%{block_name}  -v-"
   :description: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
   :opt_name: shell_code_label_format_below

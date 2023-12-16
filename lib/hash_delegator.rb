@@ -24,6 +24,7 @@ require_relative 'fcb'
 require_relative 'filter'
 require_relative 'fout'
 require_relative 'hash'
+require_relative 'link_history'
 require_relative 'mdoc'
 require_relative 'string_util'
 
@@ -115,6 +116,7 @@ module MarkdownExec
       @run_state = OpenStruct.new(
         link_history: []
       )
+      @link_history = LinkHistory.new
       @fout = FOut.new(@delegate_object) ### slice only relevant keys
 
       @process_mutex = Mutex.new
@@ -167,9 +169,7 @@ module MarkdownExec
     def append_chrome_block(menu_blocks, type)
       case type
       when MenuState::BACK
-        state = history_state_partition
-        @hs_curr = state[:unit]
-        @hs_rest = state[:rest]
+        history_state_partition
         option_name = @delegate_object[:menu_option_back_name]
         insert_at_top = @delegate_object[:menu_back_at_top]
       when MenuState::EXIT
@@ -181,13 +181,9 @@ module MarkdownExec
                               safeval(option_name))
       chrome_block = FCB.new(
         chrome: true,
-
-        # dname: formatted_name.send(@delegate_object[:menu_link_color].to_sym),
         dname: HashDelegator.new(@delegate_object).string_send_color(
           formatted_name, :menu_link_color
         ),
-        #dname: @delegate_object.string_send_color(formatted_name, :menu_link_color),
-
         oname: formatted_name
       )
 
@@ -276,21 +272,35 @@ module MarkdownExec
       true
     end
 
+    def code_join(*bodies)
+      bc = bodies&.compact
+      bc.count.positive? ? bc.join("\n") : nil
+    end
+
+    def code_merge(*bodies)
+      merge_lists(*bodies)
+    end
+
     # Collects required code lines based on the selected block and the delegate object's configuration.
     # If the block type is VARS, it also sets environment variables based on the block's content.
     #
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     # @param selected [Hash] The selected block.
     # @return [Array<String>] Required code blocks as an array of lines.
-    def collect_required_code_lines(mdoc, selected)
+    def collect_required_code_lines(mdoc, selected, link_state = LinkState.new, block_source:)
       set_environment_variables_for_block(selected) if selected[:shell] == BlockType::VARS
 
       required = mdoc.collect_recursively_required_code(
         @delegate_object[:block_name],
         label_format_above: @delegate_object[:shell_code_label_format_above],
-        label_format_below: @delegate_object[:shell_code_label_format_below]
+        label_format_below: @delegate_object[:shell_code_label_format_below],
+        block_source: block_source
       )
+      required[:unmet_dependencies] =
+        (required[:unmet_dependencies] || []) - (link_state&.inherited_block_names || [])
       if required[:unmet_dependencies].present?
+        ### filter against link_state.inherited_block_names
+
         warn format_and_highlight_dependencies(required[:dependencies],
                                                highlight: required[:unmet_dependencies])
         runtime_exception(:runtime_exception_error_level,
@@ -299,7 +309,8 @@ module MarkdownExec
         warn format_and_highlight_dependencies(required[:dependencies],
                                                highlight: [@delegate_object[:block_name]])
       end
-      read_required_blocks_from_temp_file + required[:code]
+
+      code_merge link_state&.inherited_lines, required[:code]
     end
 
     def command_execute(command, args: [])
@@ -369,15 +380,18 @@ module MarkdownExec
     #
     # @param mdoc [Object] The markdown document object containing code blocks.
     # @param selected [Hash] The selected item from the menu to be executed.
-    # @return [LoadFileNextBlock] An object indicating whether to load the next block or reuse the current one.
-    def compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected)
-      required_lines = collect_required_code_lines(mdoc, selected)
+    # @return [LoadFileLinkState] An object indicating whether to load the next block or reuse the current one.
+    def compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected,
+                                                                  link_state = nil, block_source:)
+      required_lines = collect_required_code_lines(mdoc, selected, link_state,
+                                                   block_source: block_source)
       output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
       display_required_code(required_lines) if output_or_approval
       allow_execution = @delegate_object[:user_must_approve] ? prompt_for_user_approval(required_lines) : true
-      execute_approved_block(required_lines, selected) if allow_execution
+      execute_required_lines(required_lines) if allow_execution
 
-      LoadFileNextBlock.new(LoadFile::Reuse, '')
+      link_state.block_name = nil
+      LoadFileLinkState.new(LoadFile::Reuse, link_state)
     end
 
     def copy_to_clipboard(required_lines)
@@ -458,13 +472,13 @@ module MarkdownExec
     # @param file_path [String] The path where the file will be created.
     # @param content [String] The content to write into the file.
     # @param chmod_value [Integer] The file permission value to set; skips if zero.
-    def create_and_write_file_with_permissions(file_path, content,
-                                               chmod_value)
+    def create_file_and_write_string_with_permissions(file_path, content,
+                                                      chmod_value)
       create_directory_for_file(file_path)
-      write_file_content(file_path, content)
+      File.write(file_path, content)
       set_file_permissions(file_path, chmod_value) unless chmod_value.zero?
     rescue StandardError
-      error_handler('create_and_write_file_with_permissions')
+      error_handler('create_file_and_write_string_with_permissions')
     end
 
     # private
@@ -484,15 +498,6 @@ module MarkdownExec
         dname: string_send_color(oname, :menu_divider_color),
         oname: oname
       )
-    end
-
-    # Creates a temporary file, writes the provided code blocks into it,
-    # and sets an environment variable with the file path.
-    # @param code_blocks [String] Code blocks to write into the file.
-    def create_temp_file_with_code(code_blocks)
-      temp_file_path = create_temp_file
-      write_to_file(temp_file_path, code_blocks)
-      set_environment_variable(temp_file_path)
     end
 
     # private
@@ -519,13 +524,10 @@ module MarkdownExec
     # Deletes a temporary file specified by an environment variable.
     # Checks if the file exists before attempting to delete it and clears the environment variable afterward.
     # Any errors encountered during deletion are handled gracefully.
-    def delete_required_temp_file
-      temp_blocks_file_path = fetch_temp_blocks_file_path
-
+    def delete_required_temp_file(temp_blocks_file_path)
       return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
 
       safely_remove_file(temp_blocks_file_path)
-      clear_required_file
     rescue StandardError
       error_handler('delete_required_temp_file')
     end
@@ -581,9 +583,9 @@ module MarkdownExec
     #
     # @param required_lines [Array<String>] The lines of code to be executed.
     # @param selected [FCB] The selected functional code block object.
-    def execute_approved_block(required_lines = [], _selected = FCB.new)
+    def execute_required_lines(required_lines = [])
       # set_script_block_name(selected)
-      write_command_file_if_needed(required_lines)
+      save_executed_script_if_specified(required_lines)
       format_and_execute_command(required_lines)
       post_execution_process
     end
@@ -597,15 +599,21 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     #
-    def execute_bash_and_special_blocks(selected, mdoc)
+    def execute_bash_and_special_blocks(selected, mdoc, link_state = LinkState.new,
+                                        block_source:)
       if selected.fetch(:shell, '') == BlockType::LINK
-        push_link_history_and_trigger_load(selected.fetch(:body, ''), mdoc, selected)
+        push_link_history_and_trigger_load(selected.fetch(:body, ''), mdoc, selected,
+                                           link_state)
+
       elsif @menu_user_clicked_back_link
         pop_link_history_and_trigger_load
+
       elsif selected[:shell] == BlockType::OPTS
-        update_options_and_trigger_reuse(selected, @menu_base_options)
+        update_options_and_trigger_reuse(selected, @menu_base_options, link_state)
+
       else
-        compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected)
+        compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected, link_state,
+                                                                  block_source: block_source)
       end
     end
 
@@ -623,13 +631,8 @@ module MarkdownExec
       string_send_color(data_string, color_sym)
     end
 
-    def fetch_temp_blocks_file_path
-      ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
-    end
-
     # DebugHelper.d ["HDmm method_name: #{method_name}", "#{first_n_caller_items 1}"]
     def first_n_caller_items(n)
-      # Get the call stack
       call_stack = caller
       base_path = File.realpath('.')
 
@@ -704,6 +707,7 @@ module MarkdownExec
     #
     # @param block_state [Object] An object representing the state of a block in the menu.
     def handle_block_state(block_state)
+      return if block_state.nil?
       unless [MenuState::BACK,
               MenuState::CONTINUE].include?(block_state.state)
         return
@@ -733,52 +737,6 @@ module MarkdownExec
           @process_cv.signal
         end
       end
-    end
-
-    # Checks if a history environment variable is set and returns its value if present.
-    # @return [String, nil] The value of the history environment variable or nil if not present.
-    def history_env_state_exist?
-      ENV.fetch(MDE_HISTORY_ENV_NAME, '').present?
-    end
-
-    # Partitions the history state from the environment variable based on the document separator.
-    # @return [Hash] A hash containing two parts: :unit (first part) and :rest (remaining part).
-    def history_state_partition
-      history_env_value = ENV.fetch(MDE_HISTORY_ENV_NAME, '')
-      separator = @delegate_object[:history_document_separator]
-
-      unit, rest = StringUtil.partition_at_first(history_env_value, separator)
-      { unit: unit, rest: rest }
-    end
-
-    # Pops the last entry from the history state, updating the delegate object and environment variable.
-    # It also deletes the required temporary file and updates the run state link history.
-    def history_state_pop
-      state = history_state_partition
-      @delegate_object[:filename] = state[:unit]
-      ENV[MDE_HISTORY_ENV_NAME] = state[:rest]
-      delete_required_temp_file
-      @run_state.link_history.pop
-    end
-
-    # Updates the history state by pushing a new entry and managing environment variables.
-    # @param mdoc [Object] The Markdown document object.
-    # @param data_file [String] The data file to be processed.
-    # @param selected [Hash] Hash containing the selected block's name.
-    def history_state_push(mdoc, data_file, selected)
-      # Construct new history string
-      new_history = [@delegate_object[:filename],
-                     @delegate_object[:history_document_separator],
-                     ENV.fetch(MDE_HISTORY_ENV_NAME, '')].join
-
-      # Update delegate object and environment variable
-      @delegate_object[:filename] = data_file
-      ENV[MDE_HISTORY_ENV_NAME] = new_history
-
-      # Write required blocks to temp file and update run state
-      write_required_blocks_to_temp_file(mdoc, @delegate_object[:block_name])
-      @run_state.link_history.push(block_name: selected[:oname],
-                                   filename: data_file)
     end
 
     # Indents all lines in a given string with a specified indentation string.
@@ -843,6 +801,31 @@ module MarkdownExec
                                       &block)
         end
       end
+    end
+
+    def link_history_push_and_next(
+      curr_block_name:, curr_document_filename:,
+      inherited_block_names:, inherited_lines:,
+      next_block_name:, next_document_filename:,
+      next_load_file:
+    )
+      @link_history.push(
+        LinkState.new(
+          block_name: curr_block_name,
+          document_filename: curr_document_filename,
+          inherited_block_names: inherited_block_names,
+          inherited_lines: inherited_lines
+        )
+      )
+      LoadFileLinkState.new(
+        next_load_file,
+        LinkState.new(
+          block_name: next_block_name,
+          document_filename: next_document_filename,
+          inherited_block_names: inherited_block_names,
+          inherited_lines: inherited_lines
+        )
+      )
     end
 
     # Loads auto blocks based on delegate object settings and updates if new filename is detected.
@@ -910,6 +893,12 @@ module MarkdownExec
       end
     end
 
+    def merge_lists(*args)
+      # Filters out nil values, flattens the arrays, and ensures an empty list is returned if no valid lists are provided
+      merged = args.compact.flatten
+      merged.empty? ? [] : merged
+    end
+
     # If a method is missing, treat it as a key for the @delegate_object.
     def method_missing(method_name, *args, &block)
       if @delegate_object.respond_to?(method_name)
@@ -922,11 +911,11 @@ module MarkdownExec
       end
     end
 
-    def next_block_name_from_command_line_arguments
-      return MenuControl::Repeat unless @delegate_object[:input_cli_rest].present?
+    def pop_cli_argument!
+      return false unless @delegate_object[:input_cli_rest].present?
 
-      @delegate_object[:block_name] = @delegate_object[:input_cli_rest].pop
-      MenuControl::Fresh
+      @cli_block_name = @delegate_object[:input_cli_rest].pop
+      true
     end
 
     # private
@@ -992,10 +981,15 @@ module MarkdownExec
     # This method handles the back-link operation in the Markdown execution context.
     # It updates the history state and prepares to load the next block.
     #
-    # @return [LoadFileNextBlock] An object indicating the action to load the next block.
+    # @return [LoadFileLinkState] An object indicating the action to load the next block.
     def pop_link_history_and_trigger_load
-      history_state_pop
-      LoadFileNextBlock.new(LoadFile::Load, '')
+      pop = @link_history.pop
+      peek = @link_history.peek
+      LoadFileLinkState.new(LoadFile::Load, LinkState.new(
+        document_filename: pop.document_filename,
+        inherited_block_names: peek.inherited_block_names,
+        inherited_lines: peek.inherited_lines
+      ))
     end
 
     def post_execution_process
@@ -1010,7 +1004,6 @@ module MarkdownExec
     # @param opts [Hash] The options hash.
     # @return [Array<Hash>] The updated blocks menu.
     def prepare_blocks_menu(menu_blocks)
-      ### replace_consecutive_blanks(menu_blocks).map do |fcb|
       menu_blocks.map do |fcb|
         next if Filter.prepared_not_in_menu?(@delegate_object, fcb,
                                              %i[block_name_include_match block_name_wrapper_match])
@@ -1114,28 +1107,54 @@ module MarkdownExec
     # public
 
     # Handles the processing of a link block in Markdown Execution.
-    # It loads YAML data from the body content, pushes the state to history,
+    # It loads YAML data from the link_block_body content, pushes the state to history,
     # sets environment variables, and decides on the next block to load.
     #
-    # @param body [Array<String>] The body content as an array of strings.
+    # @param link_block_body [Array<String>] The body content as an array of strings.
     # @param mdoc [Object] Markdown document object.
-    # @param selected [Boolean] Selected state.
-    # @return [LoadFileNextBlock] Object indicating the next action for file loading.
-    def push_link_history_and_trigger_load(body, mdoc, selected)
-      data = parse_yaml_data_from_body(body)
-      data_file = data['file']
-      return LoadFileNextBlock.new(LoadFile::Reuse, '') unless data_file
+    # @param selected [FCB] Selected code block.
+    # @return [LoadFileLinkState] Object indicating the next action for file loading.
+    def push_link_history_and_trigger_load(link_block_body, mdoc, selected,
+                                           link_state = LinkState.new)
+      link_block_data = parse_yaml_data_from_body(link_block_body)
 
-      history_state_push(mdoc, data_file, selected)
-      set_environment_variables_per_array(data['vars'])
+      # load key and values from link block into current environment
+      #
+      (link_block_data['vars'] || []).each do |(key, value)|
+        ENV[key] = value.to_s
+      end
 
-      LoadFileNextBlock.new(LoadFile::Load, data['block'] || '')
+      ## collect blocks specified by block
+      #
+      if mdoc
+        code_info = mdoc.collect_recursively_required_code(
+          selected[:oname],
+          label_format_above: @delegate_object[:shell_code_label_format_above],
+          label_format_below: @delegate_object[:shell_code_label_format_below],
+          block_source: { document_filename: link_state.document_filename }
+        )
+        code_lines = code_info[:code]
+        block_names = code_info[:block_names]
+      else
+        block_names = []
+        code_lines = []
+      end
+
+      next_document_filename = link_block_data['file'] || @delegate_object[:filename]
+      link_history_push_and_next(
+        curr_block_name: selected[:oname],
+        curr_document_filename: @delegate_object[:filename],
+        inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
+        inherited_lines: code_merge(link_state&.inherited_lines, code_lines),
+        next_block_name: link_block_data['block'] || '',
+        next_document_filename: next_document_filename,
+        next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
+      )
     end
 
     # Reads required code blocks from a temporary file specified by an environment variable.
     # @return [Array<String>] Lines read from the temporary file, or an empty array if file is not found or path is empty.
-    def read_required_blocks_from_temp_file
-      temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
+    def read_required_blocks_from_temp_file(temp_blocks_file_path)
       return [] if temp_blocks_file_path.to_s.empty?
 
       if File.exist?(temp_blocks_file_path)
@@ -1180,12 +1199,6 @@ module MarkdownExec
       error_handler('safeval')
     end
 
-    # def safeval(str)
-    #   eval(str)
-    # rescue StandardError
-    #   error_handler('safeval')
-    # end
-
     def save_to_file(required_lines)
       write_command_file(required_lines)
       @fout.fout "File saved: #{@run_state.saved_filespec}"
@@ -1199,23 +1212,25 @@ module MarkdownExec
     # @return [Nil] Returns nil if no code block is selected or an error occurs.
     def select_execute_bash_and_special_blocks(_execute: true)
       @menu_base_options = @delegate_object
-      repeat_menu = @menu_base_options[:block_name].present? ? MenuControl::Fresh : MenuControl::Repeat
-      load_file_next_block = LoadFileNextBlock.new(LoadFile::Reuse)
+      link_state = LinkState.new(
+        block_name: @delegate_object[:block_name],
+        document_filename: @delegate_object[:filename]
+      )
+      block_name_from_cli = link_state.block_name.present?
+      @cli_block_name = link_state.block_name
+      load_file = nil
       menu_default_dname = nil
-
-      @menu_state_filename = @menu_base_options[:filename]
-      @menu_state_block_name = @menu_base_options[:block_name]
 
       loop do
         loop do
           @delegate_object = @menu_base_options.dup
-          @menu_base_options[:filename] = @menu_state_filename
-          @menu_base_options[:block_name] = @menu_state_block_name
-          @menu_state_filename = nil
-          @menu_state_block_name = nil
           @menu_user_clicked_back_link = false
+          @delegate_object[:filename] = link_state.document_filename
+          link_state.block_name = @delegate_object[:block_name] =
+            block_name_from_cli ? @cli_block_name : link_state.block_name
 
           blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
+
           if @delegate_object[:dump_blocks_in_file]
             warn format_and_highlight_dependencies(
               compact_and_index_hash(blocks_in_file),
@@ -1228,6 +1243,7 @@ module MarkdownExec
               label: 'menu_blocks'
             )
           end
+
           block_state = command_or_user_selected_block(blocks_in_file,
                                                        menu_blocks, menu_default_dname)
           return if block_state.state == MenuState::EXIT
@@ -1242,20 +1258,20 @@ module MarkdownExec
             warn block_state.block.to_yaml.sub(/^(?:---\n)?/, "Block:\n")
           end
 
-          load_file_next_block = execute_bash_and_special_blocks(block_state.block,
-                                                                 mdoc)
-          # if the same menu is being displayed,
-          # collect the display name of the selected menu item
-          # for use as the default item
-          menu_default_dname = load_file_next_block.load_file == LoadFile::Load ? nil : block_state.block[:dname]
-
-          @menu_base_options[:block_name] =
-            @delegate_object[:block_name] = load_file_next_block.next_block
-          @menu_base_options[:filename] = @delegate_object[:filename]
+          load_file_link_state = execute_bash_and_special_blocks(
+            block_state.block,
+            mdoc,
+            link_state,
+            block_source: { document_filename: @delegate_object[:filename] }
+          )
+          load_file = load_file_link_state.load_file
+          link_state = load_file_link_state.link_state
+          # if the same menu is being displayed, collect the display name of the selected menu item for use as the default item
+          menu_default_dname = load_file == LoadFile::Load ? nil : block_state.block[:dname]
 
           # user prompt to exit if the menu will be displayed again
           #
-          if repeat_menu == MenuControl::Repeat &&
+          if !block_name_from_cli &&
              block_state.block[:shell] == BlockType::BASH &&
              @delegate_object[:pause_after_script_execution] &&
              prompt_select_continue == MenuState::EXIT
@@ -1264,16 +1280,12 @@ module MarkdownExec
 
           # exit current document/menu if loading next document or single block_name was specified
           #
-          if block_state.state == MenuState::CONTINUE && load_file_next_block.load_file == LoadFile::Load
-            break
-          end
-          break if repeat_menu == MenuControl::Fresh
+          break if block_state.state == MenuState::CONTINUE && load_file == LoadFile::Load
+          break if block_name_from_cli
         end
-        break if load_file_next_block.load_file == LoadFile::Reuse
+        break if load_file == LoadFile::Reuse
 
-        repeat_menu = next_block_name_from_command_line_arguments
-        @menu_state_filename = @menu_base_options[:filename]
-        @menu_state_block_name = @menu_base_options[:block_name]
+        block_name_from_cli = pop_cli_argument!
       end
     rescue StandardError
       error_handler('select_execute_bash_and_special_blocks',
@@ -1293,8 +1305,7 @@ module MarkdownExec
 
       item.merge(
         if selection == menu_chrome_colored_option(:menu_option_back_name)
-          { option: selection, curr: @hs_curr, rest: @hs_rest,
-            shell: BlockType::LINK }
+          { option: selection, shell: BlockType::LINK }
         elsif selection == menu_chrome_colored_option(:menu_option_exit_name)
           { option: selection }
         else
@@ -1305,10 +1316,6 @@ module MarkdownExec
       exit 1
     rescue StandardError
       error_handler('select_option_with_metadata')
-    end
-
-    def set_environment_variable(path)
-      ENV['MDE_LINK_REQUIRED_FILE'] = path
     end
 
     def set_environment_variables_for_block(selected)
@@ -1336,7 +1343,8 @@ module MarkdownExec
     end
 
     def should_add_back_option?
-      @delegate_object[:menu_with_back] && history_env_state_exist?
+      @delegate_object[:menu_with_back] && @link_history.prior_state_exist?
+      # @delegate_object[:menu_with_back] && link_history_prior_state_exist?
     end
 
     # Initializes a new fenced code block (FCB) object based on the provided line and heading information.
@@ -1397,7 +1405,6 @@ module MarkdownExec
         symbols: { cross: ' ' }
       )
     end
-    # private
 
     def update_delegate_and_target(key, value, tgt2)
       sym_key = key.to_sym
@@ -1473,12 +1480,9 @@ module MarkdownExec
         ## add line to fenced code block
         # remove fcb indent if possible
         #
-        # if nested_line[:depth].zero? || opts[:menu_include_imported_blocks]
-        # if add_import_block?(nested_line)
         state[:fcb].body += [
           line.chomp.sub(/^#{state[:fcb].indent}/, '')
         ]
-        # end
       elsif nested_line[:depth].zero? || @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it
         #
@@ -1504,14 +1508,15 @@ module MarkdownExec
     # Processes YAML data from the selected menu item, updating delegate objects and optionally printing formatted output.
     # @param selected [Hash] Selected item from the menu containing a YAML body.
     # @param tgt2 [Hash, nil] An optional target hash to update with YAML data.
-    # @return [LoadFileNextBlock] An instance indicating the next action for loading files.
-    def update_options_and_trigger_reuse(selected, tgt2 = nil)
+    # @return [LoadFileLinkState] An instance indicating the next action for loading files.
+    def update_options_and_trigger_reuse(selected, tgt2 = nil, link_state = LinkState.new)
       data = YAML.load(selected[:body].join("\n"))
       (data || []).each do |key, value|
         update_delegate_and_target(key, value, tgt2)
         print_formatted_option(key, value) if @delegate_object[:menu_opts_set_format].present?
       end
-      LoadFileNextBlock.new(LoadFile::Reuse, '')
+      link_state.block_name = nil
+      LoadFileLinkState.new(LoadFile::Reuse, link_state)
     end
 
     def wait_for_stream_processing
@@ -1523,7 +1528,6 @@ module MarkdownExec
     def wait_for_user_selected_block(all_blocks, menu_blocks, default)
       block_state = wait_for_user_selection(all_blocks, menu_blocks, default)
       handle_block_state(block_state)
-
       block_state
     rescue StandardError
       error_handler('wait_for_user_selected_block')
@@ -1577,7 +1581,7 @@ module MarkdownExec
                 "# time: #{time_now}\n" \
                 "#{required_lines.flatten.join("\n")}\n"
 
-      create_and_write_file_with_permissions(
+      create_file_and_write_string_with_permissions(
         @run_state.saved_filespec,
         content,
         @delegate_object[:saved_script_chmod]
@@ -1586,7 +1590,7 @@ module MarkdownExec
       error_handler('write_command_file')
     end
 
-    def write_command_file_if_needed(lines)
+    def save_executed_script_if_specified(lines)
       write_command_file(lines) if @delegate_object[:save_executed_script]
     end
 
@@ -1605,15 +1609,11 @@ module MarkdownExec
       )
     end
 
-    def write_file_content(file_path, content)
-      File.write(file_path, content)
-    end
-
     # Writes required code blocks to a temporary file and sets an environment variable with its path.
     #
     # @param mdoc [Object] The Markdown document object.
     # @param block_name [String] The name of the block to collect code for.
-    def write_required_blocks_to_temp_file(mdoc, block_name)
+    def write_required_blocks_to_file(mdoc, block_name, temp_file_path, import_filename: nil)
       c1 = if mdoc
              mdoc.collect_recursively_required_code(
                block_name,
@@ -1624,13 +1624,15 @@ module MarkdownExec
              []
            end
 
-      code_blocks = (read_required_blocks_from_temp_file +
+      code_blocks = (read_required_blocks_from_temp_file(import_filename) +
                      c1).join("\n")
 
-      create_temp_file_with_code(code_blocks)
+      write_code_to_file(code_blocks, temp_file_path)
     end
 
-    def write_to_file(path, content)
+    # Writes the provided code blocks to a file.
+    # @param code_blocks [String] Code blocks to write into the file.
+    def write_code_to_file(content, path)
       File.write(path, content)
     end
 
@@ -1674,7 +1676,7 @@ if $PROGRAM_NAME == __FILE__
         @mdoc = mock('MarkdownDocument')
       end
 
-      def test_calling_execute_approved_block_calls_command_execute_with_argument_args_value
+      def test_calling_execute_required_lines_calls_command_execute_with_argument_args_value
         pigeon = 'E'
         obj = {
           output_execution_label_format: '',
@@ -1691,46 +1693,33 @@ if $PROGRAM_NAME == __FILE__
           args: pigeon
         )
 
-        # Call method opts_execute_approved_block
-        c.execute_approved_block([], MarkdownExec::FCB.new)
+        # Call method opts_execute_required_lines
+        c.execute_required_lines([])
       end
 
       # Test case for empty body
       def test_push_link_history_and_trigger_load_with_empty_body
-        assert_equal LoadFileNextBlock.new(LoadFile::Reuse, ''),
-                     @hd.push_link_history_and_trigger_load([], nil, false)
+        assert_equal LoadFile::Reuse,
+                     @hd.push_link_history_and_trigger_load([], nil, FCB.new).load_file
       end
 
       # Test case for non-empty body without 'file' key
       def test_push_link_history_and_trigger_load_without_file_key
         body = ["vars:\n  KEY: VALUE"]
-        assert_equal LoadFileNextBlock.new(LoadFile::Reuse, ''),
-                     @hd.push_link_history_and_trigger_load(body, nil, false)
+        assert_equal LoadFile::Reuse,
+                     @hd.push_link_history_and_trigger_load(body, nil, FCB.new).load_file
       end
 
       # Test case for non-empty body with 'file' key
       def test_push_link_history_and_trigger_load_with_file_key
         body = ["file: sample_file\nblock: sample_block\nvars:\n  KEY: VALUE"]
-        expected_result = LoadFileNextBlock.new(LoadFile::Load,
-                                                'sample_block')
-        # mdoc = MDoc.new()
+        expected_result = LoadFileLinkState.new(LoadFile::Load,
+                                                LinkState.new(block_name: 'sample_block',
+                                                              document_filename: 'sample_file',
+                                                              inherited_lines: []))
         assert_equal expected_result,
-                     @hd.push_link_history_and_trigger_load(body, nil, FCB.new)
-      end
-
-      def test_history_env_state_exist_with_value
-        ENV[MDE_HISTORY_ENV_NAME] = 'history_value'
-        assert @hd.history_env_state_exist?
-      end
-
-      def test_history_env_state_exist_without_value
-        ENV[MDE_HISTORY_ENV_NAME] = ''
-        refute @hd.history_env_state_exist?
-      end
-
-      def test_history_env_state_exist_not_set
-        ENV.delete(MDE_HISTORY_ENV_NAME)
-        refute @hd.history_env_state_exist?
+                     @hd.push_link_history_and_trigger_load(body, nil, FCB.new(block_name: 'sample_block',
+                                                                               filename: 'sample_file'))
       end
 
       def test_indent_all_lines_with_indent
@@ -1752,22 +1741,6 @@ if $PROGRAM_NAME == __FILE__
         indent = ''
 
         assert_equal body, @hd.indent_all_lines(body, indent)
-      end
-
-      def test_read_required_blocks_from_temp_file
-        Tempfile.create do |file|
-          file.write("Line 1\nLine 2")
-          file.rewind
-          ENV['MDE_LINK_REQUIRED_FILE'] = file.path
-
-          result = @hd.read_required_blocks_from_temp_file
-          assert_equal ['Line 1', 'Line 2'], result
-        end
-      end
-
-      def test_read_required_blocks_from_temp_file_no_file
-        ENV['MDE_LINK_REQUIRED_FILE'] = nil
-        assert_empty @hd.read_required_blocks_from_temp_file
       end
 
       def test_safeval_successful_evaluation
@@ -1798,8 +1771,6 @@ if $PROGRAM_NAME == __FILE__
             output: 'foo' # expect the title to remain unchanged
           }
         ]
-
-        # hd = HashDelegator.new
 
         # iterate over the input and output data and
         # assert that the method sets the title as expected
@@ -1847,7 +1818,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_empty menu_blocks
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorBlockFind < Minitest::Test
         def setup
@@ -1871,7 +1842,7 @@ if $PROGRAM_NAME == __FILE__
           result = @hd.block_find(blocks, :key, 'value3', 'default')
           assert_equal 'default', result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorBlocksFromNestedFiles < Minitest::Test
         def setup
@@ -1898,7 +1869,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_kind_of Array, result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorCollectRequiredCodeLines < Minitest::Test
         def setup
@@ -1914,13 +1885,11 @@ if $PROGRAM_NAME == __FILE__
         def test_collect_required_code_lines_with_vars
           YAML.stubs(:load).returns({ 'key' => 'value' })
           @mdoc.stubs(:collect_recursively_required_code).returns({ code: ['code line'] })
-          ENV.stubs(:[]=)
-
-          result = @hd.collect_required_code_lines(@mdoc, @selected)
+          result = @hd.collect_required_code_lines(@mdoc, @selected, block_source: {})
 
           assert_equal ['code line'], result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorCommandOrUserSelectedBlock < Minitest::Test
         def setup
@@ -1951,7 +1920,7 @@ if $PROGRAM_NAME == __FILE__
           assert_equal block_state.block, result.block
           assert_equal :some_state, result.state
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorCountBlockInFilename < Minitest::Test
         def setup
@@ -1980,7 +1949,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_equal 0, count
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorCreateAndWriteFile < Minitest::Test
         def setup
@@ -1991,7 +1960,7 @@ if $PROGRAM_NAME == __FILE__
           File.stubs(:chmod)
         end
 
-        def test_create_and_write_file_with_permissions
+        def test_create_file_and_write_string_with_permissions
           file_path = '/path/to/file'
           content = 'sample content'
           chmod_value = 0o644
@@ -2000,8 +1969,8 @@ if $PROGRAM_NAME == __FILE__
           File.expects(:write).with(file_path, content).once
           File.expects(:chmod).with(chmod_value, file_path).once
 
-          @hd.create_and_write_file_with_permissions(file_path, content,
-                                                     chmod_value)
+          @hd.create_file_and_write_string_with_permissions(file_path, content,
+                                                            chmod_value)
 
           assert true # Placeholder for actual test assertions
         end
@@ -2015,70 +1984,12 @@ if $PROGRAM_NAME == __FILE__
           File.expects(:write).with(file_path, content).once
           File.expects(:chmod).never
 
-          @hd.create_and_write_file_with_permissions(file_path, content,
-                                                     chmod_value)
+          @hd.create_file_and_write_string_with_permissions(file_path, content,
+                                                            chmod_value)
 
           assert true # Placeholder for actual test assertions
         end
-      end # class TestHashDelegator
-
-      class TestHashDelegatorCreateTempFile < Minitest::Test
-        def setup
-          @hd = HashDelegator.new
-          @temp_file_path = '/tmp/tempfile'
-        end
-
-        def test_create_temp_file_with_code
-          Dir::Tmpname.stubs(:create).returns(@temp_file_path)
-          File.stubs(:write).with(@temp_file_path, 'code_blocks')
-          # ENV.expects(:[]=).with('MDE_LINK_REQUIRED_FILE', @temp_file_path)
-
-          @hd.create_temp_file_with_code('code_blocks')
-
-          assert true # Placeholder for actual test assertions
-        end
-      end # class TestHashDelegator
-
-      class TestHashDelegatorDeleteRequiredTempFile < Minitest::Test
-        def setup
-          @hd = HashDelegator.new
-          @hd.stubs(:error_handler)
-          @hd.stubs(:clear_required_file)
-          FileUtils.stubs(:rm_f)
-        end
-
-        def test_delete_required_temp_file_with_existing_file
-          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE',
-                                 nil).returns('/path/to/temp_file')
-          FileUtils.expects(:rm_f).with('/path/to/temp_file').once
-          @hd.expects(:clear_required_file).once
-
-          @hd.delete_required_temp_file
-
-          assert true # Placeholder for actual test assertions
-        end
-
-        def test_delete_required_temp_file_with_no_file
-          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE', nil).returns(nil)
-          FileUtils.expects(:rm_f).never
-          @hd.expects(:clear_required_file).never
-
-          @hd.delete_required_temp_file
-
-          assert true # Placeholder for actual test assertions
-        end
-
-        def test_delete_required_temp_file_with_error
-          ENV.stubs(:fetch).with('MDE_LINK_REQUIRED_FILE',
-                                 nil).returns('/path/to/temp_file')
-          FileUtils.stubs(:rm_f).raises(StandardError)
-          @hd.expects(:error_handler).with('delete_required_temp_file').once
-
-          @hd.delete_required_temp_file
-
-          assert true # Placeholder for actual test assertions
-        end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorDetermineBlockState < Minitest::Test
         def setup
@@ -2113,7 +2024,7 @@ if $PROGRAM_NAME == __FILE__
           assert_equal MenuState::CONTINUE, result.state
           assert_equal selected_option, result.block
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorDisplayRequiredCode < Minitest::Test
         def setup
@@ -2134,7 +2045,7 @@ if $PROGRAM_NAME == __FILE__
           # Verifying that fout is called for each line and for header & footer
           assert true # Placeholder for actual test assertions
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorFetchColor < Minitest::Test
         def setup
@@ -2165,7 +2076,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_equal 'Default Colored String', result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorFormatReferencesSendColor < Minitest::Test
         def setup
@@ -2196,7 +2107,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_equal 'Default Colored String', result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorFormatExecutionStreams < Minitest::Test
         def setup
@@ -2229,7 +2140,7 @@ if $PROGRAM_NAME == __FILE__
 
           assert_equal '', result
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorHandleBackLink < Minitest::Test
         def setup
@@ -2239,16 +2150,16 @@ if $PROGRAM_NAME == __FILE__
 
         def test_pop_link_history_and_trigger_load
           # Verifying that history_state_pop is called
-          @hd.expects(:history_state_pop).once
+          # @hd.expects(:history_state_pop).once
 
           result = @hd.pop_link_history_and_trigger_load
 
-          # Asserting the result is an instance of LoadFileNextBlock
-          assert_instance_of LoadFileNextBlock, result
+          # Asserting the result is an instance of LoadFileLinkState
+          assert_instance_of LoadFileLinkState, result
           assert_equal LoadFile::Load, result.load_file
-          assert_equal '', result.next_block
+          assert_nil result.link_state.block_name
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorHandleBlockState < Minitest::Test
         def setup
@@ -2287,7 +2198,7 @@ if $PROGRAM_NAME == __FILE__
           assert_nil @hd.instance_variable_get(:@delegate_object)[:block_name]
           assert_nil @hd.instance_variable_get(:@menu_user_clicked_back_link)
         end
-      end # class TestHashDelegator
+      end
 
       class TestHashDelegatorHandleGenericBlock < Minitest::Test
         def setup
@@ -2343,7 +2254,7 @@ if $PROGRAM_NAME == __FILE__
 
           result = @hd.update_options_and_trigger_reuse(selected, tgt2)
 
-          assert_instance_of LoadFileNextBlock, result
+          assert_instance_of LoadFileLinkState, result
           assert_equal 'value1',
                        @hd.instance_variable_get(:@delegate_object)[:option1]
           assert_equal 'value1', tgt2[:option1]
@@ -2355,7 +2266,7 @@ if $PROGRAM_NAME == __FILE__
 
           result = @hd.update_options_and_trigger_reuse(selected)
 
-          assert_instance_of LoadFileNextBlock, result
+          assert_instance_of LoadFileLinkState, result
           assert_equal 'value2',
                        @hd.instance_variable_get(:@delegate_object)[:option2]
         end
@@ -2395,94 +2306,6 @@ if $PROGRAM_NAME == __FILE__
 
           assert_equal [],
                        @hd.instance_variable_get(:@run_state).files[:stdout]
-        end
-      end
-
-      class TestHashDelegatorHistoryStatePartition < Minitest::Test
-        def setup
-          @hd = HashDelegator.new
-          @hd.instance_variable_set(:@delegate_object, {
-                                      history_document_separator: '|'
-                                    })
-        end
-
-        def test_history_state_partition_with_value
-          ENV[MDE_HISTORY_ENV_NAME] = 'part1|part2'
-
-          result = @hd.history_state_partition
-          assert_equal({ unit: 'part1', rest: 'part2' }, result)
-        end
-
-        def test_history_state_partition_with_no_separator
-          ENV[MDE_HISTORY_ENV_NAME] = 'onlypart'
-
-          result = @hd.history_state_partition
-          assert_equal({ unit: 'onlypart', rest: '' }, result)
-        end
-
-        def test_history_state_partition_with_empty_env
-          ENV[MDE_HISTORY_ENV_NAME] = ''
-
-          result = @hd.history_state_partition
-          assert_equal({ unit: '', rest: '' }, result)
-        end
-      end
-
-      class TestHashDelegatorHistoryStatePop < Minitest::Test
-        def setup
-          @hd = HashDelegator.new
-          @hd.instance_variable_set(:@delegate_object,
-                                    { filename: 'initial.md' })
-          @hd.instance_variable_set(:@run_state,
-                                    OpenStruct.new(link_history: [{ block_name: 'block1',
-                                                                    filename: 'file1.md' }]))
-          @hd.stubs(:history_state_partition).returns({ unit: 'file2.md',
-                                                        rest: 'history_data' })
-          @hd.stubs(:delete_required_temp_file)
-        end
-
-        def test_history_state_pop
-          ENV[MDE_HISTORY_ENV_NAME] = 'some_history'
-
-          @hd.history_state_pop
-
-          assert_equal 'file2.md',
-                       @hd.instance_variable_get(:@delegate_object)[:filename]
-          assert_equal 'history_data',
-                       ENV.fetch(MDE_HISTORY_ENV_NAME, nil)
-          assert_empty @hd.instance_variable_get(:@run_state).link_history
-        end
-      end
-
-      class TestHashDelegatorHistoryStatePush < Minitest::Test
-        def setup
-          @hd = HashDelegator.new
-          @hd.instance_variable_set(:@delegate_object, {
-                                      filename: 'test.md',
-                                      block_name: 'test_block',
-                                      history_document_separator: '||'
-                                    })
-          @hd.instance_variable_set(:@run_state,
-                                    OpenStruct.new(link_history: []))
-          @hd.stubs(:write_required_blocks_to_temp_file)
-        end
-
-        def test_history_state_push
-          mdoc = 'markdown content'
-          data_file = 'data.md'
-          selected = { oname: 'selected_block' }
-
-          ENV[MDE_HISTORY_ENV_NAME] = 'existing_history'
-
-          @hd.history_state_push(mdoc, data_file, selected)
-
-          assert_equal 'data.md',
-                       @hd.instance_variable_get(:@delegate_object)[:filename]
-          assert_equal 'test.md||existing_history',
-                       ENV.fetch(MDE_HISTORY_ENV_NAME, nil)
-          assert_includes @hd.instance_variable_get(:@run_state).link_history,
-                          { block_name: 'selected_block',
-                            filename: 'data.md' }
         end
       end
 
@@ -2657,7 +2480,7 @@ if $PROGRAM_NAME == __FILE__
         result = @hd.yield_line_if_selected('Test line', [:line])
         assert_nil result
       end
-    end # class TestHashDelegator
+    end
 
     class TestHashDelegator < Minitest::Test
       def setup

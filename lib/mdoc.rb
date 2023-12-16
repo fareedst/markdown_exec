@@ -3,8 +3,8 @@
 
 # encoding=utf-8
 
-require_relative 'filter'
 require_relative 'block_types'
+require_relative 'filter'
 
 module MarkdownExec
   ##
@@ -75,7 +75,6 @@ module MarkdownExec
         raise "Named code block `#{name}` not found. (@#{__LINE__})"
       end
 
-      # all_dependency_names = [name_block.oname] + recursively_required(name_block[:reqs])
       dependencies = collect_dependencies(name_block[:oname])
       all_dependency_names = collect_unique_names(dependencies).push(name_block[:oname]).uniq
       unmet_dependencies = all_dependency_names.dup
@@ -91,10 +90,11 @@ module MarkdownExec
         else
           []
         end + [fcb]
-      end.flatten(1) #.tap { rbp }
-      { all_dependency_names: all_dependency_names, 
-        blocks: blocks, 
-        dependencies: dependencies, 
+      end.flatten(1)
+
+      { all_dependency_names: all_dependency_names,
+        blocks: blocks,
+        dependencies: dependencies,
         unmet_dependencies: unmet_dependencies }
     end
 
@@ -103,26 +103,37 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(name, label_body: true, label_format_above: nil, label_format_below: nil)
+    def collect_recursively_required_code(name, label_body: true, label_format_above: nil,
+                                          label_format_below: nil, block_source:)
       block_search = collect_recursively_required_blocks(name)
-      block_search.merge({ code: collect_wrapped_blocks(block_search[:blocks]).map do |fcb|
-        if fcb[:cann]
-          collect_block_code_cann(fcb)
-        elsif fcb[:stdout]
-          collect_block_code_stdout(fcb)
-        elsif [BlockType::LINK, BlockType::OPTS,
-               BlockType::VARS].include? fcb[:shell]
-          nil
-        elsif fcb[:shell] == BlockType::PORT
-          collect_block_code_shell(fcb)
-        elsif label_body
-          [label_format_above && format(label_format_above, { name: fcb[:oname] })] + 
-           fcb[:body] + 
-           [label_format_below && format(label_format_below, { name: fcb[:oname] })]
-        else # raw body
-          fcb[:body]
-        end
-      end.compact.flatten(1).compact })
+      if block_search[:blocks]
+        blocks = collect_wrapped_blocks(block_search[:blocks])
+        block_search.merge(
+          { block_names: blocks.map { |block| block[:oname] },
+            code: blocks.map do |fcb|
+              if fcb[:cann]
+                collect_block_code_cann(fcb)
+              elsif fcb[:stdout]
+                collect_block_code_stdout(fcb)
+              elsif [BlockType::LINK, BlockType::OPTS,
+                     BlockType::VARS].include? fcb[:shell]
+                nil
+              elsif fcb[:shell] == BlockType::PORT
+                collect_block_code_shell(fcb)
+              elsif label_body
+                [label_format_above && format(label_format_above,
+                                              block_source.merge({ block_name: fcb[:oname] }))] +
+                 fcb[:body] +
+                 [label_format_below && format(label_format_below,
+                                               block_source.merge({ block_name: fcb[:oname] }))]
+              else # raw body
+                fcb[:body]
+              end
+            end.compact.flatten(1).compact }
+        )
+      else
+        block_search.merge({ block_names: [], code: [] })
+      end
     end
 
     def collect_unique_names(hash)
@@ -279,11 +290,10 @@ module MarkdownExec
       return memo unless source
 
       if (block = get_block_by_anyname(source)).nil? || block.keys.empty?
-        if true
-          return memo
-        else
-          raise "Named code block `#{source}` not found. (@#{__LINE__})"
-        end
+        return memo if true
+
+        raise "Named code block `#{source}` not found. (@#{__LINE__})"
+
       end
 
       return memo unless block[:reqs]

@@ -41,8 +41,6 @@ tap_config envvar: MarkdownExec::TAP_DEBUG
 $stderr.sync = true
 $stdout.sync = true
 
-MDE_HISTORY_ENV_NAME = 'MDE_MENU_HISTORY'
-
 # custom error: file specified is missing
 #
 class FileMissingError < StandardError; end
@@ -171,26 +169,6 @@ module MarkdownExec
         saved_script_filename: nil # calculated
       }
     end
-
-    def clear_required_file
-      ENV['MDE_LINK_REQUIRED_FILE'] = ''
-    end
-
-    # # Deletes a required temporary file specified by an environment variable.
-    # # The function checks if the file exists before attempting to delete it.
-    # # Clears the environment variable after deletion.
-    # #
-    # def delete_required_temp_file
-    #   temp_blocks_file_path = ENV.fetch('MDE_LINK_REQUIRED_FILE', nil)
-
-    #   return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
-
-    #   FileUtils.rm_f(temp_blocks_file_path)
-
-    #   clear_required_file
-    # rescue StandardError
-    #   error_handler('delete_required_temp_file')
-    # end
 
     public
 
@@ -368,6 +346,16 @@ module MarkdownExec
                                                                       :menu_chrome_color)}"
           searcher = DirectorySearcher.new(value, [@options[:path]])
 
+          @fout.fout 'In file contents'
+          hash = searcher.search_in_file_contents
+          hash.each.with_index do |(key, v2), i1|
+            @fout.fout format('- %3.d: %s', i1 + 1, key)
+            @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
+              v2.map { |nl| format('=%4.d: %s', nl.index, nl.line) },
+              highlight: [value]
+            )
+          end
+
           @fout.fout 'In directory names'
           @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
             searcher.search_in_directory_names, highlight: [value]
@@ -378,15 +366,6 @@ module MarkdownExec
             searcher.search_in_file_names, highlight: [value]
           ).join("\n")
 
-          @fout.fout 'In file contents'
-          hash = searcher.search_in_file_contents
-          hash.each.with_index do |(key, v2), i1|
-            @fout.fout format('- %3.d: %s', i1 + 1, key)
-            @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
-              v2.map { |nl| format('=%4.d: %s', nl.index, nl.line) },
-              highlight: [value]
-            )
-          end
           exit
         }
       when 'help'
@@ -545,10 +524,8 @@ module MarkdownExec
     public
 
     def run
-      clear_required_file
       initialize_and_parse_cli_options
       execute_block_with_error_handling
-      @options.delete_required_temp_file
     rescue StandardError
       error_handler('run')
     end

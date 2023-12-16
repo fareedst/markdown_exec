@@ -14,7 +14,7 @@ class LoadFile
   Reuse = false
 end
 
-LoadFileNextBlock = Struct.new(:load_file, :next_block)
+LoadFileLinkState = Struct.new(:load_file, :link_state)
 
 class MenuControl
   Fresh = false

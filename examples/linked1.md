@@ -15,7 +15,7 @@ colorize_env_vars 'vars for page3' PAGE3_VAR_VIA_INHERIT page3_var_via_environme
 PAGE2_VAR_VIA_INHERIT=for_page2_from_page1_via_inherited_code_file
 ```
 
-```link :(linked2)
+```link :(linked2) +(vars2)
 file: examples/linked2.md
 ```
 
