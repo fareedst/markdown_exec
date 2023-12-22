@@ -7,7 +7,9 @@ source 'https://rubygems.org'
 
 gemspec
 gem 'clipboard'
+gem 'debug'
 gem 'erb'
+gem 'irb', '>= 1.8.0'
 gem 'mocha', require: false
 gem 'minitest', require: false
 gem 'pry-nav'

@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (1.8.4)
+# MDE - Markdown Executor (1.8.5)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -79,10 +79,24 @@
   :procname: val_as_str
 - :arg_name: BOOL
   :default: false
+  :description: Dump @delegate_object
+  :env_var: MDE_DUMP_DELEGATE_OBJECT
+  :long_name: dump-dump-delegate-object
+  :opt_name: dump_delegate_object
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
   :description: Dump BlocksInFile (stage 1)
   :env_var: MDE_DUMP_BLOCKS_IN_FILE
   :long_name: dump-blocks-in-file
   :opt_name: dump_blocks_in_file
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
+  :description: Dump inherited lines
+  :env_var: MDE_DUMP_INHERITED_LINES
+  :long_name: dump-dump-inherited-lines
+  :opt_name: dump_inherited_lines
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false

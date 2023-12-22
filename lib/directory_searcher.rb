@@ -5,6 +5,30 @@
 
 require 'find'
 
+def format_and_highlight_hash(
+  data,
+  highlight_color_sym: :exception_color_detail,
+  plain_color_sym: :menu_chrome_color,
+  label: 'Data:',
+  highlight: [],
+  line_prefix: '  ',
+  line_postfix: '',
+  key_has_value: ': '
+)
+  formatted_deps = data&.map do |key, value|
+    color_sym = highlight.include?(key) ? highlight_color_sym : plain_color_sym
+    dkey = string_send_color(key, color_sym)
+
+    "#{line_prefix}#{dkey}#{key_has_value}" \
+     "#{string_send_color(value,
+                          highlight.include?(value) ? highlight_color_sym : plain_color_sym)}: " \
+     "#{formatted_sub_items}#{line_postfix}"
+  end
+
+  "#{line_prefix}#{string_send_color(label,
+                                     highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
+end
+
 # Formats and highlights a list of dependencies. Dependencies are presented with indentation,
 # and specific items can be highlighted in a specified color, while others are shown in a plain color.
 #
@@ -47,6 +71,24 @@ def format_and_highlight_dependencies(
 end
 # warn menu_blocks.to_yaml.sub(/^(?:---\n)?/, "MenuBlocks:\n")
 
+def format_and_highlight_lines(
+  lines,
+  highlight_color_sym: :exception_color_detail,
+  plain_color_sym: :menu_chrome_color,
+  label: 'Dependencies:',
+  highlight: [],
+  line_prefix: '  ',
+  line_postfix: ''
+)
+  formatted_deps = lines&.map do |item|
+    "#{line_prefix}- #{string_send_color(dep_name,
+                                         highlight.include?(dep_name) ? highlight_color_sym : plain_color_sym)}: #{item}#{line_postfix}"
+  end || []
+
+  "#{line_prefix}#{string_send_color(label,
+                                     highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
+end
+
 IndexedLine = Struct.new(:index, :line) do
   def to_s
     line
@@ -77,7 +119,6 @@ class DirectorySearcher
     match_dirs = []
     @paths.each do |path|
       Find.find(path) do |p|
-        # p 'search_in_directory_names', p
         # Find.prune unless @include_subdirectories || path == p
         match_dirs << p if File.directory?(p) && p.match?(@pattern)
       end

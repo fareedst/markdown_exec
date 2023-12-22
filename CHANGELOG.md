@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.5] - 2023-12-22
+
+### Added
+
+- "eval" key for link block type to compute lines to append to the inherited state.
+- Options for dumping data associated with the menu or state.
+- Debug and irb gems.
+
 ## [1.8.4] - 2023-12-15
 
 ### Added

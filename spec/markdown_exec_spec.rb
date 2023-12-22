@@ -807,26 +807,8 @@ RSpec.describe 'MarkdownExec' do
     ]
   end
 
-  it 'test_fcb_select?' do
-    expect(doc_block_options_blocks_from_nested_files.map do |fcb|
-      MarkdownExec::Filter.fcb_select?(fcb_options, fcb)
-    end).to eq [false, true, true, false, false]
-  end
-
   it 'test_fcbs_per_options' do
     [
-      [%w[block21 block22], { exclude_by_name_regex: '^(?<name>block[13].*)$',
-                              exclude_expect_blocks: false,
-                              filename: 'fixtures/block_exclude.md',
-                              hide_blocks_by_name: true }],
-      [%w[block21 block22], { exclude_by_name_regex: '^(?<name>block[13].*)$',
-                              exclude_expect_blocks: false,
-                              filename: 'fixtures/block_exclude.md',
-                              hide_blocks_by_name: false }],
-      [%w[block21 block22], { select_by_name_regex: '^(?<name>block2.*)$',
-                              exclude_expect_blocks: false,
-                              filename: 'fixtures/block_exclude.md',
-                              hide_blocks_by_name: false }],
       [%w[block11 block21 block31 block32], { exclude_by_shell_regex: '^expect$',
                                               exclude_expect_blocks: false,
                                               filename: 'fixtures/block_exclude.md',

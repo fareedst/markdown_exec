@@ -4,7 +4,7 @@
 
 ```opts :opts1
 menu_divider_color: yellow
-menu_note_match:
+menu_note_match: "^ *(?<line>.+?) *$"
 menu_task_color: fg_rgb_255_63_255
 ```
 
@@ -19,4 +19,5 @@ menu_task_color: fg_rgb_127_127_255
 menu_divider_color: green
 menu_link_color: fg_rgbh_88_cc_66
 menu_note_color: yellow
+menu_note_match: "^\\s*(?<line>[^\\s/].*)\\s*$" # Pattern for notes in block selection menu; start with any char except '/'
 ```

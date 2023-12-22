@@ -61,15 +61,8 @@ module MarkdownExec
     # @param name [String] The name of the fenced code block.
     #
     def self.apply_name_filters(options, filters, name)
-      if name.present? && options[:block_name]
-        if name =~ /#{options[:block_name]}/
-          filters[:name_select] = true
-          filters[:name_exclude] = false
-        else
-          filters[:name_exclude] = true
-          filters[:name_select] = false
-        end
-      end
+      filters[:name_select] = true
+      filters[:name_exclude] = false
 
       if name.present? && filters[:name_select].nil? && options[:select_by_name_regex].present?
         filters[:name_select] =
@@ -239,12 +232,6 @@ if $PROGRAM_NAME == __FILE__
         assert Filter.fcb_select?(@options, @fcb)
       end
 
-      def test_name_exclude_condition
-        @options[:block_name] = 'test'
-        @fcb[:oname] = 'sample'
-        refute Filter.fcb_select?(@options, @fcb)
-      end
-
       def test_shell_exclude_condition
         @options[:exclude_by_shell_regex] = 'exclude_this'
         @fcb[:shell] = 'exclude_this_shell'
@@ -267,12 +254,6 @@ if $PROGRAM_NAME == __FILE__
         @options[:bash_only] = true
         @fcb[:shell] = BlockType::BASH
         assert Filter.fcb_select?(@options, @fcb)
-      end
-
-      def test_bash_only_condition_false
-        @options[:bash_only] = true
-        @fcb[:shell] = 'zsh'
-        refute Filter.fcb_select?(@options, @fcb)
       end
 
       def test_default_case

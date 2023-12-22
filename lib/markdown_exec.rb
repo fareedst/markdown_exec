@@ -49,6 +49,11 @@ def dp(str)
   lout " => #{str}", level: DISPLAY_LEVEL_DEBUG
 end
 
+def rbi
+  pp(caller.take(4).map.with_index { |line, ind| "   - #{ind}: #{line}" })
+  binding.irb
+end
+
 def rbp
   rpry
   pp(caller.take(4).map.with_index { |line, ind| "   - #{ind}: #{line}" })
@@ -58,7 +63,7 @@ end
 def bpp(*args)
   pp '+ bpp()'
   pp(*args.map.with_index { |line, ind| "  - #{ind}: #{line}" })
-  rbp
+  rbi
 end
 
 def rpry
@@ -528,6 +533,8 @@ module MarkdownExec
       execute_block_with_error_handling
     rescue StandardError
       error_handler('run')
+    ensure
+      yield if block_given?
     end
 
     private

@@ -28,47 +28,6 @@ class AnsiFormatter
     # "#{line_prefix}#{string_send_color(label, highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
   end
 
-  # Formats and highlights a list of data. data are presented with indentation,
-  # and specific items can be highlighted in a specified color, while others are shown in a plain color.
-  #
-  # @param data [Hash] A hash of data, where each key is a dependency name,
-  #        and its value is an array of sub-items.
-  # @param highlight_color_sym [Symbol] The color method to apply to highlighted items.
-  #        Default is :exception_color_detail.
-  # @param plain_color_sym [Symbol] The color method for non-highlighted items.
-  #        Default is :menu_chrome_color.
-  # @param label [String] The label to prefix the list of data with.
-  #        Default is 'data:'.
-  # @param highlight [Array] An array of items to highlight. Each item in this array will be
-  #        formatted with the specified highlight color.
-  # @param line_prefix [String] Prefix for each line. Default is '  '.
-  # @param line_postfix [String] Postfix for each line. Default is ''.
-  # @param detail_sep [String] Separator for items in the sub-list. Default is '  '.
-  # @return [String] A formatted string representation of the data with highlighted items.
-  def format_and_highlight_hash(
-    data,
-    highlight_color_sym: :exception_color_detail,
-    plain_color_sym: :menu_chrome_color,
-    label: 'Data:',
-    highlight: [],
-    line_prefix: '  ',
-    line_postfix: '',
-    detail_sep: '  '
-  )
-    formatted_deps = data&.map do |dep_name, sub_items|
-      formatted_sub_items = sub_items.map do |item|
-        color_sym = highlight.include?(item) ? highlight_color_sym : plain_color_sym
-        string_send_color(item, color_sym)
-      end.join(detail_sep)
-
-      "#{line_prefix}- #{string_send_color(dep_name,
-                                           highlight.include?(dep_name) ? highlight_color_sym : plain_color_sym)}: #{formatted_sub_items}#{line_postfix}"
-    end || []
-
-    "#{line_prefix}#{string_send_color(label,
-                                       highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
-  end
-
   # Function to scan a string and process its segments based on multiple substrings
   # @param str [String] The string to scan.
   # @param substrings [Array<String>] The substrings to match in the string.

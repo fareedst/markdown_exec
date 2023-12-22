@@ -5,18 +5,20 @@
 module MarkdownExec
   class LinkState
     attr_accessor :block_name, :document_filename,
-                  :inherited_block_names, :inherited_lines
+                  :inherited_block_names, :inherited_dependencies, :inherited_lines
 
     # Initialize the LinkState with keyword arguments for each attribute.
     # @param block_name [String, nil] the name of the block.
     # @param document_filename [String, nil] the filename of the document.
     # @param inherited_block_names [Array<String>, nil] the names of the inherited blocks.
+    # @param inherited_dependencies [?, nil] the dependecy hierarcy.
     # @param inherited_lines [Array<String>, nil] the inherited lines of code.
     def initialize(block_name: nil, document_filename: nil,
-                   inherited_block_names: [], inherited_lines: nil)
+                   inherited_block_names: [], inherited_dependencies: nil, inherited_lines: nil)
       @block_name = block_name
       @document_filename = document_filename
       @inherited_block_names = inherited_block_names
+      @inherited_dependencies = inherited_dependencies
       @inherited_lines = inherited_lines
     end
 
@@ -34,6 +36,7 @@ module MarkdownExec
         other.block_name == block_name &&
         other.document_filename == document_filename &&
         other.inherited_block_names == inherited_block_names &&
+        other.inherited_dependencies == inherited_dependencies &&
         other.inherited_lines == inherited_lines
     end
   end
