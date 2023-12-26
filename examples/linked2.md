@@ -20,6 +20,10 @@ colorize_env_vars 'vars for page3' PAGE3_VAR_VIA_INHERIT page3_var_via_environme
 PAGE3_VAR_VIA_INHERIT=for_page3_from_page2_via_inherited_code_blocks
 ```
 
+```link :linked3 +(vars3)
+file: examples/linked3.md
+```
+
 ```link :(linked3) +(vars3)
 file: examples/linked3.md
 ```

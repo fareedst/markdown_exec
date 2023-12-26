@@ -1,5 +1,11 @@
 # Demo document linking
 
+```opts :(document_options)
+dump_inherited_lines: true
+pause_after_script_execution: false
+user_must_approve: false
+```
+
 ::: * This is document 1 *
 ::: This document links to a matching document to demonstrate navigation between documents.
 
@@ -13,6 +19,10 @@ colorize_env_vars 'vars for page3' PAGE3_VAR_VIA_INHERIT page3_var_via_environme
 
 ```bash :(vars2)
 PAGE2_VAR_VIA_INHERIT=for_page2_from_page1_via_inherited_code_blocks
+```
+
+```link :linked2 +(vars2)
+file: examples/linked2.md
 ```
 
 ```link :(linked2) +(vars2)

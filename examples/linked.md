@@ -1,6 +1,7 @@
 Demonstrate setting a variable interactively for use in generated scripts.
 
 ```opts :(document_options)
+dump_inherited_lines: true
 pause_after_script_execution: false
 user_must_approve: false
 ```
@@ -15,6 +16,15 @@ block: display_variable
 VARIABLE=A
 ```
 
+```link :set_to_A_eval +(set_to_A_eval)
+block: display_variable
+eval: true
+```
+
+```bash :(set_to_A_eval)
+echo VARIABLE=A
+```
+
 ::: Set VARIABLE to "B"
 
 ```link :set_to_B +(set_to_B)
@@ -23,6 +33,15 @@ block: display_variable
 
 ```bash :(set_to_B)
 VARIABLE=B
+```
+
+```link :set_to_B_eval +(set_to_B_eval)
+block: display_variable
+eval: true
+```
+
+```bash :(set_to_B_eval)
+echo VARIABLE=B
 ```
 
 ::: Display value of VARIABLE

@@ -3,10 +3,18 @@
 
 # encoding=utf-8
 
+require_relative 'block_types'
+
 class ExecutionStreams
   StdErr = :stderr
   StdIn  = :stdin
   StdOut = :stdout
+end
+
+IndexedLine = Struct.new(:index, :line) do
+  def to_s
+    line
+  end
 end
 
 class LoadFile
@@ -34,6 +42,13 @@ class MenuState
   EXIT = :exit
 end
 
+# a struct to hold the data for a single line
+NestedLine = Struct.new(:text, :depth) do
+  def to_s
+    text
+  end
+end
+
 # selected block and subsequent menu state
 #
 SelectedBlockMenuState = Struct.new(:block, :state)
@@ -44,3 +59,5 @@ SHELL_COLOR_OPTIONS = {
   BlockType::OPTS => :menu_opts_color,
   BlockType::VARS => :menu_vars_color
 }.freeze
+
+### Struct.new(:state, :block)

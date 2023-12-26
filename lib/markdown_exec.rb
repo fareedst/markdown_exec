@@ -41,6 +41,8 @@ tap_config envvar: MarkdownExec::TAP_DEBUG
 $stderr.sync = true
 $stdout.sync = true
 
+ARGV_SEP = '--'
+
 # custom error: file specified is missing
 #
 class FileMissingError < StandardError; end
@@ -136,10 +138,11 @@ module MarkdownExec
       )
     end
 
-    # return arguments before `--`
+    # return arguments before ARGV_SEP
+    # arguments after ARGV_SEP are passed to the generatede script
     #
     def arguments_for_mde(argv = ARGV)
-      case ind = argv.find_index('--')
+      case ind = argv.find_index(ARGV_SEP)
       when nil
         argv
       when 0
@@ -205,14 +208,13 @@ module MarkdownExec
     # Reports and executes block logic
     def execute_block_logic(files)
       @options[:filename] = select_document_if_multiple(files)
-      @options.select_execute_bash_and_special_blocks
+      @options.document_menu_loop
     end
 
     ## Executes the block specified in the options
     #
     def execute_block_with_error_handling
       finalize_cli_argument_processing
-      @options[:input_cli_rest] = @rest
       execute_code_block_based_on_options(@options)
     rescue FileMissingError
       warn "File missing: #{$!}"
@@ -293,6 +295,7 @@ module MarkdownExec
       #
       block_name = rest.shift
       @options[:block_name] = block_name if block_name.present?
+      @options[:input_cli_rest] = @rest
     rescue FileMissingError
       warn_format('finalize_cli_argument_processing',
                   "File missing -- #{$!}", { abort: true })
@@ -346,10 +349,11 @@ module MarkdownExec
         ->(_) { exit }
       when 'find'
         ->(value) {
+          find_path = @options[:find_path].present? ? @options[:find_path] : @options[:path]
           @fout.fout 'Searching in: ' \
-                     "#{HashDelegator.new(@options).string_send_color(@options[:path],
+                     "#{HashDelegator.new(@options).string_send_color(find_path,
                                                                       :menu_chrome_color)}"
-          searcher = DirectorySearcher.new(value, [@options[:path]])
+          searcher = DirectorySearcher.new(value, [find_path])
 
           @fout.fout 'In file contents'
           hash = searcher.search_in_file_contents
@@ -546,7 +550,7 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      @options.select_execute_bash_and_special_blocks
+      @options.document_menu_loop
     rescue StandardError
       error_handler('run_last_script')
     end
@@ -613,7 +617,7 @@ module MarkdownExec
 
       saved_name_split(filename)
 
-      @options.select_execute_bash_and_special_blocks ### ({ save_executed_script: false })
+      @options.document_menu_loop ### ({ save_executed_script: false })
     end
 
     public

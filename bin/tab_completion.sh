@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "1.8.5"
+  echo "1.8.6"
 }
 
 _mde() {
@@ -54,6 +54,8 @@ _mde() {
             
               -?) COMPREPLY="''"; return 0 ;;
             
+              --find-path) COMPREPLY="''"; return 0 ;;
+            
               --how) COMPREPLY="''"; return 0 ;;
             
               -?) COMPREPLY="''"; return 0 ;;
@@ -92,7 +94,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-dump-delegate-object" "--dump-blocks-in-file" "--dump-dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-dump-delegate-object" "--dump-blocks-in-file" "--dump-dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -132,6 +134,8 @@ _mde() {
           --find) COMPREPLY=".FIND."; return 0 ;;
         
           -?) COMPREPLY=".FIND."; return 0 ;;
+        
+          --find-path) COMPREPLY=".FIND_PATH."; return 0 ;;
         
           --how) COMPREPLY=".HOW."; return 0 ;;
         
@@ -174,4 +178,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2023-12-22 20:00:40 UTC"
+# echo "Updated: 2023-12-25 18:18:56 UTC"

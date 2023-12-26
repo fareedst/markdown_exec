@@ -6,14 +6,8 @@
 # version 2023-10-03
 
 require 'fileutils'
+require_relative 'constants'
 require_relative 'exceptions'
-
-# a struct to hold the data for a single line
-NestedLine = Struct.new(:text, :depth) do
-  def to_s
-    text
-  end
-end
 
 ##
 # The CachedNestedFileReader class provides functionality to read file lines with the ability

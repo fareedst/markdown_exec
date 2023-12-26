@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.6] - 2023-12-25
+
+### Added
+
+- Default path for find command
+
+### Changed
+
+- Refactor command-line processing
+
 ## [1.8.5] - 2023-12-22
 
 ### Added

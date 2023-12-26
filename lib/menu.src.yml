@@ -17,7 +17,7 @@
 
 - :arg_name: NAME
   :compreply: false
-  :description: Name of block
+  :description: Name of block to execute
   :env_var: MDE_BLOCK_NAME
   :long_name: block-name
   :opt_name: block_name
@@ -203,18 +203,20 @@
 ## match fenced code indented by spaces
 #
 - :default: "^(?<indent> *)`{3,}"
+  :description: Matches the start and end of a fenced code block
   :env_var: MDE_FENCED_START_AND_END_REGEX
   :opt_name: fenced_start_and_end_regex
   :procname: val_as_str
 
 - :default: "^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$"
+  :description: Match the start of a fenced block
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
   :opt_name: fenced_start_extended_regex
   :procname: val_as_str
 
 - :arg_name: RELATIVE_PATH
   :compreply: "."
-  :description: Name of document
+  :description: Name of the document to load
   :env_var: MDE_FILENAME
   :long_name: filename
   :opt_name: filename
@@ -227,6 +229,14 @@
   :long_name: find
   :procname: find
   :short_name: "?"
+
+- :arg_name: FIND_PATH
+  :default: ""
+  :description: Path for find (uses PATH if empty)
+  :env_var: MDE_FIND_PATH
+  :long_name: find-path
+  :opt_name: find_path
+  :procname: val_as_str
 
 - :default: "^# *(?<name>[^#]*?) *$"
   :env_var: MDE_HEADING1_MATCH
@@ -354,7 +364,7 @@
 
 - :arg_name: BOOL
   :default: false
-  :description: Display headings (levels 1,2,3) in block selection menu
+  :description: Controls whether headings(levels 1,2,3) are displayed in the block selection menu
   :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
   :opt_name: menu_blocks_with_headings
   :procname: val_as_bool
@@ -424,7 +434,8 @@
 
 - :arg_name: BOOL
   :default: false
-  :description: Include imported notes in menu
+  # :description: Include imported notes in menu
+  :description: Whether imported blocks should be included in the menu
   :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
   :opt_name: menu_include_imported_notes
   :procname: val_as_bool
@@ -606,7 +617,7 @@
 
 - :arg_name: BOOL
   :default: true
-  :description: Display standard output from execution
+  :description: Whether standard output from execution is displayed
   :env_var: MDE_OUTPUT_STDOUT
   :long_name: output-stdout
   :opt_name: output_stdout
@@ -628,14 +639,14 @@
 
 - :arg_name: BOOL
   :default: true
-  :description: Pause afte executing a BASH block
-  :env_var: MDE_PAUSE_after_script_execution
+  :description: Wheter to pause after manually executing a block and the next menu
+  :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
   :opt_name: pause_after_script_execution
   :procname: val_as_bool
 
 - :default: "\nContinue?"
-  :description: Prompt after script execution
-  :env_var: MDE_PROMPT_after_script_execution
+  :description: Prompt after manually executing a block and the next menu
+  :env_var: MDE_PROMPT_AFTER_SCRIPT_EXECUTION
   :opt_name: prompt_after_script_execution
   :procname: val_as_str
 
@@ -717,7 +728,7 @@
 
 - :arg_name: BOOL
   :default: false
-  :description: Save executed script
+  :description: Wheter to save an executed script`
   :env_var: MDE_SAVE_EXECUTED_SCRIPT
   :long_name: save-executed-script
   :opt_name: save_executed_script
@@ -759,7 +770,7 @@
 
 - :arg_name: RELATIVE_PATH
   :default: logs
-  :description: Saved script folder
+  :description: Folder where saved scripts are stored
   :env_var: MDE_SAVED_SCRIPT_FOLDER
   :long_name: saved-script-folder
   :opt_name: saved_script_folder
@@ -884,7 +895,7 @@
 
 - :arg_name: BOOL
   :default: true
-  :description: Pause for user to approve script
+  :description: Requires user approval before executing a script
   :env_var: MDE_USER_MUST_APPROVE
   :long_name: user-must-approve
   :opt_name: user_must_approve

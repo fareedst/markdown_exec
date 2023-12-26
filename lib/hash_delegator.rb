@@ -359,7 +359,7 @@ module MarkdownExec
       @fout.fout "Error ENOENT: #{err.inspect}"
     end
 
-    def command_or_user_selected_block(all_blocks, menu_blocks, default)
+    def load_cli_or_user_selected_block(all_blocks, menu_blocks, default)
       if @delegate_object[:block_name].present?
         block = all_blocks.find do |item|
           item[:oname] == @delegate_object[:block_name]
@@ -373,7 +373,7 @@ module MarkdownExec
 
       SelectedBlockMenuState.new(block, state)
     rescue StandardError
-      error_handler('command_or_user_selected_block')
+      error_handler('load_cli_or_user_selected_block')
     end
 
     # This method is responsible for handling the execution of generic blocks in a markdown document.
@@ -383,8 +383,7 @@ module MarkdownExec
     # @param mdoc [Object] The markdown document object containing code blocks.
     # @param selected [Hash] The selected item from the menu to be executed.
     # @return [LoadFileLinkState] An object indicating whether to load the next block or reuse the current one.
-    def compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected,
-                                                                  link_state = nil, block_source:)
+    def compile_execute_and_trigger_reuse(mdoc, selected, link_state = nil, block_source:)
       required_lines = collect_required_code_lines(mdoc, selected, link_state,
                                                    block_source: block_source)
       output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
@@ -602,8 +601,8 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     #
-    def execute_bash_and_special_blocks(selected, mdoc, link_state = LinkState.new,
-                                        block_source:)
+    def execute_shell_type(selected, mdoc, link_state = LinkState.new,
+                           block_source:)
       if selected.fetch(:shell, '') == BlockType::LINK
         push_link_history_and_trigger_load(selected.fetch(:body, ''), mdoc, selected,
                                            link_state)
@@ -618,8 +617,8 @@ module MarkdownExec
         options_state.load_file_link_state
 
       else
-        compile_execute_bash_and_special_blocks_and_trigger_reuse(mdoc, selected, link_state,
-                                                                  block_source: block_source)
+        compile_execute_and_trigger_reuse(mdoc, selected, link_state,
+                                          block_source: block_source)
       end
     end
 
@@ -922,10 +921,12 @@ module MarkdownExec
       end
     end
 
-    def pop_cli_argument!
-      return false unless @delegate_object[:input_cli_rest].present?
+    def shift_cli_argument!
+      return false unless @menu_base_options[:input_cli_rest].present?
 
-      @cli_block_name = @delegate_object[:input_cli_rest].pop
+      @cli_block_name = @menu_base_options[:input_cli_rest].shift
+      # @delegate_object[:input_cli_rest].shift
+      # p [__LINE__, @cli_block_name, @menu_base_options[:input_cli_rest]]
       true
     end
 
@@ -1272,102 +1273,208 @@ module MarkdownExec
     # Markdown document, obtain approval, and execute the chosen block of code.
     #
     # @return [Nil] Returns nil if no code block is selected or an error occurs.
-    def select_execute_bash_and_special_blocks(_execute: true)
+    def document_menu_loop
       @menu_base_options = @delegate_object
+      link_state, block_name_from_cli, now_using_cli = initialize_selection_states
+      menu_default_dname = nil
+
+      loop do
+        # @bsp 'loop',block_name_from_cli,@cli_block_name
+        block_name_from_cli, now_using_cli, blocks_in_file, menu_blocks, mdoc = \
+          set_delobj_menu_loop_vars(block_name_from_cli, now_using_cli, link_state)
+
+        # cli or user selection
+        #
+        block_state = load_cli_or_user_selected_block(blocks_in_file, menu_blocks,
+                                                      menu_default_dname)
+        if block_state.state == MenuState::EXIT
+          # @bsp 'MenuState::EXIT -> break'
+          break
+        end
+
+        dump_and_warn_block_state(block_state.block)
+        link_state, menu_default_dname = exec_bash_next_state(block_state.block, mdoc,
+                                                              link_state)
+        if prompt_user_exit(block_name_from_cli, block_state.block)
+          # @bsp 'prompt_user_exit -> break'
+          break
+        end
+
+        link_state.block_name, block_name_from_cli, cli_break = \
+          next_state_from_cli(now_using_cli, block_state)
+
+        if cli_break
+          # @bsp 'read_block_name_from_cli + next_link_state -> break'
+          break
+        end
+      end
+    rescue StandardError
+      error_handler('document_menu_loop',
+                    { abort: true })
+    end
+
+    def next_state_from_cli(now_using_cli, block_state)
+      was_using_cli = now_using_cli
+      block_name_from_cli, = read_block_name_from_cli(now_using_cli)
+      block_name, block_name_from_cli, cli_break = \
+        next_link_state(block_name_from_cli, was_using_cli, block_state)
+
+      [block_name, block_name_from_cli, cli_break]
+    end
+
+    def exec_bash_next_state(block_state_block, mdoc, link_state)
+      lfls = execute_shell_type(
+        block_state_block,
+        mdoc,
+        link_state,
+        block_source: { document_filename: @delegate_object[:filename] }
+      )
+
+      # if the same menu is being displayed, collect the display name of the selected menu item for use as the default item
+      [lfls.link_state,
+       lfls.load_file == LoadFile::Load ? nil : block_state_block[:dname]]
+    end
+
+    def set_delobj_menu_loop_vars(block_name_from_cli, now_using_cli, link_state)
+      block_name_from_cli, now_using_cli = \
+        manage_cli_selection_state(block_name_from_cli, now_using_cli, link_state)
+      set_delob_filename_block_name(link_state, block_name_from_cli)
+
+      # update @delegate_object and @menu_base_options in auto_load
+      #
+      blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
+      dump_delobj(blocks_in_file, menu_blocks, link_state)
+
+      [block_name_from_cli, now_using_cli, blocks_in_file, menu_blocks, mdoc]
+    end
+
+    # user prompt to exit if the menu will be displayed again
+    #
+    def prompt_user_exit(block_name_from_cli, block_state_block)
+      !block_name_from_cli &&
+        block_state_block[:shell] == BlockType::BASH &&
+        @delegate_object[:pause_after_script_execution] &&
+        prompt_select_continue == MenuState::EXIT
+    end
+
+    def manage_cli_selection_state(block_name_from_cli, now_using_cli, link_state)
+      if block_name_from_cli && @cli_block_name == '.'
+        # @bsp 'pause cli control, allow user to select block'
+        block_name_from_cli = false
+        now_using_cli = false
+        @menu_base_options[:block_name] = \
+          @delegate_object[:block_name] = \
+            link_state.block_name = \
+              @cli_block_name = nil
+      end
+
+      @delegate_object = @menu_base_options.dup
+      @menu_user_clicked_back_link = false
+      [block_name_from_cli, now_using_cli]
+    end
+
+    def next_link_state(block_name_from_cli, was_using_cli, block_state)
+      # @bsp 'next_link_state',block_name_from_cli, was_using_cli, block_state
+      # Set block_name based on block_name_from_cli
+      block_name = block_name_from_cli ? @cli_block_name : nil
+
+      # Determine the state of breaker based on was_using_cli and the block type
+      breaker = !block_name_from_cli && was_using_cli && block_state.block[:shell] == BlockType::BASH
+
+      # Reset block_name_from_cli if the conditions are not met
+      block_name_from_cli ||= false
+
+      [block_name, block_name_from_cli, breaker]
+    end
+
+    # Initialize the selection states for the execution loop.
+    def initialize_selection_states
       link_state = LinkState.new(
         block_name: @delegate_object[:block_name],
         document_filename: @delegate_object[:filename]
       )
+      block_name_from_cli, now_using_cli = handle_cli_block_name(link_state)
+      [link_state, block_name_from_cli, now_using_cli]
+    end
+
+    # Update the state related to CLI block name.
+    #
+    # This method updates the flags indicating whether a CLI block name is being used
+    # and if it was being used previously.
+    #
+    # @param block_name_from_cli [Boolean] Indicates if the block name is from CLI.
+    # @return [Array] Returns the updated state of block name from CLI and its usage.
+    def read_block_name_from_cli(block_name_from_cli)
+      # was_using_cli = block_name_from_cli
+      block_name_from_cli = shift_cli_argument!
+      now_using_cli = block_name_from_cli
+
+      [block_name_from_cli, now_using_cli]
+    end
+
+    # Update the block name in the link state and delegate object.
+    #
+    # This method updates the block name based on whether it was specified
+    # through the CLI or derived from the link state.
+    #
+    # @param link_state [LinkState] The current link state object.
+    # @param block_name_from_cli [Boolean] Indicates if the block name is from CLI.
+    def set_delob_filename_block_name(link_state, block_name_from_cli)
+      @delegate_object[:filename] = link_state.document_filename
+      link_state.block_name = @delegate_object[:block_name] =
+        block_name_from_cli ? @cli_block_name : link_state.block_name
+    end
+
+    # Handle CLI block name and determine the current CLI usage state.
+    #
+    # This method processes the CLI block name from the link state and sets
+    # the initial state for CLI usage.
+    #
+    # @param link_state [LinkState] The current link state object.
+    # @return [Array] Returns the state of block name from CLI and current usage of CLI.
+    def handle_cli_block_name(link_state)
       block_name_from_cli = link_state.block_name.present?
       @cli_block_name = link_state.block_name
-      load_file = nil
-      menu_default_dname = nil
+      now_using_cli = block_name_from_cli
 
-      loop do
-        loop do
-          @delegate_object = @menu_base_options.dup
-          @menu_user_clicked_back_link = false
-          @delegate_object[:filename] = link_state.document_filename
-          link_state.block_name = @delegate_object[:block_name] =
-            block_name_from_cli ? @cli_block_name : link_state.block_name
+      [block_name_from_cli, now_using_cli]
+    end
 
-          # update @delegate_object and @menu_base_options in auto_load
-          #
-          blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
-
-          if @delegate_object[:dump_delegate_object]
-            warn format_and_highlight_hash(
-              @delegate_object,
-              label: '@delegate_object'
-            )
-          end
-
-          if @delegate_object[:dump_blocks_in_file]
-            warn format_and_highlight_dependencies(
-              compact_and_index_hash(blocks_in_file),
-              label: 'blocks_in_file'
-            )
-          end
-          if @delegate_object[:dump_menu_blocks]
-            warn format_and_highlight_dependencies(
-              compact_and_index_hash(menu_blocks),
-              label: 'menu_blocks'
-            )
-          end
-          if @delegate_object[:dump_inherited_lines]
-            warn format_and_highlight_lines(
-              link_state.inherited_lines,
-              label: 'inherited_lines'
-            )
-          end
-
-          block_state = command_or_user_selected_block(blocks_in_file,
-                                                       menu_blocks, menu_default_dname)
-          return if block_state.state == MenuState::EXIT
-
-          if block_state.block.nil?
-            warn_format('select_execute_bash_and_special_blocks', "Block not found -- #{@delegate_object[:block_name]}",
-                        { abort: true })
-            # error_handler("Block not found -- #{opts[:block_name]}", { abort: true })
-          end
-
-          if @delegate_object[:dump_selected_block]
-            warn block_state.block.to_yaml.sub(/^(?:---\n)?/, "Block:\n")
-          end
-
-          load_file_link_state = execute_bash_and_special_blocks(
-            block_state.block,
-            mdoc,
-            link_state,
-            block_source: { document_filename: @delegate_object[:filename] }
-          )
-          load_file = load_file_link_state.load_file
-          link_state = load_file_link_state.link_state
-
-          # if the same menu is being displayed, collect the display name of the selected menu item for use as the default item
-          menu_default_dname = load_file == LoadFile::Load ? nil : block_state.block[:dname]
-
-          # user prompt to exit if the menu will be displayed again
-          #
-          if !block_name_from_cli &&
-             block_state.block[:shell] == BlockType::BASH &&
-             @delegate_object[:pause_after_script_execution] &&
-             prompt_select_continue == MenuState::EXIT
-            return
-          end
-
-          # exit current document/menu if loading next document or single block_name was specified
-          #
-          break if block_state.state == MenuState::CONTINUE && load_file == LoadFile::Load
-          break if block_name_from_cli
-        end
-        break if load_file == LoadFile::Reuse
-
-        block_name_from_cli = pop_cli_argument!
+    # Outputs warnings based on the delegate object's configuration
+    #
+    # @param delegate_object [Hash] The delegate object containing configuration flags.
+    # @param blocks_in_file [Hash] Hash of blocks present in the file.
+    # @param menu_blocks [Hash] Hash of menu blocks.
+    # @param link_state [LinkState] Current state of the link.
+    def dump_delobj(blocks_in_file, menu_blocks, link_state)
+      if @delegate_object[:dump_delegate_object]
+        warn format_and_highlight_hash(@delegate_object, label: '@delegate_object')
       end
-    rescue StandardError
-      error_handler('select_execute_bash_and_special_blocks',
-                    { abort: true })
+
+      if @delegate_object[:dump_blocks_in_file]
+        warn format_and_highlight_dependencies(compact_and_index_hash(blocks_in_file),
+                                               label: 'blocks_in_file')
+      end
+
+      if @delegate_object[:dump_menu_blocks]
+        warn format_and_highlight_dependencies(compact_and_index_hash(menu_blocks),
+                                               label: 'menu_blocks')
+      end
+
+      return unless @delegate_object[:dump_inherited_lines]
+
+      warn format_and_highlight_lines(link_state.inherited_lines, label: 'inherited_lines')
+    end
+
+    def dump_and_warn_block_state(block_state_block)
+      if block_state_block.nil?
+        Exceptions.warn_format("Block not found -- name: #{@delegate_object[:block_name]}",
+                               { abort: true })
+      end
+
+      return unless @delegate_object[:dump_selected_block]
+
+      warn block_state_block.to_yaml.sub(/^(?:---\n)?/, "Block:\n")
     end
 
     # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
@@ -1561,7 +1668,7 @@ module MarkdownExec
         yield_line_if_selected(line, selected_messages, &block)
 
       else
-        # 'rejected'
+        # @bsp 'line is not recognized for block state'
 
       end
     end
@@ -1988,7 +2095,7 @@ if $PROGRAM_NAME == __FILE__
           @hd.instance_variable_set(:@delegate_object,
                                     { block_name: 'block1' })
 
-          result = @hd.command_or_user_selected_block(all_blocks, [], nil)
+          result = @hd.load_cli_or_user_selected_block(all_blocks, [], nil)
 
           assert_equal all_blocks.first, result.block
           assert_nil result.state
@@ -1999,7 +2106,7 @@ if $PROGRAM_NAME == __FILE__
                                                    :some_state)
           @hd.stubs(:wait_for_user_selected_block).returns(block_state)
 
-          result = @hd.command_or_user_selected_block([], [], nil)
+          result = @hd.load_cli_or_user_selected_block([], [], nil)
 
           assert_equal block_state.block, result.block
           assert_equal :some_state, result.state
@@ -2291,7 +2398,7 @@ if $PROGRAM_NAME == __FILE__
           @selected_item = mock('FCB')
         end
 
-        def test_compile_execute_bash_and_special_blocks_and_trigger_reuse_without_user_approval
+        def test_compile_execute_and_trigger_reuse_without_user_approval
           # Mock the delegate object configuration
           @hd.instance_variable_set(:@delegate_object,
                                     { output_script: false,
@@ -2301,7 +2408,7 @@ if $PROGRAM_NAME == __FILE__
           # Expectations and assertions go here
         end
 
-        def test_compile_execute_bash_and_special_blocks_and_trigger_reuse_with_user_approval
+        def test_compile_execute_and_trigger_reuse_with_user_approval
           # Mock the delegate object configuration
           @hd.instance_variable_set(:@delegate_object,
                                     { output_script: false,
@@ -2311,7 +2418,7 @@ if $PROGRAM_NAME == __FILE__
           # Expectations and assertions go here
         end
 
-        def test_compile_execute_bash_and_special_blocks_and_trigger_reuse_with_output_script
+        def test_compile_execute_and_trigger_reuse_with_output_script
           # Mock the delegate object configuration
           @hd.instance_variable_set(:@delegate_object,
                                     { output_script: true,

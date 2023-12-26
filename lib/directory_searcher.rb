@@ -4,6 +4,7 @@
 # encoding=utf-8
 
 require 'find'
+require_relative 'constants'
 
 def format_and_highlight_hash(
   data,
@@ -87,12 +88,6 @@ def format_and_highlight_lines(
 
   "#{line_prefix}#{string_send_color(label,
                                      highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
-end
-
-IndexedLine = Struct.new(:index, :line) do
-  def to_s
-    line
-  end
 end
 
 # Class DirectorySearcher
