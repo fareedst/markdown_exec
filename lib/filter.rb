@@ -93,9 +93,7 @@ module MarkdownExec
           !!(shell =~ /#{options[:select_by_shell_regex]}/)
       end
 
-      unless shell.present? && options[:exclude_by_shell_regex].present?
-        return
-      end
+      return unless shell.present? && options[:exclude_by_shell_regex].present?
 
       filters[:shell_exclude] =
         !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
@@ -176,6 +174,20 @@ module MarkdownExec
 
       match_patterns.any? do |pattern|
         options[pattern].present? && fcb[:oname] =~ /#{options[pattern]}/
+      end
+    end
+
+    # Yields to the provided block with specified parameters if certain conditions are met.
+    # The method checks if a block is given, if the selected_messages include :blocks,
+    # and if the fcb_select? method returns true for the given fcb.
+    #
+    # @param fcb [Object] The object to be evaluated and potentially passed to the block.
+    # @param selected_messages [Array<Symbol>] A collection of message types, one of which must be :blocks.
+    # @param block [Block] A block to be called if conditions are met.
+    def self.yield_to_block_if_applicable(fcb, selected_messages, configuration = {}, &block)
+      if block_given? && selected_messages.include?(:blocks) &&
+         fcb_select?(configuration, fcb)
+        block.call :blocks, fcb
       end
     end
   end

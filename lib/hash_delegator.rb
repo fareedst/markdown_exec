@@ -37,6 +37,184 @@ class String
   end
 end
 
+module HashDelegatorSelf
+  # def add_back_option(menu_blocks)
+  #   append_chrome_block(menu_blocks, MenuState::BACK)
+  # end
+
+  # Searches for the first element in a collection where the specified key matches a given value.
+  # This method is particularly useful for finding a specific hash-like object within an enumerable collection.
+  # If no match is found, it returns a specified default value.
+  #
+  # @param blocks [Enumerable] The collection of hash-like objects to search.
+  # @param key [Object] The key to search for in each element of the collection.
+  # @param value [Object] The value to match against each element's corresponding key value.
+  # @param default [Object, nil] The default value to return if no match is found (optional).
+  # @return [Object, nil] The first matching element or the default value if no match is found.
+  def block_find(blocks, key, value, default = nil)
+    blocks.find { |item| item[key] == value } || default
+  end
+
+  def code_merge(*bodies)
+    merge_lists(*bodies)
+  end
+
+  def count_matches_in_lines(lines, regex)
+    lines.count { |line| line.to_s.match(regex) }
+  end
+
+  def create_directory_for_file(file_path)
+    FileUtils.mkdir_p(File.dirname(file_path))
+  end
+
+  # Creates a file at the specified path, writes the given content to it,
+  # and sets file permissions if required. Handles any errors encountered during the process.
+  #
+  # @param file_path [String] The path where the file will be created.
+  # @param content [String] The content to write into the file.
+  # @param chmod_value [Integer] The file permission value to set; skips if zero.
+  def create_file_and_write_string_with_permissions(file_path, content,
+                                                    chmod_value)
+    create_directory_for_file(file_path)
+    File.write(file_path, content)
+    set_file_permissions(file_path, chmod_value) unless chmod_value.zero?
+  rescue StandardError
+    error_handler('create_file_and_write_string_with_permissions')
+  end
+
+  # def create_temp_file
+  #   Dir::Tmpname.create(self.class.to_s) { |path| path }
+  # end
+
+  # Updates the title of an FCB object from its body content if the title is nil or empty.
+  def default_block_title_from_body(fcb)
+    return unless fcb.title.nil? || fcb.title.empty?
+
+    fcb.derive_title_from_body
+  end
+
+  # delete the current line if it is empty and the previous is also empty
+  def delete_consecutive_blank_lines!(blocks_menu)
+    blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, _next_item|
+      prev_item&.fetch(:chrome, nil) && !prev_item&.fetch(:oname).present? &&
+        current_item&.fetch(:chrome, nil) && !current_item&.fetch(:oname).present?
+    end
+  end
+
+  # # Deletes a temporary file specified by an environment variable.
+  # # Checks if the file exists before attempting to delete it and clears the environment variable afterward.
+  # # Any errors encountered during deletion are handled gracefully.
+  # def delete_required_temp_file(temp_blocks_file_path)
+  #   return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
+
+  #   HashDelegator.remove_file_without_standard_errors(temp_blocks_file_path)
+  # end
+
+  def error_handler(name = '', opts = {})
+    Exceptions.error_handler(
+      "HashDelegator.#{name} -- #{$!}",
+      opts
+    )
+  end
+
+  # # DebugHelper.d ["HDmm method_name: #{method_name}", "#{first_n_caller_items 1}"]
+  # def first_n_caller_items(n)
+  #   call_stack = caller
+  #   base_path = File.realpath('.')
+
+  #   # Modify the call stack to remove the base path and keep only the first n items
+  #   call_stack.take(n + 1)[1..].map do |line|
+  #     " . #{line.sub(/^#{Regexp.escape(base_path)}\//, '')}"
+  #   end.join("\n")
+  # end
+
+  # Indents all lines in a given string with a specified indentation string.
+  # @param body [String] A multi-line string to be indented.
+  # @param indent [String] The string used for indentation (default is an empty string).
+  # @return [String] A single string with each line indented as specified.
+  def indent_all_lines(body, indent = nil)
+    return body unless indent&.non_empty?
+
+    body.lines.map { |line| indent + line.chomp }.join("\n")
+  end
+
+  def initialize_fcb_names(fcb)
+    fcb.oname = fcb.dname = fcb.title || ''
+  end
+
+  def merge_lists(*args)
+    # Filters out nil values, flattens the arrays, and ensures an empty list is returned if no valid lists are provided
+    merged = args.compact.flatten
+    merged.empty? ? [] : merged
+  end
+
+  def parse_yaml_data_from_body(body)
+    body.any? ? YAML.load(body.join("\n")) : {}
+  end
+
+  # Reads required code blocks from a temporary file specified by an environment variable.
+  # @return [Array<String>] Lines read from the temporary file, or an empty array if file is not found or path is empty.
+  def read_required_blocks_from_temp_file(temp_blocks_file_path)
+    return [] if temp_blocks_file_path.to_s.empty?
+
+    if File.exist?(temp_blocks_file_path)
+      File.readlines(
+        temp_blocks_file_path, chomp: true
+      )
+    else
+      []
+    end
+  end
+
+  def remove_file_without_standard_errors(path)
+    FileUtils.rm_f(path)
+  end
+
+  # Evaluates the given string as Ruby code and rescues any StandardErrors.
+  # If an error occurs, it calls the error_handler method with 'safeval'.
+  # @param str [String] The string to be evaluated.
+  # @return [Object] The result of evaluating the string.
+  def safeval(str)
+    eval(str)
+  rescue StandardError # catches NameError, StandardError
+    error_handler('safeval')
+  end
+
+  def set_file_permissions(file_path, chmod_value)
+    File.chmod(chmod_value, file_path)
+  end
+
+  # Creates a TTY prompt with custom settings. Specifically, it disables the default 'cross' symbol and
+  # defines a lambda function to handle interrupts.
+  # @return [TTY::Prompt] A new TTY::Prompt instance with specified configurations.
+  def tty_prompt_without_disabled_symbol
+    TTY::Prompt.new(
+      interrupt: lambda {
+        puts
+        raise TTY::Reader::InputInterrupt
+      },
+      symbols: { cross: ' ' }
+    )
+  end
+
+  # Writes the provided code blocks to a file.
+  # @param code_blocks [String] Code blocks to write into the file.
+  def write_code_to_file(content, path)
+    File.write(path, content)
+  end
+
+  # Yields a line as a new block if the selected message type includes :line.
+  # @param [String] line The line to be processed.
+  # @param [Array<Symbol>] selected_messages A list of message types to check.
+  # @param [Proc] block The block to be called with the line data.
+  def yield_line_if_selected(line, selected_messages, &block)
+    return unless block && selected_messages.include?(:line)
+
+    block.call(:line, MarkdownExec::FCB.new(body: [line]))
+  end
+end
+### require_relative 'hash_delegator_self'
+
 # This module provides methods for compacting and converting data structures.
 module CompactionHelpers
   # Converts an array of key-value pairs into a hash, applying compaction to the values.
@@ -106,11 +284,12 @@ module MarkdownExec
   class HashDelegator
     attr_accessor :most_recent_loaded_filename, :pass_args, :run_state
 
+    extend HashDelegatorSelf
     include CompactionHelpers
 
     def initialize(delegate_object = {})
       @delegate_object = delegate_object
-      @prompt = tty_prompt_without_disabled_symbol
+      @prompt = HashDelegator.tty_prompt_without_disabled_symbol
 
       @most_recent_loaded_filename = nil
       @pass_args = []
@@ -179,7 +358,7 @@ module MarkdownExec
       end
 
       formatted_name = format(@delegate_object[:menu_link_format],
-                              safeval(option_name))
+                              HashDelegator.safeval(option_name))
       chrome_block = FCB.new(
         chrome: true,
         dname: HashDelegator.new(@delegate_object).string_send_color(
@@ -224,19 +403,6 @@ module MarkdownExec
 
     # private
 
-    # Searches for the first element in a collection where the specified key matches a given value.
-    # This method is particularly useful for finding a specific hash-like object within an enumerable collection.
-    # If no match is found, it returns a specified default value.
-    #
-    # @param blocks [Enumerable] The collection of hash-like objects to search.
-    # @param key [Object] The key to search for in each element of the collection.
-    # @param value [Object] The value to match against each element's corresponding key value.
-    # @param default [Object, nil] The default value to return if no match is found (optional).
-    # @return [Object, nil] The first matching element or the default value if no match is found.
-    def block_find(blocks, key, value, default = nil)
-      blocks.find { |item| item[key] == value } || default
-    end
-
     # Iterates through nested files to collect various types of blocks, including dividers, tasks, and others.
     # The method categorizes blocks based on their type and processes them accordingly.
     #
@@ -249,7 +415,7 @@ module MarkdownExec
       # &bc  'blocks.count:', blocks.count
       blocks
     rescue StandardError
-      error_handler('blocks_from_nested_files')
+      HashDelegator.error_handler('blocks_from_nested_files')
     end
 
     # private
@@ -272,15 +438,6 @@ module MarkdownExec
         return false
       end
       true
-    end
-
-    def code_join(*bodies)
-      bc = bodies&.compact
-      bc.count.positive? ? bc.join("\n") : nil
-    end
-
-    def code_merge(*bodies)
-      merge_lists(*bodies)
     end
 
     # Collects required code lines based on the selected block and the delegate object's configuration.
@@ -313,7 +470,7 @@ module MarkdownExec
                                                highlight: [@delegate_object[:block_name]])
       end
 
-      code_merge link_state&.inherited_lines, required[:code]
+      HashDelegator.code_merge(link_state&.inherited_lines, required[:code])
     end
 
     def command_execute(command, args: [])
@@ -374,7 +531,7 @@ module MarkdownExec
 
       SelectedBlockMenuState.new(block, state)
     rescue StandardError
-      error_handler('load_cli_or_user_selected_block')
+      HashDelegator.error_handler('load_cli_or_user_selected_block')
     end
 
     # This method is responsible for handling the execution of generic blocks in a markdown document.
@@ -413,16 +570,8 @@ module MarkdownExec
     def count_blocks_in_filename
       regex = Regexp.new(@delegate_object[:fenced_start_and_end_regex])
       lines = cfile.readlines(@delegate_object[:filename])
-      count_matches_in_lines(lines, regex) / 2
+      HashDelegator.count_matches_in_lines(lines, regex) / 2
     end
-
-    # private
-
-    def count_matches_in_lines(lines, regex)
-      lines.count { |line| line.to_s.match(regex) }
-    end
-
-    # private
 
     ##
     # Creates and adds a formatted block to the blocks array based on the provided match and format options.
@@ -469,31 +618,10 @@ module MarkdownExec
       end
     end
 
-    # Creates a file at the specified path, writes the given content to it,
-    # and sets file permissions if required. Handles any errors encountered during the process.
-    #
-    # @param file_path [String] The path where the file will be created.
-    # @param content [String] The content to write into the file.
-    # @param chmod_value [Integer] The file permission value to set; skips if zero.
-    def create_file_and_write_string_with_permissions(file_path, content,
-                                                      chmod_value)
-      create_directory_for_file(file_path)
-      File.write(file_path, content)
-      set_file_permissions(file_path, chmod_value) unless chmod_value.zero?
-    rescue StandardError
-      error_handler('create_file_and_write_string_with_permissions')
-    end
-
-    # private
-
-    def create_directory_for_file(file_path)
-      FileUtils.mkdir_p(File.dirname(file_path))
-    end
-
     def create_divider(position)
       divider_key = position == :initial ? :menu_initial_divider : :menu_final_divider
       oname = format(@delegate_object[:menu_divider_format],
-                     safeval(@delegate_object[divider_key]))
+                     HashDelegator.safeval(@delegate_object[divider_key]))
 
       FCB.new(
         chrome: true,
@@ -501,38 +629,6 @@ module MarkdownExec
         dname: string_send_color(oname, :menu_divider_color),
         oname: oname
       )
-    end
-
-    # private
-
-    def create_temp_file
-      Dir::Tmpname.create(self.class.to_s) { |path| path }
-    end
-
-    # Updates the title of an FCB object from its body content if the title is nil or empty.
-    def default_block_title_from_body(fcb)
-      return unless fcb.title.nil? || fcb.title.empty?
-
-      fcb.derive_title_from_body
-    end
-
-    # delete the current line if it is empty and the previous is also empty
-    def delete_consecutive_blank_lines!(blocks_menu)
-      blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, _next_item|
-        prev_item&.fetch(:chrome, nil) && !prev_item&.fetch(:oname).present? &&
-          current_item&.fetch(:chrome, nil) && !current_item&.fetch(:oname).present?
-      end
-    end
-
-    # Deletes a temporary file specified by an environment variable.
-    # Checks if the file exists before attempting to delete it and clears the environment variable afterward.
-    # Any errors encountered during deletion are handled gracefully.
-    def delete_required_temp_file(temp_blocks_file_path)
-      return if temp_blocks_file_path.nil? || temp_blocks_file_path.empty?
-
-      safely_remove_file(temp_blocks_file_path)
-    rescue StandardError
-      error_handler('delete_required_temp_file')
     end
 
     # Determines the state of a selected block in the menu based on the selected option.
@@ -569,13 +665,6 @@ module MarkdownExec
     def divider_formatting_present?(position)
       divider_key = position == :initial ? :menu_initial_divider : :menu_final_divider
       @delegate_object[:menu_divider_format].present? && @delegate_object[divider_key].present?
-    end
-
-    def error_handler(name = '', opts = {})
-      Exceptions.error_handler(
-        "HashDelegator.#{name} -- #{$!}",
-        opts
-      )
     end
 
     # public
@@ -635,17 +724,6 @@ module MarkdownExec
                     color_sym: :execution_report_preview_frame_color)
       data_string = @delegate_object.fetch(data_sym, default).to_s
       string_send_color(data_string, color_sym)
-    end
-
-    # DebugHelper.d ["HDmm method_name: #{method_name}", "#{first_n_caller_items 1}"]
-    def first_n_caller_items(n)
-      call_stack = caller
-      base_path = File.realpath('.')
-
-      # Modify the call stack to remove the base path and keep only the first n items
-      call_stack.take(n + 1)[1..].map do |line|
-        " . #{line.sub(/^#{Regexp.escape(base_path)}\//, '')}"
-      end.join("\n")
     end
 
     def format_and_execute_command(lines)
@@ -745,16 +823,6 @@ module MarkdownExec
       end
     end
 
-    # Indents all lines in a given string with a specified indentation string.
-    # @param body [String] A multi-line string to be indented.
-    # @param indent [String] The string used for indentation (default is an empty string).
-    # @return [String] A single string with each line indented as specified.
-    def indent_all_lines(body, indent = nil)
-      return body unless indent&.non_empty?
-
-      body.lines.map { |line| indent + line.chomp }.join("\n")
-    end
-
     # Initializes variables for regex and other states
     def initial_state
       {
@@ -786,10 +854,6 @@ module MarkdownExec
                     @delegate_object[:logged_stdout_filename]
       @logged_stdout_filespec = @delegate_object[:logged_stdout_filespec]
       write_execution_output_to_file
-    end
-
-    def initialize_fcb_names(fcb)
-      fcb.oname = fcb.dname = fcb.title || ''
     end
 
     # Iterates through blocks in a file, applying the provided block to each line.
@@ -846,7 +910,7 @@ module MarkdownExec
         return
       end
 
-      block = block_find(all_blocks, :oname, block_name)
+      block = HashDelegator.block_find(all_blocks, :oname, block_name)
       return unless block
 
       options_state = read_show_options_and_trigger_reuse(block)
@@ -876,7 +940,8 @@ module MarkdownExec
 
       menu_blocks = mdoc.fcbs_per_options(@delegate_object)
       add_menu_chrome_blocks!(menu_blocks)
-      delete_consecutive_blank_lines!(menu_blocks) if true ### compress empty lines
+      ### compress empty lines
+      HashDelegator.delete_consecutive_blank_lines!(menu_blocks) if true
       [all_blocks, menu_blocks, mdoc]
     end
 
@@ -895,19 +960,13 @@ module MarkdownExec
     # @param option_symbol [Symbol] The symbol key for the menu option in the delegate object.
     # @return [String] The formatted or original value of the menu option.
     def menu_chrome_formatted_option(option_symbol = :menu_option_back_name)
-      option_value = safeval(@delegate_object.fetch(option_symbol, ''))
+      option_value = HashDelegator.safeval(@delegate_object.fetch(option_symbol, ''))
 
       if @delegate_object[:menu_chrome_format]
         format(@delegate_object[:menu_chrome_format], option_value)
       else
         option_value
       end
-    end
-
-    def merge_lists(*args)
-      # Filters out nil values, flattens the arrays, and ensures an empty list is returned if no valid lists are provided
-      merged = args.compact.flatten
-      merged.empty? ? [] : merged
     end
 
     # If a method is missing, treat it as a key for the @delegate_object.
@@ -987,10 +1046,6 @@ module MarkdownExec
 
     # private
 
-    def parse_yaml_data_from_body(body)
-      body.any? ? YAML.load(body.join("\n")) : {}
-    end
-
     def pop_add_current_code_to_head_and_trigger_load(_link_state, block_names, code_lines,
                                                       dependencies)
       pop = @link_history.pop # updatable
@@ -1002,7 +1057,7 @@ module MarkdownExec
         inherited_dependencies:
          dependencies.merge(pop.inherited_dependencies || {}), ### merge, not replace, key data
         inherited_lines:
-         code_merge(pop.inherited_lines, code_lines)
+         HashDelegator.code_merge(pop.inherited_lines, code_lines)
       )
       @link_history.push(next_link_state)
 
@@ -1042,7 +1097,7 @@ module MarkdownExec
                                              %i[block_name_include_match block_name_wrapper_match])
 
         fcb.merge!(
-          name: indent_all_lines(fcb.dname, fcb.fetch(:indent, nil)),
+          name: HashDelegator.indent_all_lines(fcb.dname, fcb.fetch(:indent, nil)),
           label: BlockLabel.make(
             body: fcb[:body],
             filename: @delegate_object[:filename],
@@ -1149,7 +1204,7 @@ module MarkdownExec
     # @return [LoadFileLinkState] Object indicating the next action for file loading.
     def push_link_history_and_trigger_load(link_block_body, mdoc, selected,
                                            link_state = LinkState.new)
-      link_block_data = parse_yaml_data_from_body(link_block_body)
+      link_block_data = HashDelegator.parse_yaml_data_from_body(link_block_body)
 
       # load key and values from link block into current environment
       #
@@ -1179,7 +1234,7 @@ module MarkdownExec
       # if an eval link block, evaluate code_lines and return its standard output
       #
       if link_block_data.fetch('eval', false)
-        all_code = code_merge(link_state&.inherited_lines, code_lines)
+        all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
         output = `#{all_code.join("\n")}`.split("\n")
         label_format_above = @delegate_object[:shell_code_label_format_above]
         label_format_below = @delegate_object[:shell_code_label_format_below]
@@ -1208,25 +1263,11 @@ module MarkdownExec
           curr_document_filename: @delegate_object[:filename],
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-          inherited_lines: code_merge(link_state&.inherited_lines, code_lines),
+          inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
           next_block_name: link_block_data['block'] || '',
           next_document_filename: next_document_filename,
           next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
         )
-      end
-    end
-
-    # Reads required code blocks from a temporary file specified by an environment variable.
-    # @return [Array<String>] Lines read from the temporary file, or an empty array if file is not found or path is empty.
-    def read_required_blocks_from_temp_file(temp_blocks_file_path)
-      return [] if temp_blocks_file_path.to_s.empty?
-
-      if File.exist?(temp_blocks_file_path)
-        File.readlines(
-          temp_blocks_file_path, chomp: true
-        )
-      else
-        []
       end
     end
 
@@ -1247,20 +1288,6 @@ module MarkdownExec
       return unless (@delegate_object[exception_sym]).positive?
 
       exit @delegate_object[exception_sym]
-    end
-
-    def safely_remove_file(path)
-      FileUtils.rm_f(path)
-    end
-
-    # Evaluates the given string as Ruby code and rescues any StandardErrors.
-    # If an error occurs, it calls the error_handler method with 'safeval'.
-    # @param str [String] The string to be evaluated.
-    # @return [Object] The result of evaluating the string.
-    def safeval(str)
-      eval(str)
-    rescue StandardError
-      error_handler('safeval')
     end
 
     def save_to_file(required_lines)
@@ -1310,8 +1337,8 @@ module MarkdownExec
         end
       end
     rescue StandardError
-      error_handler('document_menu_loop',
-                    { abort: true })
+      HashDelegator.error_handler('document_menu_loop',
+                                  { abort: true })
     end
 
     def next_state_from_cli(now_using_cli, block_state)
@@ -1501,7 +1528,7 @@ module MarkdownExec
     rescue TTY::Reader::InputInterrupt
       exit 1
     rescue StandardError
-      error_handler('select_option_with_metadata')
+      HashDelegator.error_handler('select_option_with_metadata')
     end
 
     def set_environment_variables_for_block(selected)
@@ -1513,15 +1540,6 @@ module MarkdownExec
                                   { key: key, value: value })
         print string_send_color(formatted_string, :menu_vars_set_color)
       end
-    end
-
-    def set_environment_variables_per_array(vars)
-      vars ||= []
-      vars.each { |key, value| ENV[key] = value.to_s }
-    end
-
-    def set_file_permissions(file_path, chmod_value)
-      File.chmod(chmod_value, file_path)
     end
 
     def set_script_block_name(selected)
@@ -1577,19 +1595,6 @@ module MarkdownExec
     def string_send_color(string, color_sym, default: 'plain')
       color_method = @delegate_object.fetch(color_sym, default).to_sym
       string.to_s.send(color_method)
-    end
-
-    # Creates a TTY prompt with custom settings. Specifically, it disables the default 'cross' symbol and
-    # defines a lambda function to handle interrupts.
-    # @return [TTY::Prompt] A new TTY::Prompt instance with specified configurations.
-    def tty_prompt_without_disabled_symbol
-      TTY::Prompt.new(
-        interrupt: lambda {
-          puts
-          raise TTY::Reader::InputInterrupt
-        },
-        symbols: { cross: ' ' }
-      )
     end
 
     # Updates the hierarchy of document headings based on the given line.
@@ -1666,7 +1671,7 @@ module MarkdownExec
       elsif nested_line[:depth].zero? || @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it
         #
-        yield_line_if_selected(line, selected_messages, &block)
+        HashDelegator.yield_line_if_selected(line, selected_messages, &block)
 
       else
         # &bsp 'line is not recognized for block state'
@@ -1682,11 +1687,11 @@ module MarkdownExec
     # @param selected_messages [Array<Symbol>] A list of message types to determine if yielding is applicable.
     # @param block [Block] An optional block to yield to if conditions are met.
     def update_menu_attrib_yield_selected(fcb, selected_messages, &block)
-      initialize_fcb_names(fcb)
+      HashDelegator.initialize_fcb_names(fcb)
       return unless fcb.body
 
-      default_block_title_from_body(fcb)
-      yield_to_block_if_applicable(fcb, selected_messages, &block)
+      HashDelegator.default_block_title_from_body(fcb)
+      Filter.yield_to_block_if_applicable(fcb, selected_messages, @delegate_object, &block)
     end
 
     # Processes YAML data from the selected menu item, updating delegate objects and optionally printing formatted output.
@@ -1721,7 +1726,7 @@ module MarkdownExec
       handle_block_state(block_state)
       block_state
     rescue StandardError
-      error_handler('wait_for_user_selected_block')
+      HashDelegator.error_handler('wait_for_user_selected_block')
     end
 
     def wait_for_user_selection(_all_blocks, menu_blocks, default)
@@ -1772,13 +1777,13 @@ module MarkdownExec
                 "# time: #{time_now}\n" \
                 "#{required_lines.flatten.join("\n")}\n"
 
-      create_file_and_write_string_with_permissions(
+      HashDelegator.create_file_and_write_string_with_permissions(
         @run_state.saved_filespec,
         content,
         @delegate_object[:saved_script_chmod]
       )
     rescue StandardError
-      error_handler('write_command_file')
+      HashDelegator.error_handler('write_command_file')
     end
 
     def save_executed_script_if_specified(lines)
@@ -1815,40 +1820,10 @@ module MarkdownExec
              []
            end
 
-      code_blocks = (read_required_blocks_from_temp_file(import_filename) +
+      code_blocks = (HashDelegator.read_required_blocks_from_temp_file(import_filename) +
                      c1).join("\n")
 
-      write_code_to_file(code_blocks, temp_file_path)
-    end
-
-    # Writes the provided code blocks to a file.
-    # @param code_blocks [String] Code blocks to write into the file.
-    def write_code_to_file(content, path)
-      File.write(path, content)
-    end
-
-    # Yields a line as a new block if the selected message type includes :line.
-    # @param [String] line The line to be processed.
-    # @param [Array<Symbol>] selected_messages A list of message types to check.
-    # @param [Proc] block The block to be called with the line data.
-    def yield_line_if_selected(line, selected_messages, &block)
-      return unless block && selected_messages.include?(:line)
-
-      block.call(:line, FCB.new(body: [line]))
-    end
-
-    # Yields to the provided block with specified parameters if certain conditions are met.
-    # The method checks if a block is given, if the selected_messages include :blocks,
-    # and if the fcb_select? method from MarkdownExec::Filter returns true for the given fcb.
-    #
-    # @param fcb [Object] The object to be evaluated and potentially passed to the block.
-    # @param selected_messages [Array<Symbol>] A collection of message types, one of which must be :blocks.
-    # @param block [Block] A block to be called if conditions are met.
-    def yield_to_block_if_applicable(fcb, selected_messages, &block)
-      if block_given? && selected_messages.include?(:blocks) &&
-         MarkdownExec::Filter.fcb_select?(@delegate_object, fcb)
-        block.call :blocks, fcb
-      end
+      HashDelegator.write_code_to_file(code_blocks, temp_file_path)
     end
   end
 end
@@ -1918,30 +1893,30 @@ if $PROGRAM_NAME == __FILE__
         body = "Line 1\nLine 2"
         indent = '  ' # Two spaces
         expected_result = "  Line 1\n  Line 2"
-        assert_equal expected_result, @hd.indent_all_lines(body, indent)
+        assert_equal expected_result, HashDelegator.indent_all_lines(body, indent)
       end
 
       def test_indent_all_lines_without_indent
         body = "Line 1\nLine 2"
         indent = nil
 
-        assert_equal body, @hd.indent_all_lines(body, indent)
+        assert_equal body, HashDelegator.indent_all_lines(body, indent)
       end
 
       def test_indent_all_lines_with_empty_indent
         body = "Line 1\nLine 2"
         indent = ''
 
-        assert_equal body, @hd.indent_all_lines(body, indent)
+        assert_equal body, HashDelegator.indent_all_lines(body, indent)
       end
 
       def test_safeval_successful_evaluation
-        assert_equal 4, @hd.safeval('2 + 2')
+        assert_equal 4, HashDelegator.safeval('2 + 2')
       end
 
       def test_safeval_rescue_from_error
-        @hd.stubs(:error_handler).with('safeval')
-        assert_nil @hd.safeval('invalid code')
+        HashDelegator.stubs(:error_handler).with('safeval')
+        assert_nil HashDelegator.safeval('invalid code')
       end
 
       def test_set_fcb_title
@@ -1969,7 +1944,7 @@ if $PROGRAM_NAME == __FILE__
         input_output_data.each do |data|
           input = data[:input]
           output = data[:output]
-          @hd.default_block_title_from_body(input)
+          HashDelegator.default_block_title_from_body(input)
           assert_equal output, input.title
         end
       end
@@ -1984,7 +1959,7 @@ if $PROGRAM_NAME == __FILE__
                                       menu_divider_color: :color
                                     })
           @hd.stubs(:string_send_color).returns('Formatted Divider')
-          @hd.stubs(:safeval).returns('Safe Value')
+          HashDelegator.stubs(:safeval).returns('Safe Value')
         end
 
         def test_append_divider_initial
@@ -2019,19 +1994,19 @@ if $PROGRAM_NAME == __FILE__
 
         def test_block_find_with_match
           blocks = [{ key: 'value1' }, { key: 'value2' }]
-          result = @hd.block_find(blocks, :key, 'value1')
+          result = HashDelegator.block_find(blocks, :key, 'value1')
           assert_equal({ key: 'value1' }, result)
         end
 
         def test_block_find_without_match
           blocks = [{ key: 'value1' }, { key: 'value2' }]
-          result = @hd.block_find(blocks, :key, 'value3')
+          result = HashDelegator.block_find(blocks, :key, 'value3')
           assert_nil result
         end
 
         def test_block_find_with_default
           blocks = [{ key: 'value1' }, { key: 'value2' }]
-          result = @hd.block_find(blocks, :key, 'value3', 'default')
+          result = HashDelegator.block_find(blocks, :key, 'value3', 'default')
           assert_equal 'default', result
         end
       end
@@ -2043,7 +2018,7 @@ if $PROGRAM_NAME == __FILE__
           @hd.stubs(:get_block_summary).returns(FCB.new)
           @hd.stubs(:create_and_add_chrome_blocks)
           @hd.instance_variable_set(:@delegate_object, {})
-          @hd.stubs(:error_handler)
+          HashDelegator.stubs(:error_handler)
         end
 
         def test_blocks_from_nested_files
@@ -2069,7 +2044,7 @@ if $PROGRAM_NAME == __FILE__
           @hd.instance_variable_set(:@delegate_object, {})
           @mdoc = mock('YourMDocClass')
           @selected = { shell: BlockType::VARS, body: ['key: value'] }
-          @hd.stubs(:read_required_blocks_from_temp_file).returns([])
+          HashDelegator.stubs(:read_required_blocks_from_temp_file).returns([])
           @hd.stubs(:string_send_color)
           @hd.stubs(:print)
         end
@@ -2087,7 +2062,7 @@ if $PROGRAM_NAME == __FILE__
         def setup
           @hd = HashDelegator.new
           @hd.instance_variable_set(:@delegate_object, {})
-          @hd.stubs(:error_handler)
+          HashDelegator.stubs(:error_handler)
           @hd.stubs(:wait_for_user_selected_block)
         end
 
@@ -2146,7 +2121,7 @@ if $PROGRAM_NAME == __FILE__
       class TestHashDelegatorCreateAndWriteFile < Minitest::Test
         def setup
           @hd = HashDelegator.new
-          @hd.stubs(:error_handler)
+          HashDelegator.stubs(:error_handler)
           FileUtils.stubs(:mkdir_p)
           File.stubs(:write)
           File.stubs(:chmod)
@@ -2161,8 +2136,8 @@ if $PROGRAM_NAME == __FILE__
           File.expects(:write).with(file_path, content).once
           File.expects(:chmod).with(chmod_value, file_path).once
 
-          @hd.create_file_and_write_string_with_permissions(file_path, content,
-                                                            chmod_value)
+          HashDelegator.create_file_and_write_string_with_permissions(file_path, content,
+                                                                      chmod_value)
 
           assert true # Placeholder for actual test assertions
         end
@@ -2176,8 +2151,8 @@ if $PROGRAM_NAME == __FILE__
           File.expects(:write).with(file_path, content).once
           File.expects(:chmod).never
 
-          @hd.create_file_and_write_string_with_permissions(file_path, content,
-                                                            chmod_value)
+          HashDelegator.create_file_and_write_string_with_permissions(file_path, content,
+                                                                      chmod_value)
 
           assert true # Placeholder for actual test assertions
         end
@@ -2530,7 +2505,7 @@ if $PROGRAM_NAME == __FILE__
                                       menu_option_back_name: "'Back'",
                                       menu_chrome_format: '-- %s --'
                                     })
-          @hd.stubs(:safeval).with("'Back'").returns('Back')
+          HashDelegator.stubs(:safeval).with("'Back'").returns('Back')
         end
 
         def test_menu_chrome_formatted_option_with_format
@@ -2585,7 +2560,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_yield_line_if_selected_with_line
         block_called = false
-        @hd.yield_line_if_selected('Test line', [:line]) do |type, content|
+        HashDelegator.yield_line_if_selected('Test line', [:line]) do |type, content|
           block_called = true
           assert_equal :line, type
           assert_equal 'Test line', content.body[0]
@@ -2595,14 +2570,14 @@ if $PROGRAM_NAME == __FILE__
 
       def test_yield_line_if_selected_without_line
         block_called = false
-        @hd.yield_line_if_selected('Test line', [:other]) do |_|
+        HashDelegator.yield_line_if_selected('Test line', [:other]) do |_|
           block_called = true
         end
         refute block_called
       end
 
       def test_yield_line_if_selected_without_block
-        result = @hd.yield_line_if_selected('Test line', [:line])
+        result = HashDelegator.yield_line_if_selected('Test line', [:line])
         assert_nil result
       end
     end
@@ -2635,22 +2610,22 @@ if $PROGRAM_NAME == __FILE__
         @hd = HashDelegator.new
         @fcb = mock('Fcb')
         @fcb.stubs(:body).returns(true)
-        @hd.stubs(:initialize_fcb_names)
-        @hd.stubs(:default_block_title_from_body)
-        @hd.stubs(:yield_to_block_if_applicable)
+        HashDelegator.stubs(:initialize_fcb_names)
+        HashDelegator.stubs(:default_block_title_from_body)
+        Filter.stubs(:yield_to_block_if_applicable)
       end
 
       def test_update_menu_attrib_yield_selected_with_body
-        @hd.expects(:initialize_fcb_names).with(@fcb)
-        @hd.expects(:default_block_title_from_body).with(@fcb)
-        @hd.expects(:yield_to_block_if_applicable).with(@fcb, [:some_message])
+        HashDelegator.expects(:initialize_fcb_names).with(@fcb)
+        HashDelegator.expects(:default_block_title_from_body).with(@fcb)
+        Filter.expects(:yield_to_block_if_applicable).with(@fcb, [:some_message], {})
 
         @hd.update_menu_attrib_yield_selected(@fcb, [:some_message])
       end
 
       def test_update_menu_attrib_yield_selected_without_body
         @fcb.stubs(:body).returns(nil)
-        @hd.expects(:initialize_fcb_names).with(@fcb)
+        HashDelegator.expects(:initialize_fcb_names).with(@fcb)
         @hd.update_menu_attrib_yield_selected(@fcb, [:some_message])
       end
     end
@@ -2658,7 +2633,7 @@ if $PROGRAM_NAME == __FILE__
     class TestHashDelegatorWaitForUserSelectedBlock < Minitest::Test
       def setup
         @hd = HashDelegator.new
-        @hd.stubs(:error_handler)
+        HashDelegator.stubs(:error_handler)
       end
 
       def test_wait_for_user_selected_block_with_back_state
@@ -2700,7 +2675,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_yield_to_block_if_applicable_with_correct_conditions
         block_called = false
-        @hd.yield_to_block_if_applicable(@fcb, [:blocks]) do |type, fcb|
+        Filter.yield_to_block_if_applicable(@fcb, [:blocks]) do |type, fcb|
           block_called = true
           assert_equal :blocks, type
           assert_equal @fcb, fcb
@@ -2709,14 +2684,14 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_yield_to_block_if_applicable_without_block
-        result = @hd.yield_to_block_if_applicable(@fcb, [:blocks])
+        result = Filter.yield_to_block_if_applicable(@fcb, [:blocks])
         assert_nil result
       end
 
       def test_yield_to_block_if_applicable_with_incorrect_conditions
         block_called = false
         MarkdownExec::Filter.stubs(:fcb_select?).returns(false)
-        @hd.yield_to_block_if_applicable(@fcb, [:non_blocks]) do |_|
+        Filter.yield_to_block_if_applicable(@fcb, [:non_blocks]) do |_|
           block_called = true
         end
         refute block_called
