@@ -23,6 +23,7 @@ module MarkdownExec
     #
     def initialize(table = [])
       @table = table
+      # &bc '@table.count:',@table.count
     end
 
     def collect_block_code_cann(fcb)
@@ -69,20 +70,28 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the retrieval from.
     # @return [Array<Hash>] An array of code blocks required by the specified code block.
     #
-    def collect_recursively_required_blocks(name)
+    def collect_block_dependencies(name)
       name_block = get_block_by_anyname(name)
       if name_block.nil? || name_block.keys.empty?
         raise "Named code block `#{name}` not found. (@#{__LINE__})"
       end
 
       dependencies = collect_dependencies(name_block[:oname])
+      # &bc 'dependencies.count:',dependencies.count
       all_dependency_names = collect_unique_names(dependencies).push(name_block[:oname]).uniq
-      unmet_dependencies = all_dependency_names.dup
+      # &bc 'all_dependency_names.count:',all_dependency_names.count
 
-      # in order of appearance in document (@table)
-      # insert function blocks
-      blocks = @table.select { |fcb| all_dependency_names.include? fcb[:oname] }
-                     .map do |fcb|
+      # select non-chrome blocks in order of appearance in source documents
+      #
+      blocks = @table.select do |fcb|
+        !fcb.fetch(:chrome, false) && all_dependency_names.include?(fcb.fetch(:oname))
+      end
+      # &bc 'blocks.count:',blocks.count
+
+      ## add cann key to blocks, calc unmet_dependencies
+      #
+      unmet_dependencies = all_dependency_names.dup
+      blocks = blocks.map do |fcb|
         unmet_dependencies.delete(fcb[:oname]) # may not exist if block name is duplicated
         if (call = fcb[:call])
           [get_block_by_oname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
@@ -91,6 +100,7 @@ module MarkdownExec
           []
         end + [fcb]
       end.flatten(1)
+      # &bc 'unmet_dependencies.count:',unmet_dependencies.count
 
       { all_dependency_names: all_dependency_names,
         blocks: blocks,
@@ -103,11 +113,13 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(name, label_body: true, label_format_above: nil,
-                                          label_format_below: nil, block_source:)
-      block_search = collect_recursively_required_blocks(name)
+    def collect_recursively_required_code(name, block_source:, label_body: true, label_format_above: nil,
+                                          label_format_below: nil)
+      block_search = collect_block_dependencies(name)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
+        # &bc 'blocks.count:',blocks.count
+
         block_search.merge(
           { block_names: blocks.map { |block| block[:oname] },
             code: blocks.map do |fcb|
@@ -134,6 +146,8 @@ module MarkdownExec
       else
         block_search.merge({ block_names: [], code: [] })
       end
+    rescue StandardError
+      error_handler('collect_recursively_required_code')
     end
 
     def collect_unique_names(hash)
@@ -158,6 +172,13 @@ module MarkdownExec
             @table.select { |fcb| fcb.oname == wrap_after }
           end.flatten(1)
       end.flatten(1).compact
+    end
+
+    def error_handler(name = '', opts = {})
+      Exceptions.error_handler(
+        "MDoc.#{name} -- #{$!}",
+        opts
+      )
     end
 
     # Retrieves code blocks based on the provided options.
@@ -432,13 +453,13 @@ if $PROGRAM_NAME == __FILE__
       end
 
       ### broken test
-      def test_collect_recursively_required_blocks
-        result = @doc.collect_recursively_required_blocks('block3')[:blocks]
+      def test_collect_block_dependencies
+        result = @doc.collect_block_dependencies('block3')[:blocks]
         expected_result = [@table[0], @table[1], @table[2]]
         assert_equal expected_result, result
 
         assert_raises(RuntimeError) do
-          @doc.collect_recursively_required_blocks('missing_block')
+          @doc.collect_block_dependencies('missing_block')
         end
       end
 

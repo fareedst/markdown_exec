@@ -246,6 +246,7 @@ module MarkdownExec
       iter_blocks_from_nested_files do |btype, fcb|
         process_block_based_on_type(blocks, btype, fcb)
       end
+      # &bc  'blocks.count:', blocks.count
       blocks
     rescue StandardError
       error_handler('blocks_from_nested_files')
@@ -1279,7 +1280,7 @@ module MarkdownExec
       menu_default_dname = nil
 
       loop do
-        # @bsp 'loop',block_name_from_cli,@cli_block_name
+        # &bsp 'loop', block_name_from_cli, @cli_block_name
         block_name_from_cli, now_using_cli, blocks_in_file, menu_blocks, mdoc = \
           set_delobj_menu_loop_vars(block_name_from_cli, now_using_cli, link_state)
 
@@ -1288,7 +1289,7 @@ module MarkdownExec
         block_state = load_cli_or_user_selected_block(blocks_in_file, menu_blocks,
                                                       menu_default_dname)
         if block_state.state == MenuState::EXIT
-          # @bsp 'MenuState::EXIT -> break'
+          # &bsp 'MenuState::EXIT -> break'
           break
         end
 
@@ -1296,7 +1297,7 @@ module MarkdownExec
         link_state, menu_default_dname = exec_bash_next_state(block_state.block, mdoc,
                                                               link_state)
         if prompt_user_exit(block_name_from_cli, block_state.block)
-          # @bsp 'prompt_user_exit -> break'
+          # &bsp 'prompt_user_exit -> break'
           break
         end
 
@@ -1304,7 +1305,7 @@ module MarkdownExec
           next_state_from_cli(now_using_cli, block_state)
 
         if cli_break
-          # @bsp 'read_block_name_from_cli + next_link_state -> break'
+          # &bsp 'read_block_name_from_cli + next_link_state -> break'
           break
         end
       end
@@ -1359,7 +1360,7 @@ module MarkdownExec
 
     def manage_cli_selection_state(block_name_from_cli, now_using_cli, link_state)
       if block_name_from_cli && @cli_block_name == '.'
-        # @bsp 'pause cli control, allow user to select block'
+        # &bsp 'pause cli control, allow user to select block'
         block_name_from_cli = false
         now_using_cli = false
         @menu_base_options[:block_name] = \
@@ -1374,7 +1375,7 @@ module MarkdownExec
     end
 
     def next_link_state(block_name_from_cli, was_using_cli, block_state)
-      # @bsp 'next_link_state',block_name_from_cli, was_using_cli, block_state
+      # &bsp 'next_link_state', block_name_from_cli, was_using_cli, block_state
       # Set block_name based on block_name_from_cli
       block_name = block_name_from_cli ? @cli_block_name : nil
 
@@ -1668,7 +1669,7 @@ module MarkdownExec
         yield_line_if_selected(line, selected_messages, &block)
 
       else
-        # @bsp 'line is not recognized for block state'
+        # &bsp 'line is not recognized for block state'
 
       end
     end

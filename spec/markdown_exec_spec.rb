@@ -7,6 +7,7 @@ require_relative '../lib/markdown_exec'
 
 include Tap #; tap_config
 require_relative '../lib/block_label'
+require_relative '../lib/link_history'
 require_relative '../lib/rspec_helpers'
 spec_source __FILE__
 
@@ -384,10 +385,10 @@ RSpec.describe 'MarkdownExec' do
 
       opts.merge!(block_name: 'one')
       hopts = MarkdownExec::HashDelegator.new(opts)
-      hopts.execute_bash_and_special_blocks(
+      hopts.exec_bash_next_state(
         MarkdownExec::FCB.new,
         mdoc,
-        block_source: block_source
+        MarkdownExec::LinkState.new
       )
     end
   end
@@ -454,10 +455,10 @@ RSpec.describe 'MarkdownExec' do
       include(*%w[./CHANGELOG.md ./CODE_OF_CONDUCT.md ./README.md])
   end
 
-  it 'test_called_parse_hidden_collect_recursively_required_blocks' do
+  it 'test_called_parse_hidden_collect_block_dependencies' do
     expect(
       MarkdownExec::MDoc.new(list_blocks_bash1)
-                  .collect_recursively_required_blocks('four')[:blocks]
+                  .collect_block_dependencies('four')[:blocks]
                   .map do |block|
                     block[:oname]
                   end
@@ -739,8 +740,8 @@ RSpec.describe 'MarkdownExec' do
     ]
   end
 
-  it 'test_parse_called_collect_recursively_required_blocks' do
-    expect(mdoc_yaml1.collect_recursively_required_blocks('show_fruit_yml')[:blocks].map do |block|
+  it 'test_parse_called_collect_block_dependencies' do
+    expect(mdoc_yaml1.collect_block_dependencies('show_fruit_yml')[:blocks].map do |block|
       block.slice(:call, :oname)
            .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
@@ -782,8 +783,8 @@ RSpec.describe 'MarkdownExec' do
     ]
   end
 
-  it 'test_vars_parse_called_collect_recursively_required_blocks' do
-    expect(mdoc_yaml2.collect_recursively_required_blocks('show_coins_var')[:blocks].map do |block|
+  it 'test_vars_parse_called_collect_block_dependencies' do
+    expect(mdoc_yaml2.collect_block_dependencies('show_coins_var')[:blocks].map do |block|
              block.slice(:call, :cann, :oname)
            end).to eq [
              { call: nil, oname: '(make_coins_file)' },
