@@ -1457,7 +1457,7 @@ module MarkdownExec
     end
 
     def manage_cli_selection_state(block_name_from_cli, now_using_cli, link_state)
-      if block_name_from_cli && @cli_block_name == '.'
+      if block_name_from_cli && @cli_block_name == @menu_base_options[:menu_persist_block_name]
         # &bsp 'pause cli control, allow user to select block'
         block_name_from_cli = false
         now_using_cli = false

@@ -431,6 +431,11 @@
   :env_var: MDE_MENU_OPTS_SET_FORMAT
   :opt_name: menu_opts_set_format
   :procname: val_as_str
+- :default: "."
+  :description: Block name to display menu
+  :env_var: MDE_MENU_PERSIST_BLOCK_NAME
+  :opt_name: menu_persist_block_name
+  :procname: val_as_str
 - :default: fg_rgbh_ff_ff_ff
   :description: Color of menu task
   :env_var: MDE_MENU_TASK_COLOR
