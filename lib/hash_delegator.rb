@@ -610,7 +610,7 @@ module MarkdownExec
       if @delegate_object[:block_name].present?
         block = all_blocks.find do |item|
           item[:oname] == @delegate_object[:block_name]
-        end.merge(block_name_from_ui: false)
+        end&.merge(block_name_from_ui: false)
       else
         block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
                                                    default)
@@ -1394,9 +1394,10 @@ module MarkdownExec
         block_state = load_cli_or_user_selected_block(blocks_in_file, menu_blocks,
                                                       menu_default_dname)
         # &bsp 'block_name_from_cli:',block_name_from_cli
-
-        if block_state.state == MenuState::EXIT
-          # &bsp 'MenuState::EXIT -> break'
+        if !block_state
+          HashDelegator.error_handler('block_state missing', { abort: true })
+        elsif block_state.state == MenuState::EXIT
+          # &bsp 'load_cli_or_user_selected_block -> break'
           break
         end
 
@@ -1561,7 +1562,6 @@ module MarkdownExec
 
     def should_add_back_option?
       @delegate_object[:menu_with_back] && @link_history.prior_state_exist?
-      # @delegate_object[:menu_with_back] && link_history_prior_state_exist?
     end
 
     # Initializes a new fenced code block (FCB) object based on the provided line and heading information.
