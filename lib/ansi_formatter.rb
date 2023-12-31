@@ -21,11 +21,7 @@ class AnsiFormatter
     (data&.map do |item|
       scan_and_process_multiple_substrings(item, highlight, plain_color_sym,
                                            highlight_color_sym).join
-      # color_sym = highlight.include?(item) ? highlight_color_sym : c
-      # string_send_color(item, color_sym)
-    end || []) #.join
-    # formatted_deps
-    # "#{line_prefix}#{string_send_color(label, highlight_color_sym)}#{line_postfix}\n" + formatted_deps.join("\n")
+    end || [])
   end
 
   # Function to scan a string and process its segments based on multiple substrings

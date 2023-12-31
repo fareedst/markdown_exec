@@ -406,11 +406,20 @@ module MarkdownExec
     # along with initial and final dividers, based on the delegate object's configuration.
     #
     # @param menu_blocks [Array] The array of menu block elements to be modified.
-    def add_menu_chrome_blocks!(menu_blocks)
+    def add_menu_chrome_blocks!(menu_blocks, link_state)
       return unless @delegate_object[:menu_link_format].present?
 
+      if @delegate_object[:menu_with_inherited_lines]
+        add_inherited_lines(menu_blocks,
+                            link_state)
+      end
+
+      # back before exit
       add_back_option(menu_blocks) if should_add_back_option?
+
+      # exit after other options
       add_exit_option(menu_blocks) if @delegate_object[:menu_with_exit]
+
       add_dividers(menu_blocks)
     end
 
@@ -420,13 +429,17 @@ module MarkdownExec
       append_chrome_block(menu_blocks, MenuState::BACK)
     end
 
+    def add_dividers(menu_blocks)
+      append_divider(menu_blocks, :initial)
+      append_divider(menu_blocks, :final)
+    end
+
     def add_exit_option(menu_blocks)
       append_chrome_block(menu_blocks, MenuState::EXIT)
     end
 
-    def add_dividers(menu_blocks)
-      append_divider(menu_blocks, :initial)
-      append_divider(menu_blocks, :final)
+    def add_inherited_lines(menu_blocks, link_state)
+      append_inherited_lines(menu_blocks, link_state)
     end
 
     public
@@ -461,6 +474,39 @@ module MarkdownExec
       else
         menu_blocks.push(chrome_block)
       end
+    end
+
+    # Appends a formatted divider to the specified position in a menu block array.
+    # The method checks for the presence of formatting options before appending.
+    #
+    # @param menu_blocks [Array] The array of menu block elements.
+    # @param position [Symbol] The position to insert the divider (:initial or :final).
+    def append_inherited_lines(menu_blocks, link_state, position: top)
+      return unless link_state.inherited_lines.present?
+
+      insert_at_top = @delegate_object[:menu_inherited_lines_at_top]
+      chrome_blocks = link_state.inherited_lines.map do |line|
+        formatted = format(@delegate_object[:menu_inherited_lines_format],
+                           { line: line })
+        FCB.new(
+          chrome: true,
+          disabled: '',
+          dname: HashDelegator.new(@delegate_object).string_send_color(
+            formatted, :menu_inherited_lines_color
+          ),
+          oname: formatted
+        )
+      end
+
+      if insert_at_top
+        # Prepend an array of elements to the beginning
+        menu_blocks.unshift(*chrome_blocks)
+      else
+        # Append an array of elements to the end
+        menu_blocks.concat(chrome_blocks)
+      end
+    rescue StandardError
+      HashDelegator.error_handler('append_inherited_lines')
     end
 
     # Appends a formatted divider to the specified position in a menu block array.
@@ -688,12 +734,13 @@ module MarkdownExec
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
       match_criteria = [
-        { match: :menu_task_match, format: :menu_task_format,
-          color: :menu_task_color },
+        { match: :heading1_match, format: :menu_heading1_format, color: :menu_heading1_color },
+        { match: :heading2_match, format: :menu_heading2_format, color: :menu_heading2_color },
+        { match: :heading3_match, format: :menu_heading3_format, color: :menu_heading3_color },
         { match: :menu_divider_match, format: :menu_divider_format,
           color: :menu_divider_color },
-        { match: :menu_note_match, format: :menu_note_format,
-          color: :menu_note_color }
+        { match: :menu_note_match, format: :menu_note_format, color: :menu_note_color },
+        { match: :menu_task_match, format: :menu_task_format, color: :menu_task_color }
       ]
       match_criteria.each do |criteria|
         unless @delegate_object[criteria[:match]].present? &&
@@ -1009,7 +1056,7 @@ module MarkdownExec
 
     ## Handles the file loading and returns the blocks in the file and MDoc instance
     #
-    def mdoc_menu_and_blocks_from_nested_files
+    def mdoc_menu_and_blocks_from_nested_files(link_state)
       all_blocks, mdoc = mdoc_and_blocks_from_nested_files
 
       # recreate menu with new options
@@ -1017,7 +1064,7 @@ module MarkdownExec
       all_blocks, mdoc = mdoc_and_blocks_from_nested_files if load_auto_blocks(all_blocks)
 
       menu_blocks = mdoc.fcbs_per_options(@delegate_object)
-      add_menu_chrome_blocks!(menu_blocks)
+      add_menu_chrome_blocks!(menu_blocks, link_state)
       ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks) if true
       [all_blocks, menu_blocks, mdoc]
@@ -1199,10 +1246,7 @@ module MarkdownExec
       when :filter
         %i[blocks line]
       when :line
-        unless @delegate_object[:no_chrome]
-          create_and_add_chrome_blocks(blocks,
-                                       fcb)
-        end
+        create_and_add_chrome_blocks(blocks, fcb) unless @delegate_object[:no_chrome]
       end
     end
 
@@ -1442,7 +1486,7 @@ module MarkdownExec
 
       # update @delegate_object and @menu_base_options in auto_load
       #
-      blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files
+      blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files(link_state)
       dump_delobj(blocks_in_file, menu_blocks, link_state)
 
       [block_name_from_cli, now_using_cli, blocks_in_file, menu_blocks, mdoc]
@@ -1609,28 +1653,6 @@ module MarkdownExec
       HashDelegator.apply_color_from_hash(string, @delegate_object, color_sym)
     end
 
-    # Updates the hierarchy of document headings based on the given line.
-    # Utilizes regular expressions to identify heading levels.
-    # @param line [String] The line of text to check for headings.
-    # @param headings [Array<String>] Current headings hierarchy.
-    # @return [Array<String>] Updated headings hierarchy.
-    def match_document_headings(line, headings)
-      heading3_match = Regexp.new(@delegate_object[:heading3_match])
-      heading2_match = Regexp.new(@delegate_object[:heading2_match])
-      heading1_match = Regexp.new(@delegate_object[:heading1_match])
-
-      case line
-      when heading3_match
-        [headings[0], headings[1], $~[:name]]
-      when heading2_match
-        [headings[0], $~[:name]]
-      when heading1_match
-        [$~[:name]]
-      else
-        headings
-      end
-    end
-
     ##
     # Processes an individual line within a loop, updating headings and handling fenced code blocks.
     # This function is designed to be called within a loop that iterates through each line of a document.
@@ -1653,10 +1675,6 @@ module MarkdownExec
     def update_line_and_block_state(nested_line, state, selected_messages,
                                     &block)
       line = nested_line.to_s
-      if @delegate_object[:menu_blocks_with_headings]
-        state[:headings] = match_document_headings(line, state[:headings])
-      end
-
       if line.match(@delegate_object[:fenced_start_and_end_regex])
         if state[:in_fenced_block]
           ## end of code block
@@ -2554,29 +2572,6 @@ if $PROGRAM_NAME == __FILE__
       def test_yield_line_if_selected_without_block
         result = HashDelegator.yield_line_if_selected('Test line', [:line])
         assert_nil result
-      end
-    end
-
-    class TestHashDelegator < Minitest::Test
-      def setup
-        @hd = HashDelegator.new
-        @hd.instance_variable_set(:@delegate_object, {
-                                    heading1_match: '^# (?<name>.+)$',
-                                    heading2_match: '^## (?<name>.+)$',
-                                    heading3_match: '^### (?<name>.+)$'
-                                  })
-      end
-
-      def test_match_document_headings
-        assert_equal(['Heading 1'],
-                     @hd.match_document_headings('# Heading 1', []))
-        assert_equal(['Heading 1', 'Heading 2'],
-                     @hd.match_document_headings('## Heading 2',
-                                                 ['Heading 1']))
-        assert_equal(['Heading 1', 'Heading 2', 'Heading 3'],
-                     @hd.match_document_headings('### Heading 3',
-                                                 ['Heading 1', 'Heading 2']))
-        assert_equal([], @hd.match_document_headings('Regular text', []))
       end
     end
 

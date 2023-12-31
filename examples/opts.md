@@ -1,4 +1,6 @@
 # Demo configuring options
+## H2
+### H3
 
 ::: These Opts blocks set the color of a couple of menu options to demonstrate the live update of options.
 

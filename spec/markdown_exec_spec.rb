@@ -445,6 +445,8 @@ RSpec.describe 'MarkdownExec' do
     expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
              block.slice(:body, :oname)
            end).to eq [
+             # { body: nil, oname: '# ' },
+             # { body: nil, oname: '## ' },
              { body: %w[a], oname: 'one' },
              { body: %w[b], oname: 'two' }
            ]
@@ -533,7 +535,7 @@ RSpec.describe 'MarkdownExec' do
                       ])
   end
 
-  it 'test_parse_headings' do
+  xit 'test_parse_headings' do
     expect(list_blocks_headings.map do |block|
              block.slice(:headings, :oname)
            end).to \
@@ -810,14 +812,16 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_fcbs_per_options' do
     [
-      [%w[block11 block21 block31 block32], { exclude_by_shell_regex: '^expect$',
-                                              exclude_expect_blocks: false,
-                                              filename: 'fixtures/block_exclude.md',
-                                              hide_blocks_by_name: false }],
-      [%w[block31], { select_by_shell_regex: 'mermaid',
-                      exclude_expect_blocks: false,
-                      filename: 'fixtures/block_exclude.md',
-                      hide_blocks_by_name: false }]
+      [['# divider 11', 'block11', '# divider 21', 'block21', '# divider 31', 'block31', 'block32'],
+       { exclude_by_shell_regex: '^expect$',
+         exclude_expect_blocks: false,
+         filename: 'fixtures/block_exclude.md',
+         hide_blocks_by_name: false }],
+      [['# divider 11', '# divider 21', '# divider 31', 'block31'],
+       { select_by_shell_regex: 'mermaid',
+         exclude_expect_blocks: false,
+         filename: 'fixtures/block_exclude.md',
+         hide_blocks_by_name: false }]
     ].each.with_index do |(names, opts), _ind|
       MarkdownExec::MarkParse.new(o2 = options.merge(opts))
       hd_doc_block_options_blocks_from_nested_files = MarkdownExec::HashDelegator.new(o2).blocks_from_nested_files

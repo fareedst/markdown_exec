@@ -238,17 +238,17 @@
   :opt_name: find_path
   :procname: val_as_str
 
-- :default: "^# *(?<name>[^#]*?) *$"
+- :default: "^# *(?<line>[^#]*?) *$"
   :env_var: MDE_HEADING1_MATCH
   :opt_name: heading1_match
   :procname: val_as_str
 
-- :default: "^## *(?<name>[^#]*?) *$"
+- :default: "^## *(?<line>[^#]*?) *$"
   :env_var: MDE_HEADING2_MATCH
   :opt_name: heading2_match
   :procname: val_as_str
 
-- :default: "^### *(?<name>.+?) *$"
+- :default: "^### *(?<line>.+?) *$"
   :env_var: MDE_HEADING3_MATCH
   :opt_name: heading3_match
   :procname: val_as_str
@@ -363,7 +363,7 @@
   :procname: val_as_bool
 
 - :arg_name: BOOL
-  :default: false
+  :default: true
   :description: Controls whether headings(levels 1,2,3) are displayed in the block selection menu
   :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
   :opt_name: menu_blocks_with_headings
@@ -419,6 +419,42 @@
   :opt_name: menu_final_divider
   :procname: val_as_str
 
+- :default: fg_rgbh_80_80_c0
+  :description: Color for heading 1 in menu
+  :env_var: MDE_MENU_HEADING1_COLOR
+  :opt_name: menu_heading1_color
+  :procname: val_as_str
+
+- :default: "# %{line}"
+  :description: format for menu heading1 in menu
+  :env_var: MDE_MENU_HEADING1_FORMAT
+  :opt_name: menu_heading1_format
+  :procname: val_as_str
+
+- :default: fg_rgbh_60_60_c0
+  :description: Color for heading 2 in menu
+  :env_var: MDE_MENU_HEADING2_COLOR
+  :opt_name: menu_heading2_color
+  :procname: val_as_str
+
+- :default: "## %{line}"
+  :description: format for menu heading2 in menu
+  :env_var: MDE_MENU_HEADING2_FORMAT
+  :opt_name: menu_heading2_format
+  :procname: val_as_str
+
+- :default: fg_rgbh_40_40_c0
+  :description: Color for heading 3 in menu
+  :env_var: MDE_MENU_HEADING3_COLOR
+  :opt_name: menu_heading3_color
+  :procname: val_as_str
+
+- :default: "### %{line}"
+  :description: format for menu heading3 in menu
+  :env_var: MDE_MENU_HEADING3_FORMAT
+  :opt_name: menu_heading3_format
+  :procname: val_as_str
+
 - :default: "0"
   :description: Import levels for blocks to appear in menu. Empty is all.
   :env_var: MDE_MENU_IMPORT_LEVEL_MATCH
@@ -439,6 +475,25 @@
   :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
   :opt_name: menu_include_imported_notes
   :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: true
+  :description: Display inherited lines at top of menu (vs bottom)
+  :env_var: MDE_MENU_INHERITED_LINES_AT_TOP
+  :opt_name: menu_inherited_lines_at_top
+  :procname: val_as_bool
+
+- :default: fg_rgbh_94_00_D3
+  :description: Color of inherited lines in menu
+  :env_var: MDE_MENU_INHERITED_LINES_COLOR
+  :opt_name: menu_inherited_lines_color
+  :procname: val_as_str
+
+- :default: "%{line}"
+  :description: format for inherited lines in menu
+  :env_var: MDE_MENU_INHERITED_LINES_FORMAT
+  :opt_name: menu_inherited_lines_format
+  :procname: val_as_str
 
 - :default:
     :line: ""
@@ -571,6 +626,13 @@
   :description: Display Exit option in menu
   :env_var: MDE_MENU_WITH_EXIT
   :opt_name: menu_with_exit
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: true
+  :description: Display inherited lines in menu
+  :env_var: MDE_MENU_WITH_INHERITED_LINES
+  :opt_name: menu_with_inherited_lines
   :procname: val_as_bool
 
 - :arg_name: BOOL
