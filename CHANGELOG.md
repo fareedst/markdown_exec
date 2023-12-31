@@ -1,14 +1,26 @@
+## [1.8.7] - 2023-12-31
+
 # Changelog
+
+### Added
+
+- Option for block name that presents the menu.
+- Options for decorating inherited lines in the menu.
+- Options for parse and display of heading levels 1, 2, and 3.
+
+### Changed
+
+- Bypass chrome blocks when collecting dependencies.
 
 ## [1.8.6] - 2023-12-25
 
 ### Added
 
-- Default path for find command
+- Default path for find command.
 
 ### Changed
 
-- Refactor command-line processing
+- Refactor command-line processing.
 
 ## [1.8.5] - 2023-12-22
 
