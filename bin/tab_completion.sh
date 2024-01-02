@@ -80,9 +80,9 @@ _mde() {
             
               --saved-stdout-folder) COMPREPLY="logs"; return 0 ;;
             
-              --user-must-approve) COMPREPLY="1"; return 0 ;;
+              --user-must-approve) COMPREPLY="0"; return 0 ;;
             
-              -q) COMPREPLY="1"; return 0 ;;
+              -q) COMPREPLY="0"; return 0 ;;
             
               --display-level) COMPREPLY="1"; return 0 ;;
             

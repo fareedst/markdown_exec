@@ -104,3 +104,6 @@ Style/StringLiterals:
 Style/StringLiteralsInInterpolation:
   Enabled: true
   EnforcedStyle: single_quotes
+
+Style/UnlessElse:
+  Enabled: false

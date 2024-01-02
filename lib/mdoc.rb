@@ -133,11 +133,12 @@ module MarkdownExec
               elsif fcb[:shell] == BlockType::PORT
                 collect_block_code_shell(fcb)
               elsif label_body
+                block_name_for_bash_comment = fcb[:oname].gsub(/\s+/, '_')
                 [label_format_above && format(label_format_above,
-                                              block_source.merge({ block_name: fcb[:oname] }))] +
+                                              block_source.merge({ block_name: block_name_for_bash_comment }))] +
                  fcb[:body] +
                  [label_format_below && format(label_format_below,
-                                               block_source.merge({ block_name: fcb[:oname] }))]
+                                               block_source.merge({ block_name: block_name_for_bash_comment }))]
               else # raw body
                 fcb[:body]
               end

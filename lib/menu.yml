@@ -596,7 +596,7 @@
   :procname: val_as_str
   :short_name: p
 - :arg_name: BOOL
-  :default: true
+  :default: false
   :description: Wheter to pause after manually executing a block and the next menu
   :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
   :opt_name: pause_after_script_execution
@@ -826,7 +826,7 @@
   :opt_name: tab_completions
   :procname: val_as_bool
 - :arg_name: BOOL
-  :default: true
+  :default: false
   :description: Requires user approval before executing a script
   :env_var: MDE_USER_MUST_APPROVE
   :long_name: user-must-approve

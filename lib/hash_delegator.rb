@@ -733,15 +733,16 @@ module MarkdownExec
     # @param opts [Hash] Options containing configuration for line processing.
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
+      # rubocop:disable Style/UnlessElse
       match_criteria = [
         { match: :heading1_match, format: :menu_heading1_format, color: :menu_heading1_color },
         { match: :heading2_match, format: :menu_heading2_format, color: :menu_heading2_color },
         { match: :heading3_match, format: :menu_heading3_format, color: :menu_heading3_color },
-        { match: :menu_divider_match, format: :menu_divider_format,
-          color: :menu_divider_color },
+        { match: :menu_divider_match, format: :menu_divider_format, color: :menu_divider_color },
         { match: :menu_note_match, format: :menu_note_format, color: :menu_note_color },
         { match: :menu_task_match, format: :menu_task_format, color: :menu_task_color }
       ]
+      # rubocop:enable Style/UnlessElse
       match_criteria.each do |criteria|
         unless @delegate_object[criteria[:match]].present? &&
                (mbody = fcb.body[0].match @delegate_object[criteria[:match]])
@@ -1676,13 +1677,7 @@ module MarkdownExec
                                     &block)
       line = nested_line.to_s
       if line.match(@delegate_object[:fenced_start_and_end_regex])
-        if state[:in_fenced_block]
-          ## end of code block
-          #
-          HashDelegator.update_menu_attrib_yield_selected(state[:fcb], selected_messages, @delegate_object,
-                                                          &block)
-          state[:in_fenced_block] = false
-        else
+        unless state[:in_fenced_block]
           ## start of code block
           #
           state[:fcb] =
@@ -1690,6 +1685,12 @@ module MarkdownExec
                                @delegate_object[:fenced_start_extended_regex])
           state[:fcb][:depth] = nested_line[:depth]
           state[:in_fenced_block] = true
+        else
+          ## end of code block
+          #
+          HashDelegator.update_menu_attrib_yield_selected(state[:fcb], selected_messages, @delegate_object,
+                                                          &block)
+          state[:in_fenced_block] = false
         end
       elsif state[:in_fenced_block] && state[:fcb].body
         ## add line to fenced code block
