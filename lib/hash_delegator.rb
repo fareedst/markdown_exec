@@ -585,7 +585,8 @@ module MarkdownExec
       set_environment_variables_for_block(selected) if selected[:shell] == BlockType::VARS
 
       required = mdoc.collect_recursively_required_code(
-        @delegate_object[:block_name],
+        # @delegate_object[:block_name],
+        selected[:nickname] || selected[:oname],
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source
@@ -599,7 +600,8 @@ module MarkdownExec
         warn format_and_highlight_dependencies(dependencies,
                                                highlight: required[:unmet_dependencies])
         runtime_exception(:runtime_exception_error_level,
-                          'unmet_dependencies, flag: runtime_exception_error_level', required[:unmet_dependencies])
+                          'unmet_dependencies, flag: runtime_exception_error_level',
+                          required[:unmet_dependencies])
       elsif true
         warn format_and_highlight_dependencies(dependencies,
                                                highlight: [@delegate_object[:block_name]])
@@ -733,12 +735,12 @@ module MarkdownExec
     # @param opts [Hash] Options containing configuration for line processing.
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
-      # rubocop:disable Style/UnlessElse
       match_criteria = [
         { match: :heading1_match, format: :menu_heading1_format, color: :menu_heading1_color },
         { match: :heading2_match, format: :menu_heading2_format, color: :menu_heading2_color },
         { match: :heading3_match, format: :menu_heading3_format, color: :menu_heading3_color },
-        { match: :menu_divider_match, format: :menu_divider_format, color: :menu_divider_color },
+        { match: :menu_divider_match, format: :menu_divider_format,
+          color: :menu_divider_color },
         { match: :menu_note_match, format: :menu_note_format, color: :menu_note_color },
         { match: :menu_task_match, format: :menu_task_format, color: :menu_task_color }
       ]
@@ -905,10 +907,27 @@ module MarkdownExec
                                                       @delegate_object[:block_stdout_scan])
 
       shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
-      fcb.title = fcb.oname = bm && bm[1] ? bm[:title] : titlexcall
+
+      if @delegate_object[:block_name_nick_match].present? && fcb.oname =~ Regexp.new(@delegate_object[:block_name_nick_match])
+        fcb.nickname = $~[0]
+        fcb.title = fcb.oname = format_multiline_body_as_title(fcb.body)
+      else
+        fcb.title = fcb.oname = bm && bm[1] ? bm[:title] : titlexcall
+      end
+
       fcb.dname = apply_shell_color_option(fcb.oname, shell_color_option)
 
       fcb
+    end
+
+    # Formats multiline body content as a title string.
+    # indents all but first line with two spaces so it displays correctly in menu
+    # @param body_lines [Array<String>] The lines of body content.
+    # @return [String] Formatted title.
+    def format_multiline_body_as_title(body_lines)
+      body_lines.map.with_index do |line, index|
+        index.zero? ? line : "  #{line}"
+      end.join("\n") + "\n"
     end
 
     # Updates the delegate object's state based on the provided block state.
@@ -1624,13 +1643,22 @@ module MarkdownExec
         !name.match(Regexp.new(@delegate_object[:block_name_wrapper_match]))
       end
 
+      dname = oname = title = ''
+      nickname = nil
+      if @delegate_object[:block_name_nick_match].present? && oname =~ Regexp.new(@delegate_object[:block_name_nick_match])
+        nickname = $~[0]
+      else
+        dname = oname = title = fcb_title_groups.fetch(:name, '')
+      end
+
       MarkdownExec::FCB.new(
         body: [],
         call: rest.match(Regexp.new(@delegate_object[:block_calls_scan]))&.to_a&.first,
-        dname: fcb_title_groups.fetch(:name, ''),
+        dname: dname,
         headings: headings,
         indent: fcb_title_groups.fetch(:indent, ''),
-        oname: fcb_title_groups.fetch(:name, ''),
+        nickname: nickname,
+        oname: oname,
         reqs: reqs,
         shell: fcb_title_groups.fetch(:shell, ''),
         stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
@@ -1639,7 +1667,7 @@ module MarkdownExec
         stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
                   tn.named_captures.sym_keys
                 end,
-        title: fcb_title_groups.fetch(:name, ''),
+        title: title,
         wraps: wraps
       )
     end
@@ -1677,7 +1705,13 @@ module MarkdownExec
                                     &block)
       line = nested_line.to_s
       if line.match(@delegate_object[:fenced_start_and_end_regex])
-        unless state[:in_fenced_block]
+        if state[:in_fenced_block]
+          ## end of code block
+          #
+          HashDelegator.update_menu_attrib_yield_selected(state[:fcb], selected_messages, @delegate_object,
+                                                          &block)
+          state[:in_fenced_block] = false
+        else
           ## start of code block
           #
           state[:fcb] =
@@ -1685,12 +1719,6 @@ module MarkdownExec
                                @delegate_object[:fenced_start_extended_regex])
           state[:fcb][:depth] = nested_line[:depth]
           state[:in_fenced_block] = true
-        else
-          ## end of code block
-          #
-          HashDelegator.update_menu_attrib_yield_selected(state[:fcb], selected_messages, @delegate_object,
-                                                          &block)
-          state[:in_fenced_block] = false
         end
       elsif state[:in_fenced_block] && state[:fcb].body
         ## add line to fenced code block

@@ -26,7 +26,7 @@
   :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
   :opt_name: block_name_hidden_match
   :procname: val_as_str
-- :default: "^[\\(\\[].*[\\)\\]]$"
+- :default: "^\\(.*\\)$"
   :description: Pattern for blocks to hide from user-selection
   :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
   :opt_name: block_name_include_match
@@ -34,6 +34,11 @@
 - :default: ":(?<title>\\S+)( |$)"
   :env_var: MDE_BLOCK_NAME_MATCH
   :opt_name: block_name_match
+  :procname: val_as_str
+- :default: "^\\[.*\\]$"
+  :description: Pattern for block nicknames (name is not used in menu)
+  :env_var: MDE_BLOCK_NAME_NICK_MATCH
+  :opt_name: block_name_nick_match
   :procname: val_as_str
 - :default: "^{.+}$"
   :description: Pattern for block names to use as wrappers
@@ -811,12 +816,12 @@
   :env_var: MDE_SHELL
   :opt_name: shell
   :procname: val_as_str
-- :default: "#  -^-  +%{block_name}  -o-  %{document_filename}  -^-"
+- :default: "#  -^-"
   :description: shell_code_label_format_above
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
   :opt_name: shell_code_label_format_above
   :procname: val_as_str
-- :default: "#  -v-  +%{block_name}  -v-"
+- :default: "#  -v-  +%{block_name}  -o-  %{document_filename}  -v-"
   :description: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
   :opt_name: shell_code_label_format_below

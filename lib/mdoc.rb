@@ -76,15 +76,18 @@ module MarkdownExec
         raise "Named code block `#{name}` not found. (@#{__LINE__})"
       end
 
-      dependencies = collect_dependencies(name_block[:oname])
+      nickname = name_block[:nickname] || name_block[:oname]
+      dependencies = collect_dependencies(nickname)
       # &bc 'dependencies.count:',dependencies.count
-      all_dependency_names = collect_unique_names(dependencies).push(name_block[:oname]).uniq
+      all_dependency_names = collect_unique_names(dependencies).push(nickname).uniq
       # &bc 'all_dependency_names.count:',all_dependency_names.count
 
       # select non-chrome blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
-        !fcb.fetch(:chrome, false) && all_dependency_names.include?(fcb.fetch(:oname))
+        !fcb.fetch(:chrome,
+                   false) && all_dependency_names.include?(fcb.fetch(:nickname,
+                                                                     nil) || fcb.fetch(:oname))
       end
       # &bc 'blocks.count:',blocks.count
 
@@ -92,9 +95,9 @@ module MarkdownExec
       #
       unmet_dependencies = all_dependency_names.dup
       blocks = blocks.map do |fcb|
-        unmet_dependencies.delete(fcb[:oname]) # may not exist if block name is duplicated
+        unmet_dependencies.delete(fcb[:nickname] || fcb[:oname]) # may not exist if block name is duplicated
         if (call = fcb[:call])
-          [get_block_by_oname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
+          [get_block_by_anyname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
             .merge({ cann: call })]
         else
           []
@@ -121,7 +124,8 @@ module MarkdownExec
         # &bc 'blocks.count:',blocks.count
 
         block_search.merge(
-          { block_names: blocks.map { |block| block[:oname] },
+          { block_names: blocks.map { |block| block[:nickname] || block[:oname] },
+            # block_names: blocks.map { |block| block[:oname] },
             code: blocks.map do |fcb|
               if fcb[:cann]
                 collect_block_code_cann(fcb)
@@ -133,7 +137,7 @@ module MarkdownExec
               elsif fcb[:shell] == BlockType::PORT
                 collect_block_code_shell(fcb)
               elsif label_body
-                block_name_for_bash_comment = fcb[:oname].gsub(/\s+/, '_')
+                block_name_for_bash_comment = (fcb[:nickname] || fcb[:oname]).gsub(/\s+/, '_')
                 [label_format_above && format(label_format_above,
                                               block_source.merge({ block_name: block_name_for_bash_comment }))] +
                  fcb[:body] +
@@ -217,19 +221,8 @@ module MarkdownExec
     #
     def get_block_by_anyname(name, default = {})
       @table.select do |fcb|
-        fcb.fetch(:dname, '') == name || fcb.fetch(:oname, '') == name
-      end.fetch(0, default)
-    end
-
-    def get_block_by_dname(name, default = {})
-      @table.select do |fcb|
-        fcb.fetch(:dname, '') == name
-      end.fetch(0, default)
-    end
-
-    def get_block_by_oname(name, default = {})
-      @table.select do |fcb|
-        fcb.fetch(:oname, '') == name
+        fcb.fetch(:nickname,
+                  '') == name || fcb.fetch(:dname, '') == name || fcb.fetch(:oname, '') == name
       end.fetch(0, default)
     end
 
@@ -271,7 +264,7 @@ module MarkdownExec
           next if memo.include? req
 
           memo += [req]
-          get_block_by_oname(req).fetch(:reqs, [])
+          get_block_by_anyname(req).fetch(:reqs, [])
         end
                  .compact
                  .flatten(1)
@@ -446,10 +439,10 @@ if $PROGRAM_NAME == __FILE__
       # end
 
       def test_get_block_by_name
-        result = @doc.get_block_by_oname('block1')
+        result = @doc.get_block_by_anyname('block1')
         assert_equal @table[0], result
 
-        result_missing = @doc.get_block_by_oname('missing_block')
+        result_missing = @doc.get_block_by_anyname('missing_block')
         assert_equal({}, result_missing)
       end
 

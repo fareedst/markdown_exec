@@ -21,6 +21,7 @@ module MarkdownExec
         dname: nil,
         indent: '',
         name: nil,
+        nickname: nil,
         oname: nil,
         reqs: [],
         shell: '',
@@ -38,12 +39,13 @@ module MarkdownExec
     # @param fcb [Object] The FCB object whose title is to be derived.
     # @return [String] The derived title.
     def derive_title_from_body
-      body_content = @attrs[:body]
-      unless body_content
+      unless (body_content = @attrs[:body])
+        # empty body -> empty title
         @attrs[:title] = ''
         return
       end
 
+      # body -> title
       @attrs[:title] = if body_content.count == 1
                          body_content.first
                        else
@@ -113,6 +115,7 @@ if $PROGRAM_NAME == __FILE__
         headings: %w[Header1 Header2],
         dname: 'Sample name',
         indent: '',
+        nickname: nil,
         name: 'Sample name',
         oname: 'Sample name',
         reqs: %w[req1 req2],
