@@ -615,26 +615,35 @@ module MarkdownExec
       @run_state.options = @delegate_object
       @run_state.started_at = Time.now.utc
 
-      Open3.popen3(@delegate_object[:shell],
-                   '-c', command,
-                   @delegate_object[:filename],
-                   *args) do |stdin, stdout, stderr, exec_thr|
-        handle_stream(stdout, ExecutionStreams::StdOut) do |line|
-          yield nil, line, nil, exec_thr if block_given?
-        end
-        handle_stream(stderr, ExecutionStreams::StdErr) do |line|
-          yield nil, nil, line, exec_thr if block_given?
-        end
+      if @delegate_object[:execute_in_own_window] &&
+         @delegate_object[:execute_command_format].present? &&
+         @run_state.saved_filespec.present?
+        system(format(@delegate_object[:execute_command_format],
+                      { file: File.join(Dir.pwd, @run_state.saved_filespec),
+                        home: Dir.pwd }))
 
-        in_thr = handle_stream($stdin, ExecutionStreams::StdIn) do |line|
-          stdin.puts(line)
-          yield line, nil, nil, exec_thr if block_given?
-        end
+      else
+        Open3.popen3(@delegate_object[:shell],
+                     '-c', command,
+                     @delegate_object[:filename],
+                     *args) do |stdin, stdout, stderr, exec_thr|
+          handle_stream(stdout, ExecutionStreams::StdOut) do |line|
+            yield nil, line, nil, exec_thr if block_given?
+          end
+          handle_stream(stderr, ExecutionStreams::StdErr) do |line|
+            yield nil, nil, line, exec_thr if block_given?
+          end
 
-        wait_for_stream_processing
-        exec_thr.join
-        sleep 0.1
-        in_thr.kill if in_thr&.alive?
+          in_thr = handle_stream($stdin, ExecutionStreams::StdIn) do |line|
+            stdin.puts(line)
+            yield line, nil, nil, exec_thr if block_given?
+          end
+
+          wait_for_stream_processing
+          exec_thr.join
+          sleep 0.1
+          in_thr.kill if in_thr&.alive?
+        end
       end
 
       @run_state.completed_at = Time.now.utc
@@ -683,9 +692,15 @@ module MarkdownExec
                                                    block_source: block_source)
       output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
       display_required_code(required_lines) if output_or_approval
-      allow_execution = @delegate_object[:user_must_approve] ? prompt_for_user_approval(required_lines) : true
+      allow_execution = if @delegate_object[:user_must_approve]
+                          prompt_for_user_approval(
+                            required_lines, selected
+                          )
+                        else
+                          true
+                        end
 
-      execute_required_lines(required_lines) if allow_execution
+      execute_required_lines(required_lines, selected) if allow_execution
 
       link_state.block_name = nil
       LoadFileLinkState.new(LoadFile::Reuse, link_state)
@@ -812,9 +827,8 @@ module MarkdownExec
     #
     # @param required_lines [Array<String>] The lines of code to be executed.
     # @param selected [FCB] The selected functional code block object.
-    def execute_required_lines(required_lines = [])
-      # @run_state.script_block_name = selected[:oname]
-      write_command_file(required_lines) if @delegate_object[:save_executed_script]
+    def execute_required_lines(required_lines = [], selected = FCB.new)
+      write_command_file(required_lines, selected) if @delegate_object[:save_executed_script]
       format_and_execute_command(required_lines)
       post_execution_process
     end
@@ -1285,7 +1299,7 @@ module MarkdownExec
     #
     # @return [Boolean] Returns true if the user approves (selects 'Yes'), false otherwise.
     ##
-    def prompt_for_user_approval(required_lines)
+    def prompt_for_user_approval(required_lines, selected)
       # Present a selection menu for user approval.
       sel = @prompt.select(
         string_send_color(@delegate_object[:prompt_approve_block],
@@ -1305,7 +1319,7 @@ module MarkdownExec
       if sel == MenuOptions::SCRIPT_TO_CLIPBOARD
         copy_to_clipboard(required_lines)
       elsif sel == MenuOptions::SAVE_SCRIPT
-        save_to_file(required_lines)
+        save_to_file(required_lines, selected)
       end
 
       sel == MenuOptions::YES
@@ -1426,8 +1440,8 @@ module MarkdownExec
       exit @delegate_object[exception_sym]
     end
 
-    def save_to_file(required_lines)
-      write_command_file(required_lines)
+    def save_to_file(required_lines, selected)
+      write_command_file(required_lines, selected)
       @fout.fout "File saved: #{@run_state.saved_filespec}"
     end
 
@@ -1796,15 +1810,18 @@ module MarkdownExec
     end
 
     # Handles the core logic for generating the command file's metadata and content.
-    def write_command_file(required_lines)
+    def write_command_file(required_lines, selected)
       return unless @delegate_object[:save_executed_script]
 
       time_now = Time.now.utc
+      # binding.irb
       @run_state.saved_script_filename =
-        SavedAsset.script_name(blockname: @delegate_object[:block_name],
-                               filename: @delegate_object[:filename],
-                               prefix: @delegate_object[:saved_script_filename_prefix],
-                               time: time_now)
+        SavedAsset.script_name(
+          blockname: selected[:nickname] || selected[:oname],
+          filename: @delegate_object[:filename],
+          prefix: @delegate_object[:saved_script_filename_prefix],
+          time: time_now
+        )
       @run_state.saved_filespec =
         File.join(@delegate_object[:saved_script_folder],
                   @run_state.saved_script_filename)
@@ -1885,7 +1902,7 @@ if $PROGRAM_NAME == __FILE__
         )
 
         # Call method opts_execute_required_lines
-        c.execute_required_lines([])
+        c.execute_required_lines
       end
 
       # Test case for empty body

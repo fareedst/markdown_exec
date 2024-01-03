@@ -1,5 +1,9 @@
 # Demo block nicknames
 
+```opts :(document_options)
+save_executed_script: true
+```
+
 ::: This block has no name.
 ::: The code block is displayed.
 
@@ -12,11 +16,11 @@ echo Unnamed block
 ::: The nicknames can be used for requiring blocks.
 
 ```bash :[A]
-echo From the required block \#2
+echo From the required block 2
 ```
 
 ::: Execute this block that requires the block above.
 
 ```bash :[B] +[A]
-echo From the parent block \#1
+echo From the parent block 1
 ```

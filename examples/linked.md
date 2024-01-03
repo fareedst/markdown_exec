@@ -48,5 +48,6 @@ echo VARIABLE=B
 
 ```bash :display_variable
 source bin/colorize_env_vars.sh
+echo The current value of environment variable VARIABLE is now:
 colorize_env_vars '' VARIABLE
 ```

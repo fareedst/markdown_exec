@@ -125,7 +125,6 @@ module MarkdownExec
 
         block_search.merge(
           { block_names: blocks.map { |block| block[:nickname] || block[:oname] },
-            # block_names: blocks.map { |block| block[:oname] },
             code: blocks.map do |fcb|
               if fcb[:cann]
                 collect_block_code_cann(fcb)

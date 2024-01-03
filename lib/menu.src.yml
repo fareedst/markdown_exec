@@ -183,6 +183,26 @@
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
 
+- :default: >
+    osascript -e 'tell application "iTerm"
+        create window with default profile
+        tell the current session of the first window
+            write text "cd \"%{home}\""
+            write text "\"%{file}\""
+        end tell
+    end tell'
+  :description: execute_command_format
+  :env_var: MDE_EXECUTE_COMMAND_FORMAT
+  :opt_name: execute_command_format
+  :procname: val_as_str
+
+- :arg_name: BOOL
+  :default: true
+  :description: Execute script in own window
+  :env_var: MDE_EXECUTE_IN_OWN_WINDOW
+  :opt_name: execute_in_own_window
+  :procname: val_as_bool
+
 - :default: fg_rgbh_7f_ff_00
   :description: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
