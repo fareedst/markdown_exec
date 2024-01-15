@@ -38,10 +38,6 @@ module MarkdownExec
       name = fcb.oname
       shell = fcb.fetch(:shell, '')
 
-      ### filter in menu, not in source code
-      filters[:depth] =
-        fcb.fetch(:depth,
-                  0).positive? && !options[:menu_include_imported_blocks]
       apply_name_filters(options, filters, name)
       apply_shell_filters(options, filters, shell)
       apply_other_filters(options, filters, fcb)
@@ -88,6 +84,11 @@ module MarkdownExec
     def self.apply_shell_filters(options, filters, shell)
       filters[:shell_expect] = shell == 'expect'
 
+      if shell.empty? && options[:bash_only]
+        filters[:shell_exclude] = true
+        return
+      end
+
       if shell.present? && options[:select_by_shell_regex].present?
         filters[:shell_select] =
           !!(shell =~ /#{options[:select_by_shell_regex]}/)
@@ -95,8 +96,7 @@ module MarkdownExec
 
       return unless shell.present? && options[:exclude_by_shell_regex].present?
 
-      filters[:shell_exclude] =
-        !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
+      filters[:shell_exclude] = !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
     end
 
     # Applies additional filters to determine whether to include or
@@ -123,8 +123,6 @@ module MarkdownExec
       filters[:wrap_name] =
         !!(options[:block_name_wrapper_match].present? &&
                   name =~ /#{options[:block_name_wrapper_match]}/)
-
-      return unless options[:bash_only]
 
       filters[:shell_default] = (shell == BlockType::BASH)
     end

@@ -4,7 +4,7 @@
   :short_name: "0"
 
 - :arg_name: BOOL
-  :default: false
+  :default: true
   :description: Display only blocks of type "bash"
   :env_var: MDE_BASH_ONLY
   :opt_name: bash_only
@@ -78,6 +78,13 @@
   :description: Read configuration file
   :long_name: config
   :procname: path
+
+- :arg_name: BOOL
+  :default: true
+  :description: debounce_execution
+  :env_var: MDE_debounce_execution
+  :opt_name: debounce_execution
+  :procname: val_as_bool
 
 - :arg_name: BOOL
   :default: false
@@ -184,16 +191,58 @@
   :procname: val_as_bool
 
 - :default: >
-    osascript -e 'tell application "iTerm"
-        create window with default profile
-        tell the current session of the first window
-            write text "cd \"%{home}\""
-            write text "\"%{file}\""
-        end tell
-    end tell'
+    osascript -e '
+        tell application "iTerm"
+            tell application "System Events"
+                tell application "Finder"
+                    set {posx, posy, screenWidth, screenHeight} to bounds of window of desktop
+                end tell
+                tell application process "Finder"
+                    set {missing value, menubarHeight} to the size of menu bar 1
+                end tell
+            end tell
+
+            set winHeight to (screenHeight * 2 / 3)
+            set winWidth to (screenWidth / 2)
+            set xoff to menubarHeight * %{batch_index}
+            set yoff to xoff mod (screenHeight - winHeight)
+            
+            create window with default profile
+            tell the first window
+                set bounds to {xoff, yoff, xoff + winWidth, yoff + winHeight}
+                tell the current session
+                    write text "alias cat_script=\"cat -n \\\"%{script_filespec}\\\"\""
+                    write text "alias less_script=\"less \\\"%{script_filespec}\\\"\""
+                    write text "alias run_script=\"%{script_filespec}\""
+                    write text "alias vim_script=\"vim \\\"%{script_filespec}\\\"\""
+                    delay 1
+
+                    write text "alias cat_output=\"cat -n \\\"%{output_filespec}\\\"\""
+                    write text "alias grep_output=\"read -p Pattern: pattern && grep \\\"\\$pattern\\\" \\\"%{output_filespec}\\\"\""
+                    write text "alias less_output=\"less \\\"%{output_filespec}\\\"\""
+                    delay 1
+
+                    write text "alias menu=\"select cmd in cat_script less_script run_script vim_script cat_output grep_output less_output exit; do eval \\\"\\$cmd\\\"; done\""
+                    delay 1
+
+                    write text "echo -ne \"\\033]; %{started_at} - %{document_filename} - %{block_name} \\007\""
+                    write text "cd \"%{home}\""
+                    write text "\"%{script_filename}\" | tee \"%{output_filespec}\""
+                    delay 2
+
+                    write text "menu"
+                end tell
+            end tell
+        end tell'
   :description: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format
+  :procname: val_as_str
+
+- :default: "%T"
+  :description: Format for time in window title
+  :env_var: MDE_EXECUTE_COMMAND_TITLE_TIME_FORMAT
+  :opt_name: execute_command_title_time_format
   :procname: val_as_str
 
 - :arg_name: BOOL
@@ -309,6 +358,11 @@
   :long_name: how
   :procname: how
   :short_name: "?"
+
+- :default:
+  :env_var: MDE_IMPORT_PATHS
+  :opt_name: import_paths
+  :procname: val_as_str
 
 - :default: "^ *@import +(?<name>.+?) *$"
   :env_var: MDE_IMPORT_PATTERN
@@ -756,6 +810,12 @@
   :opt_name: prompt_color_after_script_execution
   :procname: val_as_str
 
+- :default: "\nRepeat this block?"
+  :description: Prompt to debounce
+  :env_var: MDE_PROMPT_DEBOUNCE
+  :opt_name: prompt_debounce
+  :procname: val_as_str
+
 - :default: Exit
   :description: Prompt to exit app
   :env_var: MDE_PROMPT_EXIT
@@ -796,6 +856,12 @@
   :description: Prompt to select a saved file
   :env_var: MDE_PROMPT_SELECT_OUTPUT
   :opt_name: prompt_select_output
+  :procname: val_as_str
+
+- :default: "Uninterrupted"
+  :description: Uninterrupted execution
+  :env_var: MDE_PROMPT_UNINTERRUPTED
+  :opt_name: prompt_uninterrupted
   :procname: val_as_str
 
 - :default: "Yes"

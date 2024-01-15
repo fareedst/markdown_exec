@@ -61,6 +61,7 @@ RSpec.describe 'MarkdownExec' do
     ymds.merge(
       {
         bash: option_bash,
+        bash_only: false,
         fenced_start_and_end_regex: fenced_start_and_end_regex,
         fenced_start_extended_regex: fenced_start_extended_regex,
         filename: fixtures_filename,

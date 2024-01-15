@@ -4,6 +4,10 @@
 # encoding=utf-8
 
 class Array
+  def pluck(key)
+    map { |hash| hash[key] if hash.is_a?(Hash) }.compact
+  end
+
   # Processes each element of the array, yielding the previous, current, and next elements to the given block.
   # Deletes the current element if the block returns true.
   # @return [Array] The modified array after conditional deletions.

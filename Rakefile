@@ -82,6 +82,7 @@ task :minitest do
     './lib/directory_searcher.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
+    './lib/find_files.rb',
     './lib/hash_delegator.rb',
     './lib/markdown_exec.rb',
     './lib/mdoc.rb',

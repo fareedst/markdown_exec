@@ -1,6 +1,26 @@
-## [1.8.7] - 2023-12-31
-
 # Changelog
+
+## [1.8.8] - 2024-01-15
+
+### Added
+
+- Debounce/Control repeated launching of the same block via the menu.
+
+- Option to match block nicknames.
+  Nicknames are used for scripting and are not displayed in the menu -- the block body is shown the menu.
+
+- Option to execute script to launch Terminal window.
+  Provide batch variables to use in the execute_command_format script.
+
+- Report line in document importing a missing file.
+
+- Option to search for import files within each of the specified paths (recursion optional).
+
+### Changed
+
+- Sanitize block names in formatted lines above and below inherited code.
+
+## [1.8.7] - 2023-12-31
 
 ### Added
 
@@ -26,7 +46,8 @@
 
 ### Added
 
-- "eval" key for link block type to compute lines to append to the inherited state.
+- "eval" boolean value for Link blocks to compute lines to append to the inherited state.
+- "return" boolean value for Link blocks to return to the original page.
 - Options for dumping data associated with the menu or state.
 - Debug and irb gems.
 

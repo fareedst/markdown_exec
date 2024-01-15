@@ -1,9 +1,17 @@
 /*.gem
+/.*key
 /.bundle/
 /.yardoc
 /_yardoc/
+/assets/.*.key
 /coverage/
 /doc/
+/docs/prompts/
+/docs/research/
+/lib/dev/
+/llm_prompts/
+/llm_responses/
+/logs/
 /pkg/
 /tmp/
 /vendor/

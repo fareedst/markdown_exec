@@ -198,9 +198,15 @@ module MarkdownExec
 
       ### hide rows correctly
 
+      if !options[:menu_include_imported_blocks]
+        selrows = selrows.reject do |block|
+          block.fetch(:depth, 0).positive?
+        end
+      end
+
       if opts[:hide_blocks_by_name]
         selrows = selrows.reject do |block|
-          hide_menu_block_per_options opts, block
+          hide_menu_block_on_name opts, block
         end
       end
 
@@ -232,7 +238,7 @@ module MarkdownExec
     # @return [Boolean] True if the code block should be hidden; false otherwise.
     #
     # :reek:UtilityFunction
-    def hide_menu_block_per_options(opts, block)
+    def hide_menu_block_on_name(opts, block)
       if block.fetch(:chrome, false)
         false
       else
@@ -456,11 +462,11 @@ if $PROGRAM_NAME == __FILE__
         end
       end
 
-      def test_hide_menu_block_per_options
+      def test_hide_menu_block_on_name
         opts = { hide_blocks_by_name: true,
                  block_name_hidden_match: 'block1' }
         block = FCB.new(oname: 'block1')
-        result = @doc.hide_menu_block_per_options(opts, block)
+        result = @doc.hide_menu_block_on_name(opts, block)
         assert result # this should be true based on the given logic
       end
 

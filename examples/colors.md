@@ -43,7 +43,8 @@ warning_color: fg_rgbh_ff_7f_00
 ```
 
 ::: Example blocks
-
+```
+```
 ```bash :Bash1
 ```
 ```link :Link1
