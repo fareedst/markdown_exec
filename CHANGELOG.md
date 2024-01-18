@@ -11,10 +11,19 @@
 
 - Option to execute script to launch Terminal window.
   Provide batch variables to use in the execute_command_format script.
+  Limit iTerm window position to visible area.
+  Store output of executed script.
+  Menu to replay, review, and exit.
 
 - Report line in document importing a missing file.
 
 - Option to search for import files within each of the specified paths (recursion optional).
+
+- Eval block loads (appends) local file to inherited lines.
+
+- Eval block executes script and appends filtered output to inherited lines.
+  Select output using begin and end matching lines.
+  Transform selected output with per-line match and print specifications.
 
 ### Changed
 

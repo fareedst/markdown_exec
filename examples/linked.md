@@ -50,3 +50,22 @@ source bin/colorize_env_vars.sh
 echo The current value of environment variable VARIABLE is now:
 colorize_env_vars '' VARIABLE
 ```
+
+```bash :(set_timestamp)
+echo 'yyyymmdd? (default: today UTC) '; read -r yyyymmdd; [[ -z $yyyymmdd ]] && yyyymmdd="$(date -u +%y%m%d)"
+echo "EC2_STACK_TS='$yyyymmdd'"
+```
+```link :request_input_and_inherit_output +(set_timestamp)
+exec: true
+```
+
+::: Load file into inherited lines
+Load (do not evaluate) and append to inherited lines.
+```link :load1
+load: examples/load1.sh
+```
+Load, evaluate, and append output to inherited lines.
+```link :load2_eval
+load: examples/load2.sh
+eval: true
+```

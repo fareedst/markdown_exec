@@ -17,6 +17,13 @@ IndexedLine = Struct.new(:index, :line) do
   end
 end
 
+class LinkDataKeys
+  Eval = 'eval'
+  Exec = 'exec'
+  Load = 'load'
+  Return = 'return'
+end
+
 class LoadFile
   Load = true
   Reuse = false

@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
-# frozen_string_literal: true
 
 require 'English'
 require 'clipboard'
@@ -787,12 +786,12 @@ module MarkdownExec
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
       match_criteria = [
-        { match: :heading1_match,     format: :menu_heading1_format, color: :menu_heading1_color },
-        { match: :heading2_match,     format: :menu_heading2_format, color: :menu_heading2_color },
-        { match: :heading3_match,     format: :menu_heading3_format, color: :menu_heading3_color },
-        { match: :menu_divider_match, format: :menu_divider_format,  color: :menu_divider_color  },
-        { match: :menu_note_match,    format: :menu_note_format,     color: :menu_note_color     },
-        { match: :menu_task_match,    format: :menu_task_format,     color: :menu_task_color     }
+        { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match },
+        { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match },
+        { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match },
+        { color: :menu_divider_color,  format: :menu_divider_format,  match: :menu_divider_match },
+        { color: :menu_note_color,     format: :menu_note_format,     match: :menu_note_match },
+        { color: :menu_task_color,     format: :menu_task_format,     match: :menu_task_match }
       ]
       # rubocop:enable Style/UnlessElse
       match_criteria.each do |criteria|
@@ -1090,27 +1089,60 @@ module MarkdownExec
     def link_block_data_eval(link_state, code_lines, selected, link_block_data)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
 
-      output = `#{all_code.join("\n")}`.split("\n")
-      unless output
-        HashDelegator.error_handler('all_code eval output is nil', { abort: true })
+      if link_block_data.fetch(LinkDataKeys::Exec, false)
+        @run_state.files = Hash.new([])
+        output_lines = []
+
+        Open3.popen3(
+          @delegate_object[:shell],
+          '-c', all_code.join("\n")
+        ) do |stdin, stdout, stderr, _exec_thr|
+          handle_stream(stdout, ExecutionStreams::StdOut) do |line|
+            output_lines.push(line)
+          end
+          handle_stream(stderr, ExecutionStreams::StdErr) do |line|
+            output_lines.push(line)
+          end
+
+          in_thr = handle_stream($stdin, ExecutionStreams::StdIn) do |line|
+            stdin.puts(line)
+          end
+
+          wait_for_stream_processing
+          sleep 0.1
+          in_thr.kill if in_thr&.alive?
+        end
+
+        ## select output_lines that look like assignment or match other specs
+        #
+        output_lines = process_string_array(
+          output_lines,
+          begin_pattern: @delegate_object.fetch(:output_assignment_begin, nil),
+          end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+          scan1: @delegate_object.fetch(:output_assignment_match, nil),
+          format1: @delegate_object.fetch(:output_assignment_format, nil)
+        )
+
+      else
+        output_lines = `#{all_code.join("\n")}`.split("\n")
+      end
+
+      unless output_lines
+        HashDelegator.error_handler('all_code eval output_lines is nil', { abort: true })
       end
 
       label_format_above = @delegate_object[:shell_code_label_format_above]
       label_format_below = @delegate_object[:shell_code_label_format_below]
       block_source = { document_filename: link_state&.document_filename }
 
-      code_lines = [label_format_above && format(label_format_above,
-                                                 block_source.merge({ block_name: selected[:oname] }))] +
-                   output.map do |line|
-                     re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
-                     if re =~ line
-                       re.gsub_format(line, link_block_data.fetch('format', '%{line}'))
-                     end
-                   end.compact +
-                   [label_format_below && format(label_format_below,
-                                                 block_source.merge({ block_name: selected[:oname] }))]
-
-      code_lines
+      [label_format_above && format(label_format_above,
+                                    block_source.merge({ block_name: selected[:oname] }))] +
+        output_lines.map do |line|
+          re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
+          re.gsub_format(line, link_block_data.fetch('format', '%{line}')) if re =~ line
+        end.compact +
+        [label_format_below && format(label_format_below,
+                                      block_source.merge({ block_name: selected[:oname] }))]
     end
 
     def link_history_push_and_next(
@@ -1283,20 +1315,7 @@ module MarkdownExec
     def pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
                                                       dependencies, selected)
       pop = @link_history.pop # updatable
-      if !pop.document_filename
-        # no history exists; must have been called independently => retain script
-        link_history_push_and_next(
-          curr_block_name: selected[:oname],
-          curr_document_filename: @delegate_object[:filename],
-          inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
-          inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-          inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
-          next_block_name: '', # not link_block_data['block'] || ''
-          next_document_filename: @delegate_object[:filename], # not next_document_filename
-          next_load_file: LoadFile::Reuse # not next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
-        )
-        # LoadFileLinkState.new(LoadFile::Reuse, link_state)
-      else
+      if pop.document_filename
         next_state = LinkState.new(
           block_name: pop.block_name,
           document_filename: pop.document_filename,
@@ -1311,6 +1330,19 @@ module MarkdownExec
 
         next_state.block_name = nil
         LoadFileLinkState.new(LoadFile::Load, next_state)
+      else
+        # no history exists; must have been called independently => retain script
+        link_history_push_and_next(
+          curr_block_name: selected[:oname],
+          curr_document_filename: @delegate_object[:filename],
+          inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
+          inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
+          inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
+          next_block_name: '', # not link_block_data['block'] || ''
+          next_document_filename: @delegate_object[:filename], # not next_document_filename
+          next_load_file: LoadFile::Reuse # not next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
+        )
+        # LoadFileLinkState.new(LoadFile::Reuse, link_state)
       end
     end
 
@@ -1378,6 +1410,40 @@ module MarkdownExec
       when :line
         create_and_add_chrome_blocks(blocks, fcb) unless @delegate_object[:no_chrome]
       end
+    end
+
+    def process_string_array(arr, begin_pattern: nil, end_pattern: nil, scan1: nil,
+                             format1: nil)
+      in_block = !begin_pattern.present?
+      collected_lines = []
+
+      arr.each do |line|
+        if in_block
+          if end_pattern.present? && line.match?(end_pattern)
+            in_block = false
+          elsif scan1.present?
+            if format1.present?
+              caps = extract_named_captures_from_option(line, scan1)
+              if caps
+                formatted = format(format1, caps)
+                collected_lines << formatted
+              end
+            else
+              caps = line.match(scan1)
+              if caps
+                formatted = caps[0]
+                collected_lines << formatted
+              end
+            end
+          else
+            collected_lines << line
+          end
+        elsif begin_pattern.present? && line.match?(begin_pattern)
+          in_block = true
+        end
+      end
+
+      collected_lines
     end
 
     def prompt_approve_repeat
@@ -1498,13 +1564,20 @@ module MarkdownExec
       end
       next_document_filename = link_block_data['file'] || @delegate_object[:filename]
 
+      ## append blocks loaded per LinkDataKeys::Load
+      #
+      if (load_filespec = link_block_data.fetch(LinkDataKeys::Load, '')).present?
+        code_lines += File.readlines(load_filespec, chomp: true)
+      end
+
       # if an eval link block, evaluate code_lines and return its standard output
       #
-      if link_block_data.fetch('eval', false)
+      if link_block_data.fetch(LinkDataKeys::Eval,
+                               false) || link_block_data.fetch(LinkDataKeys::Exec, false)
         code_lines = link_block_data_eval(link_state, code_lines, selected, link_block_data)
       end
 
-      if link_block_data['return']
+      if link_block_data[LinkDataKeys::Return]
         pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
                                                       dependencies, selected)
 

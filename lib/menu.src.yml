@@ -1,7 +1,7 @@
 ---
 - :description: Show current configuration values
   :procname: show_config
-  :short_name: "0"
+  :short_name: '0'
 
 - :arg_name: BOOL
   :default: true
@@ -299,14 +299,14 @@
   :short_name: f
 
 - :arg_name: FIND
-  :default: ""
+  :default: ''
   :description: Find in documents
   :long_name: find
   :procname: find
   :short_name: "?"
 
 - :arg_name: FIND_PATH
-  :default: ""
+  :default: ''
   :description: Path for find (uses PATH if empty)
   :env_var: MDE_FIND_PATH
   :long_name: find-path
@@ -353,7 +353,7 @@
   :procname: val_as_str
 
 - :arg_name: HOW
-  :default: ""
+  :default: ''
   :description: Find in YAML configuration options
   :long_name: how
   :procname: how
@@ -535,7 +535,7 @@
   :opt_name: menu_heading3_format
   :procname: val_as_str
 
-- :default: "0"
+- :default: '0'
   :description: Import levels for blocks to appear in menu. Empty is all.
   :env_var: MDE_MENU_IMPORT_LEVEL_MATCH
   :opt_name: menu_import_level_match
@@ -576,7 +576,7 @@
   :procname: val_as_str
 
 - :default:
-    :line: ""
+    :line: ''
   :description: opening demarcation for menu
   :env_var: MDE_MENU_INITIAL_DIVIDER
   :opt_name: menu_initial_divider
@@ -722,6 +722,26 @@
   :opt_name: no_chrome
   :procname: val_as_bool
 
+- :default:
+  :description: Expression to match to start collecting lines
+  :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
+  :opt_name: output_assignment_begin
+  :procname: val_as_str
+- :default:
+  :description: Expression to match to stop collecting lines
+  :env_var: MDE_OUTPUT_ASSIGNMENT_END
+  :opt_name: output_assignment_begin
+  :procname: val_as_str
+- :default: "%{line} # !!!"
+  :description: Format for assignments from output
+  :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
+  :opt_name: output_assignment_format
+  :procname: val_as_str
+- :default: "^ *(\\w+=.*?) *$"
+  :description: Pattern for assignments from output
+  :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
+  :opt_name: output_assignment_match
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: false
   :description: Display summary for execution
@@ -822,7 +842,7 @@
   :opt_name: prompt_exit
   :procname: val_as_str
 
-- :default: "No"
+- :default: 'No'
   :description: Prompt for no
   :env_var: MDE_PROMPT_NO
   :opt_name: prompt_no
@@ -858,13 +878,13 @@
   :opt_name: prompt_select_output
   :procname: val_as_str
 
-- :default: "Uninterrupted"
+- :default: Uninterrupted
   :description: Uninterrupted execution
   :env_var: MDE_PROMPT_UNINTERRUPTED
   :opt_name: prompt_uninterrupted
   :procname: val_as_str
 
-- :default: "Yes"
+- :default: 'Yes'
   :description: Prompt for yes
   :env_var: MDE_PROMPT_YES
   :opt_name: prompt_yes
@@ -881,7 +901,7 @@
   :procname: val_as_bool
 
 - :default: 1
-  :description: "Runtime exception error level (warn if < 0, ignore if 0, abort if > 0)"
+  :description: Runtime exception error level (warn if < 0, ignore if 0, abort if > 0)
   :env_var: MDE_RUNTIME_EXCEPTION_ERROR_LEVEL
   :opt_name: runtime_exception_error_level
   :procname: val_as_int
@@ -1009,7 +1029,7 @@
   :procname: val_as_str
 
 - :default: 36
-  :description: "Maximum # of rows in select list"
+  :description: 'Maximum # of rows in select list'
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int
@@ -1073,7 +1093,7 @@
   :opt_name: warning_color
   :procname: val_as_str
 
-- :default: "Error: %{error}"
+- :default: 'Error: %{error}'
   :description: Format of warning message
   :env_var: MDE_WARNING_FORMAT
   :opt_name: warning_format

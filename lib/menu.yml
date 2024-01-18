@@ -596,6 +596,26 @@
   :env_var: MDE_NO_CHROME
   :opt_name: no_chrome
   :procname: val_as_bool
+- :default:
+  :description: Expression to match to start collecting lines
+  :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
+  :opt_name: output_assignment_begin
+  :procname: val_as_str
+- :default:
+  :description: Expression to match to stop collecting lines
+  :env_var: MDE_OUTPUT_ASSIGNMENT_END
+  :opt_name: output_assignment_begin
+  :procname: val_as_str
+- :default: "%{line} # !!!"
+  :description: Format for assignments from output
+  :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
+  :opt_name: output_assignment_format
+  :procname: val_as_str
+- :default: "^ *(\\w+=.*?) *$"
+  :description: Pattern for assignments from output
+  :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
+  :opt_name: output_assignment_match
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: false
   :description: Display summary for execution
