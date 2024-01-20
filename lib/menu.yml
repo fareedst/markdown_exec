@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (1.8.8)
+# MDE - Markdown Executor (1.8.9)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -173,21 +173,12 @@
     yoff to xoff mod (screenHeight - winHeight)\n        \n        create window with
     default profile\n        tell the first window\n            set bounds to {xoff,
     yoff, xoff + winWidth, yoff + winHeight}\n            tell the current session\n
-    \               write text \"alias cat_script=\\\"cat -n \\\\\\\"%{script_filespec}\\\\\\\"\\\"\"\n
-    \               write text \"alias less_script=\\\"less \\\\\\\"%{script_filespec}\\\\\\\"\\\"\"\n
-    \               write text \"alias run_script=\\\"%{script_filespec}\\\"\"\n                write
-    text \"alias vim_script=\\\"vim \\\\\\\"%{script_filespec}\\\\\\\"\\\"\"\n                delay
-    1\n\n                write text \"alias cat_output=\\\"cat -n \\\\\\\"%{output_filespec}\\\\\\\"\\\"\"\n
-    \               write text \"alias grep_output=\\\"read -p Pattern: pattern &&
-    grep \\\\\\\"\\\\$pattern\\\\\\\" \\\\\\\"%{output_filespec}\\\\\\\"\\\"\"\n                write
-    text \"alias less_output=\\\"less \\\\\\\"%{output_filespec}\\\\\\\"\\\"\"\n                delay
-    1\n\n                write text \"alias menu=\\\"select cmd in cat_script less_script
-    run_script vim_script cat_output grep_output less_output exit; do eval \\\\\\\"\\\\$cmd\\\\\\\";
-    done\\\"\"\n                delay 1\n\n                write text \"echo -ne \\\"\\\\033];
+    \               write text \"# %{script_filespec}\"\n                write text
+    \"# %{output_filespec}\"\n                write text \"echo -ne \\\"\\\\033];
     %{started_at} - %{document_filename} - %{block_name} \\\\007\\\"\"\n                write
     text \"cd \\\"%{home}\\\"\"\n                write text \"\\\"%{script_filename}\\\"
-    | tee \\\"%{output_filespec}\\\"\"\n                delay 2\n\n                write
-    text \"menu\"\n            end tell\n        end tell\n    end tell'\n"
+    | tee \\\"%{output_filespec}\\\"\"\n            end tell\n        end tell\n    end
+    tell'\n"
   :description: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format
@@ -611,7 +602,7 @@
   :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
   :opt_name: output_assignment_format
   :procname: val_as_str
-- :default: "^ *(\\w+=.*?) *$"
+- :default: "^ *(?<line>\\w+=.*?) *$"
   :description: Pattern for assignments from output
   :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
   :opt_name: output_assignment_match

@@ -211,26 +211,11 @@
             tell the first window
                 set bounds to {xoff, yoff, xoff + winWidth, yoff + winHeight}
                 tell the current session
-                    write text "alias cat_script=\"cat -n \\\"%{script_filespec}\\\"\""
-                    write text "alias less_script=\"less \\\"%{script_filespec}\\\"\""
-                    write text "alias run_script=\"%{script_filespec}\""
-                    write text "alias vim_script=\"vim \\\"%{script_filespec}\\\"\""
-                    delay 1
-
-                    write text "alias cat_output=\"cat -n \\\"%{output_filespec}\\\"\""
-                    write text "alias grep_output=\"read -p Pattern: pattern && grep \\\"\\$pattern\\\" \\\"%{output_filespec}\\\"\""
-                    write text "alias less_output=\"less \\\"%{output_filespec}\\\"\""
-                    delay 1
-
-                    write text "alias menu=\"select cmd in cat_script less_script run_script vim_script cat_output grep_output less_output exit; do eval \\\"\\$cmd\\\"; done\""
-                    delay 1
-
+                    write text "# %{script_filespec}"
+                    write text "# %{output_filespec}"
                     write text "echo -ne \"\\033]; %{started_at} - %{document_filename} - %{block_name} \\007\""
                     write text "cd \"%{home}\""
                     write text "\"%{script_filename}\" | tee \"%{output_filespec}\""
-                    delay 2
-
-                    write text "menu"
                 end tell
             end tell
         end tell'
@@ -737,7 +722,7 @@
   :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
   :opt_name: output_assignment_format
   :procname: val_as_str
-- :default: "^ *(\\w+=.*?) *$"
+- :default: "^ *(?<line>\\w+=.*?) *$"
   :description: Pattern for assignments from output
   :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
   :opt_name: output_assignment_match

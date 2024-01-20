@@ -17,11 +17,16 @@ IndexedLine = Struct.new(:index, :line) do
   end
 end
 
-class LinkDataKeys
+class LinkKeys
+  Block = 'block'
   Eval = 'eval'
   Exec = 'exec'
+  File = 'file'
   Load = 'load'
+  NextBlock = 'next_block'
   Return = 'return'
+  Save = 'save'
+  Vars = 'vars'
 end
 
 class LoadFile

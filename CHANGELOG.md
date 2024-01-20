@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.9] - 2024-01-20
+
+### Added
+
+- Variables set in inherited lines for use in scripts.
+
+- Link key `save` to write inherited lines to disk.
+
 ## [1.8.8] - 2024-01-15
 
 ### Added

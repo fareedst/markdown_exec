@@ -185,16 +185,20 @@ module HashDelegatorSelf
     fcb.oname = fcb.dname = fcb.title || ''
   end
 
+  def join_code_lines(lines)
+    ((lines || [])+ ['']).join("\n")
+  end
+
   def merge_lists(*args)
     # Filters out nil values, flattens the arrays, and ensures an empty list is returned if no valid lists are provided
     merged = args.compact.flatten
     merged.empty? ? [] : merged
   end
 
-  def next_link_state(block_name_from_cli, was_using_cli, block_state)
+  def next_link_state(block_name_from_cli, was_using_cli, block_state, block_name: nil)
     # &bsp 'next_link_state', block_name_from_cli, was_using_cli, block_state
     # Set block_name based on block_name_from_cli
-    block_name = block_name_from_cli ? @cli_block_name : nil
+    block_name = block_name_from_cli ? @cli_block_name : block_name
     # &bsp 'block_name:', block_name
 
     # Determine the state of breaker based on was_using_cli and the block type
@@ -600,8 +604,6 @@ module MarkdownExec
     # @param selected [Hash] The selected block.
     # @return [Array<String>] Required code blocks as an array of lines.
     def collect_required_code_lines(mdoc, selected, link_state = LinkState.new, block_source:)
-      set_environment_variables_for_block(selected) if selected[:shell] == BlockType::VARS
-
       required = mdoc.collect_recursively_required_code(
         selected[:nickname] || selected[:oname],
         label_format_above: @delegate_object[:shell_code_label_format_above],
@@ -624,7 +626,9 @@ module MarkdownExec
                                                highlight: [@delegate_object[:block_name]])
       end
 
-      HashDelegator.code_merge(link_state&.inherited_lines, required[:code])
+      code_lines = selected[:shell] == BlockType::VARS ? set_environment_variables_for_block(selected) : []
+
+      HashDelegator.code_merge(link_state&.inherited_lines, required[:code] + code_lines)
     end
 
     def command_execute(command, args: [])
@@ -926,6 +930,22 @@ module MarkdownExec
         @delegate_object.merge!(options_state.options)
         options_state.load_file_link_state
 
+      elsif selected[:shell] == BlockType::VARS
+        debounce_reset
+        block_names = []
+        code_lines = set_environment_variables_for_block(selected)
+        dependencies = {}
+        link_history_push_and_next(
+          curr_block_name: selected[:oname],
+          curr_document_filename: @delegate_object[:filename],
+          inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
+          inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
+          inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
+          next_block_name: '',
+          next_document_filename: @delegate_object[:filename],
+          next_load_file: LoadFile::Reuse
+        )
+
       elsif debounce_allows
         compile_execute_and_trigger_reuse(mdoc, selected, link_state,
                                           block_source: block_source)
@@ -1089,7 +1109,7 @@ module MarkdownExec
     def link_block_data_eval(link_state, code_lines, selected, link_block_data)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
 
-      if link_block_data.fetch(LinkDataKeys::Exec, false)
+      if link_block_data.fetch(LinkKeys::Exec, false)
         @run_state.files = Hash.new([])
         output_lines = []
 
@@ -1338,7 +1358,7 @@ module MarkdownExec
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
-          next_block_name: '', # not link_block_data['block'] || ''
+          next_block_name: '', # not link_block_data[LinkKeys::Block] || ''
           next_document_filename: @delegate_object[:filename], # not next_document_filename
           next_load_file: LoadFile::Reuse # not next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
         )
@@ -1539,12 +1559,6 @@ module MarkdownExec
                                            link_state = LinkState.new)
       link_block_data = HashDelegator.parse_yaml_data_from_body(link_block_body)
 
-      # load key and values from link block into current environment
-      #
-      (link_block_data['vars'] || []).each do |(key, value)|
-        ENV[key] = value.to_s
-      end
-
       ## collect blocks specified by block
       #
       if mdoc
@@ -1562,22 +1576,40 @@ module MarkdownExec
         code_lines = []
         dependencies = {}
       end
-      next_document_filename = link_block_data['file'] || @delegate_object[:filename]
+      next_document_filename = link_block_data[LinkKeys::File] || @delegate_object[:filename]
 
-      ## append blocks loaded per LinkDataKeys::Load
+      # load key and values from link block into current environment
       #
-      if (load_filespec = link_block_data.fetch(LinkDataKeys::Load, '')).present?
+      if link_block_data[LinkKeys::Vars]
+        code_lines.push "# #{selected[:oname]}"
+        (link_block_data[LinkKeys::Vars] || []).each do |(key, value)|
+          ENV[key] = value.to_s
+          require 'shellwords'
+          code_lines.push "#{key}=\"#{Shellwords.escape(value)}\""
+        end
+      end
+
+      ## append blocks loaded, apply LinkKeys::Eval
+      #
+      if (load_filespec = link_block_data.fetch(LinkKeys::Load, '')).present?
         code_lines += File.readlines(load_filespec, chomp: true)
       end
 
       # if an eval link block, evaluate code_lines and return its standard output
       #
-      if link_block_data.fetch(LinkDataKeys::Eval,
-                               false) || link_block_data.fetch(LinkDataKeys::Exec, false)
+      if link_block_data.fetch(LinkKeys::Eval,
+                               false) || link_block_data.fetch(LinkKeys::Exec, false)
         code_lines = link_block_data_eval(link_state, code_lines, selected, link_block_data)
       end
 
-      if link_block_data[LinkDataKeys::Return]
+      ## write variables
+      #
+      if (save_filespec = link_block_data.fetch(LinkKeys::Save, '')).present?
+        File.write(save_filespec, HashDelegator.join_code_lines(link_state&.inherited_lines))
+        next_document_filename = @delegate_object[:filename]
+      end
+
+      if link_block_data[LinkKeys::Return]
         pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
                                                       dependencies, selected)
 
@@ -1588,7 +1620,7 @@ module MarkdownExec
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
-          next_block_name: link_block_data['block'] || '',
+          next_block_name: link_block_data.fetch(LinkKeys::NextBlock, nil) || link_block_data[LinkKeys::Block] || '',
           next_document_filename: next_document_filename,
           next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::Reuse : LoadFile::Load
         )
@@ -1667,8 +1699,13 @@ module MarkdownExec
           break
         end
 
+        ## order of block name processing
+        # from link block
+        # from cli
+        # from user
+        #
         link_state.block_name, @run_state.block_name_from_cli, cli_break = \
-          HashDelegator.next_link_state(!shift_cli_argument, now_using_cli, block_state)
+          HashDelegator.next_link_state(!link_state.block_name && !shift_cli_argument, now_using_cli, block_state, block_name: link_state.block_name)
 
         if !block_state.block[:block_name_from_ui] && cli_break
           # &bsp '!block_name_from_ui + cli_break -> break'
@@ -1813,14 +1850,20 @@ module MarkdownExec
     end
 
     def set_environment_variables_for_block(selected)
+      code_lines = []
       YAML.load(selected[:body].join("\n"))&.each do |key, value|
         ENV[key] = value.to_s
+
+        require 'shellwords'
+        code_lines.push "#{key}=\"#{Shellwords.escape(value)}\""
+
         next unless @delegate_object[:menu_vars_set_format].present?
 
         formatted_string = format(@delegate_object[:menu_vars_set_format],
                                   { key: key, value: value })
         print string_send_color(formatted_string, :menu_vars_set_color)
       end
+      code_lines
     end
 
     def should_add_back_option?
@@ -2110,7 +2153,7 @@ module MarkdownExec
                                               LinkState.new(block_name: 'sample_block',
                                                             document_filename: 'sample_file',
                                                             inherited_dependencies: {},
-                                                            inherited_lines: []))
+                                                            inherited_lines: ['# ', 'KEY="VALUE"']))
       assert_equal expected_result,
                    @hd.push_link_history_and_trigger_load(body, nil, FCB.new(block_name: 'sample_block',
                                                                              filename: 'sample_file'))
@@ -2281,7 +2324,7 @@ module MarkdownExec
         @mdoc.stubs(:collect_recursively_required_code).returns({ code: ['code line'] })
         result = @hd.collect_required_code_lines(@mdoc, @selected, block_source: {})
 
-        assert_equal ['code line'], result
+        assert_equal ['code line', 'key="value"'], result
       end
     end
 
