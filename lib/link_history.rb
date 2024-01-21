@@ -4,8 +4,9 @@
 # encoding=utf-8
 module MarkdownExec
   class LinkState
-    attr_accessor :block_name, :document_filename,
-                  :inherited_block_names, :inherited_dependencies, :inherited_lines
+    attr_accessor :block_name, :display_menu, :document_filename,
+                  :inherited_block_names, :inherited_dependencies, :inherited_lines,
+                  :prior_block_was_link
 
     # Initialize the LinkState with keyword arguments for each attribute.
     # @param block_name [String, nil] the name of the block.
@@ -13,13 +14,16 @@ module MarkdownExec
     # @param inherited_block_names [Array<String>, nil] the names of the inherited blocks.
     # @param inherited_dependencies [?, nil] the dependecy hierarcy.
     # @param inherited_lines [Array<String>, nil] the inherited lines of code.
-    def initialize(block_name: nil, document_filename: nil,
-                   inherited_block_names: [], inherited_dependencies: nil, inherited_lines: nil)
+    def initialize(block_name: nil, display_menu: nil, document_filename: nil,
+                   inherited_block_names: [], inherited_dependencies: nil, inherited_lines: nil,
+                   prior_block_was_link: nil)
       @block_name = block_name
+      @display_menu = display_menu
       @document_filename = document_filename
       @inherited_block_names = inherited_block_names
       @inherited_dependencies = inherited_dependencies
       @inherited_lines = inherited_lines
+      @prior_block_was_link = prior_block_was_link
     end
 
     # Creates an empty LinkState instance.
@@ -34,10 +38,12 @@ module MarkdownExec
     def ==(other)
       other.class == self.class &&
         other.block_name == block_name &&
+        other.display_menu == display_menu &&
         other.document_filename == document_filename &&
         other.inherited_block_names == inherited_block_names &&
         other.inherited_dependencies == inherited_dependencies &&
-        other.inherited_lines == inherited_lines
+        other.inherited_lines == inherited_lines &&
+        other.prior_block_was_link == prior_block_was_link
     end
   end
 

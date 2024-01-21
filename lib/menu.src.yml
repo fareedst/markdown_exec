@@ -123,6 +123,22 @@
 
 - :arg_name: BOOL
   :default: false
+  :description: Dump inherited block_names
+  :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
+  :long_name: dump-dump-inherited-block_names
+  :opt_name: dump_inherited_block_names
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: false
+  :description: Dump inherited dependencies
+  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
+  :long_name: dump-dump-inherited-dependencies
+  :opt_name: dump_inherited_dependencies
+  :procname: val_as_bool
+
+- :arg_name: BOOL
+  :default: false
   :description: Dump inherited lines
   :env_var: MDE_DUMP_INHERITED_LINES
   :long_name: dump-dump-inherited-lines
@@ -211,11 +227,12 @@
             tell the first window
                 set bounds to {xoff, yoff, xoff + winWidth, yoff + winHeight}
                 tell the current session
-                    write text "# %{script_filespec}"
-                    write text "# %{output_filespec}"
+                    write text "s=\"%{script_filespec}\""
+                    write text "o=\"%{output_filespec}\""
                     write text "echo -ne \"\\033]; %{started_at} - %{document_filename} - %{block_name} \\007\""
                     write text "cd \"%{home}\""
-                    write text "\"%{script_filename}\" | tee \"%{output_filespec}\""
+                    write text "# \"%{script_filename}\" | tee -a \"%{output_filespec}\""
+                    write text "\"$s\" | tee -a \"$o\""
                 end tell
             end tell
         end tell'
@@ -591,9 +608,8 @@
   :opt_name: menu_note_format
   :procname: val_as_str
 
-## all non-blank lines are notes
-#
-- :default: "^(?<line>.*?) *$"
+## all lines that do not start with "/ " are notes
+- :default: "^(?<line>(?!/ ).*)?$"
   :description: Pattern for notes in block selection menu
   :env_var: MDE_MENU_NOTE_MATCH
   :opt_name: menu_note_match
@@ -712,21 +728,25 @@
   :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
   :opt_name: output_assignment_begin
   :procname: val_as_str
+
 - :default:
   :description: Expression to match to stop collecting lines
   :env_var: MDE_OUTPUT_ASSIGNMENT_END
-  :opt_name: output_assignment_begin
+  :opt_name: output_assignment_end
   :procname: val_as_str
-- :default: "%{line} # !!!"
+
+- :default: "%{line}"
   :description: Format for assignments from output
   :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
   :opt_name: output_assignment_format
   :procname: val_as_str
+
 - :default: "^ *(?<line>\\w+=.*?) *$"
   :description: Pattern for assignments from output
   :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
   :opt_name: output_assignment_match
   :procname: val_as_str
+
 - :arg_name: BOOL
   :default: false
   :description: Display summary for execution
@@ -821,10 +841,22 @@
   :opt_name: prompt_debounce
   :procname: val_as_str
 
+- :default: 'Name? '
+  :description: Prompt to enter a filespec
+  :env_var: MDE_PROMPT_ENTER_FILESPEC
+  :opt_name: prompt_enter_filespec
+  :procname: val_as_str
+
 - :default: Exit
   :description: Prompt to exit app
   :env_var: MDE_PROMPT_EXIT
   :opt_name: prompt_exit
+  :procname: val_as_str
+
+- :default: Other
+  :description: Prompt for a custom file name
+  :env_var: MDE_PROMPT_FILESPEC_OTHER
+  :opt_name: prompt_filespec_other
   :procname: val_as_str
 
 - :default: 'No'
@@ -852,6 +884,12 @@
   :procname: val_as_str
 
 - :default: "\nChoose a file:"
+  :description: Prompt to select a file with inherited lines
+  :env_var: MDE_PROMPT_SELECT_CODE_FILE
+  :opt_name: prompt_select_code_file
+  :procname: val_as_str
+
+- :default: "\nChoose a file:"
   :description: Prompt to select a markdown document
   :env_var: MDE_PROMPT_SELECT_MD
   :opt_name: prompt_select_md
@@ -861,6 +899,12 @@
   :description: Prompt to select a saved file
   :env_var: MDE_PROMPT_SELECT_OUTPUT
   :opt_name: prompt_select_output
+  :procname: val_as_str
+
+- :default: 'Expr: %{expr}'
+  :description: prompt_show_expr_format
+  :env_var: MDE_PROMPT_SHOW_EXPR_FORMAT
+  :opt_name: prompt_show_expr_format
   :procname: val_as_str
 
 - :default: Uninterrupted
@@ -1047,10 +1091,16 @@
   :opt_name: shell_code_label_format_above
   :procname: val_as_str
 
-- :default: "#  -v-  +%{block_name}  -o-  %{document_filename}  -v-"
+- :default: "#  -v-  +%{block_name}  -o-  %{document_filename}  -o-  %{time_now_date}  -v-"
   :description: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
   :opt_name: shell_code_label_format_below
+  :procname: val_as_str
+
+- :default: "%FT%TZ"
+  :description: Format for time in code lael
+  :env_var: MDE_SHELL_CODE_LABEL_TIME_FORMAT
+  :opt_name: shell_code_label_time_format
   :procname: val_as_str
 
 - :description: List tab completions

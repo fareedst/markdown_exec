@@ -1,4 +1,4 @@
-This is Page 1
+This is Page 1. It is imported by Page 0.
 
 ::: Page 1 code blocks
 

@@ -25,6 +25,7 @@ require_relative 'fcb'
 require_relative 'filter'
 require_relative 'fout'
 require_relative 'hash_delegator'
+require_relative 'input_sequencer'
 require_relative 'markdown_exec/version'
 require_relative 'mdoc'
 require_relative 'option_value'
@@ -103,7 +104,6 @@ module MarkdownExec
 
   ##
   #
-  # rubocop:disable Layout/LineLength
   # :reek:DuplicateMethodCall { allow_calls: ['block', 'item', 'lm', 'opts', 'option', '@options', 'required_blocks'] }
   # rubocop:enable Layout/LineLength
   # :reek:MissingSafeMethod { exclude: [ read_configuration_file! ] }
@@ -293,15 +293,12 @@ module MarkdownExec
 
       ## position 1: block name (optional)
       #
-      block_name = rest.shift
-      @options[:block_name] = block_name if block_name.present?
+      @options[:block_name] = nil
       @options[:input_cli_rest] = @rest
     rescue FileMissingError
       warn_format('finalize_cli_argument_processing',
                   "File missing -- #{$!}", { abort: true })
-      # @options[:block_name] = ''
-      # @options[:filename] = ''
-      # exit 1
+      exit 1
     rescue StandardError
       error_handler('finalize_cli_argument_processing')
     end

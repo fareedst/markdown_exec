@@ -1,10 +1,7 @@
-```bash :a
-01
+Executing either of these blocks outputs the same two lines.
+```bash :duplicate_name
+echo from duplicate name, block 1
 ```
-```bash :a
-02
+```bash :duplicate_name
+echo from duplicate name, block 2
 ```
-```bash :a
-03
-```
-

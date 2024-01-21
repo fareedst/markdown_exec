@@ -387,9 +387,9 @@ RSpec.describe 'MarkdownExec' do
       opts.merge!(block_name: 'one')
       hopts = MarkdownExec::HashDelegator.new(opts)
       hopts.exec_bash_next_state(
-        MarkdownExec::FCB.new,
-        mdoc,
-        MarkdownExec::LinkState.new
+        selected: MarkdownExec::FCB.new,
+        mdoc: mdoc,
+        link_state: MarkdownExec::LinkState.new
       )
     end
   end
@@ -461,7 +461,7 @@ RSpec.describe 'MarkdownExec' do
   it 'test_called_parse_hidden_collect_block_dependencies' do
     expect(
       MarkdownExec::MDoc.new(list_blocks_bash1)
-                  .collect_block_dependencies('four')[:blocks]
+                  .collect_block_dependencies(anyname: 'four')[:blocks]
                   .map do |block|
                     block[:oname]
                   end
@@ -471,7 +471,7 @@ RSpec.describe 'MarkdownExec' do
   it 'test_called_parse_hidden_get_required_code' do
     expect(MarkdownExec::MDoc.new(list_blocks_bash1)
                                    .collect_recursively_required_code(
-                                     'four',
+                                     anyname: 'four',
                                      block_source: block_source
                                    )[:code]).to eq %w[a b c d]
   end
@@ -499,7 +499,7 @@ RSpec.describe 'MarkdownExec' do
              { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash1)
                      .collect_recursively_required_code(
-                       block[:oname],
+                       anyname: block[:oname],
                        block_source: block_source
                      )[:code] }
            end).to eq([
@@ -516,7 +516,7 @@ RSpec.describe 'MarkdownExec' do
              { name: block[:oname],
                code: MarkdownExec::MDoc.new(list_blocks_bash2)
                      .collect_recursively_required_code(
-                       block[:oname],
+                       anyname: block[:oname],
                        block_source: block_source
                      )[:code] }
            end).to eq([
@@ -744,7 +744,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_parse_called_collect_block_dependencies' do
-    expect(mdoc_yaml1.collect_block_dependencies('show_fruit_yml')[:blocks].map do |block|
+    expect(mdoc_yaml1.collect_block_dependencies(anyname: 'show_fruit_yml')[:blocks].map do |block|
       block.slice(:call, :oname)
            .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
@@ -758,7 +758,7 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_parse_called_get_required_code' do
     expect(mdoc_yaml1.collect_recursively_required_code(
-      'show_fruit_yml',
+      anyname: 'show_fruit_yml',
       block_source: block_source
     )[:code]).to eq [
       [
@@ -771,7 +771,6 @@ RSpec.describe 'MarkdownExec' do
         ''
       ].join("\n"),
       "export fruit_summary=$(yq e '[.fruit.name,.fruit.price]' 'fruit.yml')",
-      # rubocop:disable Layout/LineLength
       %(export fruit_summary=$(cat <<"EOF"\necho "fruit_summary: ${fruit_summary:-MISSING}"\nEOF\n))
       # rubocop:enable Layout/LineLength
     ]
@@ -787,7 +786,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_vars_parse_called_collect_block_dependencies' do
-    expect(mdoc_yaml2.collect_block_dependencies('show_coins_var')[:blocks].map do |block|
+    expect(mdoc_yaml2.collect_block_dependencies(anyname: 'show_coins_var')[:blocks].map do |block|
              block.slice(:call, :cann, :oname)
            end).to eq [
              { call: nil, oname: '(make_coins_file)' },
@@ -802,7 +801,7 @@ RSpec.describe 'MarkdownExec' do
   # rubocop:disable Layout/LineLength
   it 'test_vars_parse_called_get_required_code' do
     expect(mdoc_yaml2.collect_recursively_required_code(
-      'show_coins_var',
+      anyname: 'show_coins_var',
       block_source: block_source
     )[:code]).to eq [
       %(export coins=$(cat <<"EOF"\ncoins:\n  - name: bitcoin\n    price: 21000\n  - name: ethereum\n    price: 1000\nEOF\n)),

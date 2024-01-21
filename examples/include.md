@@ -1,19 +1,25 @@
-```bash :(one)
-echo block "one"
+This document demonstrates blocks requiring other blocks.
+
+Block "(Winter)" is hidden.
+```bash :(Winter)
+echo It is now Winter
 ```
 
-```bash :two +(one)
-echo block "two" requires one
+Block "Spring" is visible. It requires "(Winter)".
+```bash :Spring +(Winter)
+echo It is now Spring
 ```
 
-```bash :(three) +two +(one)
-echo block "three" requires two and one
+Block "(Summer)" is hidden. It requires "(Winter)" and "Spring"
+```bash :(Summer) +Spring +(Winter)
+echo It is now Summer
 ```
 
-```bash :four +(three)
-echo block "four" requires three
+Block "Fall" is visible. It requires "(Summer)" which itself requires the rest.
+```bash :Fall +(Summer)
+echo It is now Fall
 ```
 
-```bash :trigger_unmet_dependency +(unmet)
-echo block "five" requires an unmet dependency
+Block "Sunsear" is visible. It requires "Frostfall" which does not exist and triggers an unmet dependency error.
+```bash :Sunsear +Frostfall
 ```

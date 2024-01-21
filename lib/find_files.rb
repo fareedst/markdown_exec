@@ -22,7 +22,7 @@
 # Example:
 #   find_files('version.rb', ['lib/**', 'spec'])
 #   # This might return file paths like ['lib/markdown_exec/version.rb', 'spec/version_spec.rb'].
-def find_files(pattern, paths)
+def find_files(pattern, paths = ['', Dir.pwd])
   matched_files = []
 
   paths.each do |path_with_wildcard|
@@ -65,7 +65,6 @@ class TestFindFiles < Minitest::Test
     expected_files = [
       'lib/cli.rb',
       'lib/colorize.rb',
-      'lib/dev/llm.rb',
       'lib/dev/watchfile.sh',
       'lib/markdown_exec.rb',
       'lib/markdown_exec/version.rb'

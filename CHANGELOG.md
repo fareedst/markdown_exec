@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0] - 2024-02-07
+
+### Added
+
+- Process format and glob to load, save script code.
+
+- Provide ENV and batch variables to formatting function.
+
+- Find files matching glob and present for user selection.
+
+- Allow for entry of new file name when saving.
+
 ## [1.8.9] - 2024-01-20
 
 ### Added

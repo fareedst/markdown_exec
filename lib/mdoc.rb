@@ -70,10 +70,10 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the retrieval from.
     # @return [Array<Hash>] An array of code blocks required by the specified code block.
     #
-    def collect_block_dependencies(name)
-      name_block = get_block_by_anyname(name)
+    def collect_block_dependencies(anyname:)
+      name_block = get_block_by_anyname(anyname)
       if name_block.nil? || name_block.keys.empty?
-        raise "Named code block `#{name}` not found. (@#{__LINE__})"
+        raise "Named code block `#{anyname}` not found. (@#{__LINE__})"
       end
 
       nickname = name_block[:nickname] || name_block[:oname]
@@ -116,9 +116,9 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(name, block_source:, label_body: true, label_format_above: nil,
+    def collect_recursively_required_code(anyname:, block_source:, label_body: true, label_format_above: nil,
                                           label_format_below: nil)
-      block_search = collect_block_dependencies(name)
+      block_search = collect_block_dependencies(anyname: anyname)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
         # &bc 'blocks.count:',blocks.count
@@ -453,12 +453,12 @@ if $PROGRAM_NAME == __FILE__
 
       ### broken test
       def test_collect_block_dependencies
-        result = @doc.collect_block_dependencies('block3')[:blocks]
+        result = @doc.collect_block_dependencies(anyname: 'block3')[:blocks]
         expected_result = [@table[0], @table[1], @table[2]]
         assert_equal expected_result, result
 
         assert_raises(RuntimeError) do
-          @doc.collect_block_dependencies('missing_block')
+          @doc.collect_block_dependencies(anyname: 'missing_block')
         end
       end
 

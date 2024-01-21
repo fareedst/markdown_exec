@@ -1,10 +1,8 @@
-This is Page 0
+This is Page 0. It serves to demonstrate how options control the display of imported blocks and notes.
+
+::: "import1.md" is imported here.
 
 @import import1.md
-
-```opts :(document_options)
-user_must_approve: true
-```
 
 ::: Page 0 code blocks
 
