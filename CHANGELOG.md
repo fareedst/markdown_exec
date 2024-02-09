@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.1] - 2024-02-09
+
+### Changed
+
+- Fix development requirement.
+
 ## [2.0.0] - 2024-02-07
 
 ### Added

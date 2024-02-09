@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (2.0.0)
+# MDE - Markdown Executor (2.0.1)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -183,16 +183,15 @@
     tell\n            tell application process \"Finder\"\n                set {missing
     value, menubarHeight} to the size of menu bar 1\n            end tell\n        end
     tell\n\n        set winHeight to (screenHeight * 2 / 3)\n        set winWidth
-    to (screenWidth / 2)\n        set xoff to menubarHeight * %{batch_index}\n        set
-    yoff to xoff mod (screenHeight - winHeight)\n        \n        create window with
-    default profile\n        tell the first window\n            set bounds to {xoff,
-    yoff, xoff + winWidth, yoff + winHeight}\n            tell the current session\n
-    \               write text \"s=\\\"%{script_filespec}\\\"\"\n                write
-    text \"o=\\\"%{output_filespec}\\\"\"\n                write text \"echo -ne \\\"\\\\033];
-    %{started_at} - %{document_filename} - %{block_name} \\\\007\\\"\"\n                write
-    text \"cd \\\"%{home}\\\"\"\n                write text \"# \\\"%{script_filename}\\\"
-    | tee -a \\\"%{output_filespec}\\\"\"\n                write text \"\\\"$s\\\"
-    | tee -a \\\"$o\\\"\"\n            end tell\n        end tell\n    end tell'\n"
+    to (screenWidth * 2 / 3)\n        set xoff to menubarHeight * %{batch_index}\n
+    \       set yoff to xoff mod (screenHeight - winHeight)\n        \n        create
+    window with default profile\n        tell the first window\n            set bounds
+    to {xoff, yoff, xoff + winWidth, yoff + winHeight}\n            tell the current
+    session\n                write text \"s=\\\"%{script_filespec}\\\"\"\n                write
+    text \"o=\\\"%{output_filespec}\\\"\"\n                write text \"cd \\\"%{home}\\\"\"\n
+    \               write text \"echo -ne \\\"\\\\033]; %{started_at} - %{document_filename}
+    - %{block_name} \\\\007\\\"\"\n                write text \"\\\"$s\\\" | tee -a
+    \\\"$o\\\"\"\n            end tell\n        end tell\n    end tell'\n"
   :description: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format

@@ -3,7 +3,7 @@
 
 # encoding=utf-8
 
-require_relative 'dev/instance_method_wrapper' # for ImwUx
+# require_relative 'dev/instance_method_wrapper' # for ImwUx
 require_relative 'env'
 require_relative 'link_history'
 
