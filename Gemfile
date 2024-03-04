@@ -23,5 +23,5 @@ gem 'rubocop-minitest', require: false
 gem 'rubocop-rake', require: false
 gem 'rubocop-rspec', require: false
 gem 'shellwords'
-gem 'uri'
+gem 'uri', '0.12.2'
 gem 'yaml', '~> 0.2.1'

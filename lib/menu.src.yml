@@ -108,7 +108,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump @delegate_object
-  :env_var: MDE_DUMP_DELEGATE_OBJECT
   :long_name: dump-dump-delegate-object
   :opt_name: dump_delegate_object
   :procname: val_as_bool
@@ -116,7 +115,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump BlocksInFile (stage 1)
-  :env_var: MDE_DUMP_BLOCKS_IN_FILE
   :long_name: dump-blocks-in-file
   :opt_name: dump_blocks_in_file
   :procname: val_as_bool
@@ -124,7 +122,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited block_names
-  :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
   :long_name: dump-dump-inherited-block_names
   :opt_name: dump_inherited_block_names
   :procname: val_as_bool
@@ -132,7 +129,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited dependencies
-  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
   :long_name: dump-dump-inherited-dependencies
   :opt_name: dump_inherited_dependencies
   :procname: val_as_bool
@@ -140,7 +136,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited lines
-  :env_var: MDE_DUMP_INHERITED_LINES
   :long_name: dump-dump-inherited-lines
   :opt_name: dump_inherited_lines
   :procname: val_as_bool
@@ -148,7 +143,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump MenuBlocks (stage 2)
-  :env_var: MDE_DUMP_MENU_BLOCKS
   :long_name: dump-menu-blocks
   :opt_name: dump_menu_blocks
   :procname: val_as_bool
@@ -156,7 +150,6 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump selected block
-  :env_var: MDE_DUMP_SELECTED_BLOCK
   :long_name: dump-selected-block
   :opt_name: dump_selected_block
   :procname: val_as_bool
@@ -231,7 +224,7 @@
                     write text "o=\"%{output_filespec}\""
                     write text "cd \"%{home}\""
                     write text "echo -ne \"\\033]; %{started_at} - %{document_filename} - %{block_name} \\007\""
-                    write text "\"$s\" | tee -a \"$o\""
+                    write text "\"$s\" 2>&1 | tee -a \"$o\""
                 end tell
             end tell
         end tell'
@@ -247,7 +240,7 @@
   :procname: val_as_str
 
 - :arg_name: BOOL
-  :default: true
+  :default: false
   :description: Execute script in own window
   :env_var: MDE_EXECUTE_IN_OWN_WINDOW
   :opt_name: execute_in_own_window
@@ -301,7 +294,7 @@
 
 - :arg_name: FIND
   :default: ''
-  :description: Find in documents
+  :description: Find argument in documents
   :long_name: find
   :procname: find
   :short_name: "?"

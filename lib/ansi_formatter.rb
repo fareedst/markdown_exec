@@ -33,11 +33,15 @@ class AnsiFormatter
   def scan_and_process_multiple_substrings(str, substrings, plain_sym, color_sym)
     return string_send_color(str, plain_sym) if substrings.empty? || substrings.any?(&:empty?)
 
+    substring_patterns = substrings.map do |value|
+      [value, Regexp.new(value, Regexp::IGNORECASE)]
+    end
+
     results = []
     remaining_str = str.dup
 
     while remaining_str.length.positive?
-      match_indices = substrings.map { |substring| remaining_str.index(substring) }.compact
+      match_indices = substring_patterns.map { |_, pattern| remaining_str.index(pattern) }.compact
       earliest_match = match_indices.min
 
       if earliest_match
@@ -48,12 +52,12 @@ class AnsiFormatter
         end
 
         # Find which substring has this earliest match
-        matching_substring = substrings.find do |substring|
-          remaining_str.index(substring) == earliest_match
+        matching_substring = substring_patterns.find do |_, pattern|
+          remaining_str.index(pattern) == earliest_match
         end
 
         if matching_substring
-          matching_segment = remaining_str.slice!(0...matching_substring.length)
+          matching_segment = remaining_str.slice!(0...matching_substring[0].length)
           results << string_send_color(matching_segment, color_sym)
         end
       else

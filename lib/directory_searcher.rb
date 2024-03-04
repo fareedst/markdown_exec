@@ -102,7 +102,7 @@ class DirectorySearcher
   # @param include_subdirectories [Boolean] Whether to search in subdirectories.
   # @param filename_glob [String, nil] Glob pattern for file names.
   def initialize(pattern, paths, include_subdirectories: true, filename_glob: '*.[Mm][Dd]') #'*.md'
-    @pattern = pattern
+    @pattern = Regexp.new(pattern, Regexp::IGNORECASE)
     @paths = paths
     @include_subdirectories = include_subdirectories
     @filename_glob = filename_glob
