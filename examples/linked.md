@@ -5,6 +5,16 @@ pause_after_script_execution: false
 user_must_approve: false
 ```
 
+```link :missing_block
+block: (display_variable)
+eval: true
+```
+
+```link :link_with_vars_with_spaces
+vars:
+  test: "1 2 3"
+```
+
 ::: Set variable ALPHA in a Vars block
 For each environment variable named in block,
  append an inherited line that assigns the variable the specified value.

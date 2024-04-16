@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (2.0.2)
+# MDE - Markdown Executor (2.0.3)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -91,49 +91,42 @@
 - :arg_name: BOOL
   :default: false
   :description: Dump @delegate_object
-  :env_var: MDE_DUMP_DELEGATE_OBJECT
   :long_name: dump-dump-delegate-object
   :opt_name: dump_delegate_object
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump BlocksInFile (stage 1)
-  :env_var: MDE_DUMP_BLOCKS_IN_FILE
   :long_name: dump-blocks-in-file
   :opt_name: dump_blocks_in_file
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited block_names
-  :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
   :long_name: dump-dump-inherited-block_names
   :opt_name: dump_inherited_block_names
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited dependencies
-  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
   :long_name: dump-dump-inherited-dependencies
   :opt_name: dump_inherited_dependencies
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited lines
-  :env_var: MDE_DUMP_INHERITED_LINES
   :long_name: dump-dump-inherited-lines
   :opt_name: dump_inherited_lines
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump MenuBlocks (stage 2)
-  :env_var: MDE_DUMP_MENU_BLOCKS
   :long_name: dump-menu-blocks
   :opt_name: dump_menu_blocks
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump selected block
-  :env_var: MDE_DUMP_SELECTED_BLOCK
   :long_name: dump-selected-block
   :opt_name: dump_selected_block
   :procname: val_as_bool
@@ -177,21 +170,28 @@
   :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
   :opt_name: exclude_expect_blocks
   :procname: val_as_bool
-- :default: "osascript -e '\n    tell application \"iTerm\"\n        tell application
-    \"System Events\"\n            tell application \"Finder\"\n                set
-    {posx, posy, screenWidth, screenHeight} to bounds of window of desktop\n            end
-    tell\n            tell application process \"Finder\"\n                set {missing
-    value, menubarHeight} to the size of menu bar 1\n            end tell\n        end
-    tell\n\n        set winHeight to (screenHeight * 2 / 3)\n        set winWidth
-    to (screenWidth * 2 / 3)\n        set xoff to menubarHeight * %{batch_index}\n
-    \       set yoff to xoff mod (screenHeight - winHeight)\n        \n        create
-    window with default profile\n        tell the first window\n            set bounds
-    to {xoff, yoff, xoff + winWidth, yoff + winHeight}\n            tell the current
-    session\n                write text \"s=\\\"%{script_filespec}\\\"\"\n                write
-    text \"o=\\\"%{output_filespec}\\\"\"\n                write text \"cd \\\"%{home}\\\"\"\n
-    \               write text \"echo -ne \\\"\\\\033]; %{started_at} - %{document_filename}
-    - %{block_name} \\\\007\\\"\"\n                write text \"\\\"$s\\\" | tee -a
-    \\\"$o\\\"\"\n            end tell\n        end tell\n    end tell'\n"
+- :default: |
+    osascript -e '
+      on run argv
+          set batch_index to "%{batch_index}"
+          set home to "%{home}"
+          set output_filespec to "%{output_filespec}"
+          set script_filespec to "%{script_filespec}"
+          set title to " %{started_at} - %{document_filename} - %{block_name} "
+
+          tell application "iTerm"
+              create window with default profile
+              tell the first window
+                  tell the current session
+                      write text "s=" & quoted form of script_filespec & ""
+                      write text "o=" & quoted form of output_filespec & ""
+                      write text "cd " & quoted form of home & ""
+                      write text "echo -ne \"\\033]; " & title & " \\007\""
+                      write text "\"$s\" 2>&1 | tee -a \"$o\""
+                  end tell
+              end tell
+          end tell
+      end run'
   :description: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format
@@ -202,7 +202,7 @@
   :opt_name: execute_command_title_time_format
   :procname: val_as_str
 - :arg_name: BOOL
-  :default: true
+  :default: false
   :description: Execute script in own window
   :env_var: MDE_EXECUTE_IN_OWN_WINDOW
   :opt_name: execute_in_own_window
@@ -249,7 +249,7 @@
   :short_name: f
 - :arg_name: FIND
   :default: ''
-  :description: Find in documents
+  :description: Find argument in documents
   :long_name: find
   :procname: find
   :short_name: "?"
@@ -901,8 +901,8 @@
   :env_var: MDE_SELECT_BY_SHELL_REGEX
   :opt_name: select_by_shell_regex
   :procname: val_as_str
-- :default: 36
-  :description: 'Maximum # of rows in select list'
+- :default: 0
+  :description: 'Maximum # of rows in select list. Detects current limit if not specified.'
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int

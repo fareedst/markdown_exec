@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.3] - 2024-04-15
+
+### Added
+
+- Option to set menu line count to fill console height.
+- Rescue when named block in link block is missing.
+
+### Changed
+
+- Fix handling of variables with spaces in link blocks.
+- Fix substitution for '/' in block names used in file names.
+
 ## [2.0.2] - 2024-02-09
 
 ### Changed

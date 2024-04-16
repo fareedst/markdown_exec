@@ -34,6 +34,7 @@ class InputSequencer
       prior_block_was_link: next_state.prior_block_was_link.nil? ? current.prior_block_was_link : next_state.prior_block_was_link
     )
   rescue
+    pp backtrace
     binding.irb
   end
 
@@ -75,11 +76,14 @@ class InputSequencer
 
       if now_menu.display_menu
         exit_when_bq_empty = false
-
         run_yield :display_menu, &block
 
         choice = run_yield :user_choice, &block
 
+        if choice.nil?
+          raise "Block not recognized."
+          break
+        end
         break if run_yield(:exit?, choice&.downcase, &block) # Exit loop and method to terminate the app
 
         next_state = run_yield :execute_block, choice, &block
@@ -115,6 +119,7 @@ class InputSequencer
       now_menu = InputSequencer.merge_link_state(now_menu, next_menu)
     end
   rescue
+    pp backtrace
     binding.irb
   end
 end

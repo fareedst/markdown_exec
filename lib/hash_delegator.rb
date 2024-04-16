@@ -20,6 +20,7 @@ require_relative 'block_label'
 require_relative 'block_types'
 require_relative 'cached_nested_file_reader'
 require_relative 'constants'
+require_relative 'std_out_err_logger'
 require_relative 'directory_searcher'
 require_relative 'exceptions'
 require_relative 'fcb'
@@ -192,18 +193,15 @@ module HashDelegatorSelf
   end
 
   def next_link_state(block_name_from_cli:, was_using_cli:, block_state:, block_name: nil)
-    # &bsp 'next_link_state', block_name_from_cli, was_using_cli, block_state
     # Set block_name based on block_name_from_cli
     block_name = @cli_block_name if block_name_from_cli
-    # &bsp 'block_name:', block_name
 
     # Determine the state of breaker based on was_using_cli and the block type
+    # true only when block_name is nil, block_name_from_cli is false, was_using_cli is true, and the block_state.block[:shell] equals BlockType::BASH. In all other scenarios, breaker is false.
     breaker = !block_name && !block_name_from_cli && was_using_cli && block_state.block[:shell] == BlockType::BASH
-    # &bsp 'breaker:', breaker
 
     # Reset block_name_from_cli if the conditions are not met
     block_name_from_cli ||= false
-    # &bsp 'block_name_from_cli:', block_name_from_cli
 
     [block_name, block_name_from_cli, breaker]
   end
@@ -351,6 +349,20 @@ module CompactionHelpers
   end
 end
 
+module PathUtils
+  # Determines if a given path is absolute or substitutes a placeholder in an expression with the path.
+  # @param path [String] The input path to check or fill in.
+  # @param expression [String] The expression where a wildcard '*' is replaced by the path if it's not absolute.
+  # @return [String] The absolute path or the expression with the wildcard replaced by the path.
+  def self.resolve_path_or_substitute(path, expression)
+    if path.include?('/')
+      path
+    else
+      expression.gsub('*', path)
+    end
+  end
+end
+
 module MarkdownExec
   class DebugHelper
     # Class-level variable to store history of printed messages
@@ -367,7 +379,7 @@ module MarkdownExec
     end
   end
 
-  class HashDelegator
+  class HashDelegatorParent
     attr_accessor :most_recent_loaded_filename, :pass_args, :run_state
 
     extend HashDelegatorSelf
@@ -558,11 +570,11 @@ module MarkdownExec
 
     # private
 
-    def calc_logged_stdout_filename
+    def calc_logged_stdout_filename(block_name:)
       return unless @delegate_object[:saved_stdout_folder]
 
       @delegate_object[:logged_stdout_filename] =
-        SavedAsset.stdout_name(blockname: @delegate_object[:block_name],
+        SavedAsset.stdout_name(blockname: block_name,
                                filename: File.basename(@delegate_object[:filename],
                                                        '.*'),
                                prefix: @delegate_object[:logged_stdout_filename_prefix],
@@ -897,7 +909,7 @@ module MarkdownExec
     # @param selected [FCB] The selected functional code block object.
     def execute_required_lines(required_lines: [], selected: FCB.new)
       write_command_file(required_lines: required_lines, selected: selected) if @delegate_object[:save_executed_script]
-      calc_logged_stdout_filename
+      calc_logged_stdout_filename(block_name: @dml_block_state.block[:oname]) if @dml_block_state
       format_and_execute_command(code_lines: required_lines)
       post_execution_process
     end
@@ -949,7 +961,6 @@ module MarkdownExec
           next_load_file: LoadFile::Reuse
         )
 
-
       elsif selected[:shell] == BlockType::VARS
         debounce_reset
         block_names = []
@@ -971,6 +982,7 @@ module MarkdownExec
                                           selected: selected,
                                           link_state: link_state,
                                           block_source: block_source)
+
       else
         LoadFileLinkState.new(LoadFile::Reuse, link_state)
       end
@@ -1131,42 +1143,46 @@ module MarkdownExec
     def link_block_data_eval(link_state, code_lines, selected, link_block_data, block_source:)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
 
-      if link_block_data.fetch(LinkKeys::Exec, false)
-        @run_state.files = Hash.new([])
-        output_lines = []
+      Tempfile.open do |file|
+        file.write(all_code.join("\n"))
+        file.rewind
 
-        Open3.popen3(
-          @delegate_object[:shell],
-          '-c', all_code.join("\n")
-        ) do |stdin, stdout, stderr, _exec_thr|
-          handle_stream(stream: stdout, file_type: ExecutionStreams::StdOut) do |line|
-            output_lines.push(line)
-          end
-          handle_stream(stream: stderr, file_type: ExecutionStreams::StdErr) do |line|
-            output_lines.push(line)
+        if link_block_data.fetch(LinkKeys::Exec, false)
+          @run_state.files = Hash.new([])
+          output_lines = []
+
+          Open3.popen3(
+            "#{@delegate_object[:shell]} #{file.path}"
+          ) do |stdin, stdout, stderr, _exec_thr|
+            handle_stream(stream: stdout, file_type: ExecutionStreams::StdOut) do |line|
+              output_lines.push(line)
+            end
+            handle_stream(stream: stderr, file_type: ExecutionStreams::StdErr) do |line|
+              output_lines.push(line)
+            end
+
+            in_thr = handle_stream(stream: $stdin, file_type: ExecutionStreams::StdIn) do |line|
+              stdin.puts(line)
+            end
+
+            wait_for_stream_processing
+            sleep 0.1
+            in_thr.kill if in_thr&.alive?
           end
 
-          in_thr = handle_stream(stream: $stdin, file_type: ExecutionStreams::StdIn) do |line|
-            stdin.puts(line)
-          end
+          ## select output_lines that look like assignment or match other specs
+          #
+          output_lines = process_string_array(
+            output_lines,
+            begin_pattern: @delegate_object.fetch(:output_assignment_begin, nil),
+            end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+            scan1: @delegate_object.fetch(:output_assignment_match, nil),
+            format1: @delegate_object.fetch(:output_assignment_format, nil)
+          )
 
-          wait_for_stream_processing
-          sleep 0.1
-          in_thr.kill if in_thr&.alive?
+        else
+          output_lines = `#{@delegate_object[:shell]} #{file.path}`.split("\n")
         end
-
-        ## select output_lines that look like assignment or match other specs
-        #
-        output_lines = process_string_array(
-          output_lines,
-          begin_pattern: @delegate_object.fetch(:output_assignment_begin, nil),
-          end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
-          scan1: @delegate_object.fetch(:output_assignment_match, nil),
-          format1: @delegate_object.fetch(:output_assignment_format, nil)
-        )
-
-      else
-        output_lines = `#{all_code.join("\n")}`.split("\n")
       end
 
       HashDelegator.error_handler('all_code eval output_lines is nil', { abort: true }) unless output_lines
@@ -1284,7 +1300,7 @@ module MarkdownExec
       puts format(@delegate_object[:prompt_show_expr_format],
                   { expr: filespec })
       puts @delegate_object[:prompt_enter_filespec]
-      resolve_path_or_substitute(gets.chomp, filespec)
+      PathUtils.resolve_path_or_substitute(gets.chomp, filespec)
     end
 
     # Handle expression with wildcard characters
@@ -1323,7 +1339,7 @@ module MarkdownExec
     # Executes a specified block once per filename.
     # @param all_blocks [Array] Array of all block elements.
     # @return [Boolean, nil] True if values were modified, nil otherwise.
-    def load_auto_blocks(all_blocks)
+    def load_auto_opts_block(all_blocks)
       block_name = @delegate_object[:document_load_opts_block_name]
       return unless block_name.present? && @most_recent_loaded_filename != @delegate_object[:filename]
 
@@ -1353,7 +1369,7 @@ module MarkdownExec
 
       # recreate menu with new options
       #
-      all_blocks, mdoc = mdoc_and_blocks_from_nested_files if load_auto_blocks(all_blocks)
+      all_blocks, mdoc = mdoc_and_blocks_from_nested_files if load_auto_opts_block(all_blocks)
 
       menu_blocks = mdoc.fcbs_per_options(@delegate_object)
       add_menu_chrome_blocks!(menu_blocks: menu_blocks, link_state: link_state)
@@ -1755,18 +1771,6 @@ module MarkdownExec
       end
     end
 
-    # Determines if a given path is absolute or substitutes a placeholder in an expression with the path.
-    # @param path [String] The input path to check or fill in.
-    # @param expression [String] The expression where a wildcard '*' is replaced by the path if it's not absolute.
-    # @return [String] The absolute path or the expression with the wildcard replaced by the path.
-    def resolve_path_or_substitute(path, expression)
-      if path.include?('/')
-        path
-      else
-        expression.gsub('*', path)
-      end
-    end
-
     def runtime_exception(exception_sym, name, items)
       if @delegate_object[exception_sym] != 0
         data = { name: name, detail: items.join(', ') }
@@ -1840,12 +1844,18 @@ module MarkdownExec
           @delegate_object[:block_name] = nil
 
         when :user_choice
-          # puts "? - Select a block to execute (or type #{$texit} to exit):"
-          break if ii_user_choice == :break # into @dml_block_state
-          break if @dml_block_state.block.nil? # no block matched
-
+          if @dml_link_state.block_name.present?
+            @dml_block_state.block = @dml_blocks_in_file.find do |item|
+              item[:oname] == @dml_link_state.block_name
+            end
+            @dml_link_state.block_name = nil
+          else
+            # puts "? - Select a block to execute (or type #{$texit} to exit):"
+            break if ii_user_choice == :break # into @dml_block_state
+            break if @dml_block_state.block.nil? # no block matched
+          end
           # puts "! - Executing block: #{data}"
-          @dml_block_state.block[:oname]
+          @dml_block_state.block&.fetch(:oname, nil)
 
         when :execute_block
           block_name = data
@@ -1887,13 +1897,12 @@ module MarkdownExec
 
               ## order of block name processing: link block, cli, from user
               #
-              @cli_block_name = block_name
               @dml_link_state.block_name, @run_state.block_name_from_cli, cli_break = \
                 HashDelegator.next_link_state(
-                  block_name_from_cli: !@dml_link_state.block_name,
-                  was_using_cli: @dml_now_using_cli,
+                  block_name: @dml_link_state.block_name,
+                  block_name_from_cli: !@dml_link_state.block_name.present?,
                   block_state: @dml_block_state,
-                  block_name: @dml_link_state.block_name
+                  was_using_cli: @dml_now_using_cli
                 )
 
               if !@dml_block_state.block[:block_name_from_ui] && cli_break
@@ -2281,7 +2290,12 @@ module MarkdownExec
                          @delegate_object
                        end
 
-      selection_opts.merge!(per_page: @delegate_object[:select_page_height])
+      sph = @delegate_object[:select_page_height]
+      unless sph.positive?
+        require 'io/console'
+        sph = [IO.console.winsize[0] - 3, 4].max
+      end
+      selection_opts.merge!(per_page: sph)
 
       selected_option = select_option_with_metadata(prompt_title, block_menu,
                                                     selection_opts)
@@ -2336,6 +2350,42 @@ module MarkdownExec
       end
     end
   end
+
+  class HashDelegator < HashDelegatorParent
+    # Cleans a value, handling both Hash and Struct types.
+    # For Structs, the cleaned version is converted to a hash.
+    def self.clean_value(value)
+      case value
+      when Hash
+        clean_hash_recursively(value)
+      when Struct
+        struct_hash = value.to_h # Convert the Struct to a hash
+        cleaned_hash = clean_hash_recursively(struct_hash) # Clean the hash
+        # Return the cleaned hash instead of updating the Struct
+        return cleaned_hash
+      else
+        value
+      end
+    end
+
+    # Recursively cleans the given object (hash or struct) from unwanted values.
+    def self.clean_hash_recursively(obj)
+      obj.each do |key, value|
+        cleaned_value = clean_value(value) # Clean and possibly convert value
+        obj[key] = cleaned_value if value.is_a?(Hash) || value.is_a?(Struct)
+      end
+
+      if obj.is_a?(Hash)
+        obj.select! { |key, value| ![nil, '', [], {}, nil].include?(value) }
+      end
+
+      obj
+    end
+
+    def self.next_link_state(*args, **kwargs, &block)
+      super
+    end
+  end
 end
 
 return if $PROGRAM_NAME != __FILE__
@@ -2346,7 +2396,20 @@ Bundler.require(:default)
 require 'minitest/autorun'
 require 'mocha/minitest'
 
+require_relative 'std_out_err_logger'
+
 module MarkdownExec
+  class TestHashDelegator0 < Minitest::Test
+    def setup
+      @hd = HashDelegator.new
+    end
+
+    # Test case for empty body
+    def test_next_link_state
+      @hd.next_link_state(block_name_from_cli: nil, was_using_cli: nil, block_state: nil, block_name: nil)
+    end
+  end
+
   class TestHashDelegator < Minitest::Test
     def setup
       @hd = HashDelegator.new
@@ -3187,29 +3250,33 @@ module MarkdownExec
     end
   end
 
-  def test_resolves_absolute_path
-    absolute_path = '/usr/local/bin'
-    assert_equal '/usr/local/bin', resolve_path_or_substitute(absolute_path, 'prefix/*/suffix')
+  class PathUtilsTest < Minitest::Test
+    def test_absolute_path_returns_unchanged
+      absolute_path = "/usr/local/bin"
+      expression = "path/to/*/directory"
+      assert_equal absolute_path, PathUtils.resolve_path_or_substitute(absolute_path, expression)
+    end
+
+    def test_relative_path_gets_substituted
+      relative_path = "my_folder"
+      expression = "path/to/*/directory"
+      expected_output = "path/to/my_folder/directory"
+      assert_equal expected_output, PathUtils.resolve_path_or_substitute(relative_path, expression)
+    end
+
+    def test_path_with_no_slash_substitutes_correctly
+      relative_path = "data"
+      expression = "path/to/*/directory"
+      expected_output = "path/to/data/directory"
+      assert_equal expected_output, PathUtils.resolve_path_or_substitute(relative_path, expression)
+    end
+
+    def test_empty_path_substitution
+      empty_path = ""
+      expression = "path/to/*/directory"
+      expected_output = "path/to//directory"
+      assert_equal expected_output, PathUtils.resolve_path_or_substitute(empty_path, expression)
+    end
   end
 
-  def test_substitutes_wildcard_with_path
-    path = 'bin'
-    expression = 'prefix/*/suffix'
-    expected_result = 'prefix/bin/suffix'
-    assert_equal expected_result, resolve_path_or_substitute(path, expression)
-  end
-
-  def test_handles_path_with_no_separator_as_is
-    path = 'bin'
-    expression = 'prefix*suffix'
-    expected_result = 'prefixbinsuffix'
-    assert_equal expected_result, resolve_path_or_substitute(path, expression)
-  end
-
-  def test_returns_expression_unchanged_for_empty_path
-    path = ''
-    expression = 'prefix/*/suffix'
-    expected_result = 'prefix/*/suffix'
-    assert_equal expected_result, resolve_path_or_substitute(path, expression)
-  end
 end # module MarkdownExec

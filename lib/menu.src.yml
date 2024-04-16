@@ -201,33 +201,26 @@
 
 - :default: >
     osascript -e '
-        tell application "iTerm"
-            tell application "System Events"
-                tell application "Finder"
-                    set {posx, posy, screenWidth, screenHeight} to bounds of window of desktop
-                end tell
-                tell application process "Finder"
-                    set {missing value, menubarHeight} to the size of menu bar 1
-                end tell
-            end tell
+      on run argv
+          set batch_index to "%{batch_index}"
+          set home to "%{home}"
+          set output_filespec to "%{output_filespec}"
+          set script_filespec to "%{script_filespec}"
+          set title to " %{started_at} - %{document_filename} - %{block_name} "
 
-            set winHeight to (screenHeight * 2 / 3)
-            set winWidth to (screenWidth * 2 / 3)
-            set xoff to menubarHeight * %{batch_index}
-            set yoff to xoff mod (screenHeight - winHeight)
-            
-            create window with default profile
-            tell the first window
-                set bounds to {xoff, yoff, xoff + winWidth, yoff + winHeight}
-                tell the current session
-                    write text "s=\"%{script_filespec}\""
-                    write text "o=\"%{output_filespec}\""
-                    write text "cd \"%{home}\""
-                    write text "echo -ne \"\\033]; %{started_at} - %{document_filename} - %{block_name} \\007\""
-                    write text "\"$s\" 2>&1 | tee -a \"$o\""
-                end tell
-            end tell
-        end tell'
+          tell application "iTerm"
+              create window with default profile
+              tell the first window
+                  tell the current session
+                      write text "s=" & quoted form of script_filespec & ""
+                      write text "o=" & quoted form of output_filespec & ""
+                      write text "cd " & quoted form of home & ""
+                      write text "echo -ne \"\\033]; " & title & " \\007\""
+                      write text "\"$s\" 2>&1 | tee -a \"$o\""
+                  end tell
+              end tell
+          end tell
+      end run'
   :description: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format
@@ -1049,8 +1042,8 @@
   :opt_name: select_by_shell_regex
   :procname: val_as_str
 
-- :default: 36
-  :description: 'Maximum # of rows in select list'
+- :default: 0
+  :description: 'Maximum # of rows in select list. Detects current limit if not specified.'
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int
