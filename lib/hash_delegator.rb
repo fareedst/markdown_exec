@@ -8,8 +8,10 @@ require 'clipboard'
 require 'fileutils'
 require 'open3'
 require 'optparse'
+require 'ostruct'
 require 'set'
 require 'shellwords'
+require 'tempfile'
 require 'tmpdir'
 require 'tty-prompt'
 require 'yaml'
@@ -1142,6 +1144,8 @@ module MarkdownExec
 
     def link_block_data_eval(link_state, code_lines, selected, link_block_data, block_source:)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
+      cmd = "#{@delegate_object[:shell]} #{file.path}"
+      output_lines = []
 
       Tempfile.open do |file|
         file.write(all_code.join("\n"))
@@ -1149,11 +1153,8 @@ module MarkdownExec
 
         if link_block_data.fetch(LinkKeys::Exec, false)
           @run_state.files = Hash.new([])
-          output_lines = []
 
-          Open3.popen3(
-            "#{@delegate_object[:shell]} #{file.path}"
-          ) do |stdin, stdout, stderr, _exec_thr|
+          Open3.popen3(cmd) do |stdin, stdout, stderr, _exec_thr|
             handle_stream(stream: stdout, file_type: ExecutionStreams::StdOut) do |line|
               output_lines.push(line)
             end
@@ -1181,7 +1182,7 @@ module MarkdownExec
           )
 
         else
-          output_lines = `#{@delegate_object[:shell]} #{file.path}`.split("\n")
+          output_lines = `#{cmd}`.split("\n")
         end
       end
 

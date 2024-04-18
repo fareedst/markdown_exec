@@ -34,8 +34,8 @@ class InputSequencer
       prior_block_was_link: next_state.prior_block_was_link.nil? ? current.prior_block_was_link : next_state.prior_block_was_link
     )
   rescue
-    pp backtrace
-    binding.irb
+    pp $!, $@
+    exit 1
   end
 
   # Generates the next menu state based on provided attributes.
@@ -119,8 +119,8 @@ class InputSequencer
       now_menu = InputSequencer.merge_link_state(now_menu, next_menu)
     end
   rescue
-    pp backtrace
-    binding.irb
+    pp $!, $@
+    exit 1
   end
 end
 
