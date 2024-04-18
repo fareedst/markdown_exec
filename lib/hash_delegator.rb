@@ -1144,10 +1144,10 @@ module MarkdownExec
 
     def link_block_data_eval(link_state, code_lines, selected, link_block_data, block_source:)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
-      cmd = "#{@delegate_object[:shell]} #{file.path}"
       output_lines = []
 
       Tempfile.open do |file|
+        cmd = "#{@delegate_object[:shell]} #{file.path}"
         file.write(all_code.join("\n"))
         file.rewind
 
