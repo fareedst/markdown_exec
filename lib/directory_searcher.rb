@@ -110,7 +110,7 @@ class DirectorySearcher
 
   # Searches for the pattern in directory names.
   # @return [Array<String>] List of matching directory names.
-  def search_in_directory_names
+  def find_directory_names
     match_dirs = []
     @paths.each do |path|
       Find.find(path) do |p|
@@ -123,7 +123,7 @@ class DirectorySearcher
 
   # Searches for the pattern in file names.
   # @return [Array<String>] List of matching file names.
-  def search_in_file_names
+  def find_file_names
     match_files = []
     @paths.each do |path|
       Find.find(path) do |p|
@@ -147,7 +147,7 @@ class DirectorySearcher
 
   # Searches for the pattern in the contents of the files and returns matches along with their file paths and line numbers.
   # @return [Hash] A hash where each key is a file path and each value is an array of hashes with :line_number and :line keys.
-  def search_in_file_contents
+  def find_file_contents
     match_details = {}
 
     @paths.each do |path|
@@ -178,7 +178,7 @@ class DirectorySearcher
 
   # # Searches for the pattern in the contents of the files.
   # # @return [Array<String>] List of matching lines from files.
-  # def search_in_file_contents
+  # def find_file_contents
   #   match_lines = []
   #   @paths.each do |path|
   #     Find.find(path) do |p|
@@ -219,22 +219,22 @@ if $PROGRAM_NAME == __FILE__
       @searcher = DirectorySearcher.new(@pattern, @paths)
     end
 
-    # Test search_in_directory_names method
-    def test_search_in_directory_names
+    # Test find_directory_names method
+    def test_find_directory_names
       # Add assertions based on your test directory structure and expected results
-      assert_equal [], @searcher.search_in_directory_names
+      assert_equal [], @searcher.find_directory_names
     end
 
-    # Test search_in_file_names method
-    def test_search_in_file_names
+    # Test find_file_names method
+    def test_find_file_names
       # Add assertions based on your test directory structure and expected results
-      assert_equal [], @searcher.search_in_file_names
+      assert_equal [], @searcher.find_file_names
     end
 
-    # Test search_in_file_contents method
-    def test_search_in_file_contents
+    # Test find_file_contents method
+    def test_find_file_contents
       # Add assertions based on your test directory structure and expected results
-      assert_equal ({}), @searcher.search_in_file_contents
+      assert_equal ({}), @searcher.find_file_contents
     end
   end
 
@@ -249,26 +249,26 @@ if $PROGRAM_NAME == __FILE__
                                              filename_glob: @filename_glob)
     end
 
-    # Test search_in_directory_names method for 'spec'
-    def test_search_in_directory_names_for_spec
+    # Test find_directory_names method for 'spec'
+    def test_find_directory_names_for_spec
       # Replace with actual expected directory names containing 'spec'
       expected_dirs = ['./spec']
-      assert_equal expected_dirs, @searcher_spec.search_in_directory_names
+      assert_equal expected_dirs, @searcher_spec.find_directory_names
     end
 
-    # Test search_in_file_names method for 'spec'
-    def test_search_in_file_names_for_spec
+    # Test find_file_names method for 'spec'
+    def test_find_file_names_for_spec
       # Replace with actual expected file names containing 'spec'
       expected_files = ['./spec/cli_spec.rb', './spec/env_spec.rb',
                         './spec/markdown_exec_spec.rb', './spec/tap_spec.rb']
-      assert_equal expected_files, @searcher_spec.search_in_file_names
+      assert_equal expected_files, @searcher_spec.find_file_names
     end
 
-    # # Test search_in_file_contents method for 'spec'
-    # def test_search_in_file_contents_for_spec
+    # # Test find_file_contents method for 'spec'
+    # def test_find_file_contents_for_spec
     #   # Replace with actual expected lines containing 'spec'
     #   expected_lines = {['Line with spec 1', 'Line with spec 2']}
-    #   assert_equal expected_lines, @searcher_spec.search_in_file_contents
+    #   assert_equal expected_lines, @searcher_spec.find_file_contents
     # end
   end
 

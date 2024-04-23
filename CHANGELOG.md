@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.4] - 2024-04-22
+
+### Added
+
+- Option to match and open directories and files.
+
 ## [2.0.3] - 2024-04-15
 
 ### Added

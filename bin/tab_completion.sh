@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "2.0.3.2"
+  echo "2.0.4"
 }
 
 _mde() {
@@ -66,6 +66,10 @@ _mde() {
             
               --list-count) COMPREPLY="32"; return 0 ;;
             
+              --open) COMPREPLY="''"; return 0 ;;
+            
+              -o) COMPREPLY="''"; return 0 ;;
+            
               --output-execution-summary) COMPREPLY="0"; return 0 ;;
             
               --output-script) COMPREPLY="0"; return 0 ;;
@@ -98,7 +102,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-dump-delegate-object" "--dump-blocks-in-file" "--dump-dump-inherited-block_names" "--dump-dump-inherited-dependencies" "--dump-dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-dump-delegate-object" "--dump-blocks-in-file" "--dump-dump-inherited-block_names" "--dump-dump-inherited-dependencies" "--dump-dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--open" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -151,6 +155,10 @@ _mde() {
         
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
+          --open) COMPREPLY=".OPEN."; return 0 ;;
+        
+          -o) COMPREPLY=".OPEN."; return 0 ;;
+        
           --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
         
           --output-script) COMPREPLY=".BOOL."; return 0 ;;
@@ -186,4 +194,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2024-04-18 00:23:25 UTC"
+# echo "Updated: 2024-04-23 01:23:13 UTC"

@@ -3,8 +3,8 @@
 
 # encoding=utf-8
 
-require 'English'
 require 'clipboard'
+require 'English'
 require 'fileutils'
 require 'open3'
 require 'optparse'
@@ -22,7 +22,6 @@ require_relative 'block_label'
 require_relative 'block_types'
 require_relative 'cached_nested_file_reader'
 require_relative 'constants'
-require_relative 'std_out_err_logger'
 require_relative 'directory_searcher'
 require_relative 'exceptions'
 require_relative 'fcb'
@@ -32,6 +31,7 @@ require_relative 'hash'
 require_relative 'link_history'
 require_relative 'mdoc'
 require_relative 'regexp'
+require_relative 'std_out_err_logger'
 require_relative 'string_util'
 
 class String
@@ -363,6 +363,23 @@ module PathUtils
       expression.gsub('*', path)
     end
   end
+end
+
+class BashCommentFormatter
+  # Formats a multi-line string into a format safe for use in Bash comments.
+  def self.format_comment(input_string)
+    return '# ' if input_string.nil?
+    return '# ' if input_string.empty?
+
+    formatted = input_string.split("\n").map do |line|
+      "# #{line.gsub('#', '\#')}"
+    end
+    formatted.join("\n")
+  end
+  # # fit oname in single bash comment
+  # def oname_for_bash_comment(oname)
+  #   oname.gsub("\n", ' ~ ').gsub(/  +/, ' ')
+  # end
 end
 
 module MarkdownExec
@@ -1730,7 +1747,7 @@ module MarkdownExec
       # load key and values from link block into current environment
       #
       if link_block_data[LinkKeys::Vars]
-        code_lines.push "# #{selected[:oname]}"
+        code_lines.push BashCommentFormatter.format_comment(selected[:oname])
         (link_block_data[LinkKeys::Vars] || []).each do |(key, value)|
           ENV[key] = value.to_s
           code_lines.push(assign_key_value_in_bash(key, value))
@@ -1881,9 +1898,9 @@ module MarkdownExec
               debounce_reset
               link_state = LinkState.new
               options_state = read_show_options_and_trigger_reuse(
-                                selected: @dml_block_state.block,
-                                link_state: link_state
-                              )
+                selected: @dml_block_state.block,
+                link_state: link_state
+              )
 
               @menu_base_options.merge!(options_state.options)
               @delegate_object.merge!(options_state.options)
@@ -2077,15 +2094,25 @@ module MarkdownExec
 
     # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
     def select_option_with_metadata(prompt_text, names, opts = {})
+
+      ## configure to environment
+      #
+      unless opts[:select_page_height].positive?
+        require 'io/console'
+        opts[:per_page] = opts[:select_page_height] = [IO.console.winsize[0] - 3, 4].max
+      end
+
       selection = @prompt.select(prompt_text,
                                  names,
                                  opts.merge(filter: true))
-
-      item = if names.first.instance_of?(String)
-               { dname: selection }
-             else
-               names.find { |item| item[:dname] == selection }
-             end
+      item = names.find do |item|
+        if item.instance_of?(String)
+          item == selection
+        else
+          item[:dname] == selection
+        end
+      end
+      item = { dname: item } if item.instance_of?(String)
       unless item
         HashDelegator.error_handler('select_option_with_metadata', error: 'menu item not found')
         exit 1
@@ -2292,10 +2319,6 @@ module MarkdownExec
                        end
 
       sph = @delegate_object[:select_page_height]
-      unless sph.positive?
-        require 'io/console'
-        sph = [IO.console.winsize[0] - 3, 4].max
-      end
       selection_opts.merge!(per_page: sph)
 
       selected_option = select_option_with_metadata(prompt_title, block_menu,
@@ -2361,9 +2384,9 @@ module MarkdownExec
         clean_hash_recursively(value)
       when Struct
         struct_hash = value.to_h # Convert the Struct to a hash
-        cleaned_hash = clean_hash_recursively(struct_hash) # Clean the hash
+        clean_hash_recursively(struct_hash) # Clean the hash
         # Return the cleaned hash instead of updating the Struct
-        return cleaned_hash
+
       else
         value
       end
@@ -2376,9 +2399,7 @@ module MarkdownExec
         obj[key] = cleaned_value if value.is_a?(Hash) || value.is_a?(Struct)
       end
 
-      if obj.is_a?(Hash)
-        obj.select! { |key, value| ![nil, '', [], {}, nil].include?(value) }
-      end
+      obj.reject! { |_key, value| [nil, '', [], {}, nil].include?(value) } if obj.is_a?(Hash)
 
       obj
     end
@@ -2397,7 +2418,42 @@ Bundler.require(:default)
 require 'minitest/autorun'
 require 'mocha/minitest'
 
-require_relative 'std_out_err_logger'
+class BashCommentFormatterTest < Minitest::Test
+  # Test formatting a normal string without special characters
+  def test_format_simple_string
+    input = 'This is a simple comment.'
+    expected = '# This is a simple comment.'
+    assert_equal expected, BashCommentFormatter.format_comment(input)
+  end
+
+  # Test formatting a string containing hash characters
+  def test_format_string_with_hash
+    input = 'This is a #comment with hash.'
+    expected = '# This is a \\#comment with hash.'
+    assert_equal expected, BashCommentFormatter.format_comment(input)
+  end
+
+  # Test formatting an empty string
+  def test_format_empty_string
+    input = ''
+    expected = '# '
+    assert_equal expected, BashCommentFormatter.format_comment(input)
+  end
+
+  # Test formatting a multi-line string
+  def test_format_multi_line_string
+    input = "This is the first line.\nThis is the second line."
+    expected = "# This is the first line.\n# This is the second line."
+    assert_equal expected, BashCommentFormatter.format_comment(input)
+  end
+
+  # Test formatting strings with leading and trailing whitespace
+  def test_format_whitespace
+    input = '  This has leading and trailing spaces  '
+    expected = '#   This has leading and trailing spaces  '
+    assert_equal expected, BashCommentFormatter.format_comment(input)
+  end
+end
 
 module MarkdownExec
   class TestHashDelegator0 < Minitest::Test
@@ -3253,31 +3309,37 @@ module MarkdownExec
 
   class PathUtilsTest < Minitest::Test
     def test_absolute_path_returns_unchanged
-      absolute_path = "/usr/local/bin"
-      expression = "path/to/*/directory"
+      absolute_path = '/usr/local/bin'
+      expression = 'path/to/*/directory'
       assert_equal absolute_path, PathUtils.resolve_path_or_substitute(absolute_path, expression)
     end
 
     def test_relative_path_gets_substituted
-      relative_path = "my_folder"
-      expression = "path/to/*/directory"
-      expected_output = "path/to/my_folder/directory"
+      relative_path = 'my_folder'
+      expression = 'path/to/*/directory'
+      expected_output = 'path/to/my_folder/directory'
       assert_equal expected_output, PathUtils.resolve_path_or_substitute(relative_path, expression)
     end
 
     def test_path_with_no_slash_substitutes_correctly
-      relative_path = "data"
-      expression = "path/to/*/directory"
-      expected_output = "path/to/data/directory"
+      relative_path = 'data'
+      expression = 'path/to/*/directory'
+      expected_output = 'path/to/data/directory'
       assert_equal expected_output, PathUtils.resolve_path_or_substitute(relative_path, expression)
     end
 
     def test_empty_path_substitution
-      empty_path = ""
-      expression = "path/to/*/directory"
-      expected_output = "path/to//directory"
+      empty_path = ''
+      expression = 'path/to/*/directory'
+      expected_output = 'path/to//directory'
       assert_equal expected_output, PathUtils.resolve_path_or_substitute(empty_path, expression)
     end
-  end
 
+    # Test formatting a string containing UTF-8 characters
+    def test_format_utf8_characters
+      input = 'Unicode test: ā, ö, 💻, and 🚀 are fun!'
+      expected = '# Unicode test: ā, ö, 💻, and 🚀 are fun!'
+      assert_equal expected, BashCommentFormatter.format_comment(input)
+    end
+  end
 end # module MarkdownExec

@@ -23,6 +23,7 @@ require_relative 'env'
 require_relative 'exceptions'
 require_relative 'fcb'
 require_relative 'filter'
+require_relative 'find_files'
 require_relative 'fout'
 require_relative 'hash_delegator'
 require_relative 'input_sequencer'
@@ -101,6 +102,45 @@ end
 #
 module MarkdownExec
   include Exceptions
+
+  class SearchResultsReport < DirectorySearcher
+    def directory_names(search_options, highlight_value)
+      matched_directories = find_directory_names
+      {
+        section_title: 'directory names',
+        data: matched_directories,
+        formatted_text: [{ content: AnsiFormatter.new(search_options).format_and_highlight_array(matched_directories, highlight: [highlight_value]) }]
+      }
+    end
+
+    def file_contents(search_options, highlight_value)
+      matched_contents = find_file_contents.map.with_index do |(file, contents), index|
+        [file, contents.map { |detail| format('=%4.d: %s', detail.index, detail.line) }, index]
+      end
+      {
+        section_title: 'file contents',
+        data: matched_contents.map(&:first),
+        formatted_text: matched_contents.map do |(file, details, index)|
+                { header: format('- %3.d: %s', index + 1, file),
+                  content: AnsiFormatter.new(search_options).format_and_highlight_array(
+                    details,
+                    highlight: [highlight_value]
+                  ) }
+              end
+      }
+    end
+
+    def file_names(search_options, highlight_value)
+      matched_files = find_file_names
+      {
+        section_title: 'file names',
+        data: matched_files,
+        formatted_text: [{ content: AnsiFormatter.new(search_options).format_and_highlight_array(
+          matched_files, highlight: [highlight_value]
+        ).join("\n") }]
+      }
+    end
+  end
 
   ##
   #
@@ -286,6 +326,8 @@ module MarkdownExec
           @options[:path] = pos
         elsif File.exist?(pos)
           @options[:filename] = pos
+        elsif @options[:default_find_select_open]
+          find_value(pos, execute_chosen_found: true)
         else
           raise FileMissingError, pos, caller
         end
@@ -301,6 +343,47 @@ module MarkdownExec
       exit 1
     rescue StandardError
       error_handler('finalize_cli_argument_processing')
+    end
+
+    # return { exit: true } to cause app to exit
+    def find_value(value, execute_chosen_found: false)
+      find_path = @options[:find_path].present? ? @options[:find_path] : @options[:path]
+      @fout.fout 'Searching in: ' \
+                 "#{HashDelegator.new(@options).string_send_color(find_path,
+                                                                  :menu_chrome_color)}"
+      searcher = SearchResultsReport.new(value, [find_path])
+      file_names = searcher.file_names(options, value)
+      file_contents = searcher.file_contents(options, value)
+      directory_names = searcher.directory_names(options, value)
+
+      ### search in file contents (block names, chrome, or text)
+      [file_contents,
+       directory_names,
+       file_names].each do |data|
+        @fout.fout "In #{data[:section_title]}" if data[:section_title]
+        next unless data[:formatted_text]
+
+        data[:formatted_text].each do |fi|
+          @fout.fout fi[:header] if fi[:header]
+          @fout.fout fi[:content] if fi[:content]
+        end
+      end
+      return { exit: true } unless execute_chosen_found
+
+      ## pick a document to open
+      #
+      files = directory_names[:data].map do |dn|
+        find_files('*', [dn], exclude_dirs: true)
+      end.flatten(1)
+      choices = \
+       [{ disabled: '', name: "in #{file_names[:section_title]}".cyan }] \
+       + file_names[:data] \
+       + [{ disabled: '', name: "in #{directory_names[:section_title]}".cyan }] \
+       + files \
+       + [{ disabled: '', name: "in #{file_contents[:section_title]}".cyan }] \
+       + file_contents[:data]
+      @options[:filename] = select_document_if_multiple(choices)
+      { exit: false }
     end
 
     ## Sets up the options and returns the parsed arguments
@@ -344,35 +427,9 @@ module MarkdownExec
         ->(value) { tap_config value: value }
       when 'exit'
         ->(_) { exit }
-      when 'find'
+      when 'find', 'open'
         ->(value) {
-          find_path = @options[:find_path].present? ? @options[:find_path] : @options[:path]
-          @fout.fout 'Searching in: ' \
-                     "#{HashDelegator.new(@options).string_send_color(find_path,
-                                                                      :menu_chrome_color)}"
-          searcher = DirectorySearcher.new(value, [find_path])
-
-          @fout.fout 'In file contents'
-          hash = searcher.search_in_file_contents
-          hash.each.with_index do |(key, v2), i1|
-            @fout.fout format('- %3.d: %s', i1 + 1, key)
-            @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
-              v2.map { |nl| format('=%4.d: %s', nl.index, nl.line) },
-              highlight: [value]
-            )
-          end
-
-          @fout.fout 'In directory names'
-          @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
-            searcher.search_in_directory_names, highlight: [value]
-          )
-
-          @fout.fout 'In file names'
-          @fout.fout AnsiFormatter.new(options).format_and_highlight_array(
-            searcher.search_in_file_names, highlight: [value]
-          ).join("\n")
-
-          exit
+          exit if find_value(value, execute_chosen_found: procname == 'open').fetch(:exit, false)
         }
       when 'help'
         ->(_) {
@@ -578,7 +635,7 @@ module MarkdownExec
     def select_option_or_exit(prompt_text, strings, opts = {})
       result = @options.select_option_with_metadata(prompt_text, strings,
                                                     opts)
-      return unless result.fetch(:option, nil)
+      # return unless result.fetch(:option, nil)
 
       result[:selected]
     end

@@ -9,7 +9,29 @@ user_must_approve: false
 block: (display_variable)
 eval: true
 ```
-
+Block name with all chars.
+/ !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+/ ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ
+```link :!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+file: examples/linked2.md
+block: show_vars
+vars:
+  page2_var_via_environment: for_page2_from_page1_via_current_environment
+```
+```link :¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ
+file: examples/linked2.md
+block: show_vars
+vars:
+  page2_var_via_environment: for_page2_from_page1_via_current_environment
+```
+Block with no title is displayed correctly in a single line (for a Bash comment).
+```link
+file: examples/linked2.md
+block: show_vars
+vars:
+  page2_var_via_environment: for_page2_from_page1_via_current_environment
+```
+Spaces in variable value are unchanged.
 ```link :link_with_vars_with_spaces
 vars:
   test: "1 2 3"
@@ -124,11 +146,9 @@ load: examples/fail*
 ```link :load_glob_with_format
 load: "%{home}/examples/load*.sh"
 ```
-
 ```link :save_glob_load*
 save: examples/*.sh
 ```
-
 ```link :save_glob_*
 save: examples/*.sh
 ```

@@ -4,25 +4,29 @@
 # encoding=utf-8
 # version 2024-01-15
 
-# Finds files matching a given pattern within specified directory paths.
+# Finds files matching a given pattern within specified directory paths while optionally excluding
+# "." and ".." entries and directory names from the results.
 #
-# The function takes a pattern (filename or pattern with wildcards) and an array of paths.
+# The function takes a pattern (filename or pattern with wildcards), an array of paths, and an
+# option to exclude directory entries and special entries "." and "..".
 # It searches for files matching the pattern within each of the specified paths. Hidden files
-# are also included in the search. The search can include subdirectories depending on the
+# are included in the search. The search can include subdirectories depending on the
 # path specification (e.g., 'dir/**' for recursive search).
 #
 # Args:
 #   pattern (String): A filename or a pattern string with wildcards.
 #   paths (Array<String>): An array of directory paths where the search will be performed.
 #     Paths can include wildcards for recursive search.
+#   exclude_dirs (Boolean): If true, excludes "." and ".." and directory names from the results.
 #
 # Returns:
-#   Array<String>: A unique list of file paths that match the given pattern in the specified paths.
+#   Array<String>: A unique list of file paths that match the given pattern in the specified paths,
+#   excluding directories if exclude_dirs is true.
 #
 # Example:
-#   find_files('version.rb', ['lib/**', 'spec'])
+#   find_files('version.rb', ['lib/**', 'spec'], true)
 #   # This might return file paths like ['lib/markdown_exec/version.rb', 'spec/version_spec.rb'].
-def find_files(pattern, paths = ['', Dir.pwd])
+def find_files(pattern, paths = ['', Dir.pwd], exclude_dirs: false)
   matched_files = []
 
   paths.each do |path_with_wildcard|
@@ -30,7 +34,14 @@ def find_files(pattern, paths = ['', Dir.pwd])
     search_pattern = File.join(path_with_wildcard, pattern)
 
     # Use Dir.glob with the File::FNM_DOTMATCH flag to include hidden files
-    matched_files += Dir.glob(search_pattern, File::FNM_DOTMATCH)
+    files = Dir.glob(search_pattern, File::FNM_DOTMATCH)
+
+    # Optionally exclude "." and ".." and directory names
+    if exclude_dirs
+      files.reject! { |file| file.end_with?('/.', '/..') || File.directory?(file) }
+    end
+
+    matched_files += files
   end
 
   matched_files.uniq
