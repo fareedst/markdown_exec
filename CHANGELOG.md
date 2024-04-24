@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.5] - 2024-04-24
+
+### Changed
+
+- Open option: Search for keyword in block names instead of entire document.
+
 ## [2.0.4] - 2024-04-22
 
 ### Added

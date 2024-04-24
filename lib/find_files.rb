@@ -37,9 +37,7 @@ def find_files(pattern, paths = ['', Dir.pwd], exclude_dirs: false)
     files = Dir.glob(search_pattern, File::FNM_DOTMATCH)
 
     # Optionally exclude "." and ".." and directory names
-    if exclude_dirs
-      files.reject! { |file| file.end_with?('/.', '/..') || File.directory?(file) }
-    end
+    files.reject! { |file| file.end_with?('/.', '/..') || File.directory?(file) } if exclude_dirs
 
     matched_files += files
   end

@@ -79,6 +79,9 @@ Style/MixinUsage:
 Style/MultilineBlockChain:
   Enabled: false
 
+Style/OpenStructUse:
+  Enabled: false
+
 Style/PerlBackrefs: # Prefer ::Regexp.last_match.post_match over $'.
   Enabled: false
 

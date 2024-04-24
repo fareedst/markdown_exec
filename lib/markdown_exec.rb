@@ -9,6 +9,7 @@ require 'fileutils'
 require 'open3'
 require 'optparse'
 require 'shellwords'
+require 'time'
 require 'tmpdir'
 require 'tty-prompt'
 require 'yaml'
@@ -103,6 +104,79 @@ end
 module MarkdownExec
   include Exceptions
 
+  class FileInMenu
+    # Prepends the age of the file in days to the file name for display in a menu.
+    # @param filename [String] the name of the file
+    # @return [String] modified file name with age prepended
+    def self.for_menu(filename)
+      file_age = (Time.now - File.mtime(filename)) / (60 * 60 * 24 * 30)
+
+      "  #{Histogram.display(file_age, 0, 11, 12, inverse: false)}: #{filename}"
+    end
+
+    # Removes the age from the string to retrieve the original file name.
+    # @param filename_with_age [String] the modified file name with age
+    # @return [String] the original file name
+    def self.from_menu(filename_with_age)
+      filename_with_age.split(': ', 2).last
+    end
+  end
+
+  # A class that generates a histogram bar in terminal using xterm-256 color codes.
+  class Histogram
+    # Generates and prints a histogram bar for a given value within a specified range and width, with an option for inverse display.
+    # @param integer_value [Integer] the value to represent in the histogram
+    # @param min [Integer] the minimum value of the range
+    # @param max [Integer] the maximum value of the range
+    # @param width [Integer] the total width of the histogram in characters
+    # @param inverse [Boolean] whether the histogram is displayed in inverse order (right to left)
+    def self.display(integer_value, min, max, width, inverse: false)
+      return if max <= min # Ensure the range is valid
+
+      # Normalize the value within the range 0 to 1
+      normalized_value = [0, [(integer_value - min).to_f / (max - min), 1].min].max
+
+      # Calculate how many characters should be filled
+      filled_length = (normalized_value * width).round
+
+      # # Generate the histogram bar using xterm-256 colors (color code 42 is green)
+      # filled_bar = "\e[48;5;42m" + ' ' * filled_length + "\e[0m"
+      filled_bar = ('¤' * filled_length).fg_rgbh_AF_AF_00
+      empty_bar = ' ' * (width - filled_length)
+
+      # Determine the order of filled and empty parts based on the inverse flag
+      inverse ? (empty_bar + filled_bar) : (filled_bar + empty_bar)
+    end
+  end
+
+  class MenuBuilder
+    def initialize
+      @chrome_color = :cyan
+      @o_color = :red
+    end
+
+    def build_menu(file_names, directory_names, found_in_block_names, files_in_directories, vbn)
+      choices = []
+
+      # Adding section title and data for file names
+      choices << { disabled: '', name: "in #{file_names[:section_title]}".send(@chrome_color) }
+      choices += file_names[:data].map { |str| FileInMenu.for_menu(str) }
+
+      # Conditionally add directory names if data is present
+      unless directory_names[:data].count.zero?
+        choices << { disabled: '', name: "in #{directory_names[:section_title]}".send(@chrome_color) }
+        choices += files_in_directories
+      end
+
+      # Adding found in block names
+      choices << { disabled: '', name: "in #{found_in_block_names[:section_title]}".send(@chrome_color) }
+
+      choices += vbn
+
+      choices
+    end
+  end
+
   class SearchResultsReport < DirectorySearcher
     def directory_names(search_options, highlight_value)
       matched_directories = find_directory_names
@@ -113,20 +187,24 @@ module MarkdownExec
       }
     end
 
-    def file_contents(search_options, highlight_value)
-      matched_contents = find_file_contents.map.with_index do |(file, contents), index|
-        [file, contents.map { |detail| format('=%4.d: %s', detail.index, detail.line) }, index]
+    def found_in_block_names(search_options, highlight_value, formspec: '=%<index>4.d: %<line>s')
+      matched_contents = (find_file_contents do |line|
+                            read_block_name(line, search_options[:fenced_start_and_end_regex], search_options[:block_name_match], search_options[:block_name_nick_match])
+                          end).map.with_index do |(file, contents), index|
+        # [file, contents.map { |detail| format(formspec, detail.index, detail.line) }, index]
+        [file, contents.map { |detail| format(formspec, { index: detail.index, line: detail.line }) }, index]
       end
       {
-        section_title: 'file contents',
+        section_title: 'block names',
         data: matched_contents.map(&:first),
         formatted_text: matched_contents.map do |(file, details, index)|
-                { header: format('- %3.d: %s', index + 1, file),
-                  content: AnsiFormatter.new(search_options).format_and_highlight_array(
-                    details,
-                    highlight: [highlight_value]
-                  ) }
-              end
+                          { header: format('- %3.d: %s', index + 1, file),
+                            content: AnsiFormatter.new(search_options).format_and_highlight_array(
+                              details,
+                              highlight: [highlight_value]
+                            ) }
+                        end,
+        matched_contents: matched_contents
       }
     end
 
@@ -139,6 +217,21 @@ module MarkdownExec
           matched_files, highlight: [highlight_value]
         ).join("\n") }]
       }
+    end
+
+    def read_block_name(line, fenced_start_and_end_regex, block_name_match, block_name_nick_match)
+      return unless line.match(fenced_start_and_end_regex)
+
+      bm = extract_named_captures_from_option(line, block_name_match)
+      return if bm.nil?
+
+      name = bm[:title]
+
+      if block_name_nick_match.present? && line =~ Regexp.new(block_name_nick_match)
+        $~[0]
+      else
+        bm && bm[1] ? bm[:title] : name
+      end
     end
   end
 
@@ -353,16 +446,17 @@ module MarkdownExec
                                                                   :menu_chrome_color)}"
       searcher = SearchResultsReport.new(value, [find_path])
       file_names = searcher.file_names(options, value)
-      file_contents = searcher.file_contents(options, value)
+      found_in_block_names = searcher.found_in_block_names(options, value, formspec: '%<line>s')
       directory_names = searcher.directory_names(options, value)
 
       ### search in file contents (block names, chrome, or text)
-      [file_contents,
+      [found_in_block_names,
        directory_names,
        file_names].each do |data|
-        @fout.fout "In #{data[:section_title]}" if data[:section_title]
+        next if data[:data].count.zero?
         next unless data[:formatted_text]
 
+        @fout.fout "In #{data[:section_title]}" if data[:section_title]
         data[:formatted_text].each do |fi|
           @fout.fout fi[:header] if fi[:header]
           @fout.fout fi[:content] if fi[:content]
@@ -372,17 +466,29 @@ module MarkdownExec
 
       ## pick a document to open
       #
-      files = directory_names[:data].map do |dn|
+      files_in_directories = directory_names[:data].map do |dn|
         find_files('*', [dn], exclude_dirs: true)
-      end.flatten(1)
-      choices = \
-       [{ disabled: '', name: "in #{file_names[:section_title]}".cyan }] \
-       + file_names[:data] \
-       + [{ disabled: '', name: "in #{directory_names[:section_title]}".cyan }] \
-       + files \
-       + [{ disabled: '', name: "in #{file_contents[:section_title]}".cyan }] \
-       + file_contents[:data]
-      @options[:filename] = select_document_if_multiple(choices)
+      end.flatten(1).map { |str| FileInMenu.for_menu(str) }
+
+      return { exit: true } unless file_names[:data]&.count.positive? || files_in_directories&.count.positive? || found_in_block_names[:data]&.count.positive?
+
+      vbn = found_in_block_names[:matched_contents].map do |matched_contents|
+        filename, details, = matched_contents
+        nexo = AnsiFormatter.new(@options).format_and_highlight_array(
+          details,
+          highlight: [value]
+        )
+        [FileInMenu.for_menu(filename)] + nexo.map { |str| { disabled: '', name: (' ' * 20) + str } }
+      end.flatten
+
+      choices = MenuBuilder.new.build_menu(file_names, directory_names, found_in_block_names, files_in_directories, vbn)
+
+      @options[:filename] = FileInMenu.from_menu(
+        select_document_if_multiple(
+          choices,
+          prompt: options[:prompt_select_md].to_s + ' ¤ Age in months'.fg_rgbh_AF_AF_00
+        )
+      )
       { exit: false }
     end
 
@@ -610,9 +716,7 @@ module MarkdownExec
     end
 
     def saved_name_split(name)
-      # rubocop:disable Layout/LineLength
       mf = /#{@options[:saved_script_filename_prefix]}_(?<time>[0-9\-]+)_(?<file>.+)_,_(?<block>.+)\.sh/.match(name)
-      # rubocop:enable Layout/LineLength
       return unless mf
 
       @options[:block_name] = mf[:block]
@@ -620,13 +724,13 @@ module MarkdownExec
                                            @options[:saved_filename_replacement])
     end
 
-    def select_document_if_multiple(files = list_markdown_files_in_path)
+    def select_document_if_multiple(files = list_markdown_files_in_path, prompt: options[:prompt_select_md].to_s)
       return files[0] if (count = files.count) == 1
 
       return unless count >= 2
 
       opts = options.dup
-      select_option_or_exit(HashDelegator.new(@options).string_send_color(opts[:prompt_select_md].to_s, :prompt_color_after_script_execution),
+      select_option_or_exit(HashDelegator.new(@options).string_send_color(prompt, :prompt_color_after_script_execution),
                             files,
                             opts.merge(per_page: opts[:select_page_height]))
     end

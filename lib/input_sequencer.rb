@@ -19,7 +19,7 @@ class InputSequencer
     @document_filename = document_filename
     @current_block = nil
     @block_queue = initial_blocks
-    @debug = Env::env_bool('INPUT_SEQUENCER_DEBUG', default: false) ### false e
+    @debug = Env.env_bool('INPUT_SEQUENCER_DEBUG', default: false)
   end
 
   # Merges the current menu state with the next, prioritizing the next state's values.
@@ -33,9 +33,11 @@ class InputSequencer
       inherited_lines: next_state.inherited_lines,
       prior_block_was_link: next_state.prior_block_was_link.nil? ? current.prior_block_was_link : next_state.prior_block_was_link
     )
+  # rubocop:disable Style/RescueStandardError
   rescue
     pp $!, $@
     exit 1
+    # rubocop:enable Style/RescueStandardError
   end
 
   # Generates the next menu state based on provided attributes.
@@ -69,7 +71,6 @@ class InputSequencer
     loop do
       break if run_yield(:parse_document, now_menu.document_filename, &block) == :break
 
-      pp [__LINE__, 'exit_when_bq_empty', exit_when_bq_empty, '@block_queue', @block_queue, 'now_menu', now_menu] if @debug
       # self.imw_ins now_menu, 'now_menu'
 
       break if exit_when_bq_empty && bq_is_empty? && !now_menu.prior_block_was_link
@@ -81,14 +82,13 @@ class InputSequencer
         choice = run_yield :user_choice, &block
 
         if choice.nil?
-          raise "Block not recognized."
+          raise 'Block not recognized.'
           break
         end
         break if run_yield(:exit?, choice&.downcase, &block) # Exit loop and method to terminate the app
 
         next_state = run_yield :execute_block, choice, &block
         # imw_ins next_state, 'next_state'
-        pp [__LINE__, 'next_state', next_state] if @debug
         return :break if next_state == :break
 
         next_menu = next_state
@@ -102,7 +102,6 @@ class InputSequencer
           block_name = @block_queue.shift
         end
         # self.imw_ins block_name, 'block_name'
-        pp [__LINE__, 'block_name', block_name] if @debug
 
         next_menu = if block_name == '.'
                       exit_when_bq_empty = false
@@ -112,15 +111,16 @@ class InputSequencer
                       state.display_menu = bq_is_empty?
                       state
                     end
-        pp [__LINE__, 'next_menu', next_menu] if @debug
         next_menu
         # imw_ins next_menu, 'next_menu'
       end
       now_menu = InputSequencer.merge_link_state(now_menu, next_menu)
     end
+  # rubocop:disable Style/RescueStandardError
   rescue
     pp $!, $@
     exit 1
+    # rubocop:enable Style/RescueStandardError
   end
 end
 

@@ -18,8 +18,8 @@ class StdOutErrLogger < Logger
   # def initialize(file = nil)
   def initialize(file = "#{__dir__}/../tmp/hash_delegator_next_link_state.yaml")
     @file = file
-    super(file || STDOUT)
-    self.formatter = proc do |severity, datetime, progname, msg|
+    super(file || $stdout)
+    self.formatter = proc do |_severity, _datetime, _progname, msg|
       "#{msg}\n"
     end
   end
@@ -36,14 +36,12 @@ class StdOutErrLogger < Logger
       if @file
         super
       else
-        $stderr.puts(out)
+        warn(out)
       end
+    elsif @file
+      super
     else
-      if @file
-        super
-      else
-        $stdout.puts(out)
-      end
+      $stdout.puts(out)
     end
   end
 end
@@ -81,40 +79,40 @@ class StdOutErrLoggerTest < Minitest::Test
 
   def test_logging_info
     logger = StdOutErrLogger.new
-    logger.info("Info message")
+    logger.info('Info message')
     assert_equal "Info message\n", $stdout.string
     assert_empty $stderr.string
   end
 
   def test_logging_warning
     logger = StdOutErrLogger.new
-    logger.warn("Warning message")
+    logger.warn('Warning message')
     assert_empty $stdout.string
     assert_equal "Warning message\n", $stderr.string
   end
 
   def test_logging_error
     logger = StdOutErrLogger.new
-    logger.error("Error message")
+    logger.error('Error message')
     assert_empty $stdout.string
     assert_equal "Error message\n", $stderr.string
   end
 
   def test_logging_with_array
     logger = StdOutErrLogger.new
-    logger.info(["Message line 1", "Message line 2"])
+    logger.info(['Message line 1', 'Message line 2'])
     assert_equal "Message line 1\nMessage line 2\n", $stdout.string
   end
 
   def test_logging_with_block
     logger = StdOutErrLogger.new
-    logger.info { "Block message" }
+    logger.info { 'Block message' }
     assert_equal "Block message\n", $stdout.string
   end
 
   def test_logging_unknown_severity
     logger = StdOutErrLogger.new
-    logger.add(Logger::UNKNOWN, "Unknown severity message")
+    logger.add(Logger::UNKNOWN, 'Unknown severity message')
     assert_empty $stdout.string
     assert_equal "Unknown severity message\n", $stderr.string
   end

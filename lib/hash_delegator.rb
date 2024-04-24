@@ -232,12 +232,15 @@ module HashDelegatorSelf
     FileUtils.rm_f(path)
   end
 
-  # Evaluates the given string as Ruby code and rescues any StandardErrors.
+  # Evaluates the given string as Ruby code within a safe context.
   # If an error occurs, it calls the error_handler method with 'safeval'.
   # @param str [String] The string to be evaluated.
   # @return [Object] The result of evaluating the string.
   def safeval(str)
-    eval(str)
+    result = nil
+    binding.eval("result = #{str}")
+
+    result
   rescue StandardError # catches NameError, StandardError
     error_handler('safeval')
   end
@@ -1789,6 +1792,22 @@ module MarkdownExec
       end
     end
 
+    # Check if the delegate object responds to a given method.
+    # @param method_name [Symbol] The name of the method to check.
+    # @param include_private [Boolean] Whether to include private methods in the check.
+    # @return [Boolean] true if the delegate object responds to the method, false otherwise.
+    def respond_to?(method_name, include_private = false)
+      if super
+        true
+      elsif @delegate_object.respond_to?(method_name, include_private)
+        true
+      elsif method_name.to_s.end_with?('=') && @delegate_object.respond_to?(:[]=, include_private)
+        true
+      else
+        @delegate_object.respond_to?(method_name, include_private)
+      end
+    end
+
     def runtime_exception(exception_sym, name, items)
       if @delegate_object[exception_sym] != 0
         data = { name: name, detail: items.join(', ') }
@@ -2094,7 +2113,6 @@ module MarkdownExec
 
     # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
     def select_option_with_metadata(prompt_text, names, opts = {})
-
       ## configure to environment
       #
       unless opts[:select_page_height].positive?
@@ -2102,14 +2120,15 @@ module MarkdownExec
         opts[:per_page] = opts[:select_page_height] = [IO.console.winsize[0] - 3, 4].max
       end
 
+      # crashes if all menu options are disabled
       selection = @prompt.select(prompt_text,
                                  names,
                                  opts.merge(filter: true))
       item = names.find do |item|
-        if item.instance_of?(String)
-          item == selection
-        else
+        if item.instance_of?(Hash)
           item[:dname] == selection
+        else
+          item == selection
         end
       end
       item = { dname: item } if item.instance_of?(String)

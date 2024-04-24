@@ -160,9 +160,11 @@ class DirectorySearcher
         begin
           File.foreach(p).with_index(1) do |line, line_num| # Index starts from 1 for line numbers
             line_utf8 = line.encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
-            if line_utf8.match?(@pattern)
+
+            line_utf8 = yield(line_utf8) if block_given?
+
+            if line_utf8&.match?(@pattern)
               match_details[p] ||= []
-              # match_details[p] << { number: line_num, line: line_utf8.chomp }
               match_details[p] << IndexedLine.new(line_num, line_utf8.chomp)
             end
           end
