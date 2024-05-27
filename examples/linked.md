@@ -92,6 +92,14 @@ load: examples/load2.sh
 eval: true
 ```
 
+::: Load file into inherited lines and switch document
+Load (do not evaluate) and append to inherited lines and switch document.
+```link :load_from_file_link_and_show
+block: show_vars
+file: examples/linked_show.md
+load: examples/load1.sh
+```
+
 ::: Save and Load
 Save inherited lines to a file.
 ```link :save1

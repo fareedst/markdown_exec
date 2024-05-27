@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "2.0.5"
+  echo "2.0.6"
 }
 
 _mde() {
@@ -36,15 +36,15 @@ _mde() {
             
               -d) COMPREPLY="0"; return 0 ;;
             
-              --dump-dump-delegate-object) COMPREPLY="0"; return 0 ;;
+              --dump-delegate-object) COMPREPLY="0"; return 0 ;;
             
               --dump-blocks-in-file) COMPREPLY="0"; return 0 ;;
             
-              --dump-dump-inherited-block_names) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-block_names) COMPREPLY="0"; return 0 ;;
             
-              --dump-dump-inherited-dependencies) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-dependencies) COMPREPLY="0"; return 0 ;;
             
-              --dump-dump-inherited-lines) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-lines) COMPREPLY="0"; return 0 ;;
             
               --dump-menu-blocks) COMPREPLY="0"; return 0 ;;
             
@@ -66,11 +66,11 @@ _mde() {
             
               --list-count) COMPREPLY="32"; return 0 ;;
             
+              --load-code) COMPREPLY="''"; return 0 ;;
+            
               --open) COMPREPLY="''"; return 0 ;;
             
               -o) COMPREPLY="''"; return 0 ;;
-            
-              --output-execution-summary) COMPREPLY="0"; return 0 ;;
             
               --output-script) COMPREPLY="0"; return 0 ;;
             
@@ -79,14 +79,6 @@ _mde() {
               --path) COMPREPLY="."; return 0 ;;
             
               -p) COMPREPLY="."; return 0 ;;
-            
-              --save-executed-script) COMPREPLY="0"; return 0 ;;
-            
-              --save-execution-output) COMPREPLY="0"; return 0 ;;
-            
-              --saved-script-folder) COMPREPLY="logs"; return 0 ;;
-            
-              --saved-stdout-folder) COMPREPLY="logs"; return 0 ;;
             
               --user-must-approve) COMPREPLY="0"; return 0 ;;
             
@@ -102,7 +94,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-dump-delegate-object" "--dump-blocks-in-file" "--dump-dump-inherited-block_names" "--dump-dump-inherited-dependencies" "--dump-dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--open" "--output-execution-summary" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--save-executed-script" "--save-execution-output" "--saved-script-folder" "--saved-stdout-folder" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-delegate-object" "--dump-blocks-in-file" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--select-recent-output" "--select-recent-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -125,15 +117,15 @@ _mde() {
         
           -d) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-dump-delegate-object) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-delegate-object) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-blocks-in-file) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-dump-inherited-block_names) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-inherited-block_names) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-dump-inherited-dependencies) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-inherited-dependencies) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-dump-inherited-lines) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-inherited-lines) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-menu-blocks) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -155,11 +147,11 @@ _mde() {
         
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
         
+          --load-code) COMPREPLY=".PATH."; return 0 ;;
+        
           --open) COMPREPLY=".OPEN."; return 0 ;;
         
           -o) COMPREPLY=".OPEN."; return 0 ;;
-        
-          --output-execution-summary) COMPREPLY=".BOOL."; return 0 ;;
         
           --output-script) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -168,14 +160,6 @@ _mde() {
           --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
-          --save-executed-script) COMPREPLY=".BOOL."; return 0 ;;
-        
-          --save-execution-output) COMPREPLY=".BOOL."; return 0 ;;
-        
-          --saved-script-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
-        
-          --saved-stdout-folder) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -194,4 +178,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2024-04-26 15:24:51 UTC"
+# echo "Updated: 2024-05-28 00:41:36 UTC"

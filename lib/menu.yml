@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (2.0.5)
+# MDE - Markdown Executor (2.0.6)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -94,45 +94,64 @@
   :env_var: MDE_DOCUMENT_LOAD_OPTS_BLOCK_NAME
   :opt_name: document_load_opts_block_name
   :procname: val_as_str
+- :arg_name: GLOB
+  :default: document_configurations/%{document_filename}_*.sh
+  :description: Glob for saved lines for a document
+  :env_var: MDE_DOCUMENT_SAVED_LINES_GLOB
+  :opt_name: document_saved_lines_glob
+  :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Add menu options for saved lines
+  :env_var: MDE_MENU_FOR_SAVED_LINES
+  :opt_name: menu_for_saved_lines
+  :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump @delegate_object
-  :long_name: dump-dump-delegate-object
+  :env_var: MDE_DUMP_DELEGATE_OBJECT
+  :long_name: dump-delegate-object
   :opt_name: dump_delegate_object
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump BlocksInFile (stage 1)
+  :env_var: MDE_DUMP_BLOCKS_IN_FILE
   :long_name: dump-blocks-in-file
   :opt_name: dump_blocks_in_file
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited block_names
-  :long_name: dump-dump-inherited-block_names
+  :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
+  :long_name: dump-inherited-block_names
   :opt_name: dump_inherited_block_names
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited dependencies
-  :long_name: dump-dump-inherited-dependencies
+  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
+  :long_name: dump-inherited-dependencies
   :opt_name: dump_inherited_dependencies
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump inherited lines
-  :long_name: dump-dump-inherited-lines
+  :env_var: MDE_DUMP_INHERITED_LINES
+  :long_name: dump-inherited-lines
   :opt_name: dump_inherited_lines
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump MenuBlocks (stage 2)
+  :env_var: MDE_DUMP_MENU_BLOCKS
   :long_name: dump-menu-blocks
   :opt_name: dump_menu_blocks
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Dump selected block
+  :env_var: MDE_DUMP_SELECTED_BLOCK
   :long_name: dump-selected-block
   :opt_name: dump_selected_block
   :procname: val_as_bool
@@ -239,7 +258,7 @@
   :env_var: MDE_FENCED_START_AND_END_REGEX
   :opt_name: fenced_start_and_end_regex
   :procname: val_as_str
-- :default: "^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*)
+- :default: "^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*)
     *$"
   :description: Match the start of a fenced block
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
@@ -341,6 +360,13 @@
   :long_name: list-recent-scripts
   :opt_name: list_recent_scripts
   :procname: val_as_bool
+- :arg_name: PATH
+  :default: ''
+  :description: Load code
+  :env_var: MDE_LOAD_CODE
+  :long_name: load-code
+  :opt_name: load_code
+  :procname: val_as_str
 - :arg_name: PREFIX
   :default: mde
   :description: Name prefix for stdout files
@@ -414,6 +440,12 @@
   :description: Display Exit option at top of menu (vs bottom)
   :env_var: MDE_MENU_EXIT_AT_TOP
   :opt_name: menu_exit_at_top
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
+  :description: Display Load option at top of menu (vs bottom)
+  :env_var: MDE_MENU_LOAD_AT_TOP
+  :opt_name: menu_load_at_top
   :procname: val_as_bool
 - :default:
     :line: "~~~"
@@ -522,10 +554,34 @@
   :opt_name: menu_option_back_name
   :procname: val_as_str
 - :default:
+    :line: "* Edit"
+  :description: Text for Edit option
+  :env_var: MDE_MENU_OPTION_EDIT_NAME
+  :opt_name: menu_option_edit_name
+  :procname: val_as_str
+- :default:
     :line: "* Exit"
   :description: Text for Exit option
   :env_var: MDE_MENU_OPTION_EXIT_NAME
   :opt_name: menu_option_exit_name
+  :procname: val_as_str
+- :default:
+    :line: "* Load"
+  :description: Text for Load option
+  :env_var: MDE_MENU_OPTION_LOAD_NAME
+  :opt_name: menu_option_load_name
+  :procname: val_as_str
+- :default:
+    :line: "* Save"
+  :description: Text for Save option
+  :env_var: MDE_MENU_OPTION_SAVE_NAME
+  :opt_name: menu_option_save_name
+  :procname: val_as_str
+- :default:
+    :line: "* View"
+  :description: Text for View option
+  :env_var: MDE_MENU_OPTION_VIEW_NAME
+  :opt_name: menu_option_view_name
   :procname: val_as_str
 - :default: fg_rgbh_ff_00_ff
   :description: Color of menu opts
@@ -595,7 +651,7 @@
   :opt_name: menu_with_exit
   :procname: val_as_bool
 - :arg_name: BOOL
-  :default: true
+  :default: false
   :description: Display inherited lines in menu
   :env_var: MDE_MENU_WITH_INHERITED_LINES
   :opt_name: menu_with_inherited_lines
@@ -636,7 +692,6 @@
   :default: false
   :description: Display summary for execution
   :env_var: MDE_OUTPUT_EXECUTION_SUMMARY
-  :long_name: output-execution-summary
   :opt_name: output_execution_summary
   :procname: val_as_bool
 - :default: "%{name}: %{value}"
@@ -728,6 +783,11 @@
   :env_var: MDE_PROMPT_EXIT
   :opt_name: prompt_exit
   :procname: val_as_str
+- :default: Back
+  :description: Quit prompt
+  :env_var: MDE_PROMPT_FILESPEC_OTHER
+  :opt_name: prompt_filespec_back
+  :procname: val_as_str
 - :default: Other
   :description: Prompt for a custom file name
   :env_var: MDE_PROMPT_FILESPEC_OTHER
@@ -809,14 +869,12 @@
   :default: false
   :description: Wheter to save an executed script`
   :env_var: MDE_SAVE_EXECUTED_SCRIPT
-  :long_name: save-executed-script
   :opt_name: save_executed_script
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Save standard output of the executed script
   :env_var: MDE_SAVE_EXECUTION_OUTPUT
-  :long_name: save-execution-output
   :opt_name: save_execution_output
   :procname: val_as_bool
 - :default: "/"
@@ -845,7 +903,6 @@
   :default: logs
   :description: Folder where saved scripts are stored
   :env_var: MDE_SAVED_SCRIPT_FOLDER
-  :long_name: saved-script-folder
   :opt_name: saved_script_folder
   :procname: val_as_str
 - :arg_name: GLOB
@@ -858,7 +915,6 @@
   :default: logs
   :description: Saved stdout folder
   :env_var: MDE_SAVED_STDOUT_FOLDER
-  :long_name: saved-stdout-folder
   :opt_name: saved_stdout_folder
   :procname: val_as_str
 - :arg_name: GLOB

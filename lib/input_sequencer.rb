@@ -20,6 +20,11 @@ class InputSequencer
     @current_block = nil
     @block_queue = initial_blocks
     @debug = Env.env_bool('INPUT_SEQUENCER_DEBUG', default: false)
+  # rubocop:disable Style/RescueStandardError
+  rescue
+    pp $!, $@
+    exit 1
+    # rubocop:enable Style/RescueStandardError
   end
 
   # Merges the current menu state with the next, prioritizing the next state's values.
@@ -54,6 +59,11 @@ class InputSequencer
   # Orchestrates the flow of menu states and user interactions.
   def run_yield(sym, *args, &block)
     block.call sym, *args
+  # rubocop:disable Style/RescueStandardError
+  rescue
+    pp $!, $@
+    exit 1
+    # rubocop:enable Style/RescueStandardError
   end
 
   def bq_is_empty?
@@ -81,10 +91,7 @@ class InputSequencer
 
         choice = run_yield :user_choice, &block
 
-        if choice.nil?
-          raise 'Block not recognized.'
-          break
-        end
+        raise 'Block not recognized.' if choice.nil?
         break if run_yield(:exit?, choice&.downcase, &block) # Exit loop and method to terminate the app
 
         next_state = run_yield :execute_block, choice, &block

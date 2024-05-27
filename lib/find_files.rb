@@ -2,13 +2,13 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
-# version 2024-01-15
+# version 2024-05-24
 
 # Finds files matching a given pattern within specified directory paths while optionally excluding
 # "." and ".." entries and directory names from the results.
 #
-# The function takes a pattern (filename or pattern with wildcards), an array of paths, and an
-# option to exclude directory entries and special entries "." and "..".
+# The function takes a pattern (filename or pattern with wildcards), an array of paths, and options
+# to exclude directory entries and special entries "." and "..", and to use relative paths.
 # It searches for files matching the pattern within each of the specified paths. Hidden files
 # are included in the search. The search can include subdirectories depending on the
 # path specification (e.g., 'dir/**' for recursive search).
@@ -18,15 +18,17 @@
 #   paths (Array<String>): An array of directory paths where the search will be performed.
 #     Paths can include wildcards for recursive search.
 #   exclude_dirs (Boolean): If true, excludes "." and ".." and directory names from the results.
+#   use_relative_paths (Boolean): If true, removes the app's base directory from the file names
+#     if present.
 #
 # Returns:
 #   Array<String>: A unique list of file paths that match the given pattern in the specified paths,
-#   excluding directories if exclude_dirs is true.
+#   excluding directories if exclude_dirs is true. Paths are relative if use_relative_paths is true.
 #
 # Example:
-#   find_files('version.rb', ['lib/**', 'spec'], true)
-#   # This might return file paths like ['lib/markdown_exec/version.rb', 'spec/version_spec.rb'].
-def find_files(pattern, paths = ['', Dir.pwd], exclude_dirs: false)
+#   find_files('version.rb', ['lib/**', 'spec'], true, true)
+#   # This might return file paths like ['markdown_exec/version.rb', 'spec/version_spec.rb'].
+def find_files(pattern, paths = ['', Dir.pwd], base_dir: Dir.pwd, exclude_dirs: false, use_relative_paths: true)
   matched_files = []
 
   paths.each do |path_with_wildcard|
@@ -38,6 +40,9 @@ def find_files(pattern, paths = ['', Dir.pwd], exclude_dirs: false)
 
     # Optionally exclude "." and ".." and directory names
     files.reject! { |file| file.end_with?('/.', '/..') || File.directory?(file) } if exclude_dirs
+
+    # Optionally use relative paths
+    files.map! { |file| file.sub(/^#{Regexp.escape(base_dir)}\//, '') } if use_relative_paths
 
     matched_files += files
   end
@@ -103,5 +108,28 @@ class TestFindFiles < Minitest::Test
     # Test to ensure hidden files are also found
     result = find_files('.gitignore', ['.'])
     assert_includes result, './.gitignore'
+  end
+
+  def test_find_files_with_non_existent_paths
+    # Test with non-existent paths
+    result = find_files('*.rb', %w[non_existent_dir another_fake_dir])
+    assert_empty result
+  end
+
+  def test_find_files_with_mixed_existent_and_non_existent_paths
+    # Test with a mix of existing and non-existing paths
+    result = find_files('*.rb', %w[lib non_existent_dir])
+    assert_includes result, 'lib/cli.rb'
+    assert_includes result, 'lib/colorize.rb'
+    # Ensure that non-existent paths do not cause failure and do not include files
+    assert_equal result.length, Dir.glob('lib/*.rb').length
+  end
+
+  def test_find_files_with_relative_paths
+    # Test with relative paths
+    base_dir = Dir.pwd
+    result = find_files('cli.rb', ['lib'], use_relative_paths: true)
+    assert_includes result, 'lib/cli.rb'
+    refute_includes result, "#{base_dir}/lib/cli.rb"
   end
 end

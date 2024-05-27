@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.0.6] - 2024-05-28
+
+### Added
+
+- Color-coding to folder names in the menu following a keyword search.
+  Implement color-coding for folder names. Each folder name is assigned a color based on the folder name to highlight repetitive folder structures.
+
+- Load-code option to read one or more files into inherited lines.
+
+- Automatic Load, Edit, Save, and View menu entries to manage inherited lines.
+  The value of `document_saved_lines_glob` is displayed above the menu items, if any.
+  The Load menu item appears when one or more files match the glob.
+  The Edit menu item appears when one or more lines have been inherited.
+  The Save menu item appears when one or more lines have been inherited.
+  The View menu item appears when one or more lines have been inherited.
+
+### Changed
+
+- Fix block name processing for blocks with no name.
+  Demo in examples/block_names.md loads content of examples/load1.sh.
+
 ## [2.0.5] - 2024-04-24
 
 ### Changed

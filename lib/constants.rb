@@ -6,9 +6,9 @@
 require_relative 'block_types'
 
 class ExecutionStreams
-  StdErr = :stderr
-  StdIn  = :stdin
-  StdOut = :stdout
+  STD_ERR = :stderr
+  STD_IN  = :stdin
+  STD_OUT = :stdout
 end
 
 IndexedLine = Struct.new(:index, :line) do
@@ -18,28 +18,23 @@ IndexedLine = Struct.new(:index, :line) do
 end
 
 class LinkKeys
-  Block = 'block'
-  Eval = 'eval'
-  Exec = 'exec'
-  File = 'file'
-  Load = 'load'
-  NextBlock = 'next_block'
-  Return = 'return'
-  Save = 'save'
-  Vars = 'vars'
+  BLOCK = 'block'
+  EVAL = 'eval'
+  EXEC = 'exec'
+  FILE = 'file'
+  LOAD = 'load'
+  NEXT_BLOCK = 'next_block'
+  RETURN = 'return'
+  SAVE = 'save'
+  VARS = 'vars'
 end
 
 class LoadFile
-  Load = true
-  Reuse = false
+  LOAD = true
+  REUSE = false
 end
 
 LoadFileLinkState = Struct.new(:load_file, :link_state)
-
-class MenuControl
-  Fresh = false
-  Repeat = true
-end
 
 class MenuOptions
   YES = 1
@@ -51,7 +46,11 @@ end
 class MenuState
   BACK = :back
   CONTINUE = :continue
+  EDIT = :edit
   EXIT = :exit
+  LOAD = :load
+  SAVE = :save
+  VIEW = :view
 end
 
 # a struct to hold the data for a single line

@@ -18,6 +18,7 @@ require_relative 'ansi_formatter'
 require_relative 'block_label'
 require_relative 'cached_nested_file_reader'
 require_relative 'cli'
+require_relative 'color_scheme'
 require_relative 'colorize'
 require_relative 'directory_searcher'
 require_relative 'env'
@@ -110,6 +111,7 @@ module MarkdownExec
     # @return [String] modified file name with age prepended
     def self.for_menu(filename)
       file_age = (Time.now - File.mtime(filename)) / (60 * 60 * 24 * 30)
+      filename = ColorScheme.colorize_path(filename)
 
       "  #{Histogram.display(file_age, 0, 11, 12, inverse: false)}: #{filename}"
     end
@@ -117,7 +119,8 @@ module MarkdownExec
     # Removes the age from the string to retrieve the original file name.
     # @param filename_with_age [String] the modified file name with age
     # @return [String] the original file name
-    def self.from_menu(filename_with_age)
+    def self.from_menu(dname)
+      filename_with_age = dname.gsub(/\033\[[\d;]+m|\033\[0m/, '')
       filename_with_age.split(': ', 2).last
     end
   end
@@ -341,7 +344,14 @@ module MarkdownExec
     # Reports and executes block logic
     def execute_block_logic(files)
       @options[:filename] = select_document_if_multiple(files)
-      @options.document_menu_loop
+      @options.document_inpseq
+    rescue StandardError
+      error_handler('execute_block_logic')
+    # rubocop:disable Style/RescueStandardError
+    rescue
+      pp $!, $@
+      exit 1
+      # rubocop:enable Style/RescueStandardError
     end
 
     ## Executes the block specified in the options
@@ -506,7 +516,7 @@ module MarkdownExec
         opts.banner = [
           "#{MarkdownExec::APP_NAME}" \
           " - #{MarkdownExec::APP_DESC} (#{MarkdownExec::VERSION})",
-          "Usage: #{executable_name} [(path | filename [block_name])] [options]"
+          "Usage: #{executable_name} [(directory | file [block_name] | search_keyword)] [options]"
         ].join("\n")
 
         menu_iter do |item|
@@ -553,7 +563,7 @@ module MarkdownExec
         }
       when 'show_config'
         ->(_) {
-          finalize_cli_argument_processing(options)
+          finalize_cli_argument_processing([])
           @fout.fout options.sort_by_key.to_yaml
         }
       when 'val_as_bool'
@@ -710,7 +720,7 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      @options.document_menu_loop
+      @options.document_inpseq
     rescue StandardError
       error_handler('run_last_script')
     end
@@ -775,7 +785,7 @@ module MarkdownExec
 
       saved_name_split(filename)
 
-      @options.document_menu_loop ### ({ save_executed_script: false })
+      @options.document_inpseq ### ({ save_executed_script: false })
     end
 
     public

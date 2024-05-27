@@ -22,6 +22,9 @@ Lint/Debugger:
 Lint/SafeNavigationChain:
   Enabled: false
 
+Lint/UnusedMethodArgument:
+  Enabled: false
+
 Metrics/AbcSize:
   Enabled: false
 
@@ -52,7 +55,13 @@ Minitest/MultipleAssertions:
 Naming/RescuedExceptionsVariableName:
   PreferredName: err
 
+Security/Eval:
+  Enabled: false
+
 Security/YAMLLoad:
+  Enabled: false
+
+Style/ClassVars:
   Enabled: false
 
 Style/CommentedKeyword:
@@ -80,6 +89,9 @@ Style/MultilineBlockChain:
   Enabled: false
 
 Style/OpenStructUse:
+  Enabled: false
+
+Style/OptionalBooleanParameter:
   Enabled: false
 
 Style/PerlBackrefs: # Prefer ::Regexp.last_match.post_match over $'.
