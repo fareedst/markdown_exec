@@ -13,6 +13,11 @@ class String
   # @return [String] The formatted string.
   def method_missing(method_name, *args, &block)
     case method_name.to_s
+    when /^fg_bg_rgb_/
+      bytes = $'.split('_')
+      fg_bg_rgb_color(bytes[0..2].join(';'), bytes[3..5].join(';'))
+    when /^fg_bg_rgbh_/
+      hex_to_fg_bg_rgb($')
     when /^fg_rgb_/
       fg_rgb_color($'.gsub('_', ';'))
     when /^fg_rgbh_/
@@ -33,8 +38,28 @@ class String
   #
   # @param rgb [String] The RGB color, expressed as a string like "1;2;3".
   # @return [String] The string with the applied RGB foreground color.
+  def fg_bg_rgb_color(fg_rgb, bg_rgb)
+    "38;2;#{fg_rgb}m\033[48;2;#{bg_rgb}m#{self}".ansi_control_sequence
+  end
+
+  # Applies a 24-bit RGB foreground color to the string.
+  #
+  # @param rgb [String] The RGB color, expressed as a string like "1;2;3".
+  # @return [String] The string with the applied RGB foreground color.
   def fg_rgb_color(rgb)
     "38;2;#{rgb}m#{self}".ansi_control_sequence
+  end
+
+  # Converts hex color codes to RGB and applies them to the string.
+  #
+  # @param hex_str [String] The RGB color, expressed as a hex string like "FF00FF".
+  # @return [String] The string with the applied RGB foreground color.
+  def hex_to_fg_bg_rgb(hex_str)
+    values = hex_str.split('_').map { |hex| hex.to_i(16).to_s }
+    fg_bg_rgb_color(
+      values[0..2].join(';'),
+      values[3..5].join(';')
+    )
   end
 
   # Converts hex color codes to RGB and applies them to the string.
