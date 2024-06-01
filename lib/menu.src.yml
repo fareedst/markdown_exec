@@ -529,37 +529,40 @@
   :opt_name: menu_final_divider
   :procname: val_as_str
 
-- :default: fg_rgbh_80_80_c0
+- :default: fg_bg_rgbh_80_80_c0_10_10_20
   :description: Color for heading 1 in menu
   :env_var: MDE_MENU_HEADING1_COLOR
   :opt_name: menu_heading1_color
   :procname: val_as_str
 
-- :default: "# %{line}"
+# strip heading tag
+- :default: "%{line}"
   :description: format for menu heading1 in menu
   :env_var: MDE_MENU_HEADING1_FORMAT
   :opt_name: menu_heading1_format
   :procname: val_as_str
 
-- :default: fg_rgbh_60_60_c0
+- :default: fg_bg_rgbh_60_60_c0_10_10_20
   :description: Color for heading 2 in menu
   :env_var: MDE_MENU_HEADING2_COLOR
   :opt_name: menu_heading2_color
   :procname: val_as_str
 
-- :default: "## %{line}"
+# strip heading tag
+- :default: "%{line}"
   :description: format for menu heading2 in menu
   :env_var: MDE_MENU_HEADING2_FORMAT
   :opt_name: menu_heading2_format
   :procname: val_as_str
 
-- :default: fg_rgbh_40_40_c0
+- :default: fg_bg_rgbh_40_40_c0_10_10_20
   :description: Color for heading 3 in menu
   :env_var: MDE_MENU_HEADING3_COLOR
   :opt_name: menu_heading3_color
   :procname: val_as_str
 
-- :default: "### %{line}"
+# strip heading tag
+- :default: "%{line}"
   :description: format for menu heading3 in menu
   :env_var: MDE_MENU_HEADING3_FORMAT
   :opt_name: menu_heading3_format
@@ -624,7 +627,7 @@
   :opt_name: menu_link_format
   :procname: val_as_str
 
-- :default: fg_rgbh_b0_b0_b0
+- :default: fg_rgbh_c0_c0_c0
   :description: Color of menu note
   :env_var: MDE_MENU_NOTE_COLOR
   :opt_name: menu_note_color
@@ -637,7 +640,7 @@
   :procname: val_as_str
 
 ## all lines that do not start with "/ " are notes
-- :default: "^(?<line>(?!/ ).*)?$"
+- :default: "^(?<line>(?!/ )(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for notes in block selection menu
   :env_var: MDE_MENU_NOTE_MATCH
   :opt_name: menu_note_match
@@ -874,7 +877,7 @@
 
 - :arg_name: BOOL
   :default: false
-  :description: Wheter to pause after manually executing a block and the next menu
+  :description: Whether to pause after manually executing a block and the next menu
   :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
   :opt_name: pause_after_script_execution
   :procname: val_as_bool

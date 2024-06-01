@@ -388,6 +388,74 @@ class BashCommentFormatter
   # end
 end
 
+class StringWrapper
+  attr_reader :width, :left_margin, :right_margin, :indent, :fill_margin
+
+  # Initializes the StringWrapper with the given options.
+  #
+  # @param width [Integer] the maximum width of each line
+  # @param left_margin [Integer] the number of spaces for the left margin
+  # @param right_margin [Integer] the number of spaces for the right margin
+  # @param indent [Integer] the number of spaces to indent all but the first line
+  # @param fill_margin [Boolean] whether to fill the left margin with spaces
+  def initialize(
+    width:,
+    fill_margin: false,
+    first_indent: '',
+    indent_space: '  ',
+    left_margin: 0,
+    margin_char: ' ',
+    rest_indent: '',
+    right_margin: 0
+  )
+    @fill_margin = fill_margin
+    @first_indent = first_indent
+    @indent = indent
+    @indent_space = indent_space
+    @rest_indent = rest_indent
+    @right_margin = right_margin
+    @width = width
+
+    @margin_space = fill_margin ? (margin_char * left_margin) : ''
+    @left_margin = @margin_space.length
+  end
+
+  # Wraps the given text according to the specified options.
+  #
+  # @param text [String] the text to wrap
+  # @return [String] the wrapped text
+  def wrap(text)
+    text = text.dup if text.frozen?
+    max_line_length = width - left_margin - right_margin - @indent_space.length
+    lines = []
+    current_line = String.new
+
+    words = text.split
+    words.each.with_index do |word, index|
+      trial_length = word.length
+      trial_length += @first_indent.length if index.zero?
+      trial_length += current_line.length + 1 + @rest_indent.length if index != 0
+      if trial_length > max_line_length && (words.count != 0)
+        lines << current_line
+        current_line = word
+        current_line = current_line.dup if current_line.frozen?
+      else
+        current_line << ' ' unless current_line.empty?
+        current_line << word
+      end
+    end
+    lines << current_line unless current_line.empty?
+
+    lines.map.with_index do |line, index|
+      @margin_space + if index.zero?
+                        @first_indent
+                      else
+                        @rest_indent
+                      end + line
+    end
+  end
+end
+
 module MarkdownExec
   class DebugHelper
     # Class-level variable to store history of printed messages
@@ -595,6 +663,8 @@ module MarkdownExec
     #
     # @return [Array<FCB>] An array of FCB objects representing the blocks.
     def blocks_from_nested_files
+      register_console_attributes(@delegate_object)
+
       blocks = []
       iter_blocks_from_nested_files do |btype, fcb|
         process_block_based_on_type(blocks, btype, fcb)
@@ -605,10 +675,12 @@ module MarkdownExec
       HashDelegator.error_handler('blocks_from_nested_files')
     end
 
+    # find a block by its original (undecorated) name or nickname (not visible in menu)
+    # if matched, the block returned has properties that it is from cli and not ui
     def block_state_for_name_from_cli(block_name)
       SelectedBlockMenuState.new(
         @dml_blocks_in_file.find do |item|
-          item[:oname] == block_name
+          (item[:nickname] || item[:oname]) == block_name
         end&.merge(
           block_name_from_cli: true,
           block_name_from_ui: false
@@ -816,16 +888,76 @@ module MarkdownExec
     # @param match_data [MatchData] The match data containing named captures for formatting.
     # @param format_option [String] The format string to be used for the new block.
     # @param color_method [Symbol] The color method to apply to the block's display name.
-    def create_and_add_chrome_block(blocks:, match_data:, format_option:,
-                                    color_method:)
-      oname = format(format_option,
-                     match_data.named_captures.transform_keys(&:to_sym))
-      blocks.push FCB.new(
-        chrome: true,
-        disabled: '',
-        dname: oname.send(color_method),
-        oname: oname
-      )
+    # return number of lines added
+    def create_and_add_chrome_block(blocks:, match_data:,
+                                    format_option:, color_method:,
+                                    case_conversion: nil,
+                                    center: nil,
+                                    wrap: nil)
+      line_cap = match_data.named_captures.transform_keys(&:to_sym)
+
+      # replace tabs and discard trailing whitespace
+      line_cap[:line] ||= ''
+      line_cap[:indent] ||= ''
+      line_cap[:indent] = line_cap[:indent].dup if line_cap[:indent].frozen?
+      line_cap[:indent].gsub!("\t", '    ')
+      if line_cap[:text]
+        line_cap[:text] = line_cap[:text].dup if line_cap[:text].frozen?
+        line_cap[:text].gsub!("\t", '    ')
+        line_cap[:line] = line_cap[:indent] + line_cap[:text]
+      else
+        line_cap[:text] = line_cap[:line]
+      end
+
+      accepted_width = @delegate_object[:console_width] - 2
+      line_caps = if wrap
+                    if line_cap[:line].length > accepted_width
+                      wrapper = StringWrapper.new(width: accepted_width - line_cap[:indent].length)
+                      wrapper.wrap(line_cap[:text]).map do |line|
+                        { line: line_cap[:indent] + line }
+                      end
+                    else
+                      [line_cap]
+                    end
+                  else
+                    [line_cap]
+                  end
+      if center
+        line_caps = line_caps.map do |line_obj|
+          text = line_obj[:line]
+          if text.length < accepted_width
+            line_obj.merge(line: (' ' * ((accepted_width - text.length) / 2)) + text)
+          else
+            line_obj
+          end
+        end
+      end
+
+      line_caps.each do |line_obj|
+        next if case_conversion.nil?
+
+        case case_conversion
+        when :upcase
+          line_obj[:line].upcase!
+        when :downcase
+          line_obj[:line].downcase!
+        else
+          raise
+        end
+      end
+
+      line_caps.each do |line_cap|
+        next if line_obj[:line].nil?
+
+        oname = format(format_option, line_obj)
+        blocks.push FCB.new(
+          chrome: true,
+          disabled: '',
+          dname: oname.send(color_method),
+          oname: oname
+        )
+      end
+      line_caps.count
     end
 
     ##
@@ -836,11 +968,11 @@ module MarkdownExec
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
       match_criteria = [
-        { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match },
-        { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match },
-        { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match },
+        { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match, center: true, case_conversion: :upcase },
+        { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match, center: true },
+        { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match, center: true, case_conversion: :downcase },
         { color: :menu_divider_color,  format: :menu_divider_format,  match: :menu_divider_match },
-        { color: :menu_note_color,     format: :menu_note_format,     match: :menu_note_match },
+        { color: :menu_note_color,     format: :menu_note_format,     match: :menu_note_match, wrap: true },
         { color: :menu_task_color,     format: :menu_task_format,     match: :menu_task_match }
       ]
       # rubocop:enable Style/UnlessElse
@@ -852,9 +984,12 @@ module MarkdownExec
 
         create_and_add_chrome_block(
           blocks: blocks,
-          match_data: mbody,
+          case_conversion: criteria[:case_conversion],
+          center: criteria[:center],
+          color_method: @delegate_object[criteria[:color]].to_sym,
           format_option: @delegate_object[criteria[:format]],
-          color_method: @delegate_object[criteria[:color]].to_sym
+          match_data: mbody,
+          wrap: criteria[:wrap]
         )
         break
       end
@@ -1103,7 +1238,7 @@ module MarkdownExec
               @dml_link_state.block_name, @run_state.block_name_from_cli, cli_break = \
                 HashDelegator.next_link_state(
                   block_name: @dml_link_state.block_name,
-                  block_name_from_cli: !@dml_link_state.block_name.present?,
+                  block_name_from_cli: @dml_now_using_cli,
                   block_state: @dml_block_state,
                   was_using_cli: @dml_now_using_cli
                 )
@@ -2132,8 +2267,7 @@ module MarkdownExec
     # user prompt to exit if the menu will be displayed again
     #
     def prompt_user_exit(block_name_from_cli:, selected:)
-      !block_name_from_cli &&
-        selected[:shell] == BlockType::BASH &&
+      selected[:shell] == BlockType::BASH &&
         @delegate_object[:pause_after_script_execution] &&
         prompt_select_continue == MenuState::EXIT
     end
@@ -2243,6 +2377,16 @@ module MarkdownExec
                      ))
     end
 
+    def register_console_attributes(opts)
+      unless opts[:console_width]
+        require 'io/console'
+        opts[:console_height], opts[:console_width] = opts[:console_winsize] = IO.console.winsize
+      end
+      opts[:per_page] = opts[:select_page_height] = [opts[:console_height] - 3, 4].max unless opts[:select_page_height]&.positive?
+    rescue StandardError
+      HashDelegator.error_handler('register_console_attributes', { abort: true })
+    end
+
     # Check if the delegate object responds to a given method.
     # @param method_name [Symbol] The name of the method to check.
     # @param include_private [Boolean] Whether to include private methods in the check.
@@ -2323,10 +2467,7 @@ module MarkdownExec
     def select_option_with_metadata(prompt_text, names, opts = {})
       ## configure to environment
       #
-      unless opts[:select_page_height].positive?
-        require 'io/console'
-        opts[:per_page] = opts[:select_page_height] = [IO.console.winsize[0] - 3, 4].max
-      end
+      register_console_attributes(opts)
 
       # crashes if all menu options are disabled
       selection = @prompt.select(prompt_text,
@@ -2912,7 +3053,6 @@ module MarkdownExec
 
       def test_blocks_from_nested_files
         result = @hd.blocks_from_nested_files
-
         assert_kind_of Array, result
         assert_kind_of FCB, result.first
       end
