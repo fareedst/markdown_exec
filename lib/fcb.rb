@@ -3,6 +3,13 @@
 
 # encoding=utf-8
 
+class Hash
+  # block name in commands and documents
+  def pub_name
+    fetch(:nickname, nil) || fetch(:oname, nil)
+  end
+end
+
 module MarkdownExec
   class Error < StandardError; end
 

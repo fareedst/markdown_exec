@@ -1,7 +1,7 @@
 # Demo block nicknames
 
 ```opts :(document_options)
-save_executed_script: true
+pause_after_script_execution: true
 ```
 
 ## Blocks with no name
@@ -17,15 +17,15 @@ echo This block has no name.
 ::: The nickname can be used to require the block.
 
 ```bash :[A]
-echo This block has a nickname.
+echo 'This block has a nickname: [A].'
 echo The full block is displayed in the menu.
 ```
 
 ### Nicknames in documents
 ::: Execute this block that requires the block above by its nickname.
 ```bash :[B] +[A]
-echo This block has a nickname.
-echo It requires the block above by its nickname.
+echo 'This block has a nickname: [B].'
+echo 'This block requires block [A].'
 ```
 
 ### Nicknames from the command line
@@ -35,11 +35,14 @@ mde examples/nickname.md '[A]'
 ```
 
 ## Blocks with hidden names
-::: Nothing is displayed in the menu.
-::: There is a hidden block here.
+### There is a hidden block here.
+::: This block has a hidden name: (C).
+::: This block does not appear in the menu.
 ::: This block requires the block above by its nickname.
 ```bash :(C) +[A]
+echo 'This block has a hidden name: (C).'
 echo This block is hidden from the menu.
+echo 'This block requires block [A].'
 ```
 
 ### Hidden names from the command line

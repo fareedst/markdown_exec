@@ -328,17 +328,17 @@
   :opt_name: find_path
   :procname: val_as_str
 
-- :default: "^# *(?<line>[^#]*?) *$"
+- :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING1_MATCH
   :opt_name: heading1_match
   :procname: val_as_str
 
-- :default: "^## *(?<line>[^#]*?) *$"
+- :default: "^##(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING2_MATCH
   :opt_name: heading2_match
   :procname: val_as_str
 
-- :default: "^### *(?<line>.+?) *$"
+- :default: "^###(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING3_MATCH
   :opt_name: heading3_match
   :procname: val_as_str
@@ -496,7 +496,7 @@
   :opt_name: menu_divider_format
   :procname: val_as_str
 
-- :default: "^::: +(?<line>.+?)$"
+- :default: "^:::(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for topics/dividers in block selection menu
   :env_var: MDE_MENU_DIVIDER_MATCH
   :opt_name: menu_divider_match

@@ -680,7 +680,7 @@ module MarkdownExec
     def block_state_for_name_from_cli(block_name)
       SelectedBlockMenuState.new(
         @dml_blocks_in_file.find do |item|
-          (item[:nickname] || item[:oname]) == block_name
+          block_name == item.pub_name
         end&.merge(
           block_name_from_cli: true,
           block_name_from_ui: false
@@ -735,7 +735,7 @@ module MarkdownExec
     # @return [Array<String>] Required code blocks as an array of lines.
     def collect_required_code_lines(mdoc:, selected:, block_source:, link_state: LinkState.new)
       required = mdoc.collect_recursively_required_code(
-        anyname: selected[:nickname] || selected[:oname],
+        anyname: selected.pub_name,
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source
@@ -896,25 +896,23 @@ module MarkdownExec
                                     wrap: nil)
       line_cap = match_data.named_captures.transform_keys(&:to_sym)
 
-      # replace tabs and discard trailing whitespace
-      line_cap[:line] ||= ''
+      # replace tabs in indent
       line_cap[:indent] ||= ''
       line_cap[:indent] = line_cap[:indent].dup if line_cap[:indent].frozen?
       line_cap[:indent].gsub!("\t", '    ')
-      if line_cap[:text]
-        line_cap[:text] = line_cap[:text].dup if line_cap[:text].frozen?
-        line_cap[:text].gsub!("\t", '    ')
-        line_cap[:line] = line_cap[:indent] + line_cap[:text]
-      else
-        line_cap[:text] = line_cap[:line]
-      end
+      # replace tabs in text
+      line_cap[:text] ||= ''
+      line_cap[:text] = line_cap[:text].dup if line_cap[:text].frozen?
+      line_cap[:text].gsub!("\t", '    ')
+      # missing capture
+      line_cap[:line] ||= ''
 
       accepted_width = @delegate_object[:console_width] - 2
       line_caps = if wrap
-                    if line_cap[:line].length > accepted_width
+                    if line_cap[:text].length > accepted_width
                       wrapper = StringWrapper.new(width: accepted_width - line_cap[:indent].length)
                       wrapper.wrap(line_cap[:text]).map do |line|
-                        { line: line_cap[:indent] + line }
+                        line_cap.dup.merge(text: line)
                       end
                     else
                       [line_cap]
@@ -923,38 +921,34 @@ module MarkdownExec
                     [line_cap]
                   end
       if center
-        line_caps = line_caps.map do |line_obj|
-          text = line_obj[:line]
-          if text.length < accepted_width
-            line_obj.merge(line: (' ' * ((accepted_width - text.length) / 2)) + text)
-          else
-            line_obj
-          end
+        line_caps.each do |line_obj|
+          line_obj[:indent] = if line_obj[:text].length < accepted_width
+                                ' ' * ((accepted_width - line_obj[:text].length) / 2)
+                              else
+                                ''
+                              end
         end
       end
 
       line_caps.each do |line_obj|
-        next if case_conversion.nil?
+        next if line_obj[:text].nil?
 
         case case_conversion
         when :upcase
-          line_obj[:line].upcase!
+          line_obj[:text].upcase!
         when :downcase
-          line_obj[:line].downcase!
-        else
-          raise
+          line_obj[:text].downcase!
         end
-      end
 
-      line_caps.each do |line_cap|
-        next if line_obj[:line].nil?
-
+        # format expects :line to be text only
+        line_obj[:line] = line_obj[:text]
         oname = format(format_option, line_obj)
+        line_obj[:line] = line_obj[:indent] + line_obj[:text]
         blocks.push FCB.new(
           chrome: true,
           disabled: '',
-          dname: oname.send(color_method),
-          oname: oname
+          dname: line_obj[:indent] + oname.send(color_method),
+          oname: line_obj[:text]
         )
       end
       line_caps.count
@@ -968,12 +962,12 @@ module MarkdownExec
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
       match_criteria = [
-        { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match, center: true, case_conversion: :upcase },
-        { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match, center: true },
-        { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match, center: true, case_conversion: :downcase },
+        { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match, center: true, case_conversion: :upcase, wrap: true },
+        { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match, center: true, wrap: true },
+        { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match, center: true, case_conversion: :downcase, wrap: true },
         { color: :menu_divider_color,  format: :menu_divider_format,  match: :menu_divider_match },
         { color: :menu_note_color,     format: :menu_note_format,     match: :menu_note_match, wrap: true },
-        { color: :menu_task_color,     format: :menu_task_format,     match: :menu_task_match }
+        { color: :menu_task_color,     format: :menu_task_format,     match: :menu_task_match, wrap: true }
       ]
       # rubocop:enable Style/UnlessElse
       match_criteria.each do |criteria|
@@ -1150,7 +1144,7 @@ module MarkdownExec
           if @dml_link_state.block_name.present?
             # @prior_block_was_link = true
             @dml_block_state.block = @dml_blocks_in_file.find do |item|
-              item[:oname] == @dml_link_state.block_name
+              item.pub_name == @dml_link_state.block_name
             end
             @dml_link_state.block_name = nil
           else
@@ -1159,8 +1153,7 @@ module MarkdownExec
             break if @dml_block_state.block.nil? # no block matched
           end
           # puts "! - Executing block: #{data}"
-          # @dml_block_state.block[:oname]
-          @dml_block_state.block&.fetch(:oname, nil)
+          @dml_block_state.block&.pub_name
 
         when :execute_block
           case (block_name = data)
@@ -1205,7 +1198,6 @@ module MarkdownExec
               return :break
 
             end
-
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_view
@@ -1429,7 +1421,7 @@ module MarkdownExec
         ### options_state.load_file_link_state
         link_state = LinkState.new
         link_history_push_and_next(
-          curr_block_name: selected[:oname],
+          curr_block_name: selected.pub_name,
           curr_document_filename: @delegate_object[:filename],
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
@@ -1445,7 +1437,7 @@ module MarkdownExec
         code_lines = set_environment_variables_for_block(selected)
         dependencies = {}
         link_history_push_and_next(
-          curr_block_name: selected[:oname],
+          curr_block_name: selected.pub_name,
           curr_document_filename: @delegate_object[:filename],
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
@@ -1572,7 +1564,7 @@ module MarkdownExec
         return
       end
 
-      @delegate_object[:block_name] = block_state.block[:oname]
+      @delegate_object[:block_name] = block_state.block.pub_name
       @menu_user_clicked_back_link = block_state.state == MenuState::BACK
     end
 
@@ -1720,13 +1712,13 @@ module MarkdownExec
       label_format_below = @delegate_object[:shell_code_label_format_below]
 
       [label_format_above && format(label_format_above,
-                                    block_source.merge({ block_name: selected[:oname] }))] +
+                                    block_source.merge({ block_name: selected.pub_name }))] +
         output_lines.map do |line|
           re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
           re.gsub_format(line, link_block_data.fetch('format', '%{line}')) if re =~ line
         end.compact +
         [label_format_below && format(label_format_below,
-                                      block_source.merge({ block_name: selected[:oname] }))]
+                                      block_source.merge({ block_name: selected.pub_name }))]
     end
 
     def link_history_push_and_next(
@@ -1790,7 +1782,7 @@ module MarkdownExec
     def load_cli_or_user_selected_block(all_blocks: [], menu_blocks: [], default: nil)
       if @delegate_object[:block_name].present?
         block = all_blocks.find do |item|
-          item[:oname] == @delegate_object[:block_name]
+          item.pub_name == @delegate_object[:block_name]
         end&.merge(block_name_from_ui: false)
       else
         block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
@@ -2037,7 +2029,7 @@ module MarkdownExec
       else
         # no history exists; must have been called independently => retain script
         link_history_push_and_next(
-          curr_block_name: selected[:oname],
+          curr_block_name: selected.pub_name,
           curr_document_filename: @delegate_object[:filename],
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
@@ -2288,7 +2280,7 @@ module MarkdownExec
       #
       if mdoc
         code_info = mdoc.collect_recursively_required_code(
-          anyname: selected[:oname],
+          anyname: selected.pub_name,
           label_format_above: @delegate_object[:shell_code_label_format_above],
           label_format_below: @delegate_object[:shell_code_label_format_below],
           block_source: block_source
@@ -2305,7 +2297,7 @@ module MarkdownExec
       # load key and values from link block into current environment
       #
       if link_block_data[LinkKeys::VARS]
-        code_lines.push BashCommentFormatter.format_comment(selected[:oname])
+        code_lines.push BashCommentFormatter.format_comment(selected.pub_name)
         (link_block_data[LinkKeys::VARS] || []).each do |(key, value)|
           ENV[key] = value.to_s
           code_lines.push(assign_key_value_in_bash(key, value))
@@ -2334,7 +2326,7 @@ module MarkdownExec
 
       else
         link_history_push_and_next(
-          curr_block_name: selected[:oname],
+          curr_block_name: selected.pub_name,
           curr_document_filename: @delegate_object[:filename],
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
@@ -2669,6 +2661,8 @@ module MarkdownExec
       @process_mutex.synchronize do
         @process_cv.wait(@process_mutex)
       end
+    rescue Interrupt
+      # user interrupts process
     end
 
     def wait_for_user_selected_block(all_blocks, menu_blocks, default)
@@ -2709,7 +2703,7 @@ module MarkdownExec
       time_now = Time.now.utc
       @run_state.saved_script_filename =
         SavedAsset.script_name(
-          blockname: selected[:nickname] || selected[:oname],
+          blockname: selected.pub_name,
           filename: @delegate_object[:filename],
           prefix: @delegate_object[:saved_script_filename_prefix],
           time: time_now

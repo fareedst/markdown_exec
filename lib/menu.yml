@@ -285,15 +285,15 @@
   :long_name: find-path
   :opt_name: find_path
   :procname: val_as_str
-- :default: "^# *(?<line>[^#]*?) *$"
+- :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING1_MATCH
   :opt_name: heading1_match
   :procname: val_as_str
-- :default: "^## *(?<line>[^#]*?) *$"
+- :default: "^##(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING2_MATCH
   :opt_name: heading2_match
   :procname: val_as_str
-- :default: "^### *(?<line>.+?) *$"
+- :default: "^###(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :env_var: MDE_HEADING3_MATCH
   :opt_name: heading3_match
   :procname: val_as_str
@@ -425,7 +425,7 @@
   :env_var: MDE_MENU_DIVIDER_FORMAT
   :opt_name: menu_divider_format
   :procname: val_as_str
-- :default: "^::: +(?<line>.+?)$"
+- :default: "^:::(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for topics/dividers in block selection menu
   :env_var: MDE_MENU_DIVIDER_MATCH
   :opt_name: menu_divider_match
@@ -743,7 +743,7 @@
   :short_name: p
 - :arg_name: BOOL
   :default: false
-  :description: Wheter to pause after manually executing a block and the next menu
+  :description: Whether to pause after manually executing a block and the next menu
   :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
   :opt_name: pause_after_script_execution
   :procname: val_as_bool

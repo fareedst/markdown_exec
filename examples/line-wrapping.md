@@ -12,7 +12,6 @@ Normal document text is displayed as disabled menu lines. The width of these lin
 
 	Indented with a tab, this line should wrap in an aesthetically pleasing way. Indented with a tab, this line should wrap in an aesthetically pleasing way.
 
-# Demo centering and case folding of headings
-# Heading 1 - UPPER lower Mixed
-## Heading 2 - UPPER lower Mixed
-### Heading 3 - UPPER lower Mixed
+# Heading 1 - UPPER lower Mixed - Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi Omega
+## Heading 2 - UPPER lower Mixed - Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi Omega
+### Heading 3 - UPPER lower Mixed - Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi Omega
