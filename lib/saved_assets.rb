@@ -12,7 +12,8 @@ module MarkdownExec
   # method derives a name for stdout redirection.
   #
   class SavedAsset
-    FNR11 = %r{/|:}.freeze
+    FNR11 = %r{[^!#$%&()\+,\-0-9=A-Z_a-z~]}.freeze
+    # / !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
     FNR12 = '_'
     DEFAULT_FTIME = '%F-%H-%M-%S'
 
@@ -43,7 +44,7 @@ class SavedAssetTest < Minitest::Test
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
 
-    expected_name = 'test_2023-01-01-12-00-00_sample.txt_,_block_1_2.sh'
+    expected_name = 'test_2023-01-01-12-00-00_sample_txt_,_block_1_2.sh'
     assert_equal expected_name, MarkdownExec::SavedAsset.script_name(
       filename: filename, prefix: prefix, time: time, blockname: blockname
     )
@@ -55,7 +56,7 @@ class SavedAssetTest < Minitest::Test
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
 
-    expected_name = 'test_2023-01-01-12-00-00_sample.txt_,_block_1_2.out.txt'
+    expected_name = 'test_2023-01-01-12-00-00_sample_txt_,_block_1_2.out.txt'
     assert_equal expected_name, MarkdownExec::SavedAsset.stdout_name(
       filename: filename, prefix: prefix, time: time, blockname: blockname
     )
