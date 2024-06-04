@@ -50,6 +50,7 @@ class MenuState
   EXIT = :exit
   LOAD = :load
   SAVE = :save
+  SHELL = :shell
   VIEW = :view
 end
 

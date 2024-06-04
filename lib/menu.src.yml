@@ -682,6 +682,13 @@
   :procname: val_as_str
 
 - :default:
+    :line: "! Shell"
+  :description: Text for Shell option
+  :env_var: MDE_MENU_OPTION_SHELL_NAME
+  :opt_name: menu_option_shell_name
+  :procname: val_as_str
+
+- :default:
     :line: "* View"
   :description: Text for View option
   :env_var: MDE_MENU_OPTION_VIEW_NAME

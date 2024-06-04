@@ -565,6 +565,9 @@ module MarkdownExec
       when MenuState::SAVE
         option_name = @delegate_object[:menu_option_save_name]
         insert_at_top = @delegate_object[:menu_load_at_top]
+      when MenuState::SHELL
+        option_name = @delegate_object[:menu_option_shell_name]
+        insert_at_top = @delegate_object[:menu_load_at_top]
       when MenuState::VIEW
         option_name = @delegate_object[:menu_option_view_name]
         insert_at_top = @delegate_object[:menu_load_at_top]
@@ -773,47 +776,15 @@ module MarkdownExec
         system(
           format(
             @delegate_object[:execute_command_format],
-            {
-              batch_index: @run_state.batch_index,
-              batch_random: @run_state.batch_random,
-              block_name: @delegate_object[:block_name],
-              document_filename: File.basename(@delegate_object[:filename]),
-              document_filespec: @delegate_object[:filename],
-              home: Dir.pwd,
-              output_filename: File.basename(@delegate_object[:logged_stdout_filespec]),
-              output_filespec: @delegate_object[:logged_stdout_filespec],
-              script_filename: @run_state.saved_filespec,
-              script_filespec: File.join(Dir.pwd, @run_state.saved_filespec),
-              started_at: @run_state.started_at.strftime(
-                @delegate_object[:execute_command_title_time_format]
-              )
-            }
+            command_execute_in_own_window_format_arguments
           )
         )
 
       else
         @run_state.in_own_window = false
-        Open3.popen3(@delegate_object[:shell],
-                     '-c', command,
-                     @delegate_object[:filename],
-                     *args) do |stdin, stdout, stderr, exec_thr|
-          handle_stream(stream: stdout, file_type: ExecutionStreams::STD_OUT) do |line|
-            yield nil, line, nil, exec_thr if block_given?
-          end
-          handle_stream(stream: stderr, file_type: ExecutionStreams::STD_ERR) do |line|
-            yield nil, nil, line, exec_thr if block_given?
-          end
-
-          in_thr = handle_stream(stream: $stdin, file_type: ExecutionStreams::STD_IN) do |line|
-            stdin.puts(line)
-            yield line, nil, nil, exec_thr if block_given?
-          end
-
-          wait_for_stream_processing
-          exec_thr.join
-          sleep 0.1
-          in_thr.kill if in_thr&.alive?
-        end
+        execute_command_with_streams(
+          [@delegate_object[:shell], '-c', command, @delegate_object[:filename], *args]
+        )
       end
 
       @run_state.completed_at = Time.now.utc
@@ -831,6 +802,24 @@ module MarkdownExec
       @run_state.error = err
       @run_state.files[ExecutionStreams::STD_ERR] += [@run_state.error_message]
       @fout.fout "Error ENOENT: #{err.inspect}"
+    end
+
+    def command_execute_in_own_window_format_arguments(home: Dir.pwd)
+      {
+        batch_index: @run_state.batch_index,
+        batch_random: @run_state.batch_random,
+        block_name: @delegate_object[:block_name],
+        document_filename: File.basename(@delegate_object[:filename]),
+        document_filespec: @delegate_object[:filename],
+        home: home,
+        output_filename: File.basename(@delegate_object[:logged_stdout_filespec]),
+        output_filespec: @delegate_object[:logged_stdout_filespec],
+        script_filename: @run_state.saved_filespec,
+        script_filespec: File.join(home, @run_state.saved_filespec),
+        started_at: @run_state.started_at.strftime(
+          @delegate_object[:execute_command_title_time_format]
+        )
+      }
     end
 
     # This method is responsible for handling the execution of generic blocks in a markdown document.
@@ -1104,6 +1093,7 @@ module MarkdownExec
       item_edit = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name]))
       item_load = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_load_name]))
       item_save = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name]))
+      item_shell = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name]))
       item_view = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name]))
 
       @run_state.batch_random = Random.new.rand
@@ -1132,6 +1122,7 @@ module MarkdownExec
             menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name])), lines_count, 'lines', menu_state: MenuState::EDIT)
             menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name])), lines_count, 'lines', menu_state: MenuState::SAVE)
             menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name])), lines_count, 'lines', menu_state: MenuState::VIEW)
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name])), 1, '', menu_state: MenuState::SHELL)
           end
 
         when :display_menu
@@ -1197,6 +1188,24 @@ module MarkdownExec
             )
               return :break
 
+            end
+            InputSequencer.next_link_state(prior_block_was_link: true)
+
+          when item_shell
+            debounce_reset
+            loop do
+              command = prompt_for_command(":MDE #{Time.now.strftime('%FT%TZ')}> ".bgreen)
+              break if !command.present? || command == 'exit'
+
+              exit_status = execute_command_with_streams(
+                [@delegate_object[:shell], '-c', command]
+              )
+              case exit_status
+              when 0
+                warn "#{'OK'.green} #{exit_status}"
+              else
+                warn "#{'ERR'.bred} #{exit_status}"
+              end
             end
             InputSequencer.next_link_state(prior_block_was_link: true)
 
@@ -1369,6 +1378,53 @@ module MarkdownExec
       [lfls.link_state,
        lfls.load_file == LoadFile::LOAD ? nil : selected[:dname]]
       #.tap { |ret| pp [__FILE__,__LINE__,'exec_bash_next_state()',ret] }
+    end
+
+    # Executes a given command and processes its input, output, and error streams.
+    #
+    # @param [Array<String>] command the command to execute along with its arguments.
+    # @yield [stdin, stdout, stderr, thread] if a block is provided, it yields input, output, error lines, and the execution thread.
+    # @return [Integer] the exit status of the executed command (0 to 255).
+    #
+    # @example
+    #   status = execute_command_with_streams(['ls', '-la']) do |stdin, stdout, stderr, thread|
+    #     puts "STDOUT: #{stdout}" if stdout
+    #     puts "STDERR: #{stderr}" if stderr
+    #   end
+    #   puts "Command exited with status: #{status}"
+    def execute_command_with_streams(command)
+      exit_status = nil
+
+      Open3.popen3(*command) do |stdin, stdout, stderr, exec_thread|
+        # Handle stdout stream
+        handle_stream(stream: stdout, file_type: ExecutionStreams::STD_OUT) do |line|
+          yield nil, line, nil, exec_thread if block_given?
+        end
+
+        # Handle stderr stream
+        handle_stream(stream: stderr, file_type: ExecutionStreams::STD_ERR) do |line|
+          yield nil, nil, line, exec_thread if block_given?
+        end
+
+        # Handle stdin stream
+        input_thread = handle_stream(stream: $stdin, file_type: ExecutionStreams::STD_IN) do |line|
+          stdin.puts(line)
+          yield line, nil, nil, exec_thread if block_given?
+        end
+
+        # Wait for all streams to be processed
+        wait_for_stream_processing
+        exec_thread.join
+
+        # Ensure the input thread is killed if it's still alive
+        sleep 0.1
+        input_thread.kill if input_thread&.alive?
+
+        # Retrieve the exit status
+        exit_status = exec_thread.value.exitstatus
+      end
+
+      exit_status
     end
 
     # Executes a block of code that has been approved for execution.
@@ -1573,7 +1629,7 @@ module MarkdownExec
         Thread.new do
           stream.each_line do |line|
             line.strip!
-            @run_state.files[file_type] << line
+            @run_state.files[file_type] << line if @run_state.files
 
             if @delegate_object[:output_stdout]
               # print line
@@ -1673,23 +1729,7 @@ module MarkdownExec
 
         if link_block_data.fetch(LinkKeys::EXEC, false)
           @run_state.files = Hash.new([])
-
-          Open3.popen3(cmd) do |stdin, stdout, stderr, _exec_thr|
-            handle_stream(stream: stdout, file_type: ExecutionStreams::STD_OUT) do |line|
-              output_lines.push(line)
-            end
-            handle_stream(stream: stderr, file_type: ExecutionStreams::STD_ERR) do |line|
-              output_lines.push(line)
-            end
-
-            in_thr = handle_stream(stream: $stdin, file_type: ExecutionStreams::STD_IN) do |line|
-              stdin.puts(line)
-            end
-
-            wait_for_stream_processing
-            sleep 0.1
-            in_thr.kill if in_thr&.alive?
-          end
+          execute_command_with_streams([cmd])
 
           ## select output_lines that look like assignment or match other specs
           #
@@ -2161,6 +2201,14 @@ module MarkdownExec
       true
     rescue TTY::Reader::InputInterrupt
       exit 1
+    end
+
+    def prompt_for_command(prompt)
+      print prompt
+
+      gets.chomp
+    rescue Interrupt
+      nil
     end
 
     # Prompts the user to enter a path or name to substitute into the wildcard expression.
