@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.0.7] - 2024-06-04
+
+### Added
+
+- Color names that set foreground and background color.
+  Similar to the existing foreground-only color names.
+  The background colors follow the foreground color values in the name.
+  Two names, to accept values as decimal and hex.
+- Example document for line wrapping.
+- Menu entry to execute shell commands.
+- Option to control menu entry for shell commands.
+- Recognition of nicknames in command line processing.
+- Trap user interrupting executing scripts.
+
+### Changed
+
+- Do not decorate indentations.
+- Line-wrap and center headings.
+  Headings are now centered, the text is case-folded and the color
+  (foreground and background) is according to the level.
+  Centering is based on the console width detected.
+- Line-wrap normal document text and format headings.
+- Parse lines into indentation, text, and trailing whitespace.
+- Update nicknames example to exercise hidden blocks from the command line.
+- The optional prompt to exit after execution is now more frequent.
+- Set characters used in saved file names
+
 ## [2.0.6] - 2024-05-28
 
 ### Added

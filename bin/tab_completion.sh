@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "2.0.6"
+  echo "2.0.7"
 }
 
 _mde() {
@@ -178,4 +178,4 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2024-05-28 00:41:36 UTC"
+# echo "Updated: 2024-06-05 02:55:32 UTC"

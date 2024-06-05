@@ -50,3 +50,14 @@ Block `(C)` is called from the command line.
 ```bash
 mde examples/nickname.md '(C)'
 ```
+
+### Block without a name
+::: This block does not have a name.
+::: It requires hidden block (D).
+```bash +(D)
+echo "Block without a name"
+```
+::: This block has a hidden name: (D).
+```bash :(D)
+echo "Block D"
+```

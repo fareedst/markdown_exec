@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (2.0.6)
+# MDE - Markdown Executor (2.0.7)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -661,6 +661,12 @@
   :description: Display inherited lines in menu
   :env_var: MDE_MENU_WITH_INHERITED_LINES
   :opt_name: menu_with_inherited_lines
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: true
+  :description: Display Shell option in menu
+  :env_var: MDE_MENU_WITH_SHELL
+  :opt_name: menu_with_shell
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false

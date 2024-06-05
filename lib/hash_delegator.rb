@@ -1118,11 +1118,11 @@ module MarkdownExec
 
             # add menu items (glob, load, save) and enable selectively
             menu_add_disabled_option(sf) if files.count.positive? || lines_count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_load_name])), files.count, 'files', menu_state: MenuState::LOAD)
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name])), lines_count, 'lines', menu_state: MenuState::EDIT)
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name])), lines_count, 'lines', menu_state: MenuState::SAVE)
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name])), lines_count, 'lines', menu_state: MenuState::VIEW)
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name])), 1, '', menu_state: MenuState::SHELL)
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_load_name])), files.count, 'files', menu_state: MenuState::LOAD) if files.count.positive?
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name])), lines_count, 'lines', menu_state: MenuState::EDIT) if lines_count.positive?
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name])), 1, '', menu_state: MenuState::SAVE) if lines_count.positive?
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name])), 1, '', menu_state: MenuState::VIEW) if lines_count.positive?
+            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name])), 1, '', menu_state: MenuState::SHELL) if @delegate_object[:menu_with_shell]
           end
 
         when :display_menu
@@ -1164,6 +1164,7 @@ module MarkdownExec
             )
 
           when item_edit
+            debounce_reset
             edited = edit_text(@dml_link_state.inherited_lines.join("\n"))
             @dml_link_state.inherited_lines = edited.split("\n") if edited
             InputSequencer.next_link_state(prior_block_was_link: true)
@@ -1210,6 +1211,7 @@ module MarkdownExec
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_view
+            debounce_reset
             warn @dml_link_state.inherited_lines.join("\n")
             InputSequencer.next_link_state(prior_block_was_link: true)
 
@@ -1960,7 +1962,7 @@ module MarkdownExec
       #
       return unless item
 
-      item[:dname] = "#{name} (#{count} #{type})"
+      item[:dname] = type.present? ? "#{name} (#{count} #{type})" : name
       if count.positive?
         item.delete(:disabled)
       else

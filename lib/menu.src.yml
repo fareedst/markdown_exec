@@ -783,6 +783,13 @@
   :procname: val_as_bool
 
 - :arg_name: BOOL
+  :default: true
+  :description: Display Shell option in menu
+  :env_var: MDE_MENU_WITH_SHELL
+  :opt_name: menu_with_shell
+  :procname: val_as_bool
+
+- :arg_name: BOOL
   :default: false
   :description: Hide decorative menu entries
   :env_var: MDE_NO_CHROME
