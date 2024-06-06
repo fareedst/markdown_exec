@@ -12,7 +12,7 @@ require 'timeout'
 # If the terminal emulator is unsupported, it prints an error message.
 def resize_terminal(show_dims: false, show_rectangle: false)
   # Check if running in an interactive terminal and no arguments are provided
-  if $stdin.tty? && ARGV.empty?
+  if $stdin.tty?
     begin
       # Save the current state and send the escape sequence to get the cursor position
       print "\e7\e[r\e[999;999H\e[6n\e8"
