@@ -6,6 +6,7 @@
 require 'clipboard'
 require 'English'
 require 'fileutils'
+require 'io/console'
 require 'open3'
 require 'optparse'
 require 'ostruct'
@@ -31,6 +32,7 @@ require_relative 'hash'
 require_relative 'link_history'
 require_relative 'mdoc'
 require_relative 'regexp'
+require_relative 'resize_terminal'
 require_relative 'std_out_err_logger'
 require_relative 'string_util'
 
@@ -2419,14 +2421,37 @@ module MarkdownExec
                      ))
     end
 
+    # Registers console attributes by modifying the options hash.
+    # This method handles terminal resizing and adjusts the console dimensions 
+    # and pagination settings based on the current terminal size.
+    #
+    # @param opts [Hash] a hash containing various options for the console settings.
+    #   - :console_width [Integer, nil] The width of the console. If not provided or if the terminal is resized, it will be set to the current console width.
+    #   - :console_height [Integer, nil] The height of the console. If not provided or if the terminal is resized, it will be set to the current console height.
+    #   - :console_winsize [Array<Integer>, nil] The dimensions of the console [height, width]. If not provided or if the terminal is resized, it will be set to the current console dimensions.
+    #   - :select_page_height [Integer, nil] The height of the page for selection. If not provided or if not positive, it will be set to the maximum of (console height - 3) or 4.
+    #   - :per_page [Integer, nil] The number of items per page. If :select_page_height is not provided or if not positive, it will be set to the maximum of (console height - 3) or 4.
+    #
+    # @raise [StandardError] If an error occurs during the process, it will be caught and handled by calling HashDelegator.error_handler with 'register_console_attributes' and { abort: true }.
+    #
+    # @example
+    #   opts = { console_width: nil, console_height: nil, select_page_height: nil }
+    #   register_console_attributes(opts)
+    #   # opts will be updated with the current console dimensions and pagination settings.
     def register_console_attributes(opts)
-      unless opts[:console_width]
-        require 'io/console'
-        opts[:console_height], opts[:console_width] = opts[:console_winsize] = IO.console.winsize
+      begin
+        if (resized = @delegate_object[:menu_resize_terminal])
+          resize_terminal
+        end
+
+        if resized || !opts[:console_width]
+          opts[:console_height], opts[:console_width] = opts[:console_winsize] = IO.console.winsize
+        end
+
+        opts[:per_page] = opts[:select_page_height] = [opts[:console_height] - 3, 4].max unless opts[:select_page_height]&.positive?
+      rescue StandardError
+        HashDelegator.error_handler('register_console_attributes', { abort: true })
       end
-      opts[:per_page] = opts[:select_page_height] = [opts[:console_height] - 3, 4].max unless opts[:select_page_height]&.positive?
-    rescue StandardError
-      HashDelegator.error_handler('register_console_attributes', { abort: true })
     end
 
     # Check if the delegate object responds to a given method.

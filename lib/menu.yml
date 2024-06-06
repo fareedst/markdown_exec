@@ -1,4 +1,4 @@
-# MDE - Markdown Executor (2.0.7)
+# MDE - Markdown Executor (2.0.8)
 ---
 - :description: Show current configuration values
   :procname: show_config
@@ -609,6 +609,12 @@
   :env_var: MDE_MENU_PERSIST_BLOCK_NAME
   :opt_name: menu_persist_block_name
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Resize terminal when displaying menu.
+  :env_var: MDE_MENU_RESIZE_TERMINAL
+  :opt_name: menu_resize_terminal
+  :procname: val_as_bool
 - :default: fg_rgbh_ff_ff_ff
   :description: Color of menu task
   :env_var: MDE_MENU_TASK_COLOR

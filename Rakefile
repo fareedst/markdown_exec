@@ -89,6 +89,7 @@ task :minitest do
     './lib/object_present.rb',
     './lib/option_value.rb',
     './lib/regexp.rb',
+    './lib/resize_terminal.rb',
     './lib/saved_assets.rb',
     './lib/saved_files_matcher.rb'
   ]

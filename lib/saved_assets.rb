@@ -12,7 +12,7 @@ module MarkdownExec
   # method derives a name for stdout redirection.
   #
   class SavedAsset
-    FNR11 = %r{[^!#$%&()\+,\-0-9=A-Z_a-z~]}.freeze
+    FNR11 = %r{[^!#%&()\+,\-0-9=A-Z_a-z~]}.freeze
     # / !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
     FNR12 = '_'
     DEFAULT_FTIME = '%F-%H-%M-%S'

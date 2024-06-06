@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.8] - 2024-06-05
+
+### Added
+
+- Option to automatically resize the menu.
+  Detect the maximum supported screen dimensions.
+  Resize the terminal to the maximum dimensions.
+  Every time the menu is displayed, format it to the terminal dimensions.
+
+### Changed
+
+- Remove "$" from saved file names to simplify handling.
+
 ## [2.0.7] - 2024-06-04
 
 ### Added
