@@ -134,10 +134,7 @@ task :update_menu_yml do
     }
   )
 
-  File.write(MENU_YML,
-             "# #{MarkdownExec::APP_NAME} - #{MarkdownExec::APP_DESC} " \
-             "(#{MarkdownExec::VERSION})\n" +
-              menu_options.to_yaml)
+  File.write(MENU_YML, menu_options.to_yaml)
   puts `stat #{MENU_YML}`
 end
 
