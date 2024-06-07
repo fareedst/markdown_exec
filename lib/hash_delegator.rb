@@ -778,7 +778,7 @@ module MarkdownExec
         system(
           format(
             @delegate_object[:execute_command_format],
-            command_execute_in_own_window_format_arguments
+            command_execute_in_own_window_format_arguments(rest: args ? args.join(' ') : '')
           )
         )
 
@@ -806,7 +806,7 @@ module MarkdownExec
       @fout.fout "Error ENOENT: #{err.inspect}"
     end
 
-    def command_execute_in_own_window_format_arguments(home: Dir.pwd)
+    def command_execute_in_own_window_format_arguments(home: Dir.pwd, rest: '')
       {
         batch_index: @run_state.batch_index,
         batch_random: @run_state.batch_random,
@@ -816,6 +816,7 @@ module MarkdownExec
         home: home,
         output_filename: File.basename(@delegate_object[:logged_stdout_filespec]),
         output_filespec: @delegate_object[:logged_stdout_filespec],
+        rest: rest,
         script_filename: @run_state.saved_filespec,
         script_filespec: File.join(home, @run_state.saved_filespec),
         started_at: @run_state.started_at.strftime(

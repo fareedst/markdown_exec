@@ -244,7 +244,7 @@
                       write text "o=" & quoted form of output_filespec & ""
                       write text "cd " & quoted form of home & ""
                       write text "echo -ne \"\\033]; " & title & " \\007\""
-                      write text "\"$s\" 2>&1 | tee -a \"$o\""
+                      write text "\"$s\" %{rest} 2>&1 | tee -a \"$o\""
                   end tell
               end tell
           end tell
@@ -1029,7 +1029,7 @@
 
 - :arg_name: BOOL
   :default: false
-  :description: Wheter to save an executed script`
+  :description: Whether to save an executed script
   :env_var: MDE_SAVE_EXECUTED_SCRIPT
   :opt_name: save_executed_script
   :procname: val_as_bool

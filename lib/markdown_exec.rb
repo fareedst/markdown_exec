@@ -275,7 +275,7 @@ module MarkdownExec
     end
 
     # return arguments before ARGV_SEP
-    # arguments after ARGV_SEP are passed to the generatede script
+    # arguments after ARGV_SEP are passed to the generated script
     #
     def arguments_for_mde(argv = ARGV)
       case ind = argv.find_index(ARGV_SEP)
