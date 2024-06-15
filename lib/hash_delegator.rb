@@ -1668,7 +1668,6 @@ module MarkdownExec
 
     def inpseq_execute_block(block_name)
       @dml_block_state = block_state_for_name_from_cli(block_name)
-
       dump_and_warn_block_state(selected: @dml_block_state.block)
       @dml_link_state, @dml_menu_default_dname = \
         exec_bash_next_state(
@@ -1734,7 +1733,10 @@ module MarkdownExec
 
         if link_block_data.fetch(LinkKeys::EXEC, false)
           @run_state.files = Hash.new([])
-          execute_command_with_streams([cmd])
+          execute_command_with_streams([cmd]) do |_stdin, stdout, stderr, _thread|
+            line = stdout || stderr
+            output_lines.push(line) if line
+          end
 
           ## select output_lines that look like assignment or match other specs
           #
@@ -2054,7 +2056,7 @@ module MarkdownExec
     end
 
     def pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
-                                                      dependencies, selected)
+                                                      dependencies, selected, next_block_name: nil)
       pop = @link_history.pop # updatable
       if pop.document_filename
         next_state = LinkState.new(
@@ -2079,7 +2081,7 @@ module MarkdownExec
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
-          next_block_name: '', # not link_block_data[LinkKeys::BLOCK] || ''
+          next_block_name: next_block_name,
           next_document_filename: @delegate_object[:filename], # not next_document_filename
           next_load_file: LoadFile::REUSE # not next_document_filename == @delegate_object[:filename] ? LoadFile::REUSE : LoadFile::LOAD
         )
@@ -2357,7 +2359,7 @@ module MarkdownExec
         end
       end
 
-      ## append blocks loaded, apply LinkKeys::EVAL
+      ## append blocks loaded
       #
       if (load_expr = link_block_data.fetch(LinkKeys::LOAD, '')).present?
         load_filespec = load_filespec_from_expression(load_expr)
@@ -2372,10 +2374,11 @@ module MarkdownExec
       end
 
       next_document_filename = write_inherited_lines_to_file(link_state, link_block_data)
+      next_block_name = link_block_data.fetch(LinkKeys::NEXT_BLOCK, nil) || link_block_data.fetch(LinkKeys::BLOCK, nil) || ''
 
       if link_block_data[LinkKeys::RETURN]
         pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
-                                                      dependencies, selected)
+                                                      dependencies, selected, next_block_name: next_block_name)
 
       else
         link_history_push_and_next(
@@ -2384,8 +2387,7 @@ module MarkdownExec
           inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines: HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
-          next_block_name: link_block_data.fetch(LinkKeys::NEXT_BLOCK,
-                                                 nil) || link_block_data[LinkKeys::BLOCK] || '',
+          next_block_name: next_block_name,
           next_document_filename: next_document_filename,
           next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::REUSE : LoadFile::LOAD
         )
