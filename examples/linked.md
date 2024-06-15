@@ -1,6 +1,7 @@
 Demonstrate setting variable values interactively for use in generated scripts.
 
 ```opts :(document_options)
+menu_with_inherited_lines: true
 pause_after_script_execution: false
 user_must_approve: false
 ```
@@ -40,7 +41,7 @@ vars:
 ::: Set variable ALPHA in a Vars block
 For each environment variable named in block,
  append an inherited line that assigns the variable the specified value.
-```vars :set_ALPHA_to_1_via_vars_block
+```vars :[set_ALPHA_to_1_via_vars_block]
 ALPHA: 1
 ```
 
@@ -48,7 +49,7 @@ ALPHA: 1
 For each environment variable in `vars`,
  append an inherited line that assigns the variable the specified value.
 Subsequently, run the `display_variable_ALPHA` block.
-```link :set_ALPHA_to_2_via_link_block_and_display
+```link :[set_ALPHA_to_2_via_link_block_and_display]
 block: display_variable_ALPHA
 vars:
   ALPHA: 2
@@ -59,14 +60,14 @@ Subsequently, run the `display_variable_ALPHA` block.
 ```bash :(bash_set_to_3)
 ALPHA=3
 ```
-```link :set_ALPHA_to_3_via_required_block_and_display +(bash_set_to_3)
+```link :[set_ALPHA_to_3_via_required_block_and_display] +(bash_set_to_3)
 block: display_variable_ALPHA
 ```
 
 Evaluate the code in the required block `(bash_eval_set_to_4)` and
  save (transformed) output into inherited lines.
 Subsequently, run the `display_variable_ALPHA` block.
-```link :set_ALPHA_to_4_via_evaluated_required_block_and_display +(bash_eval_set_to_4)
+```link :[set_ALPHA_to_4_via_evaluated_required_block_and_display] +(bash_eval_set_to_4)
 eval: true
 next_block: display_variable_ALPHA
 ```
