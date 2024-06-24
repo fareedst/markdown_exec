@@ -767,7 +767,7 @@ module MarkdownExec
     end
 
     def command_execute(command, args: [])
-      @run_state.files = Hash.new([])
+      run_state_reset_stream_logs
       @run_state.options = @delegate_object
       @run_state.started_at = Time.now.utc
 
@@ -781,7 +781,6 @@ module MarkdownExec
             command_execute_in_own_window_format_arguments(rest: args ? args.join(' ') : '')
           )
         )
-
       else
         @run_state.in_own_window = false
         execute_command_with_streams(
@@ -1593,11 +1592,6 @@ module MarkdownExec
       bm = extract_named_captures_from_option(titlexcall,
                                               @delegate_object[:block_name_match])
 
-      fcb.stdin = extract_named_captures_from_option(titlexcall,
-                                                     @delegate_object[:block_stdin_scan])
-      fcb.stdout = extract_named_captures_from_option(titlexcall,
-                                                      @delegate_object[:block_stdout_scan])
-
       shell_color_option = SHELL_COLOR_OPTIONS[fcb[:shell]]
 
       if @delegate_object[:block_name_nick_match].present? && fcb.oname =~ Regexp.new(@delegate_object[:block_name_nick_match])
@@ -1732,7 +1726,7 @@ module MarkdownExec
         file.rewind
 
         if link_block_data.fetch(LinkKeys::EXEC, false)
-          @run_state.files = Hash.new([])
+          run_state_reset_stream_logs
           execute_command_with_streams([cmd]) do |_stdin, stdout, stderr, _thread|
             line = stdout || stderr
             output_lines.push(line) if line
@@ -2009,7 +2003,7 @@ module MarkdownExec
       @fout.fout formatted_string
     end
 
-    def output_execution_result
+    def fout_execution_report
       @fout.fout fetch_color(data_sym: :execution_report_preview_head,
                              color_sym: :execution_report_preview_frame_color)
       [
@@ -2107,7 +2101,7 @@ module MarkdownExec
     def post_execution_process
       do_save_execution_output
       output_execution_summary
-      output_execution_result
+      fout_execution_report if @delegate_object[:output_execution_report]
     end
 
     # Prepare the blocks menu by adding labels and other necessary details.
@@ -2473,6 +2467,13 @@ module MarkdownExec
       end
     end
 
+    def run_state_reset_stream_logs
+        @run_state.files = Hash.new()
+        @run_state.files[ExecutionStreams::STD_ERR] = []
+        @run_state.files[ExecutionStreams::STD_IN] = []
+        @run_state.files[ExecutionStreams::STD_OUT] = []
+    end
+
     def runtime_exception(exception_sym, name, items)
       if @delegate_object[exception_sym] != 0
         data = { name: name, detail: items.join(', ') }
@@ -2644,9 +2645,13 @@ module MarkdownExec
         dname = oname = title = fcb_title_groups.fetch(:name, '')
       end
 
+      # disable fcb for data blocks
+      disabled = fcb_title_groups.fetch(:shell, '') == 'yaml' ? '' : nil
+
       MarkdownExec::FCB.new(
         body: [],
         call: rest.match(Regexp.new(@delegate_object[:block_calls_scan]))&.to_a&.first,
+        disabled: disabled,
         dname: dname,
         headings: headings,
         indent: fcb_title_groups.fetch(:indent, ''),
@@ -3386,7 +3391,7 @@ module MarkdownExec
       end
 
       def test_format_execution_streams_with_valid_key
-        result = HashDelegator.format_execution_streams(:stdout,
+        result = HashDelegator.format_execution_streams(ExecutionStreams::STD_OUT,
                                                         { stdout: %w[output1 output2] })
 
         assert_equal 'output1output2', result
@@ -3395,7 +3400,7 @@ module MarkdownExec
       def test_format_execution_streams_with_empty_key
         @hd.instance_variable_get(:@run_state).stubs(:files).returns({})
 
-        result = HashDelegator.format_execution_streams(:stderr)
+        result = HashDelegator.format_execution_streams(ExecutionStreams::STD_ERR)
 
         assert_equal '', result
       end
@@ -3518,19 +3523,19 @@ module MarkdownExec
 
       def test_handle_stream
         stream = StringIO.new("line 1\nline 2\n")
-        file_type = :stdout
+        file_type = ExecutionStreams::STD_OUT
 
         Thread.new { @hd.handle_stream(stream: stream, file_type: file_type) }
 
         @hd.wait_for_stream_processing
 
         assert_equal ['line 1', 'line 2'],
-                     @hd.instance_variable_get(:@run_state).files[:stdout]
+                     @hd.instance_variable_get(:@run_state).files[ExecutionStreams::STD_OUT]
       end
 
       def test_handle_stream_with_io_error
         stream = StringIO.new("line 1\nline 2\n")
-        file_type = :stdout
+        file_type = ExecutionStreams::STD_OUT
         stream.stubs(:each_line).raises(IOError)
 
         Thread.new { @hd.handle_stream(stream: stream, file_type: file_type) }
@@ -3538,7 +3543,7 @@ module MarkdownExec
         @hd.wait_for_stream_processing
 
         assert_equal [],
-                     @hd.instance_variable_get(:@run_state).files[:stdout]
+                     @hd.instance_variable_get(:@run_state).files[ExecutionStreams::STD_OUT]
       end
     end
 

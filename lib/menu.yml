@@ -53,6 +53,7 @@
   :opt_name: block_stdin_scan
   :procname: val_as_str
 - :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+  :description: Match to place block body into a file or a variable
   :env_var: MDE_BLOCK_STDOUT_SCAN
   :opt_name: block_stdout_scan
   :procname: val_as_str
@@ -726,6 +727,12 @@
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
   :opt_name: output_execution_label_value_color
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: Output execution report at end of execution
+  :env_var: MDE_OUTPUT_EXECUTION_REPORT
+  :opt_name: output_execution_report
+  :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
   :description: Output saved script filename at end of execution

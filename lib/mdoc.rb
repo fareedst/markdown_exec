@@ -53,6 +53,17 @@ module MarkdownExec
       end
     end
 
+    # Collects and formats the shell command output to redirect script block code to a file or a variable.
+    #
+    # @param [Hash] fcb A hash containing information about the script block's stdout and body.
+    #   @option fcb [Hash] :stdout A hash specifying the stdout details.
+    #     @option stdout [Boolean] :type Indicates whether to export to a variable (true) or to write to a file (false).
+    #     @option stdout [String] :name The name of the variable or file to which the body will be output.
+    #   @option fcb [Array<String>] :body An array of strings representing the lines of the script block's body.
+    #
+    # @return [String] A string containing the formatted shell command to output the script block's body.
+    #   If stdout[:type] is true, the command will export the body to a shell variable.
+    #   If stdout[:type] is false, the command will write the body to a file.
     def collect_block_code_stdout(fcb)
       stdout = fcb[:stdout]
       body = fcb[:body].join("\n")

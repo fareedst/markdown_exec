@@ -64,6 +64,7 @@
   :procname: val_as_str
 
 - :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+  :description: Match to place block body into a file or a variable
   :env_var: MDE_BLOCK_STDOUT_SCAN
   :opt_name: block_stdout_scan
   :procname: val_as_str
@@ -253,6 +254,9 @@
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
   :opt_name: execute_command_format
   :procname: val_as_str
+# execute_command_format using a saved script
+# - :default: >
+#   osascript scripts/applescript/mde.applescript "%{batch_index}" "%{home}" " %{started_at} - %{document_filename} - %{block_name} " "%{script_filespec}" "%{output_filespec}" %{rest}
 
 - :default: "%T"
   :description: Format for time in window title
@@ -858,6 +862,13 @@
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
   :opt_name: output_execution_label_value_color
   :procname: val_as_str
+
+- :arg_name: BOOL
+  :default: true
+  :description: Output execution report at end of execution
+  :env_var: MDE_OUTPUT_EXECUTION_REPORT
+  :opt_name: output_execution_report
+  :procname: val_as_bool
 
 - :arg_name: BOOL
   :default: false
