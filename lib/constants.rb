@@ -48,6 +48,7 @@ class MenuState
   CONTINUE = :continue
   EDIT = :edit
   EXIT = :exit
+  HISTORY = :history
   LOAD = :load
   SAVE = :save
   SHELL = :shell

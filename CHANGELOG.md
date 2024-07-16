@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.1.0] - 2024-07-15
+
+### Added
+
+- Option to toggle the output of an execution report.
+- Option to toggle a menu entry to view saved script and output files.
+- Options for formatting and parsing saved script and output file names.
+
+### Changed
+
+- Fix handling of output streams for executed scripts to improve logging out output and addition to inherited code.
+- YAML blocks are not executable from the menu.
+- Fix collection of output of Link blocks.
+- Pass-through arguments after "--" to the script.
+- Remove app info from menu.yml.
+- Remove test for unwanted arguments.
+- Fix Link next_block_name when filename is used.
+- In example doc, use nicknames to allow block content to be displayed.
+
 ## [2.0.8] - 2024-06-05
 
 ### Added

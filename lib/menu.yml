@@ -107,6 +107,12 @@
   :opt_name: menu_for_saved_lines
   :procname: val_as_bool
 - :arg_name: BOOL
+  :default: true
+  :description: Add menu options for history
+  :env_var: MDE_menu_for_history
+  :opt_name: menu_for_history
+  :procname: val_as_bool
+- :arg_name: BOOL
   :default: false
   :description: Dump @delegate_object
   :env_var: MDE_DUMP_DELEGATE_OBJECT
@@ -542,7 +548,7 @@
   :env_var: MDE_MENU_NOTE_FORMAT
   :opt_name: menu_note_format
   :procname: val_as_str
-- :default: "^(?<line>(?!/ )(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :default: "^(?<line>(?!/)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for notes in block selection menu
   :env_var: MDE_MENU_NOTE_MATCH
   :opt_name: menu_note_match
@@ -564,6 +570,12 @@
   :description: Text for Exit option
   :env_var: MDE_MENU_OPTION_EXIT_NAME
   :opt_name: menu_option_exit_name
+  :procname: val_as_str
+- :default:
+    :line: "* History"
+  :description: Text for History option
+  :env_var: MDE_MENU_OPTION_HISTORY_NAME
+  :opt_name: menu_option_history_name
   :procname: val_as_str
 - :default:
     :line: "* Load"
@@ -848,6 +860,13 @@
   :procname: val_as_str
 - :default: |2-
 
+    View file:
+  :description: Prompt to select a saved asset
+  :env_var: MDE_PROMPT_SELECT_HISTORY_FILE
+  :opt_name: prompt_select_history_file
+  :procname: val_as_str
+- :default: |2-
+
     Choose a file:
   :description: Prompt to select a markdown document
   :env_var: MDE_PROMPT_SELECT_MD
@@ -889,6 +908,16 @@
   :env_var: MDE_RUNTIME_EXCEPTION_ERROR_LEVEL
   :opt_name: runtime_exception_error_level
   :procname: val_as_int
+- :default: "%{prefix}%{join}%{time}%{join}%{filename}%{join}%{mark}%{join}%{blockname}%{join}%{exts}"
+  :description: saved_asset_format
+  :env_var: MDE_SAVED_ASSET_FORMAT
+  :opt_name: saved_asset_format
+  :procname: val_as_str
+- :default: "^(?<prefix>.+)(?<join>_)(?<time>[0-9\\-]+)\\g'join'(?<filename>.+)\\g'join'(?<mark>~)\\g'join'(?<blockname>.+)\\g'join'(?<exts>\\..+)$"
+  :description: saved_asset_match
+  :env_var: MDE_SAVED_ASSET_MATCH
+  :opt_name: saved_asset_match
+  :procname: val_as_str
 - :arg_name: BOOL
   :default: false
   :description: Whether to save an executed script

@@ -34,6 +34,7 @@ require_relative 'mdoc'
 require_relative 'regexp'
 require_relative 'resize_terminal'
 require_relative 'std_out_err_logger'
+require_relative 'streams_out'
 require_relative 'string_util'
 
 class String
@@ -163,15 +164,6 @@ module HashDelegatorSelf
   #   end.join("\n")
   # end
 
-  # Formats and returns the execution streams (like stdin, stdout, stderr) for a given key.
-  # It concatenates the array of strings found under the specified key in the run_state's files.
-  #
-  # @param key [Symbol] The key corresponding to the desired execution stream.
-  # @return [String] A concatenated string of the execution stream's contents.
-  def format_execution_streams(key, files = {})
-    (files || {}).fetch(key, []).join
-  end
-
   # Indents all lines in a given string with a specified indentation string.
   # @param body [String] A multi-line string to be indented.
   # @param indent [String] The string used for indentation (default is an empty string).
@@ -239,6 +231,22 @@ module HashDelegatorSelf
   # @param str [String] The string to be evaluated.
   # @return [Object] The result of evaluating the string.
   def safeval(str)
+    # # Restricting to evaluate only expressions
+    # unless str.match?(/\A\s*\w+\s*[\+\-\*\/\=\%\&\|\<\>\!]+\s*\w+\s*\z/)
+    #   error_handler('safeval') # 'Invalid expression'
+    #   return
+    # end
+
+    # # Whitelisting allowed operations
+    # allowed_methods = %w[+ - * / == != < > <= >= && || % & |]
+    # unless allowed_methods.any? { |op| str.include?(op) }
+    #   error_handler('safeval', 'Operation not allowed')
+    #   return
+    # end
+
+    # # Sanitize input (example: removing potentially harmful characters)
+    # str = str.gsub(/[^0-9\+\-\*\/\(\)\<\>\!\=\%\&\|]/, '')
+    # Evaluate the sanitized string
     result = nil
     binding.eval("result = #{str}")
 
@@ -281,21 +289,6 @@ module HashDelegatorSelf
     default_block_title_from_body(fcb)
     MarkdownExec::Filter.yield_to_block_if_applicable(fcb, messages, configuration,
                                                       &block)
-  end
-
-  def write_execution_output_to_file(files, filespec)
-    FileUtils.mkdir_p File.dirname(filespec)
-
-    File.write(
-      filespec,
-      ["-STDOUT-\n",
-       format_execution_streams(ExecutionStreams::STD_OUT, files),
-       "-STDERR-\n",
-       format_execution_streams(ExecutionStreams::STD_ERR, files),
-       "-STDIN-\n",
-       format_execution_streams(ExecutionStreams::STD_IN, files),
-       "\n"].join
-    )
   end
 
   # Yields a line as a new block if the selected message type includes :line.
@@ -561,6 +554,9 @@ module MarkdownExec
       when MenuState::EXIT
         option_name = @delegate_object[:menu_option_exit_name]
         insert_at_top = @delegate_object[:menu_exit_at_top]
+      when MenuState::HISTORY
+        option_name = @delegate_object[:menu_option_history_name]
+        insert_at_top = @delegate_object[:menu_load_at_top]
       when MenuState::LOAD
         option_name = @delegate_object[:menu_option_load_name]
         insert_at_top = @delegate_object[:menu_load_at_top]
@@ -573,6 +569,8 @@ module MarkdownExec
       when MenuState::VIEW
         option_name = @delegate_object[:menu_option_view_name]
         insert_at_top = @delegate_object[:menu_load_at_top]
+      else
+        raise "Missing MenuState: #{menu_state}"
       end
 
       formatted_name = format(@delegate_object[:menu_link_format],
@@ -700,11 +698,12 @@ module MarkdownExec
       return unless @delegate_object[:saved_stdout_folder]
 
       @delegate_object[:logged_stdout_filename] =
-        SavedAsset.stdout_name(blockname: block_name,
-                               filename: File.basename(@delegate_object[:filename],
-                                                       '.*'),
-                               prefix: @delegate_object[:logged_stdout_filename_prefix],
-                               time: Time.now.utc)
+        SavedAsset.new(blockname: block_name,
+                       filename: @delegate_object[:filename],
+                       prefix: @delegate_object[:logged_stdout_filename_prefix],
+                       time: Time.now.utc,
+                       exts: '.out.txt',
+                       saved_asset_format: @delegate_object[:saved_asset_format]).generate_name
 
       @logged_stdout_filespec =
         @delegate_object[:logged_stdout_filespec] =
@@ -767,7 +766,7 @@ module MarkdownExec
     end
 
     def command_execute(command, args: [])
-      run_state_reset_stream_logs
+      @run_state.files = StreamsOut.new
       @run_state.options = @delegate_object
       @run_state.started_at = Time.now.utc
 
@@ -794,14 +793,14 @@ module MarkdownExec
       @run_state.aborted_at = Time.now.utc
       @run_state.error_message = err.message
       @run_state.error = err
-      @run_state.files[ExecutionStreams::STD_ERR] += [@run_state.error_message]
+      @run_state.files.append_stream_line(ExecutionStreams::STD_ERR, @run_state.error_message)
       @fout.fout "Error ENOENT: #{err.inspect}"
     rescue SignalException => err
       # Handle SignalException
       @run_state.aborted_at = Time.now.utc
       @run_state.error_message = 'SIGTERM'
       @run_state.error = err
-      @run_state.files[ExecutionStreams::STD_ERR] += [@run_state.error_message]
+      @run_state.files.append_stream_line(ExecutionStreams::STD_ERR, @run_state.error_message)
       @fout.fout "Error ENOENT: #{err.inspect}"
     end
 
@@ -1054,8 +1053,7 @@ module MarkdownExec
       return unless @delegate_object[:save_execution_output]
       return if @run_state.in_own_window
 
-      HashDelegator.write_execution_output_to_file(@run_state.files,
-                                                   @delegate_object[:logged_stdout_filespec])
+      @run_state.files.write_execution_output_to_file(@delegate_object[:logged_stdout_filespec])
     end
 
     # Select and execute a code block from a Markdown document.
@@ -1091,12 +1089,14 @@ module MarkdownExec
         pop_add_current_code_to_head_and_trigger_load(@dml_link_state, inherited_block_names, code_lines, inherited_dependencies, selected)
       end
 
-      item_back = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_back_name]))
-      item_edit = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name]))
-      item_load = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_load_name]))
-      item_save = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name]))
-      item_shell = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name]))
-      item_view = format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name]))
+      fdo = ->(mo) { format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[mo])) }
+      item_back = fdo.call(:menu_option_back_name)
+      item_edit = fdo.call(:menu_option_edit_name)
+      item_history = fdo.call(:menu_option_history_name)
+      item_load = fdo.call(:menu_option_load_name)
+      item_save = fdo.call(:menu_option_save_name)
+      item_shell = fdo.call(:menu_option_shell_name)
+      item_view = fdo.call(:menu_option_view_name)
 
       @run_state.batch_random = Random.new.rand
       @run_state.batch_index = 0
@@ -1110,6 +1110,12 @@ module MarkdownExec
           # puts "@ - parse document #{data}"
           inpseq_parse_document(data)
 
+          if @delegate_object[:menu_for_history]
+            history_files.tap do |files|
+              menu_enable_option(item_history, files.count, 'files', menu_state: MenuState::HISTORY) if files.count.positive?
+            end
+          end
+
           if @delegate_object[:menu_for_saved_lines] && @delegate_object[:document_saved_lines_glob].present?
 
             sf = document_name_in_glob_as_file_name(@dml_link_state.document_filename, @delegate_object[:document_saved_lines_glob])
@@ -1120,11 +1126,11 @@ module MarkdownExec
 
             # add menu items (glob, load, save) and enable selectively
             menu_add_disabled_option(sf) if files.count.positive? || lines_count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_load_name])), files.count, 'files', menu_state: MenuState::LOAD) if files.count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_edit_name])), lines_count, 'lines', menu_state: MenuState::EDIT) if lines_count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_save_name])), 1, '', menu_state: MenuState::SAVE) if lines_count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_view_name])), 1, '', menu_state: MenuState::VIEW) if lines_count.positive?
-            menu_enable_option(format(@delegate_object[:menu_link_format], HashDelegator.safeval(@delegate_object[:menu_option_shell_name])), 1, '', menu_state: MenuState::SHELL) if @delegate_object[:menu_with_shell]
+            menu_enable_option(item_load, files.count, 'files', menu_state: MenuState::LOAD) if files.count.positive?
+            menu_enable_option(item_edit, lines_count, 'lines', menu_state: MenuState::EDIT) if lines_count.positive?
+            menu_enable_option(item_save, 1, '', menu_state: MenuState::SAVE) if lines_count.positive?
+            menu_enable_option(item_view, 1, '', menu_state: MenuState::VIEW) if lines_count.positive?
+            menu_enable_option(item_shell, 1, '', menu_state: MenuState::SHELL) if @delegate_object[:menu_with_shell]
           end
 
         when :display_menu
@@ -1169,6 +1175,42 @@ module MarkdownExec
             debounce_reset
             edited = edit_text(@dml_link_state.inherited_lines.join("\n"))
             @dml_link_state.inherited_lines = edited.split("\n") if edited
+
+            return :break if pause_user_exit
+
+            InputSequencer.next_link_state(prior_block_was_link: true)
+
+          when item_history
+            debounce_reset
+            files = history_files
+            files_table_rows = files.map do |file|
+              if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
+                OpenStruct.new(file: file, row: [$~[:time], $~[:blockname], $~[:exts]].join('  '))
+              else
+                warn "Cannot parse name: #{file}"
+                next
+              end
+            end.compact
+
+            case (name = prompt_select_code_filename(
+              [@delegate_object[:prompt_filespec_back]] +
+               files_table_rows.map(&:row),
+              string: @delegate_object[:prompt_select_history_file],
+              color_sym: :prompt_color_after_script_execution
+            ))
+            when @delegate_object[:prompt_filespec_back]
+              # do nothing
+            else
+              file = files_table_rows.select { |ftr| ftr.row == name }&.first
+              info = file_info(file.file)
+              warn "#{file.file} - #{info[:lines]} lines / #{info[:size]} bytes"
+              warn(File.readlines(file.file, chomp: false).map.with_index do |line, ind|
+                     format(' %s.  %s', format('% 4d', ind).violet, line)
+                   end)
+            end
+
+            return :break if pause_user_exit
+
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_load
@@ -1179,6 +1221,9 @@ module MarkdownExec
               @dml_link_state.inherited_lines ||= []
               @dml_link_state.inherited_lines += File.readlines(load_filespec, chomp: true)
             end
+
+            return :break if pause_user_exit
+
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_save
@@ -1192,6 +1237,7 @@ module MarkdownExec
               return :break
 
             end
+
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_shell
@@ -1210,11 +1256,17 @@ module MarkdownExec
                 warn "#{'ERR'.bred} #{exit_status}"
               end
             end
+
+            return :break if pause_user_exit
+
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           when item_view
             debounce_reset
             warn @dml_link_state.inherited_lines.join("\n")
+
+            return :break if pause_user_exit
+
             InputSequencer.next_link_state(prior_block_was_link: true)
 
           else
@@ -1532,6 +1584,21 @@ module MarkdownExec
       string_send_color(data_string, color_sym)
     end
 
+    # size of a file in bytes and the number of lines
+    def file_info(file_path)
+      file_size = 0
+      line_count = 0
+
+      File.open(file_path, 'r') do |file|
+        file.each_line do |_line|
+          line_count += 1
+        end
+        file_size = file.size
+      end
+
+      { size: file_size, lines: line_count }
+    end
+
     def format_and_execute_command(code_lines:)
       formatted_command = code_lines.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
@@ -1628,7 +1695,7 @@ module MarkdownExec
         Thread.new do
           stream.each_line do |line|
             line.strip!
-            @run_state.files[file_type] << line if @run_state.files
+            @run_state.files.append_stream_line(file_type, line) if @run_state.files.streams
 
             if @delegate_object[:output_stdout]
               # print line
@@ -1643,6 +1710,16 @@ module MarkdownExec
           @process_cv.signal
         end
       end
+    end
+
+    def history_files
+      Dir.glob(
+        File.join(
+          @delegate_object[:saved_script_folder],
+          SavedAsset.new(filename: @delegate_object[:filename],
+                         saved_asset_format: @delegate_object[:saved_asset_format]).generate_name
+        )
+      )
     end
 
     # Initializes variables for regex and other states
@@ -1726,7 +1803,7 @@ module MarkdownExec
         file.rewind
 
         if link_block_data.fetch(LinkKeys::EXEC, false)
-          run_state_reset_stream_logs
+          @run_state.files = StreamsOut.new
           execute_command_with_streams([cmd]) do |_stdin, stdout, stderr, _thread|
             line = stdout || stderr
             output_lines.push(line) if line
@@ -1850,6 +1927,7 @@ module MarkdownExec
         expanded_expression
       end
     end
+
     # Handle expression with wildcard characters
     def load_filespec_wildcard_expansion(expr, auto_load_single: false)
       files = find_files(expr)
@@ -1860,7 +1938,11 @@ module MarkdownExec
       else
         ## user selects from existing files or other
         #
-        case (name = prompt_select_code_filename([@delegate_object[:prompt_filespec_back]] + files))
+        case (name = prompt_select_code_filename(
+          [@delegate_object[:prompt_filespec_back]] + files,
+          string: @delegate_object[:prompt_select_code_file],
+          color_sym: :prompt_color_after_script_execution
+        ))
         when @delegate_object[:prompt_filespec_back]
           # do nothing
         else
@@ -2027,16 +2109,16 @@ module MarkdownExec
     def output_execution_summary
       return unless @delegate_object[:output_execution_summary]
 
-      fout_section 'summary', {
+      @fout.fout_section 'summary', {
         execute_aborted_at: @run_state.aborted_at,
         execute_completed_at: @run_state.completed_at,
         execute_error: @run_state.error,
         execute_error_message: @run_state.error_message,
-        execute_files: @run_state.files,
         execute_options: @run_state.options,
         execute_started_at: @run_state.started_at,
+        saved_filespec: @run_state.saved_filespec,
         script_block_name: @run_state.script_block_name,
-        saved_filespec: @run_state.saved_filespec
+        streamed_lines: @run_state.files.streams
       }
     end
 
@@ -2047,6 +2129,11 @@ module MarkdownExec
                                             :output_execution_label_value_color) },
         format_sym: :output_execution_label_format
       ), level: level
+    end
+
+    def pause_user_exit
+      @delegate_object[:pause_after_script_execution] &&
+        prompt_select_continue == MenuState::EXIT
     end
 
     def pop_add_current_code_to_head_and_trigger_load(link_state, block_names, code_lines,
@@ -2275,10 +2362,9 @@ module MarkdownExec
 
     # public
 
-    def prompt_select_code_filename(filenames)
+    def prompt_select_code_filename(filenames, string: @delegate_object[:prompt_select_code_file], color_sym: :prompt_color_after_script_execution)
       @prompt.select(
-        string_send_color(@delegate_object[:prompt_select_code_file],
-                          :prompt_color_after_script_execution),
+        string_send_color(string, color_sym),
         filter: true,
         quiet: true
       ) do |menu|
@@ -2419,7 +2505,7 @@ module MarkdownExec
     end
 
     # Registers console attributes by modifying the options hash.
-    # This method handles terminal resizing and adjusts the console dimensions 
+    # This method handles terminal resizing and adjusts the console dimensions
     # and pagination settings based on the current terminal size.
     #
     # @param opts [Hash] a hash containing various options for the console settings.
@@ -2436,19 +2522,15 @@ module MarkdownExec
     #   register_console_attributes(opts)
     #   # opts will be updated with the current console dimensions and pagination settings.
     def register_console_attributes(opts)
-      begin
-        if (resized = @delegate_object[:menu_resize_terminal])
-          resize_terminal
-        end
-
-        if resized || !opts[:console_width]
-          opts[:console_height], opts[:console_width] = opts[:console_winsize] = IO.console.winsize
-        end
-
-        opts[:per_page] = opts[:select_page_height] = [opts[:console_height] - 3, 4].max unless opts[:select_page_height]&.positive?
-      rescue StandardError
-        HashDelegator.error_handler('register_console_attributes', { abort: true })
+      if (resized = @delegate_object[:menu_resize_terminal])
+        resize_terminal
       end
+
+      opts[:console_height], opts[:console_width] = opts[:console_winsize] = IO.console.winsize if resized || !opts[:console_width]
+
+      opts[:per_page] = opts[:select_page_height] = [opts[:console_height] - 3, 4].max unless opts[:select_page_height]&.positive?
+    rescue StandardError
+      HashDelegator.error_handler('register_console_attributes', { abort: true })
     end
 
     # Check if the delegate object responds to a given method.
@@ -2465,13 +2547,6 @@ module MarkdownExec
       else
         @delegate_object.respond_to?(method_name, include_private)
       end
-    end
-
-    def run_state_reset_stream_logs
-        @run_state.files = Hash.new()
-        @run_state.files[ExecutionStreams::STD_ERR] = []
-        @run_state.files[ExecutionStreams::STD_IN] = []
-        @run_state.files[ExecutionStreams::STD_OUT] = []
     end
 
     def runtime_exception(exception_sym, name, items)
@@ -2517,8 +2592,11 @@ module MarkdownExec
         ## user selects from existing files or other
         # input into path with wildcard for easy entry
         #
-        name = prompt_select_code_filename([@delegate_object[:prompt_filespec_back], @delegate_object[:prompt_filespec_other]] + files)
-        case name
+        case (name = prompt_select_code_filename(
+          [@delegate_object[:prompt_filespec_back], @delegate_object[:prompt_filespec_other]] + files,
+          string: @delegate_object[:prompt_select_code_file],
+          color_sym: :prompt_color_after_script_execution
+        ))
         when @delegate_object[:prompt_filespec_back]
           # do nothing
         when @delegate_object[:prompt_filespec_other]
@@ -2785,12 +2863,12 @@ module MarkdownExec
 
       time_now = Time.now.utc
       @run_state.saved_script_filename =
-        SavedAsset.script_name(
-          blockname: selected.pub_name,
-          filename: @delegate_object[:filename],
-          prefix: @delegate_object[:saved_script_filename_prefix],
-          time: time_now
-        )
+        SavedAsset.new(blockname: selected.pub_name,
+                       exts: '.sh',
+                       filename: @delegate_object[:filename],
+                       prefix: @delegate_object[:saved_script_filename_prefix],
+                       saved_asset_format: @delegate_object[:saved_asset_format],
+                       time: time_now).generate_name
       @run_state.saved_filespec =
         File.join(@delegate_object[:saved_script_folder],
                   @run_state.saved_script_filename)
@@ -3390,25 +3468,27 @@ module MarkdownExec
         @hd.instance_variable_set(:@run_state, mock('run_state'))
       end
 
-      def test_format_execution_streams_with_valid_key
-        result = HashDelegator.format_execution_streams(ExecutionStreams::STD_OUT,
-                                                        { stdout: %w[output1 output2] })
+      def test_format_execution_stream_with_valid_key
+        result = HashDelegator.format_execution_stream(
+          { stdout: %w[output1 output2] },
+          ExecutionStreams::STD_OUT
+        )
 
-        assert_equal 'output1output2', result
+        assert_equal "output1\noutput2", result
       end
 
-      def test_format_execution_streams_with_empty_key
+      def test_format_execution_stream_with_empty_key
         @hd.instance_variable_get(:@run_state).stubs(:files).returns({})
 
-        result = HashDelegator.format_execution_streams(ExecutionStreams::STD_ERR)
+        result = HashDelegator.format_execution_stream(nil, ExecutionStreams::STD_ERR)
 
         assert_equal '', result
       end
 
-      def test_format_execution_streams_with_nil_files
+      def test_format_execution_stream_with_nil_files
         @hd.instance_variable_get(:@run_state).stubs(:files).returns(nil)
 
-        result = HashDelegator.format_execution_streams(:stdin)
+        result = HashDelegator.format_execution_stream(nil, :stdin)
 
         assert_equal '', result
       end
