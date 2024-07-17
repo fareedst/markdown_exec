@@ -703,7 +703,7 @@ module MarkdownExec
                        prefix: @delegate_object[:logged_stdout_filename_prefix],
                        time: Time.now.utc,
                        exts: '.out.txt',
-                       saved_asset_format: @delegate_object[:saved_asset_format]).generate_name
+                       saved_asset_format: shell_escape_asset_format).generate_name
 
       @logged_stdout_filespec =
         @delegate_object[:logged_stdout_filespec] =
@@ -1101,6 +1101,8 @@ module MarkdownExec
       @run_state.batch_random = Random.new.rand
       @run_state.batch_index = 0
 
+      @run_state.files = StreamsOut.new
+
       InputSequencer.new(
         @delegate_object[:filename],
         @delegate_object[:input_cli_rest]
@@ -1112,7 +1114,9 @@ module MarkdownExec
 
           if @delegate_object[:menu_for_history]
             history_files.tap do |files|
-              menu_enable_option(item_history, files.count, 'files', menu_state: MenuState::HISTORY) if files.count.positive?
+              if files.count.positive?
+                menu_enable_option(item_history, files.count, 'files', menu_state: MenuState::HISTORY)
+              end
             end
           end
 
@@ -1185,12 +1189,33 @@ module MarkdownExec
             files = history_files
             files_table_rows = files.map do |file|
               if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
-                OpenStruct.new(file: file, row: [$~[:time], $~[:blockname], $~[:exts]].join('  '))
+                begin
+                  OpenStruct.new(
+                    file: file,
+                    # row: [$~[:time], $~[:fqdn], $~[:blockname], $~[:exts]].join('  ')
+                    row: format(
+                           # '%{fqdn}  %{time}  %{blockname}  %{exts}',
+                           @delegate_object[:saved_history_format],
+                           # create with default '*' so unknown parameters are given a wildcard
+                           $~.names.each_with_object(Hash.new('*')) do |name, hash|
+                           # $~.names.each_with_object({}) do |name, hash|
+                             hash[name.to_sym] = $~[name]
+                           end
+                         )
+                  )
+                rescue KeyError
+                  # pp $!, $@
+                  warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
+                  error_handler('saved_history_format')
+                  break
+                end
               else
                 warn "Cannot parse name: #{file}"
                 next
               end
-            end.compact
+            end&.compact&.sort_by(&:row)
+
+            return :break unless files_table_rows
 
             case (name = prompt_select_code_filename(
               [@delegate_object[:prompt_filespec_back]] +
@@ -1646,6 +1671,16 @@ module MarkdownExec
       expr.include?('%{') ? format_expression(expr) : expr
     end
 
+    def generate_temp_filename(ext=".sh")
+      filename = begin
+        Dir::Tmpname.make_tmpname(["x", ext], nil)
+      rescue NoMethodError
+        require "securerandom"
+        "#{SecureRandom.urlsafe_base64}#{ext}"
+      end
+      File.join(Dir.tmpdir, filename)
+    end
+
     # Processes a block to generate its summary, modifying its attributes based on various matching criteria.
     # It handles special formatting for bash blocks, extracting and setting properties like call, stdin, stdout, and dname.
     #
@@ -1717,7 +1752,7 @@ module MarkdownExec
         File.join(
           @delegate_object[:saved_script_folder],
           SavedAsset.new(filename: @delegate_object[:filename],
-                         saved_asset_format: @delegate_object[:saved_asset_format]).generate_name
+                         saved_asset_format: shell_escape_asset_format).generate_name
         )
       )
     end
@@ -2696,6 +2731,30 @@ module MarkdownExec
       code_lines
     end
 
+    def shell_escape_asset_format
+      raw = @delegate_object[:saved_asset_format]
+
+      return raw unless @delegate_object[:shell_parameter_expansion]
+
+      # unchanged if no parameter expansion takes place
+      return raw unless /$/ =~ raw
+
+      filespec = generate_temp_filename
+      cmd = [@delegate_object[:shell], '-c', filespec].join(' ')
+
+      marker = Random.new.rand.to_s
+      code = (link_state&.inherited_lines || []) + ["echo -n \"#{marker}#{raw}\""]
+
+      File.write filespec, HashDelegator.join_code_lines(code)
+      File.chmod 0755, filespec
+
+      out = `#{cmd}`
+      out.sub!(/.*?#{marker}/m, '')
+      File.delete filespec
+      warn " @@ #{raw} @@ #{out}"
+      out
+    end
+
     def should_add_back_option?
       @delegate_object[:menu_with_back] && @link_history.prior_state_exist?
     end
@@ -2867,7 +2926,7 @@ module MarkdownExec
                        exts: '.sh',
                        filename: @delegate_object[:filename],
                        prefix: @delegate_object[:saved_script_filename_prefix],
-                       saved_asset_format: @delegate_object[:saved_asset_format],
+                       saved_asset_format: shell_escape_asset_format,
                        time: time_now).generate_name
       @run_state.saved_filespec =
         File.join(@delegate_object[:saved_script_folder],

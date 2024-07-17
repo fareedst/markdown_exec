@@ -1059,13 +1059,13 @@
   :procname: val_as_int
 
 - :default: '%{prefix}%{join}%{time}%{join}%{filename}%{join}%{mark}%{join}%{blockname}%{join}%{exts}'
-  :description: saved_asset_format
+  :description: Format for script and log file names
   :env_var: MDE_SAVED_ASSET_FORMAT
   :opt_name: saved_asset_format
   :procname: val_as_str
 
 - :default: "^(?<prefix>.+)(?<join>_)(?<time>[0-9\\-]+)\\g'join'(?<filename>.+)\\g'join'(?<mark>~)\\g'join'(?<blockname>.+)\\g'join'(?<exts>\\..+)$"
-  :description: saved_asset_match
+  :description: Regexp for script and log file names
   :env_var: MDE_SAVED_ASSET_MATCH
   :opt_name: saved_asset_match
   :procname: val_as_str
@@ -1094,6 +1094,12 @@
   :description: Replacement for pattern in file names
   :env_var: MDE_SAVED_FILENAME_REPLACEMENT
   :opt_name: saved_filename_replacement
+  :procname: val_as_str
+
+- :default: '%{time}  %{blockname}  %{exts}'
+  :description: Format for each row displayed in history
+  :env_var: MDE_SAVED_HISTORY_FORMAT
+  :opt_name: saved_history_format
   :procname: val_as_str
 
 - :arg_name: INT
@@ -1233,6 +1239,13 @@
   :env_var: MDE_SHELL_CODE_LABEL_TIME_FORMAT
   :opt_name: shell_code_label_time_format
   :procname: val_as_str
+
+- :arg_name: BOOL
+  :default: true
+  :description: Whether saved file names include shell parameter expansion
+  :env_var: MDE_SHELL_PARAMETER_EXPANSION
+  :opt_name: shell_parameter_expansion
+  :procname: val_as_bool
 
 - :description: List tab completions
   :long_name: tab-completions
