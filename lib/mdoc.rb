@@ -138,7 +138,9 @@ module MarkdownExec
                 collect_block_code_cann(fcb)
               elsif fcb[:stdout]
                 collect_block_code_stdout(fcb)
-              elsif [BlockType::LINK, BlockType::OPTS,
+              elsif [BlockType::OPTS].include? fcb[:shell]
+                fcb[:body]  # entire body is returned to requesing block
+              elsif [BlockType::LINK,
                      BlockType::VARS].include? fcb[:shell]
                 nil
               elsif fcb[:shell] == BlockType::PORT
