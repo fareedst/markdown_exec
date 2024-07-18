@@ -421,15 +421,6 @@
   :opt_name: list_docs
   :procname: val_as_bool
 
-- :description: List recent saved output
-  :long_name: list-recent-output
-  :opt_name: list_recent_output
-  :procname: val_as_bool
-
-- :description: List recent saved scripts
-  :long_name: list-recent-scripts
-  :opt_name: list_recent_scripts
-  :procname: val_as_bool
 
 - :arg_name: PATH
   :default: ''
