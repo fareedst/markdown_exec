@@ -178,4 +178,3 @@ _mde() {
 
 complete -o filenames -o nospace -F _mde mde
 # _mde_echo_version
-# echo "Updated: 2024-07-17 21:29:24 UTC"
