@@ -706,11 +706,11 @@ module MarkdownExec
 
     # private
 
-    def calc_logged_stdout_filename(block_name:)
+    def calc_logged_stdout_filename(pub_name)
       return unless @delegate_object[:saved_stdout_folder]
 
       @delegate_object[:logged_stdout_filename] =
-        SavedAsset.new(blockname: block_name,
+        SavedAsset.new(blockname: pub_name,
                        filename: @delegate_object[:filename],
                        prefix: @delegate_object[:logged_stdout_filename_prefix],
                        time: Time.now.utc,
@@ -1123,7 +1123,7 @@ module MarkdownExec
 
       fdo = ->(mo) {
         format(@delegate_object[:menu_link_format],
-               HashDelegator.safeval(@delegate_object[mo]))
+               HashDelegator.safeval(@delegate_object[mo])).to_blockname
       }
       item_back = fdo.call(:menu_option_back_name)
       item_edit = fdo.call(:menu_option_edit_name)
@@ -1189,6 +1189,8 @@ module MarkdownExec
               menu_enable_option(item_shell, 1, '',
                                  menu_state: MenuState::SHELL)
             end
+
+            @dml_mdoc = MDoc.new(@dml_menu_blocks)
           end
 
         when :display_menu
@@ -1594,7 +1596,7 @@ module MarkdownExec
                            selected: selected)
       end
       if @dml_block_state
-        calc_logged_stdout_filename(block_name: @dml_block_state.block[:oname])
+        calc_logged_stdout_filename(@dml_block_state.block.pub_name)
       end
       format_and_execute_command(code_lines: required_lines)
       post_execution_process
@@ -2169,21 +2171,20 @@ module MarkdownExec
       raise unless name.present?
       raise if @dml_menu_blocks.nil?
 
-      item = @dml_menu_blocks.find { |block| block[:oname] == name }
+      item = @dml_menu_blocks.find { |block| block.pub_name == name }
 
       # create menu item when it is needed (count > 0)
       #
       if item.nil? && count.positive?
         append_chrome_block(menu_blocks: @dml_menu_blocks,
                             menu_state: menu_state)
-        item = @dml_menu_blocks.find { |block| block[:oname] == name }
+        item = @dml_menu_blocks.find { |block| block.pub_name == name }
       end
 
       # update item if it exists
       #
       return unless item
-
-      item[:dname] = type.present? ? "#{name} (#{count} #{type})" : name
+      item[:dname] = type.present? ? "#{item[:oname]} (#{count} #{type})" : name
       if count.positive?
         item.delete(:disabled)
       else

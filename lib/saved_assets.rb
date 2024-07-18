@@ -34,10 +34,10 @@ module MarkdownExec
       ftime: DEFAULT_FTIME, pattern: FNR11, replace: FNR12, exts: nil,
       mark: nil, join_str: nil
     )
-      @filename = filename ? filename.gsub(pattern, replace) : '*' # [String] the name of the file
+      @filename = filename ? filename.to_filename : '*' # [String] the name of the file
       @prefix = prefix || '*' # [String] the prefix to use
       @time = time ? time.strftime(ftime) : '*' # [Time] the time object for formatting
-      @blockname = blockname ? blockname.gsub(pattern, replace) : '*' # [String] the block name to include
+      @blockname = blockname ? blockname.to_blockname : '*' # [String] the block name to include
       # @ftime = ftime # [String] the time format (default: DEFAULT_FTIME)
       # @pattern = pattern # [Regexp] the pattern to search (default: FNR11)
       # @replace = replace # [String] the string to replace the pattern (default: FNR12)

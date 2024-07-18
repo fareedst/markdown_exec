@@ -4,9 +4,19 @@
 # encoding=utf-8
 
 class Hash
+
   # block name in commands and documents
-  def pub_name
-    fetch(:nickname, nil) || fetch(:oname, nil)
+  def pub_name(id_len: 4, max_len: 48)
+    full = fetch(:nickname, nil) || fetch(:oname, nil)
+    trimmed = if full && full[max_len]
+      r = rand((10**(id_len - 1) + 1)..10**id_len).to_s
+      dig = Digest::MD5.hexdigest(full)[0, id_len]
+      full[0..max_len - id_len] + dig
+    else
+      full
+    end
+
+    trimmed&.to_blockname
   end
 end
 

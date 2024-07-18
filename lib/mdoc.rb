@@ -95,7 +95,7 @@ module MarkdownExec
       # select non-chrome blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
-        !fcb.fetch(:chrome, false) && all_dependency_names.include?(fcb.pub_name)
+        all_dependency_names.include?(fcb.pub_name)
       end
       # &bc 'blocks.count:',blocks.count
 
@@ -142,6 +142,8 @@ module MarkdownExec
                 fcb[:body]  # entire body is returned to requesing block
               elsif [BlockType::LINK,
                      BlockType::VARS].include? fcb[:shell]
+                nil
+              elsif fcb[:chrome] # for Link blocks like History
                 nil
               elsif fcb[:shell] == BlockType::PORT
                 collect_block_code_shell(fcb)
@@ -236,8 +238,7 @@ module MarkdownExec
     #
     def get_block_by_anyname(name, default = {})
       @table.select do |fcb|
-        fcb.fetch(:nickname,
-                  '') == name || fcb.fetch(:dname, '') == name || fcb.fetch(:oname, '') == name
+        name == fcb.fetch(:nickname, '') || name == fcb.fetch(:dname, '') || name == fcb.fetch(:oname, '') || name == fcb.pub_name
       end.fetch(0, default)
     end
 
