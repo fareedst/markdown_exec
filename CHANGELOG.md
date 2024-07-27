@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0] - 2024-07-27
+
+### Added
+
+- Options to list recent saved assets.
+- Short name for execute-in-own-window option.
+- Short name for load-code option.
+
+### Changed
+
+- Improve handling of variations of block names.
+- Remove functions to select recent saved assets.
+
 ## [2.1.0] - 2024-07-15
 
 ### Added

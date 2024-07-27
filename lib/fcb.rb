@@ -3,23 +3,7 @@
 
 # encoding=utf-8
 require 'digest'
-
-class Hash
-
-  # block name in commands and documents
-  def pub_name(id_len: 4, max_len: 48)
-    full = fetch(:nickname, nil) || fetch(:oname, nil)
-    trimmed = if full && full[max_len]
-      r = rand((10**(id_len - 1) + 1)..10**id_len).to_s
-      dig = Digest::MD5.hexdigest(full)[0, id_len]
-      full[0..max_len - id_len] + dig
-    else
-      full
-    end
-
-    trimmed&.to_blockname
-  end
-end
+require_relative 'namer'
 
 module MarkdownExec
   class Error < StandardError; end
@@ -109,7 +93,7 @@ module MarkdownExec
     end
 
     def to_h
-      @attrs
+      @attrs.to_h
     end
 
     def to_yaml

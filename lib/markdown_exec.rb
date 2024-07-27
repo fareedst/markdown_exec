@@ -86,20 +86,6 @@ def extract_named_captures_from_option(str, option)
   str.match(Regexp.new(option))&.named_captures&.sym_keys
 end
 
-# :reek:UtilityFunction
-def list_recent_output(saved_stdout_folder, saved_stdout_glob,
-                       list_count)
-  SavedFilesMatcher.most_recent_list(saved_stdout_folder,
-                                     saved_stdout_glob, list_count)
-end
-
-# :reek:UtilityFunction
-def list_recent_scripts(saved_script_folder, saved_script_glob,
-                        list_count)
-  SavedFilesMatcher.most_recent_list(saved_script_folder,
-                                     saved_script_glob, list_count)
-end
-
 # execute markdown documents
 #
 module MarkdownExec
@@ -267,6 +253,20 @@ module MarkdownExec
       )
     end
 
+    # :reek:UtilityFunction
+    def list_recent_output(saved_stdout_folder, saved_stdout_glob,
+                           list_count)
+      SavedFilesMatcher.most_recent_list(saved_stdout_folder,
+                                         saved_stdout_glob, list_count)
+    end
+
+    # :reek:UtilityFunction
+    def list_recent_scripts(saved_script_folder, saved_script_glob,
+                            list_count)
+      SavedFilesMatcher.most_recent_list(saved_script_folder,
+                                         saved_script_glob, list_count)
+    end
+
     def warn_format(name, message, opts = {})
       Exceptions.warn_format(
         "CachedNestedFileReader.#{name} -- #{message}",
@@ -390,8 +390,6 @@ module MarkdownExec
                              },
         pwd: -> { @fout.fout File.expand_path('..', __dir__) },
         run_last_script: -> { run_last_script },
-        select_recent_output: -> { select_recent_output },
-        select_recent_script: -> { select_recent_script },
         tab_completions: -> { @fout.fout tab_completions },
         menu_export: -> { @fout.fout menu_export }
       }
@@ -747,45 +745,9 @@ module MarkdownExec
 
     # Presents a TTY prompt to select an option or exit, returns selected option or nil
     def select_option_or_exit(prompt_text, strings, opts = {})
-      result = @options.select_option_with_metadata(prompt_text, strings,
-                                                    opts)
-      # return unless result.fetch(:option, nil)
-
-      result[:selected]
-    end
-
-    def select_recent_output
-      filename = select_option_or_exit(
-        HashDelegator.new(@options).string_send_color(@options[:prompt_select_output].to_s,
-                                                      :prompt_color_after_script_execution),
-        list_recent_output(
-          @options[:saved_stdout_folder],
-          @options[:saved_stdout_glob],
-          @options[:list_count]
-        ),
-        @options.merge({ per_page: @options[:select_page_height] })
-      )
-      return unless filename.present?
-
-      `open #{filename} #{options[:output_viewer_options]}`
-    end
-
-    def select_recent_script
-      filename = select_option_or_exit(
-        HashDelegator.new(@options).string_send_color(@options[:prompt_select_md].to_s,
-                                                      :prompt_color_after_script_execution),
-        list_recent_scripts(
-          @options[:saved_script_folder],
-          @options[:saved_script_glob],
-          @options[:list_count]
-        ),
-        @options.merge({ per_page: @options[:select_page_height] })
-      )
-      return if filename.nil?
-
-      saved_name_split(filename)
-
-      @options.document_inpseq ### ({ save_executed_script: false })
+      @options.select_option_with_metadata(
+        prompt_text, strings, opts
+      )&.fetch(:selected)
     end
 
     public

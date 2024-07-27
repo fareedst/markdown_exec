@@ -6,6 +6,8 @@
 require_relative 'block_types'
 require_relative 'filter'
 
+$pd = false
+
 module MarkdownExec
   ##
   # MDoc represents an imported markdown document.
@@ -139,7 +141,7 @@ module MarkdownExec
               elsif fcb[:stdout]
                 collect_block_code_stdout(fcb)
               elsif [BlockType::OPTS].include? fcb[:shell]
-                fcb[:body]  # entire body is returned to requesing block
+                fcb[:body] # entire body is returned to requesing block
               elsif [BlockType::LINK,
                      BlockType::VARS].include? fcb[:shell]
                 nil
@@ -238,8 +240,12 @@ module MarkdownExec
     #
     def get_block_by_anyname(name, default = {})
       @table.select do |fcb|
-        name == fcb.fetch(:nickname, '') || name == fcb.fetch(:dname, '') || name == fcb.fetch(:oname, '') || name == fcb.pub_name
-      end.fetch(0, default)
+        fcb.tap { |_ret| pp [__LINE__, 'get_block_by_anyname()', 'fcb', fcb] if $pd }
+        fcb.fetch(:nickname, '') == name || \
+          fcb.fetch(:dname, '') == name || \
+          fcb.fetch(:oname, '') == name || \
+          fcb.pub_name == name
+      end.fetch(0, default).tap { |ret| pp [__LINE__, 'get_block_by_anyname() ->', ret] if $pd }
     end
 
     # Checks if a code block should be hidden based on the given options.
@@ -519,7 +525,7 @@ if $PROGRAM_NAME == __FILE__
                      @mdoc.collect_wrapped_blocks(
                        [OpenStruct.new(oname: 'a',
                                        wraps: ['{wrap1}'])]
-                     ).map(&:oname))
+                     ).map(&fenced_name))
 
         assert_equal(%w[{wrap2-before} {wrap2} b {wrap2-after}],
                      @mdoc.collect_wrapped_blocks(

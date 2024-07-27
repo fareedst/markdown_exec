@@ -59,7 +59,21 @@ DOMAIN: site.remote
 
 ## Saved files
 ::: Run this command to generate files for the script and the output of the execution.
-```bash :test
+```bash :test +(test2)
+echo "$(date -u)"
+```
+```bash :(test2)
 echo "$(date -u)"
 ```
 - Notice how the saved files increase by 2 with every execution.
+::: Test block with no name
+```bash
+sleep 1
+echo $(date -u)
+sleep 2
+echo $(date -u)
+sleep 3
+echo $(date -u)
+sleep 4
+echo $(date -u)
+```

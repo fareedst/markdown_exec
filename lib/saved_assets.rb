@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
+require_relative 'namer'
 
 module MarkdownExec
   # SavedAsset
@@ -12,10 +13,6 @@ module MarkdownExec
   # method derives a name for stdout redirection.
   #
   class SavedAsset
-    FNR11 = %r{[^!#%\+\-0-9=@A-Z_a-z]}.freeze # characters than can be used in a file name without quotes or escaping
-    # except '.', ',', '~' reserved for tokenization
-    # / !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
-    FNR12 = '_'
     DEFAULT_FTIME = '%F-%H-%M-%S'
     FILE_BLOCK_SEP = ','
     JOIN_STR = '_'
@@ -26,21 +23,17 @@ module MarkdownExec
     # @param time [Time] the time object for formatting
     # @param blockname [String] the block name to include
     # @param ftime [String] the time format (default: DEFAULT_FTIME)
-    # @param pattern [Regexp] the pattern to search (default: FNR11)
-    # @param replace [String] the string to replace the pattern (default: FNR12)
     # @param exts [String] the extension to append (default: '.sh')
     def initialize(
       saved_asset_format:, filename: nil, prefix: nil, time: nil, blockname: nil,
-      ftime: DEFAULT_FTIME, pattern: FNR11, replace: FNR12, exts: nil,
+      ftime: DEFAULT_FTIME, exts: nil,
       mark: nil, join_str: nil
     )
-      @filename = filename ? filename.to_filename : '*' # [String] the name of the file
+      @filename = filename ? filename.pub_name : '*' # [String] the name of the file
       @prefix = prefix || '*' # [String] the prefix to use
       @time = time ? time.strftime(ftime) : '*' # [Time] the time object for formatting
-      @blockname = blockname ? blockname.to_blockname : '*' # [String] the block name to include
+      @blockname = blockname ? blockname.pub_name : '*' # [String] the block name to include
       # @ftime = ftime # [String] the time format (default: DEFAULT_FTIME)
-      # @pattern = pattern # [Regexp] the pattern to search (default: FNR11)
-      # @replace = replace # [String] the string to replace the pattern (default: FNR12)
       @exts = exts || '.*' # [String] the extension to append (default: '.sh')
       @mark = mark || MARK_STR
       @join_str = join_str || JOIN_STR

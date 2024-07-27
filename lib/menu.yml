@@ -238,6 +238,7 @@
   :env_var: MDE_EXECUTE_IN_OWN_WINDOW
   :opt_name: execute_in_own_window
   :procname: val_as_bool
+  :short_name: w
 - :default: fg_rgbh_7f_ff_00
   :description: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
@@ -325,7 +326,7 @@
   :procname: val_as_str
 - :arg_name: HOW
   :default: ''
-  :description: Find in YAML configuration options
+  :description: Find keyword in YAML configuration options
   :long_name: how
   :procname: how
   :short_name: "?"
@@ -358,6 +359,14 @@
   :long_name: list-docs
   :opt_name: list_docs
   :procname: val_as_bool
+- :description: List recent saved output
+  :long_name: list-recent-output
+  :opt_name: list_recent_output
+  :procname: val_as_bool
+- :description: List recent saved scripts
+  :long_name: list-recent-scripts
+  :opt_name: list_recent_scripts
+  :procname: val_as_bool
 - :arg_name: PATH
   :default: ''
   :description: Load code
@@ -365,6 +374,7 @@
   :long_name: load-code
   :opt_name: load_code
   :procname: val_as_str
+  :short_name: l
 - :arg_name: PREFIX
   :default: mde
   :description: Name prefix for stdout files
@@ -886,7 +896,7 @@
   :env_var: MDE_PROMPT_YES
   :opt_name: prompt_yes
   :procname: val_as_str
-- :description: Gem home folder
+- :description: Print the gem's home directory
   :long_name: pwd
   :opt_name: pwd
   :procname: val_as_bool
@@ -1024,14 +1034,6 @@
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :opt_name: select_page_height
   :procname: val_as_int
-- :description: Select and execute a recently saved output
-  :long_name: select-recent-output
-  :opt_name: select_recent_output
-  :procname: val_as_bool
-- :description: Select and execute a recently saved script
-  :long_name: select-recent-script
-  :opt_name: select_recent_script
-  :procname: val_as_bool
 - :default: "#!/usr/bin/env"
   :description: Shebang for saved scripts
   :env_var: MDE_SHEBANG
