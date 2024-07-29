@@ -6,7 +6,7 @@
 require_relative 'block_types'
 require_relative 'filter'
 
-$pd = false
+$pd = false unless defined?($pd)
 
 module MarkdownExec
   ##

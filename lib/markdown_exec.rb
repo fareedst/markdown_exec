@@ -45,6 +45,8 @@ tap_config envvar: MarkdownExec::TAP_DEBUG
 $stderr.sync = true
 $stdout.sync = true
 
+$pd = false unless defined?($pd)
+
 ARGV_SEP = '--'
 
 # custom error: file specified is missing

@@ -4,7 +4,7 @@
 # encoding=utf-8
 require 'digest'
 
-$pd = false
+$pd = false unless defined?($pd)
 
 class Hash
   # block name in commands and documents

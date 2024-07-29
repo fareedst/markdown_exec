@@ -2,6 +2,9 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
+
+$pd = false unless defined?($pd)
+
 module MarkdownExec
   class LinkState
     attr_accessor :block_name, :display_menu, :document_filename,

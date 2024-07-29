@@ -38,7 +38,7 @@ require_relative 'std_out_err_logger'
 require_relative 'streams_out'
 require_relative 'string_util'
 
-$pd = false
+$pd = false unless defined?($pd)
 
 class String
   # Checks if the string is not empty.
@@ -1388,7 +1388,7 @@ module MarkdownExec
 
               ## order of block name processing: link block, cli, from user
               #
-              @dml_link_state.block_name, @run_state.block_name_from_cli, cli_break = \
+              @dml_link_state.block_name, @run_state.block_name_from_cli, cli_break =
                 HashDelegator.next_link_state(
                   block_name: @dml_link_state.block_name,
                   block_name_from_cli: @dml_now_using_cli,
@@ -1878,7 +1878,7 @@ module MarkdownExec
     def inpseq_execute_block(block_name)
       @dml_block_state = block_state_for_name_from_cli(block_name)
       dump_and_warn_block_state(selected: @dml_block_state.block)
-      @dml_link_state, @dml_menu_default_dname = \
+      @dml_link_state, @dml_menu_default_dname =
         exec_bash_next_state(
           selected: @dml_block_state.block,
           mdoc: @dml_mdoc,
@@ -1895,7 +1895,7 @@ module MarkdownExec
       @run_state.in_own_window = false
 
       # &bsp 'loop', block_name_from_cli, @cli_block_name
-      @run_state.block_name_from_cli, @dml_now_using_cli, @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc = \
+      @run_state.block_name_from_cli, @dml_now_using_cli, @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc =
         set_delobj_menu_loop_vars(block_name_from_cli: @run_state.block_name_from_cli,
                                   now_using_cli: @dml_now_using_cli,
                                   link_state: @dml_link_state)
@@ -2216,9 +2216,9 @@ module MarkdownExec
         # &bsp 'pause cli control, allow user to select block'
         block_name_from_cli = false
         now_using_cli = false
-        @menu_base_options[:block_name] = \
+        @menu_base_options[:block_name] =
           @delegate_object[:block_name] = \
-            link_state.block_name = \
+            link_state.block_name =
               @cli_block_name = nil
       end
 
@@ -2881,7 +2881,7 @@ module MarkdownExec
 
     def set_delobj_menu_loop_vars(block_name_from_cli:, now_using_cli:,
                                   link_state:)
-      block_name_from_cli, now_using_cli = \
+      block_name_from_cli, now_using_cli =
         manage_cli_selection_state(block_name_from_cli: block_name_from_cli,
                                    now_using_cli: now_using_cli,
                                    link_state: link_state)
