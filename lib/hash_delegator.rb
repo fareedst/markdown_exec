@@ -1274,22 +1274,29 @@ module MarkdownExec
 
             return :break unless files_table_rows
 
-            case (name = prompt_select_code_filename(
-              [@delegate_object[:prompt_filespec_back]] +
-               files_table_rows.map(&:row),
-              string: @delegate_object[:prompt_select_history_file],
-              color_sym: :prompt_color_after_script_execution
-            ))
-            when @delegate_object[:prompt_filespec_back]
-              # do nothing
-            else
-              file = files_table_rows.select { |ftr| ftr.row == name }&.first
-              info = file_info(file.file)
-              warn "#{file.file} - #{info[:lines]} lines / #{info[:size]} bytes"
-              warn(File.readlines(file.file,
-                                  chomp: false).map.with_index do |line, ind|
-                     format(' %s.  %s', format('% 4d', ind).violet, line)
-                   end)
+            # repeat select+display until user exits
+            row_attrib = :row
+            loop do
+              case (name = prompt_select_code_filename(
+                [@delegate_object[:prompt_filespec_back],
+                 @delegate_object[:prompt_filespec_facet]] +
+                 files_table_rows.map(&row_attrib),
+                string: @delegate_object[:prompt_select_history_file],
+                color_sym: :prompt_color_after_script_execution
+              ))
+              when @delegate_object[:prompt_filespec_back]
+                break
+              when @delegate_object[:prompt_filespec_facet]
+                row_attrib = row_attrib == :row ? :file : :row
+              else
+                file = files_table_rows.select { |ftr| ftr.row == name }&.first
+                info = file_info(file.file)
+                warn "#{file.file} - #{info[:lines]} lines / #{info[:size]} bytes"
+                warn(File.readlines(file.file,
+                                    chomp: false).map.with_index do |line, ind|
+                       format(' %s.  %s', format('% 4d', ind + 1).violet, line)
+                     end)
+              end
             end
 
             return :break if pause_user_exit

@@ -967,13 +967,19 @@
   :procname: val_as_str
 
 - :default: Back
-  :description: Quit prompt
-  :env_var: MDE_PROMPT_FILESPEC_OTHER
+  :description: User wants out of menu
+  :env_var: MDE_PROMPT_FILESPEC_BACK
   :opt_name: prompt_filespec_back
   :procname: val_as_str
 
+- :default: Facet
+  :description: User wants to tailor the menu
+  :env_var: MDE_PROMPT_FILESPEC_FACET
+  :opt_name: prompt_filespec_facet
+  :procname: val_as_str
+
 - :default: Other
-  :description: Prompt for a custom file name
+  :description: User wants a custom file name
   :env_var: MDE_PROMPT_FILESPEC_OTHER
   :opt_name: prompt_filespec_other
   :procname: val_as_str
