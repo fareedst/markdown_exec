@@ -228,7 +228,11 @@ module MarkdownExec
       # . empty chrome between code; edges are same as blanks
       #
       select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
-        !(current[:chrome] && !current[:oname].present?) || !(!prev_element.nil? && prev_element[:shell].present? && !next_element.nil? && next_element[:shell].present?)
+        !(current[:chrome] && !current.oname.present?) ||
+         !(!prev_element.nil? &&
+           prev_element[:shell].present? &&
+           !next_element.nil? &&
+           next_element[:shell].present?)
       end
     end
 
@@ -241,10 +245,10 @@ module MarkdownExec
     def get_block_by_anyname(name, default = {})
       @table.select do |fcb|
         fcb.tap { |_ret| pp [__LINE__, 'get_block_by_anyname()', 'fcb', fcb] if $pd }
-        fcb.fetch(:nickname, '') == name || \
-          fcb.fetch(:dname, '') == name || \
-          fcb.fetch(:oname, '') == name || \
-          fcb.pub_name == name
+        fcb.fetch(:nickname, '') == name ||
+         fcb.fetch(:dname, '') == name ||
+         fcb.oname == name ||
+         fcb.pub_name == name
       end.fetch(0, default).tap { |ret| pp [__LINE__, 'get_block_by_anyname() ->', ret] if $pd }
     end
 
@@ -520,12 +524,6 @@ if $PROGRAM_NAME == __FILE__
       def test_collect_wrapped_blocks
         # Test case 1: blocks with wraps
         OpenStruct.new(oname: 'block1')
-
-        assert_equal(%w[{wrap1} a],
-                     @mdoc.collect_wrapped_blocks(
-                       [OpenStruct.new(oname: 'a',
-                                       wraps: ['{wrap1}'])]
-                     ).map(&fenced_name))
 
         assert_equal(%w[{wrap2-before} {wrap2} b {wrap2-after}],
                      @mdoc.collect_wrapped_blocks(

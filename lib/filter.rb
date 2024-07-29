@@ -171,7 +171,7 @@ module MarkdownExec
       return false unless fcb[:shell] == BlockType::BASH
 
       match_patterns.any? do |pattern|
-        options[pattern].present? && fcb[:oname] =~ /#{options[pattern]}/
+        options[pattern].present? && fcb.oname =~ /#{options[pattern]}/
       end
     end
 
@@ -224,21 +224,21 @@ if $PROGRAM_NAME == __FILE__
       def test_hidden_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_hidden_match] = 'hidden'
-        @fcb[:oname] = 'hidden_block'
+        @fcb.oname = 'hidden_block'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
       def test_include_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_indlude_match] = 'include'
-        @fcb[:oname] = 'include_block'
+        @fcb.oname = 'include_block'
         assert Filter.fcb_select?(@options, @fcb)
       end
 
       def test_wrap_name_condition
         @options[:hide_blocks_by_name] = true
         @options[:block_name_wrapper_match] = 'wrap'
-        @fcb[:oname] = 'wrap_block'
+        @fcb.oname = 'wrap_block'
         assert Filter.fcb_select?(@options, @fcb)
       end
 
@@ -250,7 +250,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_name_select_condition
         @options[:select_by_name_regex] = 'select'
-        @fcb[:oname] = 'select_this'
+        @fcb.oname = 'select_this'
         assert Filter.fcb_select?(@options, @fcb)
       end
 

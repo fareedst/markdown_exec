@@ -7,12 +7,6 @@ require 'digest'
 $pd = false
 
 class Hash
-  # text from code
-  # orig fcb has dname, oname, title
-  def fenced_name
-    fetch(:oname, nil).tap { |ret| pp [__LINE__, 'Hash.fenced_name() ->', ret] }
-  end
-
   # block name in commands and documents
   def pub_name(**kwargs)
     full = fetch(:nickname, nil) || fetch(:oname, nil)

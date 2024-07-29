@@ -285,9 +285,7 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { nil }
 
     xit 'test_get_blocks' do
-      expect(mp.list_named_blocks_in_file.map do |block|
-               block[:oname]
-             end).to eq %w[one two]
+      expect(mp.list_named_blocks_in_file.map(&:oname)).to eq %w[one two]
     end
 
     xit 'formats dividers' do
@@ -428,25 +426,19 @@ RSpec.describe 'MarkdownExec' do
   end
 
   xit 'test_get_blocks' do
-    expect(mp.list_named_blocks_in_file.map do |block|
-             block[:oname]
-           end).to eq %w[one two]
+    expect(mp.list_named_blocks_in_file.map(&:oname)).to eq %w[one two]
   end
 
   xit 'test_get_blocks_filter' do
-    expect(mp.list_named_blocks_in_file(bash_only: true).map do |block|
-             block[:oname]
-           end).to eq %w[two]
+    expect(mp.list_named_blocks_in_file(bash_only: true).map(&:oname)).to eq %w[two]
   end
 
   it 'test_get_blocks_struct' do
     expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-             block.slice(:body, :oname)
+             [block.body, block.oname]
            end).to eq [
-             # { body: nil, oname: '# ' },
-             # { body: nil, oname: '## ' },
-             { body: %w[a], oname: 'one' },
-             { body: %w[b], oname: 'two' }
+             [['a'], 'one'],
+             [['b'], 'two']
            ]
   end
 
@@ -459,9 +451,7 @@ RSpec.describe 'MarkdownExec' do
     expect(
       MarkdownExec::MDoc.new(list_blocks_bash1)
                   .collect_block_dependencies(anyname: 'four')[:blocks]
-                  .map do |block|
-                    block[:oname]
-                  end
+                  .map(&:oname)
     ).to eq %w[one two three four]
   end
 
@@ -476,27 +466,27 @@ RSpec.describe 'MarkdownExec' do
   xit 'test_list_yield' do
     expect(mp.list_named_blocks_in_file do |opts|
              opts.merge(bash_only: true)
-           end.map do |block|
-             block[:oname]
-           end).to eq %w[two]
+           end.map(&:oname)).to eq %w[two]
   end
 
   it 'test_parse_bash_blocks' do
-    expect(list_blocks_bash1.map { |block| block.slice(:oname, :reqs) }).to \
-      eq([
-           { oname: 'one', reqs: [] },
-           { oname: 'two', reqs: ['one'] },
-           { oname: 'three', reqs: %w[two one] },
-           { oname: 'four', reqs: ['three'] }
-         ])
+    expect(list_blocks_bash1.map do |block|
+      [block.oname, block.reqs]
+    end).to
+    eq([
+         ['one', []],
+         ['two', ['one']],
+         ['three', %w[two one]]],
+         ['four', ['three']]
+       ])
   end
 
   it 'test_parse_bash_code' do
     expect(list_blocks_bash1.map do |block|
-             { name: block[:oname],
+             { name: block.oname,
                code: MarkdownExec::MDoc.new(list_blocks_bash1)
                      .collect_recursively_required_code(
-                       anyname: block[:oname],
+                       anyname: block.oname,
                        block_source: block_source
                      )[:code] }
            end).to eq([
@@ -510,10 +500,10 @@ RSpec.describe 'MarkdownExec' do
   # :reek:UncommunicativeMethodName ### temp
   it 'test_parse_bash2' do
     expect(list_blocks_bash2.map do |block|
-             { name: block[:oname],
+             { name: block.oname,
                code: MarkdownExec::MDoc.new(list_blocks_bash2)
                      .collect_recursively_required_code(
-                       anyname: block[:oname],
+                       anyname: block.oname,
                        block_source: block_source
                      )[:code] }
            end).to eq([
@@ -527,48 +517,41 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_parse_exclude_expect_blocks' do
     expect(list_blocks_exclude_expect_blocks.map do |block|
-             block.slice(:oname, :title)
-           end).to eq([
-                        { oname: 'one', title: 'one' }
-                      ])
+             [block.oname, block.title]
+           end).to eq([%w[one one]])
   end
 
   xit 'test_parse_headings' do
     expect(list_blocks_headings.map do |block|
-             block.slice(:headings, :oname)
+             [block.headings, block.oname]
            end).to \
              eq([
-                  { headings: [], oname: 'one' },
-                  { headings: %w[h1], oname: 'two' },
-                  { headings: %w[h1 h2], oname: 'three' },
-                  { headings: %w[h1 h2 h3], oname: 'four' },
-                  { headings: %w[h1 h2 h4], oname: 'five' }
+                  [[], 'one'],
+                  [%w[h1], 'two'],
+                  [%w[h1 h2], 'three'],
+                  [%w[h1 h2 h3], 'four'],
+                  [%w[h1 h2 h4], 'five']
                 ])
   end
 
   xit 'test_parse_hide_blocks_by_name' do
-    expect(list_blocks_hide_blocks_by_name.map do |block|
-             block.slice(:oname)
-           end).to \
-             eq([
-                  { oname: 'one' },
-                  { oname: '(two)' },
-                  { oname: 'three' },
-                  { oname: '()' }
-                ])
+    expect(list_blocks_hide_blocks_by_name.map(&:oname)).to
+      eq(['one', '(two)', 'three', '()'])
   end
 
   it 'test_parse_title' do
-    expect(list_blocks_title.map { |block| block.slice(:oname, :title) }).to \
-      eq([
-           { oname: 'no name', title: 'no name' },
-           { oname: 'name1', title: 'name1' }
-         ])
+    expect(list_blocks_title.map do |block|
+             [block.oname, block.title]
+           end).to
+    eq([
+         ['no name', 'no name'],
+         ['name1', 'name1']
+       ])
   end
 
   it 'test_recursively_required_reqs' do
     expect(list_blocks_bash1.map do |block|
-             { name: block[:oname],
+             { name: block.oname,
                allreqs: MarkdownExec::MDoc.new(list_blocks_bash1)
                                           .recursively_required(block[:reqs]) }
            end).to eq([
@@ -617,7 +600,7 @@ RSpec.describe 'MarkdownExec' do
   end # RUN_INTERACTIVE
 
   it 'test_exclude_by_name_regex' do
-    expect(mp.exclude_block(exclude_by_name_regex: 'w')[:oname]).to eq 'one' if RUN_INTERACTIVE
+    expect(mp.exclude_block(exclude_by_name_regex: 'w').oname).to eq 'one' if RUN_INTERACTIVE
     # expect(mp.list_named_blocks_in_file(
     #   exclude_by_name_regex: 'w'
     # ).map do |block|
@@ -628,9 +611,7 @@ RSpec.describe 'MarkdownExec' do
   xit 'test_select_by_name_regex' do
     expect(mp.list_named_blocks_in_file(
       select_by_name_regex: 'w'
-    ).map do |block|
-             block[:oname]
-           end).to eq %w[two]
+    ).map { |block| block.oname }).to eq %w[two]
   end
 
   it 'test_tab_completions' do
@@ -733,17 +714,16 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_parse_called_get_named_blocks' do
-    expect(list_blocks_yaml1.map { |block| block.slice(:oname) }).to eq [
-      { oname: '[summarize_fruits]' },
-      { oname: '(make_fruit_file)' },
-      { oname: 'show_fruit_yml' }
+    expect(list_blocks_yaml1.map(&:oname)).to eq [
+      '[summarize_fruits]',
+      '(make_fruit_file)',
+      'show_fruit_yml'
     ]
   end
 
   it 'test_parse_called_collect_block_dependencies' do
     expect(mdoc_yaml1.collect_block_dependencies(anyname: 'show_fruit_yml')[:blocks].map do |block|
-      block.slice(:call, :oname)
-           .merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
+      { call: block.call, oname: block.oname }.merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
       { call: nil, oname: '(make_fruit_file)', stdout_name: 'fruit.yml' },
       { call: nil, oname: '[summarize_fruits]' },
@@ -769,22 +749,21 @@ RSpec.describe 'MarkdownExec' do
       ].join("\n"),
       "export fruit_summary=$(yq e '[.fruit.name,.fruit.price]' 'fruit.yml')",
       %(export fruit_summary=$(cat <<"EOF"\necho "fruit_summary: ${fruit_summary:-MISSING}"\nEOF\n))
-      # rubocop:enable Layout/LineLength
     ]
   end
 
   it 'test_vars_parse_called_get_named_blocks' do
-    expect(list_blocks_yaml2.map { |block| block.slice(:oname) }).to eq [
-      { oname: '[extract_coins_report]' },
-      { oname: '(make_coins_file)' },
-      { oname: 'show_coins_var' },
-      { oname: 'report_coins_yml' }
+    expect(list_blocks_yaml2.map(&:oname)).to eq [
+      '[extract_coins_report]',
+      '(make_coins_file)',
+      'show_coins_var',
+      'report_coins_yml'
     ]
   end
 
   it 'test_vars_parse_called_collect_block_dependencies' do
     expect(mdoc_yaml2.collect_block_dependencies(anyname: 'show_coins_var')[:blocks].map do |block|
-             block.slice(:call, :cann, :oname)
+             { call: block.call, cann: block.cann, oname: block.oname }
            end).to eq [
              { call: nil, oname: '(make_coins_file)' },
              { call: nil,

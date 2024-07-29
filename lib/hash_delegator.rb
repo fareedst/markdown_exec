@@ -82,17 +82,17 @@ module HashDelegatorSelf
   # colored_string = apply_color_from_hash(string, color_transformations, :red)
   # puts colored_string  # This will print the string in red
 
-  # Searches for the first element in a collection where the specified key matches a given value.
+  # Searches for the first element in a collection where the specified message sent to an element matches a given value.
   # This method is particularly useful for finding a specific hash-like object within an enumerable collection.
   # If no match is found, it returns a specified default value.
   #
   # @param blocks [Enumerable] The collection of hash-like objects to search.
-  # @param key [Object] The key to search for in each element of the collection.
-  # @param value [Object] The value to match against each element's corresponding key value.
+  # @param msg [Symbol, String] The message to send to each element of the collection.
+  # @param value [Object] The value to match against the result of the message sent to each element.
   # @param default [Object, nil] The default value to return if no match is found (optional).
   # @return [Object, nil] The first matching element or the default value if no match is found.
-  def block_find(blocks, key, value, default = nil)
-    blocks.find { |item| item[key] == value } || default
+  def block_find(blocks, msg, value, default = nil)
+    blocks.find { |item| item.send(msg) == value } || default
   end
 
   def code_merge(*bodies)
@@ -136,8 +136,10 @@ module HashDelegatorSelf
   # delete the current line if it is empty and the previous is also empty
   def delete_consecutive_blank_lines!(blocks_menu)
     blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, _next_item|
-      prev_item&.fetch(:chrome, nil) && !prev_item&.fetch(:oname).present? &&
-        current_item&.fetch(:chrome, nil) && !current_item&.fetch(:oname).present?
+      prev_item&.fetch(:chrome, nil) &&
+       !(prev_item && prev_item.oname.present?) &&
+       current_item&.fetch(:chrome, nil) &&
+       !(current_item && current_item.oname.present?)
     end
   end
 
@@ -1055,7 +1057,7 @@ module MarkdownExec
     # @param selected_option [Hash] The selected menu option.
     # @return [SelectedBlockMenuState] An object representing the state of the selected block.
     def determine_block_state(selected_option)
-      option_name = selected_option.fetch(:oname, nil)
+      option_name = selected_option.oname
       if option_name == menu_chrome_formatted_option(:menu_option_exit_name)
         return SelectedBlockMenuState.new(nil,
                                           MenuState::EXIT)
@@ -1121,7 +1123,7 @@ module MarkdownExec
 
         inherited_block_names = []
         inherited_dependencies = {}
-        selected = { oname: 'load_code' }
+        selected = FCB.new(oname: 'load_code')
         pop_add_current_code_to_head_and_trigger_load(@dml_link_state, inherited_block_names,
                                                       code_lines, inherited_dependencies, selected)
       end
@@ -1607,7 +1609,7 @@ module MarkdownExec
                            selected: selected)
       end
       if @dml_block_state
-        calc_logged_stdout_filename(block_name: @dml_block_state.block[:oname])
+        calc_logged_stdout_filename(block_name: @dml_block_state.block.oname)
       end
       format_and_execute_command(code_lines: required_lines)
       post_execution_process
@@ -2133,7 +2135,7 @@ module MarkdownExec
       raise unless name.present?
       raise if @dml_menu_blocks.nil?
 
-      block = @dml_menu_blocks.find { |item| item[:oname] == name }
+      block = @dml_menu_blocks.find { |item| item.oname == name }
 
       # create menu item when it is needed (count > 0)
       #
@@ -2186,14 +2188,14 @@ module MarkdownExec
       raise unless name.present?
       raise if @dml_menu_blocks.nil?
 
-      item = @dml_menu_blocks.find { |block| block[:oname] == name }
+      item = @dml_menu_blocks.find { |block| block.oname == name }
 
       # create menu item when it is needed (count > 0)
       #
       if item.nil? && count.positive?
         append_chrome_block(menu_blocks: @dml_menu_blocks,
                             menu_state: menu_state)
-        item = @dml_menu_blocks.find { |block| block[:oname] == name }
+        item = @dml_menu_blocks.find { |block| block.oname == name }
       end
 
       # update item if it exists
@@ -3434,20 +3436,20 @@ module MarkdownExec
       end
 
       def test_block_find_with_match
-        blocks = [{ key: 'value1' }, { key: 'value2' }]
-        result = HashDelegator.block_find(blocks, :key, 'value1')
-        assert_equal({ key: 'value1' }, result)
+        blocks = [FCB.new(text: 'value1'), FCB.new(text: 'value2')]
+        result = HashDelegator.block_find(blocks, :text, 'value1')
+        assert_equal('value1', result.text)
       end
 
       def test_block_find_without_match
-        blocks = [{ key: 'value1' }, { key: 'value2' }]
-        result = HashDelegator.block_find(blocks, :key, 'value3')
+        blocks = [FCB.new(text: 'value1'), FCB.new(text: 'value2')]
+        result = HashDelegator.block_find(blocks, :text, 'missing_value')
         assert_nil result
       end
 
       def test_block_find_with_default
-        blocks = [{ key: 'value1' }, { key: 'value2' }]
-        result = HashDelegator.block_find(blocks, :key, 'value3', 'default')
+        blocks = [FCB.new(text: 'value1'), FCB.new(text: 'value2')]
+        result = HashDelegator.block_find(blocks, :text, 'missing_value', 'default')
         assert_equal 'default', result
       end
     end
@@ -3610,7 +3612,7 @@ module MarkdownExec
       end
 
       def test_determine_block_state_exit
-        selected_option = { oname: 'Formatted Option' }
+        selected_option = FCB.new(oname: 'Formatted Option')
         @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_exit_name).returns('Formatted Option')
 
         result = @hd.determine_block_state(selected_option)
@@ -3620,7 +3622,7 @@ module MarkdownExec
       end
 
       def test_determine_block_state_back
-        selected_option = { oname: 'Formatted Back Option' }
+        selected_option = FCB.new(oname: 'Formatted Back Option')
         @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_back_name).returns('Formatted Back Option')
         result = @hd.determine_block_state(selected_option)
 
@@ -3629,7 +3631,7 @@ module MarkdownExec
       end
 
       def test_determine_block_state_continue
-        selected_option = { oname: 'Other Option' }
+        selected_option = FCB.new(oname: 'Other Option')
 
         result = @hd.determine_block_state(selected_option)
 
