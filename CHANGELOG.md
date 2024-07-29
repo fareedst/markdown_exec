@@ -568,7 +568,7 @@ Most options can be configured in multiple ways. In order of use (earliest super
 2. the configuration file `.mde.yml` in the current folder
 3. command line arguments
 
-#### Representing boolean values
+### Representing boolean values
 
 Boolean values for options are specified as strings and interpreted as:
 | Value | Boolean |

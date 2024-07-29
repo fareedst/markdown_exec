@@ -83,7 +83,7 @@ sudo curl https://raw.githubusercontent.com/thisredone/rb/master/rb -o /usr/loca
 
 ### Examples
 
-###### Extract docker images from running containers
+::: Extract docker images from running containers
 
 ```bash
 > docker ps | rb drop 1 | rb -l split[1]
@@ -92,7 +92,7 @@ sudo curl https://raw.githubusercontent.com/thisredone/rb/master/rb -o /usr/loca
 # postgres
 ```
 
-###### Display how much time ago containers have exited
+::: Display how much time ago containers have exited
 
 ```shell
 > docker ps -a | rb grep /Exited/ | rb -l 'split.last.ljust(20) + " => " + split(/ {2,}/)[-2]'
@@ -102,7 +102,7 @@ sudo curl https://raw.githubusercontent.com/thisredone/rb/master/rb -o /usr/loca
 # prickly_hypatia     => Exited (0) 2 weeks ago
 ```
 
-###### Sort `df -h` output by `Use%`
+::: Sort `df -h` output by `Use%`
 
 ```shell
 > df -h | rb 'drop(1).sort_by { |l| l.split[-2].to_f }'
@@ -122,7 +122,7 @@ sudo curl https://raw.githubusercontent.com/thisredone/rb/master/rb -o /usr/loca
 # /dev/sda2                    237M   85M  140M  38% /boot
 ```
 
-###### Count files by their extension
+::: Count files by their extension
 
 ```shell
 > find . -type f | rb 'group_by(&File.method(:extname)).map { |ext, o| "#{ext.chomp}: #{o.size}" }'
@@ -132,7 +132,7 @@ sudo curl https://raw.githubusercontent.com/thisredone/rb/master/rb -o /usr/loca
 # .md: 1
 ```
 
-###### This problem http://vegardstikbakke.com/unix/
+::: This problem http://vegardstikbakke.com/unix/
 
 ```ruby
 ls | rb 'group_by { |x| x[/\d+/] }.select { |_, y| y.one? }.keys'

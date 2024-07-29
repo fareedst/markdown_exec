@@ -41,65 +41,65 @@ Install:
 
 ### Help
 
-#### `mde --help`
+::: `mde --help`
 
 Displays help information.
 
 ### Basic
 
-#### `mde`
+::: `mde`
 
 Process `README.md` file in the current folder. Displays all the blocks in the file and allows you to select using [up], [down], and [return].
 
-#### `mde my.md` or `mde -f my.md`
+::: `mde my.md` or `mde -f my.md`
 
 Select a block to execute from `my.md`.
 
-#### `mde my.md myblock`
+::: `mde my.md myblock`
 
 Execute the block named `myblock` from `my.md`.
 
-#### `mde .` or `mde -p .`
+::: `mde .` or `mde -p .`
 
 Select a markdown file in the current folder. Select a block to execute from that file.
 
 ### Report documents and blocks
 
-#### `mde --list-blocks`
+::: `mde --list-blocks`
 
 List all blocks in the all the markdown documents in the current folder.
 
-#### `mde --list-docs`
+::: `mde --list-docs`
 
 List all markdown documents in the current folder.
 
 ### Configuration
 
-#### `mde --list-default-env` or `mde --list-default-yaml`
+::: `mde --list-default-env` or `mde --list-default-yaml`
 
 List default values that can be set in configuration file, environment, and command line.
 
-#### `mde -0`
+::: `mde -0`
 
 Show current configuation values that will be applied to the current run. Does not interrupt processing.
 
 ### Save scripts
 
-#### `mde --save-executed-script 1`
+::: `mde --save-executed-script 1`
 
 Save executed script in saved script folder.
 
-#### `mde --list-recent-scripts`
+::: `mde --list-recent-scripts`
 
 List recent saved scripts in saved script folder.
 
-#### `mde --select-recent-script`
+::: `mde --select-recent-script`
 
 Select and execute a recently saved script in saved script folder.
 
 ### Save output
 
-#### `mde --save-execution-output 1`
+::: `mde --save-execution-output 1`
 
 Save execution output in saved output folder.
 
