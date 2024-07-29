@@ -2,18 +2,6 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
-
-class String
-  # / !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
-  def to_blockname
-    gsub(%r{[^!#%\+\-0-9=@A-Z_a-z()\[\]{}]}.freeze, '_'.freeze)####.tap{|ret|pp [__LINE__,'to_blockname()',ret]}
-  end
-
-  def to_filename
-    gsub(%r{[^!#%\+\-0-9=@A-Z_a-z]}.freeze, '_'.freeze)####.tap{|ret|pp [__LINE__,'to_filename()',ret]}
-  end
-end
-
 module StringUtil
   # Splits the given string on the first occurrence of the specified character.
   # Returns an array containing the portion of the string before the character and the rest of the string.
