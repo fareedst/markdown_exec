@@ -611,10 +611,10 @@ module MarkdownExec
     # @param menu_blocks [Array] The array of menu block elements.
     # @param position [Symbol] The position to insert the divider (:initial or :final).
     def append_inherited_lines(menu_blocks:, link_state:, position: top)
-      return unless link_state.inherited_lines.present?
+      return unless link_state.inherited_lines_present?
 
       insert_at_top = @delegate_object[:menu_inherited_lines_at_top]
-      chrome_blocks = link_state.inherited_lines.map do |line|
+      chrome_blocks = link_state.inherited_lines_map do |line|
         formatted = format(@delegate_object[:menu_inherited_lines_format],
                            { line: line })
         FCB.new(
@@ -1114,10 +1114,10 @@ module MarkdownExec
       ## load file with code lines per options
       #
       if @menu_base_options[:load_code].present?
-        @dml_link_state.inherited_lines = []
-        @menu_base_options[:load_code].split(':').map do |path|
-          @dml_link_state.inherited_lines += File.readlines(path, chomp: true)
-        end
+        @dml_link_state.inherited_lines = 
+          @menu_base_options[:load_code].split(':').map do |path|
+            File.readlines(path, chomp: true)
+          end.flatten(1)
 
         inherited_block_names = []
         inherited_dependencies = {}
@@ -1168,7 +1168,7 @@ module MarkdownExec
             files = sf ? Dir.glob(sf) : []
             @doc_saved_lines_files = files.count.positive? ? files : []
 
-            lines_count = @dml_link_state.inherited_lines&.count || 0
+            lines_count = @dml_link_state.inherited_lines_count
 
             # add menu items (glob, load, save) and enable selectively
             if files.count.positive? || lines_count.positive?
@@ -1237,7 +1237,7 @@ module MarkdownExec
 
           when item_edit
             debounce_reset
-            edited = edit_text(@dml_link_state.inherited_lines.join("\n"))
+            edited = edit_text(@dml_link_state.inherited_lines_block)
             @dml_link_state.inherited_lines = edited.split("\n") if edited
 
             return :break if pause_user_exit
@@ -1309,9 +1309,9 @@ module MarkdownExec
                                                     @delegate_object[:document_saved_lines_glob])
             load_filespec = load_filespec_from_expression(sf)
             if load_filespec
-              @dml_link_state.inherited_lines ||= []
-              @dml_link_state.inherited_lines += File.readlines(load_filespec,
-                                                                chomp: true)
+              @dml_link_state.inherited_lines_append(
+                File.readlines(load_filespec, chomp: true)
+              )
             end
 
             return :break if pause_user_exit
@@ -1356,7 +1356,7 @@ module MarkdownExec
 
           when item_view
             debounce_reset
-            warn @dml_link_state.inherited_lines.join("\n")
+            warn @dml_link_state.inherited_lines_block
 
             return :break if pause_user_exit
 
@@ -3314,12 +3314,13 @@ module MarkdownExec
     # Test case for non-empty body with 'file' key
     def test_push_link_history_and_trigger_load_with_file_key
       body = ["file: sample_file\nblock: sample_block\nvars:\n  KEY: VALUE"]
-      expected_result = LoadFileLinkState.new(LoadFile::LOAD,
-                                              LinkState.new(block_name: 'sample_block',
-                                                            document_filename: 'sample_file',
-                                                            inherited_dependencies: {},
-                                                            inherited_lines: ['# ',
-                                                                              'KEY="VALUE"']))
+      expected_result = LoadFileLinkState.new(
+        LoadFile::LOAD,
+        LinkState.new(block_name: 'sample_block',
+                      document_filename: 'sample_file',
+                      inherited_dependencies: {},
+                      inherited_lines: ['# ', 'KEY="VALUE"'])
+      )
       assert_equal expected_result,
                    @hd.push_link_history_and_trigger_load(
                      link_block_body: body,

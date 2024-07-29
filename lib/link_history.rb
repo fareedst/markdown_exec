@@ -5,7 +5,7 @@
 module MarkdownExec
   class LinkState
     attr_accessor :block_name, :display_menu, :document_filename,
-                  :inherited_block_names, :inherited_dependencies, :inherited_lines,
+                  :inherited_block_names, :inherited_dependencies,
                   :prior_block_was_link
 
     # Initialize the LinkState with keyword arguments for each attribute.
@@ -44,6 +44,36 @@ module MarkdownExec
         other.inherited_dependencies == inherited_dependencies &&
         other.inherited_lines == inherited_lines &&
         other.prior_block_was_link == prior_block_was_link
+    end
+
+    def inherited_lines
+      @inherited_lines.tap { |ret| pp ['LinkState.inherited_lines() ->', ret] if $pd }
+    end
+
+    def inherited_lines=(value)
+      @inherited_lines = value.tap { |ret| pp ['LinkState.inherited_lines=() ->', ret] if $pd }
+    end
+
+    def inherited_lines_append(value)
+      @inherited_lines = ((@inherited_lines || []) + value).tap { |ret| pp ['LinkState.inherited_lines_append() ->', ret] if $pd }
+    end
+
+    def inherited_lines_block
+      @inherited_lines.join("\n").tap { |ret| pp ['LinkState.inherited_lines_block() ->', ret] if $pd }
+    end
+
+    def inherited_lines_count
+      (@inherited_lines&.count || 0).tap { |ret| pp ['LinkState.inherited_lines_count() ->', ret] if $pd }
+    end
+
+    def inherited_lines_map
+      @inherited_lines.map do |line|
+        yield line
+      end.tap { |ret| pp ['LinkState.inherited_lines_map() ->', ret] if $pd }
+    end
+
+    def inherited_lines_present?
+      @inherited_lines.present?.tap { |ret| pp ['LinkState.inherited_lines_present?() ->', ret] if $pd }
     end
   end
 
