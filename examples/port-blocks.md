@@ -1,12 +1,11 @@
 # Demo variable porting
 
-::: This block requires the Port block and displays the value.
-::: The Port block contributes the variable VAULT to the generated script.
-
-```bash :show +(vault)
-: ${VAULT:=This variable has not been set.}
-source bin/colorize_env_vars.sh
-colorize_env_vars '' VAULT
+```opts :(document_options)
+dump_inherited_lines: true
+execute_in_own_window: false
+output_execution_report: false
+output_execution_summary: false
+pause_after_script_execution: true
 ```
 
 ::: Set the VAULT value in memory.
@@ -16,8 +15,18 @@ colorize_env_vars '' VAULT
 VAULT: This variable was set by the "set" block.
 ```
 
-::: There is an invisible Port block that saves current/live environment variable values into the generated script.
+::: This is a Port block that saves current/live environment variable values into the generated script.
 
-```port :(vault)
+```port :[vault]
 VAULT
+VAULT2
+```
+
+::: This block requires the Port block and displays the value.
+::: The Port block contributes the variable VAULT to the generated script.
+
+```bash :show +[vault]
+: ${VAULT:=This variable has not been set.}
+source bin/colorize_env_vars.sh
+colorize_env_vars '' VAULT
 ```

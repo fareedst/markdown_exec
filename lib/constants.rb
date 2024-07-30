@@ -64,7 +64,7 @@ end
 
 # selected block and subsequent menu state
 #
-SelectedBlockMenuState = Struct.new(:block, :state)
+SelectedBlockMenuState = Struct.new(:block, :source, :state)
 
 SHELL_COLOR_OPTIONS = {
   BlockType::BASH => :menu_bash_color,

@@ -25,11 +25,11 @@ module MarkdownExec
     #
     def initialize(table = [])
       @table = table
-      # &bc '@table.count:',@table.count
+      # &bt @table.count
     end
 
     def collect_block_code_cann(fcb)
-      body = fcb[:body].join("\n")
+      body = fcb.body.join("\n")
       xcall = fcb[:cann][1..-2]
       mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
       mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
@@ -46,15 +46,6 @@ module MarkdownExec
       end
     end
 
-    def collect_block_code_shell(fcb)
-      # write named variables to block at top of script
-      #
-      fcb[:body].join(' ').split.compact.map do |key|
-        ### format(opts[:block_type_port_set_format], { key: key, value: ENV.fetch(key, nil) })
-        "key: #{key}, value: #{ENV.fetch(key, nil)}"
-      end
-    end
-
     # Collects and formats the shell command output to redirect script block code to a file or a variable.
     #
     # @param [Hash] fcb A hash containing information about the script block's stdout and body.
@@ -68,7 +59,7 @@ module MarkdownExec
     #   If stdout[:type] is false, the command will write the body to a file.
     def collect_block_code_stdout(fcb)
       stdout = fcb[:stdout]
-      body = fcb[:body].join("\n")
+      body = fcb.body.join("\n")
       if stdout[:type]
         %(export #{stdout[:name]}=$(cat <<"EOF"\n#{body}\nEOF\n))
       else
@@ -85,35 +76,37 @@ module MarkdownExec
     #
     def collect_block_dependencies(anyname:)
       name_block = get_block_by_anyname(anyname)
-      raise "Named code block `#{anyname}` not found. (@#{__LINE__})" if name_block.nil? || name_block.keys.empty?
+      if name_block.nil? || name_block.keys.empty?
+        raise "Named code block `#{anyname}` not found. (@#{__LINE__})"
+      end
 
       nickname = name_block.pub_name
 
       dependencies = collect_dependencies(nickname)
-      # &bc 'dependencies.count:',dependencies.count
+      # &bt dependencies.count
       all_dependency_names = collect_unique_names(dependencies).push(nickname).uniq
-      # &bc 'all_dependency_names.count:',all_dependency_names.count
+      # &bt all_dependency_names.count
 
       # select non-chrome blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
         all_dependency_names.include?(fcb.pub_name)
       end
-      # &bc 'blocks.count:',blocks.count
+      # &bt blocks.count
 
       ## add cann key to blocks, calc unmet_dependencies
       #
       unmet_dependencies = all_dependency_names.dup
       blocks = blocks.map do |fcb|
         unmet_dependencies.delete(fcb.pub_name) # may not exist if block name is duplicated
-        if (call = fcb[:call])
+        if (call = fcb.call)
           [get_block_by_anyname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
             .merge({ cann: call })]
         else
           []
         end + [fcb]
       end.flatten(1)
-      # &bc 'unmet_dependencies.count:',unmet_dependencies.count
+      # &bt unmet_dependencies.count
 
       { all_dependency_names: all_dependency_names,
         blocks: blocks,
@@ -131,7 +124,7 @@ module MarkdownExec
       block_search = collect_block_dependencies(anyname: anyname)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
-        # &bc 'blocks.count:',blocks.count
+        # &bt blocks.count
 
         block_search.merge(
           { block_names: blocks.map(&:pub_name),
@@ -140,24 +133,20 @@ module MarkdownExec
                 collect_block_code_cann(fcb)
               elsif fcb[:stdout]
                 collect_block_code_stdout(fcb)
-              elsif [BlockType::OPTS].include? fcb[:shell]
-                fcb[:body] # entire body is returned to requesing block
+              elsif [BlockType::OPTS].include? fcb.shell
+                fcb.body # entire body is returned to requesing block
               elsif [BlockType::LINK,
-                     BlockType::VARS].include? fcb[:shell]
+                     BlockType::VARS].include? fcb.shell
                 nil
               elsif fcb[:chrome] # for Link blocks like History
                 nil
-              elsif fcb[:shell] == BlockType::PORT
-                collect_block_code_shell(fcb)
+              elsif fcb.shell == BlockType::PORT
+                generate_env_variable_shell_commands(fcb)
               elsif label_body
-                block_name_for_bash_comment = fcb.pub_name.gsub(/\s+/, '_')
-                [label_format_above && format(label_format_above,
-                                              block_source.merge({ block_name: block_name_for_bash_comment }))] +
-                 fcb[:body] +
-                 [label_format_below && format(label_format_below,
-                                               block_source.merge({ block_name: block_name_for_bash_comment }))]
+                generate_label_body_code(fcb, block_source, label_format_above,
+                                         label_format_below)
               else # raw body
-                fcb[:body]
+                fcb.body
               end
             end.compact.flatten(1).compact }
         )
@@ -229,11 +218,66 @@ module MarkdownExec
       #
       select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
         !(current[:chrome] && !current.oname.present?) ||
-         !(!prev_element.nil? &&
-           prev_element[:shell].present? &&
-           !next_element.nil? &&
-           next_element[:shell].present?)
+          !(!prev_element.nil? &&
+            prev_element.shell.present? &&
+            !next_element.nil? &&
+            next_element.shell.present?)
       end
+    end
+
+    # Generates shell code lines to set environment variables named in the body of the given object.
+    # Reads a whitespace-separated list of environment variable names from `fcb.body`,
+    # retrieves their values from the current environment, and constructs shell commands
+    # to set these environment variables.
+    #
+    # @param fcb [Object] An object with a `body` method that returns an array of strings,
+    #   where each string is a name of an environment variable.
+    # @return [Array<String>] An array of strings, each representing a shell command to
+    #   set an environment variable in the format `KEY=value`.
+    #
+    # Example:
+    #   If `fcb.body` returns ["PATH", "HOME"], and the current environment has PATH=/usr/bin
+    #   and HOME=/home/user, this method will return:
+    #     ["PATH=/usr/bin", "HOME=/home/user"]
+    #
+    def generate_env_variable_shell_commands(fcb)
+      fcb.body.join(' ').split.compact.map do |key|
+        "#{key}=#{Shellwords.escape ENV.fetch(key, '')}"
+      end
+    end
+
+    # Generates a formatted code block with labels above and below the main content.
+    # The labels and content are based on the provided format strings and the body of the given object.
+    #
+    # @param fcb [Object] An object with a `pub_name` method that returns a string, and a `body` method that returns an array of strings.
+    # @param block_source [Hash] A hash containing additional information to be merged into the format strings.
+    # @param label_format_above [String, nil] A format string for the label above the content, or nil if no label is needed.
+    # @param label_format_below [String, nil] A format string for the label below the content, or nil if no label is needed.
+    # @return [Array<String>] An array of strings representing the formatted code block, with optional labels above and below the main content.
+    #
+    # Example:
+    #   If `fcb.pub_name` returns "Example Block", `fcb.body` returns ["line1", "line2"],
+    #   `block_source` is { source: "source_info" }, `label_format_above` is "Start of %{block_name}",
+    #   and `label_format_below` is "End of %{block_name}", the method will return:
+    #     ["Start of Example_Block", "line1", "line2", "End of Example_Block"]
+    #
+    def generate_label_body_code(fcb, block_source, label_format_above, label_format_below)
+      block_name_for_bash_comment = fcb.pub_name.gsub(/\s+/, '_')
+
+      label_above = if label_format_above
+                      format(label_format_above,
+                             block_source.merge({ block_name: block_name_for_bash_comment }))
+                    else
+                      nil
+                    end
+      label_below = if label_format_below
+                      format(label_format_below,
+                             block_source.merge({ block_name: block_name_for_bash_comment }))
+                    else
+                      nil
+                    end
+
+      [label_above, *fcb.body, label_below].compact
     end
 
     # Retrieves a code block by its name.
@@ -243,12 +287,13 @@ module MarkdownExec
     # @return [Hash] The code block as a hash or the default value if not found.
     #
     def get_block_by_anyname(name, default = {})
+      # &bt name
       @table.select do |fcb|
         fcb.tap { |_ret| pp [__LINE__, 'get_block_by_anyname()', 'fcb', fcb] if $pd }
-        fcb.fetch(:nickname, '') == name ||
-         fcb.fetch(:dname, '') == name ||
-         fcb.oname == name ||
-         fcb.pub_name == name
+        fcb.nickname == name ||
+          fcb.dname == name ||
+          fcb.oname == name ||
+          fcb.pub_name == name
       end.fetch(0, default).tap { |ret| pp [__LINE__, 'get_block_by_anyname() ->', ret] if $pd }
     end
 
@@ -263,15 +308,15 @@ module MarkdownExec
       if block.fetch(:chrome, false)
         false
       else
-        (opts[:hide_blocks_by_name] &&
-                ((opts[:block_name_hidden_match]&.present? &&
-                  block.oname&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
-                 (opts[:block_name_include_match]&.present? &&
-                  block.oname&.match(Regexp.new(opts[:block_name_include_match]))) ||
-                 (opts[:block_name_wrapper_match]&.present? &&
-                  block.oname&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
-                (block.oname&.present? || block[:label]&.present?)
-        )
+        opts[:hide_blocks_by_name] &&
+          ((opts[:block_name_hidden_match]&.present? &&
+            block.oname&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
+           (opts[:block_name_include_match]&.present? &&
+            block.oname&.match(Regexp.new(opts[:block_name_include_match]))) ||
+           (opts[:block_name_wrapper_match]&.present? &&
+            block.oname&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
+          (block.oname&.present? || block[:label]&.present?)
+
       end
     end
 
@@ -290,7 +335,7 @@ module MarkdownExec
           next if memo.include? req
 
           memo += [req]
-          get_block_by_anyname(req).fetch(:reqs, [])
+          get_block_by_anyname(req).reqs
         end
                  .compact
                  .flatten(1)
@@ -308,9 +353,11 @@ module MarkdownExec
       return memo if memo.keys.include? source
 
       block = get_block_by_anyname(source)
-      raise "Named code block `#{source}` not found. (@#{__LINE__})" if block.nil? || block.keys.empty?
+      if block.nil? || block.keys.empty?
+        raise "Named code block `#{source}` not found. (@#{__LINE__})"
+      end
 
-      memo[source] = block[:reqs]
+      memo[source] = block.reqs
       return memo unless memo[source]&.count&.positive?
 
       memo[source].each do |req|
@@ -335,11 +382,11 @@ module MarkdownExec
 
       end
 
-      return memo unless block[:reqs]
+      return memo unless block.reqs
 
-      memo[source] = block[:reqs]
+      memo[source] = block.reqs
 
-      block[:reqs].each { |req| collect_dependencies(req, memo) unless memo.key?(req) }
+      block.reqs.each { |req| collect_dependencies(req, memo) unless memo.key?(req) }
       memo
     end
 
@@ -377,7 +424,7 @@ module MarkdownExec
     #     next_element = array[index + 1]
 
     #     # Check the conditions for property A on the current element and property B on adjacent elements
-    #     unless element[:chrome] && !element[:oname].present? && prev_element[:shell].present? && next_element[:shell].present?
+    #     unless element[:chrome] && !element[:oname].present? && prev_element.shell.present? && next_element.shell.present?
     #       selected_elements << element
     #     # else
     # # pp 'SKIPPING', element

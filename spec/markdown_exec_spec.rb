@@ -266,11 +266,11 @@ RSpec.describe 'MarkdownExec' do
 
     it 'formats tasks' do
       expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-               block.slice(:dname, :text)
+              [block.dname, block.text]
              end).to eq [
-               { dname: 'one', text: nil },
-               { dname: 'two', text: nil },
-               { dname: '<task>', text: nil }
+               ['one', nil],
+               ['two', nil],
+               ['<task>', nil]
              ]
     end
   end
@@ -290,11 +290,11 @@ RSpec.describe 'MarkdownExec' do
 
     xit 'formats dividers' do
       expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-               block.slice(:dname, :text)
+              [block.dname, block.text]
              end).to eq [
-               { dname: 'one', text: nil },
-               { dname: '<{:line=>"divider", :indent=>"", :text=>"divider"}>', text: nil },
-               { dname: 'two', text: nil }
+               ['one', nil],
+               ['<{:line=>"divider", :indent=>"", :text=>"divider"}>', nil],
+               ['two', nil]
              ]
     end
   end
@@ -304,7 +304,7 @@ RSpec.describe 'MarkdownExec' do
   describe 'presence of chrome' do
     subject(:blocks) do
       MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-        block.slice(:dname, :text)
+        [block.dname, block.text]####
       end
     end
 
@@ -344,11 +344,11 @@ RSpec.describe 'MarkdownExec' do
 
     it '' do
       expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-               block.slice(:dname, :text)
+               [block.dname, block.text]
              end).to eq [
-               { dname: 'one', text: nil },
-               { dname: 'two', text: nil },
-               { dname: '<task>', text: nil }
+               ['one', nil],
+               ['two', nil],
+               ['<task>', nil]
              ]
     end
   end
@@ -553,7 +553,7 @@ RSpec.describe 'MarkdownExec' do
     expect(list_blocks_bash1.map do |block|
              { name: block.oname,
                allreqs: MarkdownExec::MDoc.new(list_blocks_bash1)
-                                          .recursively_required(block[:reqs]) }
+                                          .recursively_required(block.reqs) }
            end).to eq([
                         { name: 'one', allreqs: [] },
                         { name: 'two', allreqs: ['one'] },
@@ -601,11 +601,6 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_exclude_by_name_regex' do
     expect(mp.exclude_block(exclude_by_name_regex: 'w').oname).to eq 'one' if RUN_INTERACTIVE
-    # expect(mp.list_named_blocks_in_file(
-    #   exclude_by_name_regex: 'w'
-    # ).map do |block|
-    #          block[:oname]
-    #        end).to eq %w[one]
   end
 
   xit 'test_select_by_name_regex' do

@@ -155,12 +155,14 @@ module MarkdownExec
 
       # Conditionally add directory names if data is present
       unless directory_names[:data].count.zero?
-        choices << { disabled: '', name: "in #{directory_names[:section_title]}".send(@chrome_color) }
+        choices << { disabled: '',
+                     name: "in #{directory_names[:section_title]}".send(@chrome_color) }
         choices += files_in_directories
       end
 
       # Adding found in block names
-      choices << { disabled: '', name: "in #{found_in_block_names[:section_title]}".send(@chrome_color) }
+      choices << { disabled: '',
+                   name: "in #{found_in_block_names[:section_title]}".send(@chrome_color) }
 
       choices += vbn
 
@@ -174,16 +176,22 @@ module MarkdownExec
       {
         section_title: 'directory names',
         data: matched_directories,
-        formatted_text: [{ content: AnsiFormatter.new(search_options).format_and_highlight_array(matched_directories, highlight: [highlight_value]) }]
+        formatted_text: [{ content: AnsiFormatter.new(search_options).format_and_highlight_array(
+          matched_directories, highlight: [highlight_value]
+        ) }]
       }
     end
 
-    def found_in_block_names(search_options, highlight_value, formspec: '=%<index>4.d: %<line>s')
+    def found_in_block_names(search_options, highlight_value,
+                             formspec: '=%<index>4.d: %<line>s')
       matched_contents = (find_file_contents do |line|
-                            read_block_name(line, search_options[:fenced_start_and_end_regex], search_options[:block_name_match], search_options[:block_name_nick_match])
+                            read_block_name(line, search_options[:fenced_start_and_end_regex],
+                                            search_options[:block_name_match], search_options[:block_name_nick_match])
                           end).map.with_index do |(file, contents), index|
         # [file, contents.map { |detail| format(formspec, detail.index, detail.line) }, index]
-        [file, contents.map { |detail| format(formspec, { index: detail.index, line: detail.line }) }, index]
+        [file, contents.map do |detail|
+                 format(formspec, { index: detail.index, line: detail.line })
+               end, index]
       end
       {
         section_title: 'block names',
@@ -210,7 +218,8 @@ module MarkdownExec
       }
     end
 
-    def read_block_name(line, fenced_start_and_end_regex, block_name_match, block_name_nick_match)
+    def read_block_name(line, fenced_start_and_end_regex, block_name_match,
+                        block_name_nick_match)
       return unless line.match(fenced_start_and_end_regex)
 
       bm = extract_named_captures_from_option(line, block_name_match)
@@ -229,7 +238,6 @@ module MarkdownExec
   ##
   #
   # :reek:DuplicateMethodCall { allow_calls: ['block', 'item', 'lm', 'opts', 'option', '@options', 'required_blocks'] }
-  # rubocop:enable Layout/LineLength
   # :reek:MissingSafeMethod { exclude: [ read_configuration_file! ] }
   # :reek:TooManyInstanceVariables ### temp
   # :reek:TooManyMethods ### temp
@@ -480,7 +488,9 @@ module MarkdownExec
         find_files('*', [dn], exclude_dirs: true)
       end.flatten(1).map { |str| FileInMenu.for_menu(str) }
 
-      return { exit: true } unless file_names[:data]&.count.positive? || files_in_directories&.count.positive? || found_in_block_names[:data]&.count.positive?
+      unless file_names[:data]&.count.positive? || files_in_directories&.count.positive? || found_in_block_names[:data]&.count.positive?
+        return { exit: true }
+      end
 
       vbn = found_in_block_names[:matched_contents].map do |matched_contents|
         filename, details, = matched_contents
@@ -488,10 +498,13 @@ module MarkdownExec
           details,
           highlight: [value]
         )
-        [FileInMenu.for_menu(filename)] + nexo.map { |str| { disabled: '', name: (' ' * 20) + str } }
+        [FileInMenu.for_menu(filename)] + nexo.map do |str|
+                                            { disabled: '', name: (' ' * 20) + str }
+                                          end
       end.flatten
 
-      choices = MenuBuilder.new.build_menu(file_names, directory_names, found_in_block_names, files_in_directories, vbn)
+      choices = MenuBuilder.new.build_menu(file_names, directory_names, found_in_block_names,
+                                           files_in_directories, vbn)
 
       @options[:filename] = FileInMenu.from_menu(
         select_document_if_multiple(
@@ -545,7 +558,8 @@ module MarkdownExec
         ->(_) { exit }
       when 'find', 'open'
         ->(value) {
-          exit if find_value(value, execute_chosen_found: procname == 'open').fetch(:exit, false)
+          exit if find_value(value, execute_chosen_found: procname == 'open').fetch(:exit,
+                                                                                    false)
         }
       when 'help'
         ->(_) {
@@ -571,9 +585,9 @@ module MarkdownExec
           value.instance_of?(::String) ? (value.chomp != '0') : value
         }
       when 'val_as_int'
-        ->(value) { value.to_i }
+        lambda(&:to_i)
       when 'val_as_str'
-        ->(value) { value.to_s }
+        lambda(&:to_s)
       when 'version'
         lambda { |_|
           @fout.fout MarkdownExec::VERSION
@@ -734,15 +748,19 @@ module MarkdownExec
                                            @options[:saved_filename_replacement])
     end
 
-    def select_document_if_multiple(files = list_markdown_files_in_path, prompt: options[:prompt_select_md].to_s)
+    def select_document_if_multiple(files = list_markdown_files_in_path,
+                                    prompt: options[:prompt_select_md].to_s)
       return files[0] if (count = files.count) == 1
 
       return unless count >= 2
 
       opts = options.dup
-      select_option_or_exit(HashDelegator.new(@options).string_send_color(prompt, :prompt_color_after_script_execution),
-                            files,
-                            opts.merge(per_page: opts[:select_page_height]))
+      select_option_or_exit(
+        HashDelegator.new(@options).string_send_color(prompt,
+                                                      :prompt_color_after_script_execution),
+        files,
+        opts.merge(per_page: opts[:select_page_height])
+      )
     end
 
     # Presents a TTY prompt to select an option or exit, returns selected option or nil
@@ -790,4 +808,4 @@ if $PROGRAM_NAME == __FILE__
       assert_equal MenuState::CONTINUE, state
     end
   end # module MarkdownExec
-end  # if
+end # if

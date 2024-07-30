@@ -36,7 +36,7 @@ module MarkdownExec
       }
 
       name = fcb.oname
-      shell = fcb.fetch(:shell, '')
+      shell = fcb.shell
 
       apply_name_filters(options, filters, name)
       apply_shell_filters(options, filters, shell)
@@ -109,7 +109,7 @@ module MarkdownExec
     #
     def self.apply_other_filters(options, filters, fcb)
       name = fcb.oname
-      shell = fcb.fetch(:shell, '')
+      shell = fcb.shell
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
 
       if name.present? && options[:hide_blocks_by_name]
@@ -168,7 +168,7 @@ module MarkdownExec
     # @param match_patterns [Array<String>] Array of regular expression patterns for matching
     # @return [Boolean] True if the block should not be in the menu, false otherwise
     def self.prepared_not_in_menu?(options, fcb, match_patterns)
-      return false unless fcb[:shell] == BlockType::BASH
+      return false unless fcb.shell == BlockType::BASH
 
       match_patterns.any? do |pattern|
         options[pattern].present? && fcb.oname =~ /#{options[pattern]}/
@@ -217,7 +217,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_exclude_expect_blocks_condition
         @options[:exclude_expect_blocks] = true
-        @fcb[:shell] = 'expect'
+        @fcb.shell = 'expect'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
@@ -244,7 +244,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_shell_exclude_condition
         @options[:exclude_by_shell_regex] = 'exclude_this'
-        @fcb[:shell] = 'exclude_this_shell'
+        @fcb.shell = 'exclude_this_shell'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
@@ -256,13 +256,13 @@ if $PROGRAM_NAME == __FILE__
 
       def test_shell_select_condition
         @options[:select_by_shell_regex] = 'select_this'
-        @fcb[:shell] = 'select_this_shell'
+        @fcb.shell = 'select_this_shell'
         assert Filter.fcb_select?(@options, @fcb)
       end
 
       def test_bash_only_condition_true
         @options[:bash_only] = true
-        @fcb[:shell] = BlockType::BASH
+        @fcb.shell = BlockType::BASH
         assert Filter.fcb_select?(@options, @fcb)
       end
 
