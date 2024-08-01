@@ -275,6 +275,7 @@
   :default: false
   :description: Execute script in own window
   :env_var: MDE_EXECUTE_IN_OWN_WINDOW
+  :long_name: execute_in_own_window
   :opt_name: execute_in_own_window
   :procname: val_as_bool
   :short_name: w
@@ -304,13 +305,13 @@
 
 ## match fenced code indented by spaces
 #
-- :default: "^(?<indent> *)`{3,}"
+- :default: "^(?<indent>[ \t]*)`{3,}"
   :description: Matches the start and end of a fenced code block
   :env_var: MDE_FENCED_START_AND_END_REGEX
   :opt_name: fenced_start_and_end_regex
   :procname: val_as_str
 
-- :default: "^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*) *$"
+- :default: "^(?<indent>[ \t]*)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*) *$"
   :description: Match the start of a fenced block
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
   :opt_name: fenced_start_extended_regex
@@ -509,7 +510,7 @@
   :opt_name: menu_divider_format
   :procname: val_as_str
 
-- :default: "^:::(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :default: "^(?<indent>[ \t]*):::(?<line>(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for topics/dividers in block selection menu
   :env_var: MDE_MENU_DIVIDER_MATCH
   :opt_name: menu_divider_match
@@ -653,7 +654,8 @@
   :procname: val_as_str
 
 ## lines that start with "/" are comments (hidden), not notes (visible)
-- :default: "^(?<line>(?!/)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+# - :default: "^(?<indent>[ \t]*)(?<line>(?!/)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :default: "^(?<line>(?![ \t]*/)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :description: Pattern for notes in block selection menu
   :env_var: MDE_MENU_NOTE_MATCH
   :opt_name: menu_note_match

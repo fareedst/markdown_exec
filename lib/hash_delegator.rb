@@ -1286,7 +1286,7 @@ module MarkdownExec
                 warn "Cannot parse name: #{file}"
                 next
               end
-            end&.compact&.sort_by(&:row)
+            end&.compact
 
             return :break unless files_table_rows
 
@@ -2567,28 +2567,37 @@ module MarkdownExec
     def prompt_select_code_filename(
       filenames,
       color_sym: :prompt_color_after_script_execution,
+      cycle: true,
+      enum: false,
+      quiet: true,
       string: @delegate_object[:prompt_select_code_file]
     )
       @prompt.select(
         string_send_color(string, color_sym),
-        filter: true,
+        cycle: cycle,
+        filter: !enum,
         per_page: @delegate_object[:select_page_height],
-        quiet: true
+        quiet: quiet
       ) do |menu|
-        filenames.each do |filename|
-          menu.choice filename
+        menu.enum '.' if enum
+        filenames.each.with_index do |filename, ind|
+          if enum
+            menu.choice filename, ind + 1
+          else
+            menu.choice filename
+          end
         end
       end
     rescue TTY::Reader::InputInterrupt
       exit 1
     end
 
-    def prompt_select_continue
+    def prompt_select_continue(filter: true, quiet: true)
       sel = @prompt.select(
         string_send_color(@delegate_object[:prompt_after_script_execution],
                           :prompt_color_after_script_execution),
-        filter: true,
-        quiet: true
+        filter: filter,
+        quiet: quiet
       ) do |menu|
         menu.choice @delegate_object[:prompt_yes]
         menu.choice @delegate_object[:prompt_exit]

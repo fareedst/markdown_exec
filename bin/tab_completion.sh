@@ -50,6 +50,8 @@ _mde() {
             
               --dump-selected-block) COMPREPLY="0"; return 0 ;;
             
+              --execute_in_own_window) COMPREPLY="0"; return 0 ;;
+            
               -w) COMPREPLY="0"; return 0 ;;
             
               --filename) COMPREPLY="."; return 0 ;;
@@ -98,7 +100,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-delegate-object" "--dump-blocks-in-file" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-delegate-object" "--dump-blocks-in-file" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -134,6 +136,8 @@ _mde() {
           --dump-menu-blocks) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-selected-block) COMPREPLY=".BOOL."; return 0 ;;
+        
+          --execute_in_own_window) COMPREPLY=".BOOL."; return 0 ;;
         
           -w) COMPREPLY=".BOOL."; return 0 ;;
         
