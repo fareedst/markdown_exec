@@ -777,7 +777,7 @@ module MarkdownExec
         runtime_exception(:runtime_exception_error_level,
                           'unmet_dependencies, flag: runtime_exception_error_level',
                           required[:unmet_dependencies])
-      else
+      elsif false ### use option 2024-08-02
         warn format_and_highlight_dependencies(dependencies,
                                                highlight: [@delegate_object[:block_name]])
       end
