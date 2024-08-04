@@ -1,11 +1,4 @@
 # Demonstrate requiring shell blocks
-```opts :(document_options)
-execute_in_own_window: false
-output_execution_report: false
-output_execution_summary: false
-pause_after_script_execution: true
-```
-
 ## Requiring a named block
 ::: Click below to trigger. If it prints "species", "genus", the required block was processed.
 The un-named block prints "species" and requires block "genus".
@@ -56,3 +49,10 @@ The hidden block "(taxonomy)" prints "taxonomy".
     ```bash :(taxonomy)
     echo "taxonomy"
     ```
+
+```opts :(document_options)
+execute_in_own_window: false
+output_execution_report: false
+output_execution_summary: false
+pause_after_script_execution: true
+```
