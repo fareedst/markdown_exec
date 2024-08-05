@@ -397,6 +397,43 @@
   :opt_name: import_pattern
   :procname: val_as_str
 
+- :default:
+    - :color_method: :bold_underline
+      :pattern: '\*\*_([^_]{0,64})_\*\*'
+
+    - :color_method: :bold_italic
+      :pattern: '\*\*~([^~]{0,64})~\*\*'
+
+    - :color_method: :bold
+      :pattern: '\*\*([^*]{0,64})\*\*'
+    - :color_method: :bold
+      :pattern: '__([^_]{0,64})__'
+
+    - :color_method: :underline
+      :pattern: '\*([^*]{0,64})\*'
+
+    - :color_method: :underline_italic
+      :pattern: '_~([^_]{0,64})~_'
+
+    - :color_method: strikethrough
+      :pattern: '~~([^~]{0,64})~~'
+  :description: Line-oriented text decoration (Main)
+  :env_var: MDE_LINE_DECOR_MAIN
+  :opt_name: line_decor_main
+  :procname: val_as_str
+
+- :default: []
+  :description: Line-oriented text decoration (Post)
+  :env_var: MDE_LINE_DECOR_POST
+  :opt_name: line_decor_post
+  :procname: val_as_str
+
+- :default: []
+  :description: Line-oriented text decoration (Pre)
+  :env_var: MDE_LINE_DECOR_PRE
+  :opt_name: line_decor_pre
+  :procname: val_as_str
+
 - :description: List blocks
   :long_name: list-blocks
   :opt_name: list_blocks

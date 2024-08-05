@@ -125,7 +125,10 @@ module MarkdownExec
       return if max <= min # Ensure the range is valid
 
       # Normalize the value within the range 0 to 1
-      normalized_value = [0, [(integer_value - min).to_f / (max - min), 1].min].max
+      normalized_value = [
+        0,
+        [(integer_value - min).to_f / (max - min), 1].min
+      ].max
 
       # Calculate how many characters should be filled
       filled_length = (normalized_value * width).round
@@ -146,11 +149,13 @@ module MarkdownExec
       @o_color = :red
     end
 
-    def build_menu(file_names, directory_names, found_in_block_names, files_in_directories, vbn)
+    def build_menu(file_names, directory_names, found_in_block_names,
+                   files_in_directories, vbn)
       choices = []
 
       # Adding section title and data for file names
-      choices << { disabled: '', name: "in #{file_names[:section_title]}".send(@chrome_color) }
+      choices << { disabled: '',
+                   name: "in #{file_names[:section_title]}".send(@chrome_color) }
       choices += file_names[:data].map { |str| FileInMenu.for_menu(str) }
 
       # Conditionally add directory names if data is present
@@ -464,7 +469,8 @@ module MarkdownExec
                                                                   :menu_chrome_color)}"
       searcher = SearchResultsReport.new(value, [find_path])
       file_names = searcher.file_names(options, value)
-      found_in_block_names = searcher.found_in_block_names(options, value, formspec: '%<line>s')
+      found_in_block_names = searcher.found_in_block_names(options, value,
+                                                           formspec: '%<line>s')
       directory_names = searcher.directory_names(options, value)
 
       ### search in file contents (block names, chrome, or text)
@@ -498,9 +504,10 @@ module MarkdownExec
           details,
           highlight: [value]
         )
-        [FileInMenu.for_menu(filename)] + nexo.map do |str|
-                                            { disabled: '', name: (' ' * 20) + str }
-                                          end
+        [FileInMenu.for_menu(filename)] +
+          nexo.map do |str|
+            { disabled: '', name: (' ' * 20) + str }
+          end
       end.flatten
 
       choices = MenuBuilder.new.build_menu(file_names, directory_names, found_in_block_names,

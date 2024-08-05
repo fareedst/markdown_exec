@@ -264,7 +264,8 @@ module MarkdownExec
     #   and `label_format_below` is "End of %{block_name}", the method will return:
     #     ["Start of Example_Block", "line1", "line2", "End of Example_Block"]
     #
-    def generate_label_body_code(fcb, block_source, label_format_above, label_format_below)
+    def generate_label_body_code(fcb, block_source, label_format_above,
+                                 label_format_below)
       block_name_for_bash_comment = fcb.pub_name.gsub(/\s+/, '_')
 
       label_above = if label_format_above
@@ -389,7 +390,9 @@ module MarkdownExec
 
       memo[source] = block.reqs
 
-      block.reqs.each { |req| collect_dependencies(req, memo) unless memo.key?(req) }
+      block.reqs.each do |req|
+        collect_dependencies(req, memo) unless memo.key?(req)
+      end
       memo
     end
 
@@ -458,7 +461,9 @@ if $PROGRAM_NAME == __FILE__
 
       if false # must raise error
         def test_collect_dependencies_with_nonexistent_source
-          assert_raises(RuntimeError) { @mdoc.collect_dependencies('nonexistent') }
+          assert_raises(RuntimeError) do
+            @mdoc.collect_dependencies('nonexistent')
+          end
         end
       end
 

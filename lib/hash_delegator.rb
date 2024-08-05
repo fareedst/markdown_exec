@@ -29,6 +29,7 @@ require_relative 'fcb'
 require_relative 'filter'
 require_relative 'fout'
 require_relative 'hash'
+require_relative 'hierarchy_string'
 require_relative 'link_history'
 require_relative 'mdoc'
 require_relative 'namer'
@@ -37,6 +38,7 @@ require_relative 'resize_terminal'
 require_relative 'std_out_err_logger'
 require_relative 'streams_out'
 require_relative 'string_util'
+require_relative 'text_analyzer'
 
 $pd = false unless defined?($pd)
 
@@ -482,6 +484,7 @@ module MarkdownExec
 
     extend HashDelegatorSelf
     include CompactionHelpers
+    include TextAnalyzer
 
     def initialize(delegate_object = {})
       @delegate_object = delegate_object
@@ -668,6 +671,16 @@ module MarkdownExec
       end
     end
 
+    def apply_tree_decorations(text, color_method, decor_patterns)
+      tree = HierarchyString.new([{ text: text, color: color_method }])
+      decor_patterns.each do |pc|
+        analyzed_hierarchy = TextAnalyzer.analyze_hierarchy(tree.substrings, pc[:pattern],
+                                                            color_method, pc[:color_method])
+        tree = HierarchyString.new(analyzed_hierarchy)
+      end
+      tree.decorate
+    end
+
     def assign_key_value_in_bash(key, value)
       if value =~ /["$\\`]/
         # requiring ShellWords to write into Bash scripts
@@ -685,6 +698,7 @@ module MarkdownExec
     # @return [Array<FCB>] An array of FCB objects representing the blocks.
     def blocks_from_nested_files
       register_console_attributes(@delegate_object)
+      @decor_patterns_from_delegate_object_for_block_create = collect_line_decor_patterns(@delegate_object)
 
       blocks = []
       iter_blocks_from_nested_files do |btype, fcb|
@@ -756,6 +770,23 @@ module MarkdownExec
         return false
       end
       true
+    end
+
+    def collect_line_decor_patterns(delegate_object)
+      extract_patterns = lambda do |key|
+        return [] unless delegate_object[key].present?
+
+        HashDelegator.safeval(delegate_object[key]).map do |pc|
+          {
+            color_method: pc[:color_method].to_sym,
+            pattern: Regexp.new(pc[:pattern])
+          }
+        end
+      end
+
+      %i[line_decor_pre line_decor_main line_decor_post].flat_map do |key|
+        extract_patterns.call(key)
+      end
     end
 
     # Collects required code lines based on the selected block and the delegate object's configuration.
@@ -926,6 +957,7 @@ module MarkdownExec
                                     format_option:, color_method:,
                                     case_conversion: nil,
                                     center: nil,
+                                    decor_patterns: [],
                                     wrap: nil)
       line_cap = match_data.named_captures.transform_keys(&:to_sym)
 
@@ -976,11 +1008,14 @@ module MarkdownExec
         # format expects :line to be text only
         line_obj[:line] = line_obj[:text]
         oname = format(format_option, line_obj)
+
+        decorated = apply_tree_decorations(oname, color_method, decor_patterns)
+
         line_obj[:line] = line_obj[:indent] + line_obj[:text]
         blocks.push FCB.new(
           chrome: true,
           disabled: '',
-          dname: line_obj[:indent] + oname.send(color_method),
+          dname: line_obj[:indent] + decorated,
           oname: line_obj[:text]
         )
       end
@@ -994,6 +1029,7 @@ module MarkdownExec
     # @param opts [Hash] Options containing configuration for line processing.
     # @param use_chrome [Boolean] Indicates if the chrome styling should be applied.
     def create_and_add_chrome_blocks(blocks, fcb)
+      # rubocop:disable Layout/LineLength
       match_criteria = [
         { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match, center: true, case_conversion: :upcase, wrap: true },
         { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match, center: true, wrap: true },
@@ -1002,6 +1038,7 @@ module MarkdownExec
         { color: :menu_note_color,     format: :menu_note_format,     match: :menu_note_match, wrap: true },
         { color: :menu_task_color,     format: :menu_task_format,     match: :menu_task_match, wrap: true }
       ]
+      # rubocop:enable Layout/LineLength
       # rubocop:enable Style/UnlessElse
       match_criteria.each do |criteria|
         unless @delegate_object[criteria[:match]].present? &&
@@ -1014,6 +1051,7 @@ module MarkdownExec
           case_conversion: criteria[:case_conversion],
           center: criteria[:center],
           color_method: @delegate_object[criteria[:color]].to_sym,
+          decor_patterns: @decor_patterns_from_delegate_object_for_block_create,
           format_option: @delegate_object[criteria[:format]],
           match_data: mbody,
           wrap: criteria[:wrap]
@@ -1228,7 +1266,8 @@ module MarkdownExec
         when :user_choice
           if @dml_link_state.block_name.present?
             # @prior_block_was_link = true
-            @dml_block_state.block = blocks_find_by_block_name(@dml_blocks_in_file, @dml_link_state.block_name)
+            @dml_block_state.block = blocks_find_by_block_name(@dml_blocks_in_file,
+                                                               @dml_link_state.block_name)
             @dml_link_state.block_name = nil
           else
             # puts "? - Select a block to execute (or type #{$texit} to exit):"
@@ -2435,8 +2474,7 @@ module MarkdownExec
         %i[blocks line]
       when :line
         unless @delegate_object[:no_chrome]
-          create_and_add_chrome_blocks(blocks,
-                                       fcb)
+          create_and_add_chrome_blocks(blocks, fcb)
         end
       end
     end
@@ -3498,7 +3536,8 @@ module MarkdownExec
 
       def test_block_find_with_default
         blocks = [FCB.new(text: 'value1'), FCB.new(text: 'value2')]
-        result = HashDelegator.block_find(blocks, :text, 'missing_value', 'default')
+        result = HashDelegator.block_find(blocks, :text, 'missing_value',
+                                          'default')
         assert_equal 'default', result
       end
     end

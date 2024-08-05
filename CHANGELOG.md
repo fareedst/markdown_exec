@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.0] - 2024-08-05
+
+### Added
+
+- In-line decoration of text
+- ANSI graphics modes for text decoration.
+- Translation from text to ANSI graphics.
+- Options for decorations in three stages, with default (Main) in the middle.
+
 ## [2.2.0] - 2024-07-27
 
 ### Added

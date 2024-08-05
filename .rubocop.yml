@@ -82,6 +82,9 @@ Style/FormatStringToken:
 Style/GlobalVars:
   Enabled: false
 
+Style/IfUnlessModifier: # 2024-08 suggests lines that are too long
+  Enabled: false
+
 Style/Lambda:
   Enabled: false
 

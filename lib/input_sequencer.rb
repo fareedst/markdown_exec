@@ -79,7 +79,8 @@ class InputSequencer
     )
     exit_when_bq_empty = !bq_is_empty? # true when running blocks from cli; unless "stay" is used
     loop do
-      break if run_yield(:parse_document, now_menu.document_filename, &block) == :break
+      break if run_yield(:parse_document, now_menu.document_filename,
+                         &block) == :break
 
       # self.imw_ins now_menu, 'now_menu'
 
@@ -92,7 +93,8 @@ class InputSequencer
         choice = run_yield :user_choice, &block
 
         raise 'Block not recognized.' if choice.nil?
-        break if run_yield(:exit?, choice&.downcase, &block) # Exit loop and method to terminate the app
+        # Exit loop and method to terminate the app
+        break if run_yield(:exit?, choice&.downcase, &block)
 
         next_state = run_yield :execute_block, choice, &block
         # imw_ins next_state, 'next_state'

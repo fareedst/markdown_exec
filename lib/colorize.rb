@@ -101,4 +101,17 @@ class String
   def red;     fg_rgbh_FF_00_00; end
   def violet;  fg_rgbh_94_00_D3; end
   def yellow;  fg_rgbh_FF_FF_00; end
+
+  # graphics modes
+  def bold;             "\033[1m#{self}\033[22m"; end
+  def bold_italic;      "\033[1m\033[3m#{self}\033[22m\033[23m"; end
+  def bold_underline;   "\033[1m\033[4m#{self}\033[22m\033[24m"; end
+  def dim;              "\033[2m#{self}\033[22m"; end
+  def italic;           "\033[3m#{self}\033[23m"; end
+  def underline;        "\033[4m#{self}\033[24m"; end
+  def underline_italic; "\033[4m\033[3m#{self}\033[23m\033[24m"; end
+  def blinking;         "\033[5m#{self}\033[25m"; end
+  def inverse;          "\033[7m#{self}\033[27m"; end
+  def hidden;           "\033[8m#{self}\033[28m"; end
+  def strikethrough;    "\033[9m#{self}\033[29m"; end
 end
