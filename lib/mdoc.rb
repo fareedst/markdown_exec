@@ -87,10 +87,11 @@ module MarkdownExec
       all_dependency_names = collect_unique_names(dependencies).push(nickname).uniq
       # &bt all_dependency_names.count
 
-      # select non-chrome blocks in order of appearance in source documents
+      # select blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
-        all_dependency_names.include?(fcb.pub_name)
+        # 2024-08-04 match nickname
+        all_dependency_names.include?(fcb.pub_name) || all_dependency_names.include?(fcb.nickname) || all_dependency_names.include?(fcb.oname)
       end
       # &bt blocks.count
 
@@ -98,7 +99,9 @@ module MarkdownExec
       #
       unmet_dependencies = all_dependency_names.dup
       blocks = blocks.map do |fcb|
-        unmet_dependencies.delete(fcb.pub_name) # may not exist if block name is duplicated
+        # 2024-08-04 match oname for long block names
+        # 2024-08-04 match nickname
+        unmet_dependencies.delete(fcb.pub_name) || unmet_dependencies.delete(fcb.nickname) || unmet_dependencies.delete(fcb.oname) # may not exist if block name is duplicated
         if (call = fcb.call)
           [get_block_by_anyname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
             .merge({ cann: call })]

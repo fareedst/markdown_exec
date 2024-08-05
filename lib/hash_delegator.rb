@@ -700,15 +700,21 @@ module MarkdownExec
     # if matched, the block returned has properties that it is from cli and not ui
     def block_state_for_name_from_cli(block_name)
       SelectedBlockMenuState.new(
-        @dml_blocks_in_file.find do |item|
-          block_name == item.pub_name
-        end,
+        blocks_find_by_block_name(@dml_blocks_in_file, block_name),
         OpenStruct.new(
           block_name_from_cli: true,
           block_name_from_ui: false
         ),
         MenuState::CONTINUE
       )
+    end
+
+    def blocks_find_by_block_name(blocks, block_name)
+      @dml_blocks_in_file.find do |item|
+        # 2024-08-04 match oname for long block names
+        # 2024-08-04 match nickname for long block names
+        block_name == item.pub_name || block_name == item.nickname || block_name == item.oname
+      end
     end
 
     # private
@@ -1222,9 +1228,7 @@ module MarkdownExec
         when :user_choice
           if @dml_link_state.block_name.present?
             # @prior_block_was_link = true
-            @dml_block_state.block = @dml_blocks_in_file.find do |item|
-              item.pub_name == @dml_link_state.block_name || item.oname == @dml_link_state.block_name
-            end
+            @dml_block_state.block = blocks_find_by_block_name(@dml_blocks_in_file, @dml_link_state.block_name)
             @dml_link_state.block_name = nil
           else
             # puts "? - Select a block to execute (or type #{$texit} to exit):"
