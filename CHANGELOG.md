@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0] - 2024-08-19
+
+### Added
+
+- Option to enable formatting of tables over multiple lines as columns.
+- Example document to demonstrate wrapped blocks.
+- Options for automatic menu entry to edit inherited code when none exists.
+
+### Changed
+
+- Update default line decorations. Avoid patterns likely to exist in code.
+
 ## [2.3.0] - 2024-08-05
 
 ### Added

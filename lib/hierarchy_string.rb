@@ -115,19 +115,71 @@ end
 
 return if $PROGRAM_NAME != __FILE__
 
-# require 'bundler/setup'
-# Bundler.require(:default)
+require 'minitest/autorun'
 
-# require 'fcb'
-# require 'minitest/autorun'
+class TestHierarchyString < Minitest::Test
+  def setup
+    @single_hash = { text: 'Hello', color: :downcase }
+    @nested_hashes = [
+      { text: 'Hello', color: :downcase },
+      [
+        { text: ' ', color: nil },
+        { text: 'World', color: :upcase }
+      ]
+    ]
+    @hierarchy_single = HierarchyString.new(@single_hash)
+    @hierarchy_nested = HierarchyString.new(@nested_hashes)
+  end
 
-# Usage
-hierarchy = HierarchyString.new([{ text: 'Hello ', color: :red },
-                                 [{ text: 'World', color: :upcase },
-                                  { text: '!' }]])
-puts hierarchy.decorate
-puts hierarchy.length
-# puts hierarchy.concatenate           # Outputs: Hello World!
-# puts hierarchy.upcase                # Outputs: HELLO WORLD!
-# puts hierarchy.length                # Outputs: 12
-# puts hierarchy.gsub('World', 'Ruby') # Outputs: Hello Ruby!
+  def test_initialize_single_hash
+    assert_equal [{ text: 'Hello', color: :downcase }],
+                 @hierarchy_single.substrings
+  end
+
+  def test_initialize_nested_hashes
+    expected = [
+      [{ text: 'Hello', color: :downcase }],
+      [
+        [{ text: ' ', color: nil }],
+        [{ text: 'World', color: :upcase }]
+      ]
+    ]
+    assert_equal expected, @hierarchy_nested.substrings
+  end
+
+  def test_concatenate_single_hash
+    assert_equal 'Hello', @hierarchy_single.concatenate
+  end
+
+  def test_concatenate_nested_hashes
+    assert_equal 'Hello World', @hierarchy_nested.concatenate
+  end
+
+  def test_decorate_single_hash
+    assert_equal 'Hello'.downcase, @hierarchy_single.decorate
+  end
+
+  def test_decorate_nested_hashes
+    assert_equal "#{'Hello'.downcase} #{'World'.upcase}",
+                 @hierarchy_nested.decorate
+  end
+
+  def test_replace_text_single_hash
+    @hierarchy_single.replace_text!(&:upcase)
+    assert_equal 'HELLO', @hierarchy_single.concatenate
+  end
+
+  def test_replace_text_nested_hashes
+    @hierarchy_nested.replace_text!(&:upcase)
+    assert_equal 'HELLO WORLD', @hierarchy_nested.concatenate
+  end
+
+  def test_method_missing
+    assert_equal 'Hello', @hierarchy_single.capitalize
+  end
+
+  def test_respond_to_missing
+    assert @hierarchy_single.respond_to?(:capitalize)
+    refute @hierarchy_single.respond_to?(:non_existent_method)
+  end
+end

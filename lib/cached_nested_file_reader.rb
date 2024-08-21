@@ -53,7 +53,8 @@ class CachedNestedFileReader
         included_file_path = if name_strip =~ %r{^/}
                                name_strip
                              elsif import_paths
-                               find_files(name_strip, import_paths + [directory_path])&.first
+                               find_files(name_strip,
+                                          import_paths + [directory_path])&.first
                              else
                                File.join(directory_path, name_strip)
                              end
@@ -72,7 +73,8 @@ class CachedNestedFileReader
     @file_cache[filename] = processed_lines
   rescue Errno::ENOENT
     # Exceptions.error_handler('readlines', { abort: true })
-    warn_format('readlines', "No such file -- #{filename} @@ #{context}", { abort: true })
+    warn_format('readlines', "No such file -- #{filename} @@ #{context}",
+                { abort: true })
   end
 end
 

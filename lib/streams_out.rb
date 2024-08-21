@@ -11,7 +11,13 @@ class StreamsOut
   end
 
   def append_stream_line(stream, line)
-    @streams << { stream: stream, line: line, timestamp: Time.now }
+    @streams << OpenStruct.new(stream: stream, line: line, timestamp: Time.now)
+  end
+
+  def stream_lines(stream)
+    @streams.select do |v|
+      v[:stream] == stream
+    end.map(&:line)
   end
 
   def write_execution_output_to_file(filespec)

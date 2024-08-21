@@ -1,6 +1,6 @@
 ## Demonstrate handling of special characters in block names
 
-::: Click below to trigger. If it prints "1","2","3","4", the Link blocks were required.
+::: Select below to trigger. If it prints "1","2","3","4", the Link blocks were required.
 Long block names can be required by a Bash block.
     ```bash :calling-block +long_block_name_12345678901234567890123456789012345678901234567890 +(long_block_name_12345678901234567890123456789012345678901234567890) +[long_block_name_12345678901234567890123456789012345678901234567890]
     echo '1'
@@ -31,7 +31,7 @@ Block names with all chars.
 / UTF-8
 /   !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 /   ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ
-::: Click below to trigger. If it prints "Success", the Link block was processed.
+::: Select below to trigger. If it prints "Success", the Link block was processed.
 This block name uses the printable characters in the first 128 values. It is executable.
     ```link :!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
     block: (success)

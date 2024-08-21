@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "2.3.0"
+  echo "2.4.0"
 }
 
 _mde() {
@@ -36,9 +36,11 @@ _mde() {
             
               -d) COMPREPLY="0"; return 0 ;;
             
+              --dump-blocks-in-file) COMPREPLY="0"; return 0 ;;
+            
               --dump-delegate-object) COMPREPLY="0"; return 0 ;;
             
-              --dump-blocks-in-file) COMPREPLY="0"; return 0 ;;
+              --dump-dependencies) COMPREPLY="0"; return 0 ;;
             
               --dump-inherited-block_names) COMPREPLY="0"; return 0 ;;
             
@@ -100,7 +102,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-delegate-object" "--dump-blocks-in-file" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -123,9 +125,11 @@ _mde() {
         
           -d) COMPREPLY=".BOOL."; return 0 ;;
         
+          --dump-blocks-in-file) COMPREPLY=".BOOL."; return 0 ;;
+        
           --dump-delegate-object) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-blocks-in-file) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-dependencies) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-inherited-block_names) COMPREPLY=".BOOL."; return 0 ;;
         

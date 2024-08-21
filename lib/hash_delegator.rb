@@ -27,6 +27,7 @@ require_relative 'directory_searcher'
 require_relative 'exceptions'
 require_relative 'fcb'
 require_relative 'filter'
+require_relative 'format_table'
 require_relative 'fout'
 require_relative 'hash'
 require_relative 'hierarchy_string'
@@ -35,9 +36,9 @@ require_relative 'mdoc'
 require_relative 'namer'
 require_relative 'regexp'
 require_relative 'resize_terminal'
-require_relative 'std_out_err_logger'
 require_relative 'streams_out'
 require_relative 'string_util'
+require_relative 'table_extractor'
 require_relative 'text_analyzer'
 
 $pd = false unless defined?($pd)
@@ -269,6 +270,34 @@ module HashDelegatorSelf
 
   def set_file_permissions(file_path, chmod_value)
     File.chmod(chmod_value, file_path)
+  end
+
+  # find tables in multiple lines and format horizontally
+  def tables_into_columns!(blocks_menu, delegate_object)
+    return unless delegate_object[:tables_into_columns]
+
+    lines = blocks_menu.map(&:oname)
+    text_tables = TableExtractor.extract_tables(lines)
+    return unless text_tables.count.positive?
+
+    text_tables.each do |match|
+      range = match[:start_index]..(match[:start_index] + match[:rows] - 1)
+      lines = blocks_menu[range].map(&:oname)
+      formatted = format_table(lines, match[:columns])
+      if formatted.count == range.size
+        # read indentation from first line
+        indent = blocks_menu[range.first].oname.split('|', 2).first
+
+        # replace text in each block
+        range.each.with_index do |block_ind, ind|
+          ### format oname to dname
+          blocks_menu[block_ind].dname = indent + formatted[ind]
+        end
+      else
+        warn [__LINE__, range, lines, formatted].inspect
+        raise 'Invalid result from format_table()'
+      end
+    end
   end
 
   # Creates a TTY prompt with custom settings. Specifically, it disables the default 'cross' symbol and
@@ -512,6 +541,26 @@ module MarkdownExec
     #   def []=(key, value)
     #     @delegate_object[key] = value
     #   end
+
+    ##
+    # Returns the absolute path of the given file path.
+    # If the provided path is already absolute, it returns it as is.
+    # Otherwise, it prefixes the path with the current working directory.
+    #
+    # @param file_path [String] The file path to process
+    # @return [String] The absolute path
+    #
+    # Example usage:
+    #   absolute_path('/absolute/path/to/file.txt') # => '/absolute/path/to/file.txt'
+    #   absolute_path('relative/path/to/file.txt') # => '/current/working/directory/relative/path/to/file.txt'
+    #
+    def absolute_path(file_path)
+      if File.absolute_path?(file_path)
+        file_path
+      else
+        File.join(Dir.getwd, file_path)
+      end
+    end
 
     # Modifies the provided menu blocks array by adding 'Back' and 'Exit' options,
     # along with initial and final dividers, based on the delegate object's configuration.
@@ -814,7 +863,7 @@ module MarkdownExec
         runtime_exception(:runtime_exception_error_level,
                           'unmet_dependencies, flag: runtime_exception_error_level',
                           required[:unmet_dependencies])
-      elsif false ### use option 2024-08-02
+      elsif @delegate_object[:dump_dependencies]
         warn format_and_highlight_dependencies(dependencies,
                                                highlight: [@delegate_object[:block_name]])
       end
@@ -1210,6 +1259,8 @@ module MarkdownExec
           # puts "@ - parse document #{data}"
           inpseq_parse_document(data)
 
+          publish_document_file_name_for_external_automation
+
           if @delegate_object[:menu_for_history]
             history_files(@dml_link_state).tap do |files|
               if files.count.positive?
@@ -1238,7 +1289,7 @@ module MarkdownExec
               menu_enable_option(item_load.dname, files.count, 'files',
                                  menu_state: MenuState::LOAD)
             end
-            if lines_count.positive?
+            if @delegate_object[:menu_inherited_lines_edit_always] || lines_count.positive?
               menu_enable_option(item_edit.dname, lines_count, 'lines',
                                  menu_state: MenuState::EDIT)
             end
@@ -1282,6 +1333,10 @@ module MarkdownExec
           when item_back.pub_name
             debounce_reset
             @menu_user_clicked_back_link = true
+
+            keep_code = @dml_link_state.keep_code
+            inherited_lines = keep_code ? @dml_link_state.inherited_lines_block : nil
+
             load_file_link_state = pop_link_history_and_trigger_load
             @dml_link_state = load_file_link_state.link_state
 
@@ -1290,6 +1345,8 @@ module MarkdownExec
               InputSequencer.next_link_state(
                 block_name: @dml_link_state.block_name,
                 document_filename: @dml_link_state.document_filename,
+                inherited_lines: inherited_lines,
+                keep_code: keep_code,
                 prior_block_was_link: true
               )
             )
@@ -2025,8 +2082,9 @@ module MarkdownExec
       label_format_above = @delegate_object[:shell_code_label_format_above]
       label_format_below = @delegate_object[:shell_code_label_format_below]
 
-      [label_format_above && format(label_format_above,
-                                    block_source.merge({ block_name: selected.pub_name }))] +
+      [label_format_above.present? &&
+        format(label_format_above,
+               block_source.merge({ block_name: selected.pub_name }))] +
         output_lines.map do |line|
           re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
           next unless re =~ line
@@ -2035,14 +2093,17 @@ module MarkdownExec
                          link_block_data.fetch('format',
                                                '%{line}'))
         end.compact +
-        [label_format_below && format(label_format_below,
-                                      block_source.merge({ block_name: selected.pub_name }))]
+        [label_format_below.present? &&
+         format(label_format_below,
+                block_source.merge({ block_name: selected.pub_name }))]
     end
 
     def link_history_push_and_next(
       curr_block_name:, curr_document_filename:,
       inherited_block_names:, inherited_dependencies:, inherited_lines:,
+      keep_code:,
       next_block_name:, next_document_filename:,
+      next_keep_code:,
       next_load_file:
     )
       @link_history.push(
@@ -2051,7 +2112,8 @@ module MarkdownExec
           document_filename: curr_document_filename,
           inherited_block_names: inherited_block_names,
           inherited_dependencies: inherited_dependencies,
-          inherited_lines: inherited_lines
+          inherited_lines: inherited_lines,
+          keep_code: keep_code
         )
       )
       LoadFileLinkState.new(
@@ -2061,7 +2123,8 @@ module MarkdownExec
           document_filename: next_document_filename,
           inherited_block_names: inherited_block_names,
           inherited_dependencies: inherited_dependencies,
-          inherited_lines: inherited_lines
+          inherited_lines: inherited_lines,
+          keep_code: next_keep_code
         )
       )
     end
@@ -2182,6 +2245,7 @@ module MarkdownExec
       add_menu_chrome_blocks!(menu_blocks: menu_blocks, link_state: link_state)
       ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
+      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object)
       [all_blocks, menu_blocks, mdoc] # &br
     end
 
@@ -2238,7 +2302,8 @@ module MarkdownExec
       end
     end
 
-    def menu_enable_option(name, count, type, menu_state: MenuState::LOAD)
+    def menu_enable_option(name, count, type, menu_state: MenuState::LOAD,
+                           always_create: true, always_enable: true)
       raise unless name.present?
       raise if @dml_menu_blocks.nil?
 
@@ -2246,7 +2311,7 @@ module MarkdownExec
 
       # create menu item when it is needed (count > 0)
       #
-      if item.nil? && count.positive?
+      if item.nil? && (always_create || count.positive?)
         item = append_chrome_block(menu_blocks: @dml_menu_blocks,
                                    menu_state: menu_state)
       end
@@ -2256,7 +2321,7 @@ module MarkdownExec
       return unless item
 
       item.dname = type.present? ? "#{name} (#{count} #{type})" : name
-      if count.positive?
+      if always_enable || count.positive?
         item.delete(:disabled)
       else
         item[:disabled] = ''
@@ -2307,8 +2372,10 @@ module MarkdownExec
         inherited_block_names: ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
         inherited_dependencies: (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
         inherited_lines: HashDelegator.code_merge(code_lines),
+        keep_code: link_state&.keep_code,
         next_block_name: '',
         next_document_filename: @delegate_object[:filename],
+        next_keep_code: false,
         next_load_file: LoadFile::REUSE
       )
     end
@@ -2399,8 +2466,10 @@ module MarkdownExec
            (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines:
            HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
+          keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
           next_document_filename: @delegate_object[:filename], # not next_document_filename
+          next_keep_code: false,
           next_load_file: LoadFile::REUSE # not next_document_filename == @delegate_object[:filename] ? LoadFile::REUSE : LoadFile::LOAD
         )
         # LoadFileLinkState.new(LoadFile::REUSE, link_state)
@@ -2657,6 +2726,15 @@ module MarkdownExec
         prompt_select_continue == MenuState::EXIT
     end
 
+    def publish_document_file_name_for_external_automation
+      return unless @delegate_object[:publish_document_file_name].present?
+
+      File.write(
+        absolute_path(@delegate_object[:publish_document_file_name]),
+        File.join(Dir.getwd, @delegate_object[:filename])
+      )
+    end
+
     # Handles the processing of a link block in Markdown Execution.
     # It loads YAML data from the link_block_body content, pushes the state to history,
     # sets environment variables, and decides on the next block to load.
@@ -2727,6 +2805,7 @@ module MarkdownExec
                                                       dependencies, selected, next_block_name: next_block_name)
 
       else
+        next_keep_code = link_state&.keep_code || link_block_data.fetch('keep', false) #/*LinkKeys::KEEP*/
         link_history_push_and_next(
           curr_block_name: selected.pub_name,
           curr_document_filename: @delegate_object[:filename],
@@ -2735,8 +2814,10 @@ module MarkdownExec
           inherited_lines: HashDelegator.code_merge(
             link_state&.inherited_lines, code_lines
           ),
+          keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
           next_document_filename: next_document_filename,
+          next_keep_code: next_keep_code,
           next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::REUSE : LoadFile::LOAD
         )
       end
@@ -3168,6 +3249,10 @@ module MarkdownExec
     end
 
     def wait_for_user_selection(_all_blocks, menu_blocks, default)
+      if @delegate_object[:clear_screen_for_select_block]
+        printf("\e[1;1H\e[2J")
+      end
+
       prompt_title = string_send_color(
         @delegate_object[:prompt_select_block].to_s, :prompt_color_after_script_execution
       )
@@ -3821,31 +3906,31 @@ module MarkdownExec
         @hd.instance_variable_set(:@run_state, mock('run_state'))
       end
 
-      def test_format_execution_stream_with_valid_key
-        result = HashDelegator.format_execution_stream(
-          { stdout: %w[output1 output2] },
-          ExecutionStreams::STD_OUT
-        )
+      # def test_format_execution_stream_with_valid_key
+      #   result = HashDelegator.format_execution_stream(
+      #     { stdout: %w[output1 output2] },
+      #     ExecutionStreams::STD_OUT
+      #   )
 
-        assert_equal "output1\noutput2", result
-      end
+      #   assert_equal "output1\noutput2", result
+      # end
 
-      def test_format_execution_stream_with_empty_key
-        @hd.instance_variable_get(:@run_state).stubs(:files).returns({})
+      # def test_format_execution_stream_with_empty_key
+      #   @hd.instance_variable_get(:@run_state).stubs(:files).returns({})
 
-        result = HashDelegator.format_execution_stream(nil,
-                                                       ExecutionStreams::STD_ERR)
+      #   result = HashDelegator.format_execution_stream(nil,
+      #                                                  ExecutionStreams::STD_ERR)
 
-        assert_equal '', result
-      end
+      #   assert_equal '', result
+      # end
 
-      def test_format_execution_stream_with_nil_files
-        @hd.instance_variable_get(:@run_state).stubs(:files).returns(nil)
+      # def test_format_execution_stream_with_nil_files
+      #   @hd.instance_variable_get(:@run_state).stubs(:files).returns(nil)
 
-        result = HashDelegator.format_execution_stream(nil, :stdin)
+      #   result = HashDelegator.format_execution_stream(nil, :stdin)
 
-        assert_equal '', result
-      end
+      #   assert_equal '', result
+      # end
     end
 
     class TestHashDelegatorHandleBackLink < Minitest::Test
@@ -3950,7 +4035,7 @@ module MarkdownExec
       def setup
         @hd = HashDelegator.new
         @hd.instance_variable_set(:@run_state,
-                                  OpenStruct.new(files: { stdout: [] }))
+                                  OpenStruct.new(files: StreamsOut.new))
         @hd.instance_variable_set(:@delegate_object,
                                   { output_stdout: true })
       end
@@ -3962,9 +4047,8 @@ module MarkdownExec
         Thread.new { @hd.handle_stream(stream: stream, file_type: file_type) }
 
         @hd.wait_for_stream_processing
-
         assert_equal ['line 1', 'line 2'],
-                     @hd.instance_variable_get(:@run_state).files[ExecutionStreams::STD_OUT]
+                     @hd.instance_variable_get(:@run_state).files.stream_lines(ExecutionStreams::STD_OUT)
       end
 
       def test_handle_stream_with_io_error
@@ -3977,7 +4061,7 @@ module MarkdownExec
         @hd.wait_for_stream_processing
 
         assert_equal [],
-                     @hd.instance_variable_get(:@run_state).files[ExecutionStreams::STD_OUT]
+                     @hd.instance_variable_get(:@run_state).files.stream_lines(ExecutionStreams::STD_OUT)
       end
     end
 

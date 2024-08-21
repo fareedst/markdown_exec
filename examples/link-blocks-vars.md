@@ -8,7 +8,7 @@ pause_after_script_execution: true
 ```
 
 ## Demonstrate a link block that sets a variable
-::: Click below to trigger. If it prints "VARIABLE1: 1", the Link block was processed.
+::: Select below to trigger. If it prints "VARIABLE1: 1", the Link block was processed.
 The hidden block "(print-VARIABLE1)" is required below. It prints variable "VARIABLE1".
 ```bash :(print-VARIABLE1)
 source bin/colorize_env_vars.sh
@@ -27,7 +27,7 @@ This block "[bash_set_to_3]" is required below. It sets the variable "ALPHA".
     ```bash :[bash_set_to_3]
     ALPHA=3
     ```
-::: Click below to trigger. If it prints "ALPHA: 3", the Link block was processed.
+::: Select below to trigger. If it prints "ALPHA: 3", the Link block was processed.
 These blocks require the *code* of the named shell block.
     ```link +[bash_set_to_3]
     block: "(display_variable_ALPHA)"
@@ -40,7 +40,7 @@ This block "[bash_set_to_4]" is required below. It prints a command that sets th
     ```bash :[bash_set_to_4]
     echo "ALPHA=4"
     ```
-::: Click below to trigger. If it prints "ALPHA: 4", the Link block was processed.
+::: Select below to trigger. If it prints "ALPHA: 4", the Link block was processed.
 These blocks require the *output* of the execution of the code in the named shell block.
     ```link +[bash_set_to_4]
     eval: true

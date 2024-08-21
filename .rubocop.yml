@@ -14,9 +14,15 @@ Layout/LineContinuationLeadingSpace:
   Enabled: false
 
 Layout/LineLength:
-  Max: 96
+  # Enabled: false
+  Max: 80
+  # Max: 96
+  # Max: 120
 
 Lint/Debugger:
+  Enabled: false
+
+Lint/LiteralAsCondition:
   Enabled: false
 
 Lint/SafeNavigationChain:
@@ -70,6 +76,9 @@ Style/ClassVars:
 Style/CommentedKeyword:
   Enabled: false
 
+Style/Documentation:
+  Enabled: false
+
 Style/DoubleNegation:
   Enabled: false
 
@@ -92,6 +101,9 @@ Style/MixinUsage:
   Enabled: false
 
 Style/MultilineBlockChain:
+  Enabled: false
+
+Style/MultilineIfModifier:
   Enabled: false
 
 Style/OpenStructUse:

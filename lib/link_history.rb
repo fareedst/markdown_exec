@@ -9,7 +9,7 @@ module MarkdownExec
   class LinkState
     attr_accessor :block_name, :display_menu, :document_filename,
                   :inherited_block_names, :inherited_dependencies,
-                  :prior_block_was_link
+                  :keep_code, :prior_block_was_link
 
     # Initialize the LinkState with keyword arguments for each attribute.
     # @param block_name [String, nil] the name of the block.
@@ -19,13 +19,14 @@ module MarkdownExec
     # @param inherited_lines [Array<String>, nil] the inherited lines of code.
     def initialize(block_name: nil, display_menu: nil, document_filename: nil,
                    inherited_block_names: [], inherited_dependencies: nil, inherited_lines: nil,
-                   prior_block_was_link: nil)
+                   keep_code: false, prior_block_was_link: nil)
       @block_name = block_name
       @display_menu = display_menu
       @document_filename = document_filename
       @inherited_block_names = inherited_block_names
       @inherited_dependencies = inherited_dependencies
       @inherited_lines = inherited_lines
+      @keep_code = keep_code
       @prior_block_was_link = prior_block_was_link
     end
 
@@ -46,6 +47,7 @@ module MarkdownExec
         other.inherited_block_names == inherited_block_names &&
         other.inherited_dependencies == inherited_dependencies &&
         other.inherited_lines == inherited_lines &&
+        other.keep_code == keep_code &&
         other.prior_block_was_link == prior_block_was_link
     end
 
@@ -62,7 +64,7 @@ module MarkdownExec
     end
 
     def inherited_lines_block
-      @inherited_lines.join("\n").tap { |ret| pp ['LinkState.inherited_lines_block() ->', ret] if $pd }
+      (@inherited_lines || []).join("\n").tap { |ret| pp ['LinkState.inherited_lines_block() ->', ret] if $pd }
     end
 
     def inherited_lines_count

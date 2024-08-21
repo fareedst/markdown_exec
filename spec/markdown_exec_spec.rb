@@ -266,7 +266,7 @@ RSpec.describe 'MarkdownExec' do
 
     it 'formats tasks' do
       expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-              [block.dname, block.text]
+               [block.dname, block.text]
              end).to eq [
                ['one', nil],
                ['two', nil],
@@ -290,7 +290,7 @@ RSpec.describe 'MarkdownExec' do
 
     xit 'formats dividers' do
       expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-              [block.dname, block.text]
+               [block.dname, block.text]
              end).to eq [
                ['one', nil],
                ['<{:line=>"divider", :indent=>"", :text=>"divider"}>', nil],
@@ -304,7 +304,7 @@ RSpec.describe 'MarkdownExec' do
   describe 'presence of chrome' do
     subject(:blocks) do
       MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
-        [block.dname, block.text]####
+        [block.dname, block.text]
       end
     end
 
@@ -316,8 +316,8 @@ RSpec.describe 'MarkdownExec' do
 
       it '' do
         expect(blocks).to eq [
-          { dname: 'one', text: nil },
-          { dname: 'two', text: nil }
+          ['one', nil],
+          ['two', nil]
         ]
       end
     end
@@ -327,8 +327,8 @@ RSpec.describe 'MarkdownExec' do
 
       it '' do
         expect(blocks).to eq [
-          { dname: 'one', text: nil },
-          { dname: 'two', text: nil }
+          ['one', nil],
+          ['two', nil]
         ]
       end
     end
@@ -472,13 +472,12 @@ RSpec.describe 'MarkdownExec' do
   it 'test_parse_bash_blocks' do
     expect(list_blocks_bash1.map do |block|
       [block.oname, block.reqs]
-    end).to
-    eq([
-         ['one', []],
-         ['two', ['one']],
-         ['three', %w[two one]]],
-         ['four', ['three']]
-       ])
+    end).to eq([
+                 ['one', []],
+                 ['two', ['one']],
+                 ['three', %w[two one]],
+                 ['four', ['three']]
+               ])
   end
 
   it 'test_parse_bash_code' do
@@ -536,17 +535,16 @@ RSpec.describe 'MarkdownExec' do
 
   xit 'test_parse_hide_blocks_by_name' do
     expect(list_blocks_hide_blocks_by_name.map(&:oname)).to
-      eq(['one', '(two)', 'three', '()'])
+    eq(['one', '(two)', 'three', '()'])
   end
 
   it 'test_parse_title' do
     expect(list_blocks_title.map do |block|
              [block.oname, block.title]
-           end).to
-    eq([
-         ['no name', 'no name'],
-         ['name1', 'name1']
-       ])
+           end).to eq([
+                        ['no name', 'no name'],
+                        ['name1', 'name1']
+                      ])
   end
 
   it 'test_recursively_required_reqs' do
@@ -606,7 +604,7 @@ RSpec.describe 'MarkdownExec' do
   xit 'test_select_by_name_regex' do
     expect(mp.list_named_blocks_in_file(
       select_by_name_regex: 'w'
-    ).map { |block| block.oname }).to eq %w[two]
+    ).map(&:oname)).to eq %w[two]
   end
 
   it 'test_tab_completions' do
@@ -718,7 +716,8 @@ RSpec.describe 'MarkdownExec' do
 
   it 'test_parse_called_collect_block_dependencies' do
     expect(mdoc_yaml1.collect_block_dependencies(anyname: 'show_fruit_yml')[:blocks].map do |block|
-      { call: block.call, oname: block.oname }.merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
+      { call: block.call,
+        oname: block.oname }.merge(block[:stdout] ? { stdout_name: block[:stdout][:name] } : {})
     end).to eq [
       { call: nil, oname: '(make_fruit_file)', stdout_name: 'fruit.yml' },
       { call: nil, oname: '[summarize_fruits]' },
@@ -760,11 +759,12 @@ RSpec.describe 'MarkdownExec' do
     expect(mdoc_yaml2.collect_block_dependencies(anyname: 'show_coins_var')[:blocks].map do |block|
              { call: block.call, cann: block.cann, oname: block.oname }
            end).to eq [
-             { call: nil, oname: '(make_coins_file)' },
+             { call: nil, cann: nil, oname: '(make_coins_file)' },
              { call: nil,
                cann: '%(extract_coins_report <$coins >$coins_report)',
                oname: '[extract_coins_report]' },
              { call: '%(extract_coins_report <$coins >$coins_report)',
+               cann: nil,
                oname: 'show_coins_var' }
            ]
   end

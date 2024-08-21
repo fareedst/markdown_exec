@@ -1,18 +1,18 @@
 # Demonstrate requiring shell blocks
 ## Requiring a named block
-::: Click below to trigger. If it prints "species", "genus", the required block was processed.
+::: Select below to trigger. If it prints "species", "genus", the required block was processed.
 The un-named block prints "species" and requires block "genus".
     ```bash +genus
     echo "species"
     ```
-::: Click below to trigger. If it prints "genus", the block was processed.
+::: Select below to trigger. If it prints "genus", the block was processed.
 The named block prints "genus".
     ```bash :genus
     echo "genus"
     ```
 
 ## Requiring a block with a nickname and a hidden block
-::: Click below to trigger. If it prints "family", "order", "class" the required blocks were processed.
+::: Select below to trigger. If it prints "family", "order", "class" the required blocks were processed.
 The named block prints "family" and requires blocks "[order]" and "(class)".
     ```bash :family +[order] +(class)
     echo "family"
@@ -39,7 +39,7 @@ The hidden block "(biology)" prints "biology".
     ```bash :(biology)
     echo "biology"
     ```
-::: Click below to trigger. If it prints "biology", "phylum", "kingdom", "domain", and "taxonomy" the required blocks were processed.
+::: Select below to trigger. If it prints "biology", "phylum", "kingdom", "domain", and "taxonomy" the required blocks were processed.
 The named block prints "kingdom" and requires blocks wrapper blocks "{phylum-domain}" and "{phylum-domain-after}".
 Notice the wrapper blocks are exclusive to the single block with the requirement.
     ```bash :kingdom +{phylum-domain} +(biology) +(taxonomy)

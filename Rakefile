@@ -79,11 +79,15 @@ task :minitest do
   commands = [
     './lib/block_label.rb',
     './lib/cached_nested_file_reader.rb',
+    './lib/dev/process_template.rb --test',
     './lib/directory_searcher.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
     './lib/find_files.rb',
+    './lib/format_table.rb',
     './lib/hash_delegator.rb',
+    './lib/hierarchy_string.rb',
+    './lib/link_history.rb',
     './lib/markdown_exec.rb',
     './lib/mdoc.rb',
     './lib/object_present.rb',
@@ -91,14 +95,19 @@ task :minitest do
     './lib/regexp.rb',
     './lib/resize_terminal.rb',
     './lib/saved_assets.rb',
-    './lib/saved_files_matcher.rb'
+    './lib/saved_files_matcher.rb',
+    './lib/table_extractor.rb',
+    './lib/text_analyzer.rb'
   ]
 
   commands.each do |command|
-    raise "Failed: #{command}" unless system("bundle exec ruby #{command}")
-  rescue StandardError => err
-    puts "Error: #{err.message}"
-    exit 1
+    result = system("bundle exec ruby #{command}")
+    error_level = $?.exitstatus
+
+    if error_level != 0
+      puts "Error: Command '#{command}' failed with exit status #{error_level}."
+      exit error_level
+    end
   end
 end
 
@@ -109,8 +118,8 @@ end
 
 desc 'test'
 task :test do
-  Rake::Task['minitest'].execute
   system 'bundle exec rspec'
+  Rake::Task['minitest'].execute
 end
 
 private

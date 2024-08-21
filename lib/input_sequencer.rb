@@ -47,11 +47,16 @@ class InputSequencer
 
   # Generates the next menu state based on provided attributes.
 
-  def self.next_link_state(block_name: nil, display_menu: nil, document_filename: nil, prior_block_was_link: false)
+  def self.next_link_state(
+        block_name: nil, display_menu: nil, document_filename: nil,
+        inherited_lines: nil, keep_code: false, prior_block_was_link: false
+      )
     MarkdownExec::LinkState.new(
       block_name: block_name,
       display_menu: display_menu,
       document_filename: document_filename,
+      inherited_lines: inherited_lines,
+      keep_code: keep_code,
       prior_block_was_link: prior_block_was_link
     )
   end
@@ -94,7 +99,7 @@ class InputSequencer
 
         raise 'Block not recognized.' if choice.nil?
         # Exit loop and method to terminate the app
-        break if run_yield(:exit?, choice&.downcase, &block)
+        break if run_yield(:exit?, choice&.to_s.downcase, &block)
 
         next_state = run_yield :execute_block, choice, &block
         # imw_ins next_state, 'next_state'

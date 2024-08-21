@@ -64,6 +64,8 @@ return if $PROGRAM_NAME != __FILE__
 
 require 'minitest/autorun'
 
+SAVED_ASSET_FORMAT = '%{prefix}%{join}%{time}%{join}%{filename}%{join}%{mark}%{join}%{blockname}%{join}%{exts}'
+
 class SavedAssetTest < Minitest::Test
   def test_script_name_with_special_characters_in_blockname
     filename = 'sample.txt'
@@ -71,10 +73,11 @@ class SavedAssetTest < Minitest::Test
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
 
-    expected_name = 'test_2023-01-01-12-00-00_sample_txt_,_block_1_2.sh'
-    assert_equal expected_name, MarkdownExec::SavedAsset.script_name(
+    expected_name = 'test_2023-01-01-12-00-00_sample_txt_~_block_1_2_.*'
+    assert_equal expected_name, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_stdout_name_with_special_characters_in_blockname
@@ -83,10 +86,11 @@ class SavedAssetTest < Minitest::Test
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
 
-    expected_name = 'test_2023-01-01-12-00-00_sample_txt_,_block_1_2.out.txt'
-    assert_equal expected_name, MarkdownExec::SavedAsset.stdout_name(
+    expected_name = 'test_2023-01-01-12-00-00_sample_txt_~_block_1_2_.*'
+    assert_equal expected_name, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_all_parameters
@@ -94,11 +98,12 @@ class SavedAssetTest < Minitest::Test
     prefix = 'test'
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
-    expected_wildcard = 'test_2023-01-01-12-00-00_sample_txt_,_block_1_2.sh'
+    expected_wildcard = 'test_2023-01-01-12-00-00_sample_txt_~_block_1_2_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_missing_time
@@ -106,11 +111,12 @@ class SavedAssetTest < Minitest::Test
     prefix = 'test'
     time = nil
     blockname = 'block/1:2'
-    expected_wildcard = 'test_*_sample_txt_,_block_1_2.sh'
+    expected_wildcard = 'test_*_sample_txt_~_block_1_2_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_missing_filename
@@ -118,11 +124,12 @@ class SavedAssetTest < Minitest::Test
     prefix = 'test'
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
-    expected_wildcard = 'test_2023-01-01-12-00-00_*_,_block_1_2.sh'
+    expected_wildcard = 'test_2023-01-01-12-00-00_*_~_block_1_2_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_missing_prefix
@@ -130,11 +137,12 @@ class SavedAssetTest < Minitest::Test
     prefix = nil
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = 'block/1:2'
-    expected_wildcard = '*_2023-01-01-12-00-00_sample_txt_,_block_1_2.sh'
+    expected_wildcard = '*_2023-01-01-12-00-00_sample_txt_~_block_1_2_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_missing_blockname
@@ -142,11 +150,12 @@ class SavedAssetTest < Minitest::Test
     prefix = 'test'
     time = Time.new(2023, 1, 1, 12, 0, 0)
     blockname = nil
-    expected_wildcard = 'test_2023-01-01-12-00-00_sample_txt_,_*.sh'
+    expected_wildcard = 'test_2023-01-01-12-00-00_sample_txt_~_*_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 
   def test_wildcard_name_with_all_missing
@@ -154,10 +163,11 @@ class SavedAssetTest < Minitest::Test
     prefix = nil
     time = nil
     blockname = nil
-    expected_wildcard = '*_*_*_,_*.sh'
+    expected_wildcard = '*_*_*_~_*_.*'
 
-    assert_equal expected_wildcard, MarkdownExec::SavedAsset.wildcard_name(
+    assert_equal expected_wildcard, MarkdownExec::SavedAsset.new(
+      saved_asset_format: SAVED_ASSET_FORMAT,
       filename: filename, prefix: prefix, time: time, blockname: blockname
-    )
+    ).generate_name
   end
 end

@@ -61,6 +61,12 @@
   :env_var: MDE_BLOCK_TYPE_PORT_SET_FORMAT
   :opt_name: block_type_port_set_format
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: true
+  :description: clear_screen_for_select_block
+  :env_var: MDE_CLEAR_SCREEN_FOR_SELECT_BLOCK
+  :opt_name: clear_screen_for_select_block
+  :procname: val_as_bool
 - :arg_name: PATH
   :default: "."
   :description: Read configuration file
@@ -71,6 +77,12 @@
   :description: debounce_execution
   :env_var: MDE_DEBOUNCE_EXECUTION
   :opt_name: debounce_execution
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: true
+  :description: Format tables as columns
+  :env_var: MDE_TABLES_INTO_COLUMNS
+  :opt_name: tables_into_columns
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
@@ -114,6 +126,13 @@
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
+  :description: Dump BlocksInFile (stage 1)
+  :env_var: MDE_DUMP_BLOCKS_IN_FILE
+  :long_name: dump-blocks-in-file
+  :opt_name: dump_blocks_in_file
+  :procname: val_as_bool
+- :arg_name: BOOL
+  :default: false
   :description: Dump @delegate_object
   :env_var: MDE_DUMP_DELEGATE_OBJECT
   :long_name: dump-delegate-object
@@ -121,10 +140,10 @@
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
-  :description: Dump BlocksInFile (stage 1)
-  :env_var: MDE_DUMP_BLOCKS_IN_FILE
-  :long_name: dump-blocks-in-file
-  :opt_name: dump_blocks_in_file
+  :description: Dump dependencies
+  :env_var: MDE_DUMP_DEPENDENCIES
+  :long_name: dump-dependencies
+  :opt_name: dump_dependencies
   :procname: val_as_bool
 - :arg_name: BOOL
   :default: false
@@ -346,10 +365,10 @@
     :pattern: "\\*\\*~([^~]{0,64})~\\*\\*"
   - :color_method: :bold
     :pattern: "\\*\\*([^*]{0,64})\\*\\*"
-  - :color_method: :bold
-    :pattern: __([^_]{0,64})__
+  - :color_method: :italic
+    :pattern: "`([^`]{0,64})`"
   - :color_method: :underline
-    :pattern: "\\*([^*]{0,64})\\*"
+    :pattern: __([^_]{0,64})__
   - :color_method: :underline_italic
     :pattern: _~([^_]{0,64})~_
   - :color_method: strikethrough
@@ -549,6 +568,12 @@
   :env_var: MDE_MENU_INHERITED_LINES_COLOR
   :opt_name: menu_inherited_lines_color
   :procname: val_as_str
+- :arg_name: BOOL
+  :default: false
+  :description: Display Edit option always (when no lines exist)
+  :env_var: MDE_INHERITED_LINES_EDIT_ALWAYS
+  :opt_name: menu_inherited_lines_edit_always
+  :procname: val_as_bool
 - :default: "%{line}"
   :description: format for inherited lines in menu
   :env_var: MDE_MENU_INHERITED_LINES_FORMAT
@@ -931,6 +956,11 @@
   :env_var: MDE_PROMPT_YES
   :opt_name: prompt_yes
   :procname: val_as_str
+- :default: ''
+  :description: File path for publishing document file
+  :env_var: MDE_PUBLISH_DOCUMENT_FILE_NAME
+  :opt_name: publish_document_file_name
+  :procname: val_as_str
 - :description: Print the gem's home directory
   :long_name: pwd
   :opt_name: pwd
@@ -1079,13 +1109,12 @@
   :env_var: MDE_SHELL
   :opt_name: shell
   :procname: val_as_str
-- :default: "#  -^-"
+- :default:
   :description: shell_code_label_format_above
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
   :opt_name: shell_code_label_format_above
   :procname: val_as_str
-- :default: "#  -v-  +%{block_name}  -o-  %{document_filename}  -o-  %{time_now_date}
-    \ -v-"
+- :default:
   :description: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
   :opt_name: shell_code_label_format_below
