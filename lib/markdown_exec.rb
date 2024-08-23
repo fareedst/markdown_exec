@@ -150,7 +150,7 @@ module MarkdownExec
     end
 
     def build_menu(file_names, directory_names, found_in_block_names,
-                   files_in_directories, vbn)
+                   file_name_choices, choices_from_block_names)
       choices = []
 
       # Adding section title and data for file names
@@ -162,14 +162,14 @@ module MarkdownExec
       unless directory_names[:data].count.zero?
         choices << { disabled: '',
                      name: "in #{directory_names[:section_title]}".send(@chrome_color) }
-        choices += files_in_directories
+        choices += file_name_choices
       end
 
       # Adding found in block names
       choices << { disabled: '',
                    name: "in #{found_in_block_names[:section_title]}".send(@chrome_color) }
 
-      choices += vbn
+      choices += choices_from_block_names
 
       choices
     end
@@ -329,6 +329,26 @@ module MarkdownExec
       }
     end
 
+    def choices_from_block_names(value, found_in_block_names)
+      found_in_block_names[:matched_contents].map do |matched_contents|
+        filename, details, = matched_contents
+        nexo = AnsiFormatter.new(@options).format_and_highlight_array(
+          details,
+          highlight: [value]
+        )
+        [FileInMenu.for_menu(filename)] +
+          nexo.map do |str|
+            { disabled: '', name: (' ' * 20) + str }
+          end
+      end.flatten
+    end
+
+    def choices_from_file_names(directory_names)
+      directory_names[:data].map do |dn|
+        find_files('*', [dn], exclude_dirs: true)
+      end.flatten(1).map { |str| FileInMenu.for_menu(str) }
+    end
+
     public
 
     ## Determines the correct filename to use for searching files
@@ -474,6 +494,31 @@ module MarkdownExec
       directory_names = searcher.directory_names(options, value)
 
       ### search in file contents (block names, chrome, or text)
+      found_report(found_in_block_names, directory_names, file_names)
+
+      return { exit: true } unless execute_chosen_found
+
+      file_name_choices = choices_from_file_names(directory_names)
+
+      unless file_names[:data]&.count.positive? ||
+             file_name_choices&.count.positive? ||
+             found_in_block_names[:data]&.count.positive?
+        return :exit
+      end
+
+      ## pick a document to open
+      #
+      found_files_build_menu_user_select(
+        file_names, directory_names, found_in_block_names,
+        file_name_choices,
+        choices_from_block_names(value, found_in_block_names)
+      )
+      { exit: false }
+    end
+
+    def found_report(found_in_block_names,
+                     directory_names,
+                     file_names)
       [found_in_block_names,
        directory_names,
        file_names].each do |data|
@@ -486,32 +531,12 @@ module MarkdownExec
           @fout.fout fi[:content] if fi[:content]
         end
       end
-      return { exit: true } unless execute_chosen_found
+    end
 
-      ## pick a document to open
-      #
-      files_in_directories = directory_names[:data].map do |dn|
-        find_files('*', [dn], exclude_dirs: true)
-      end.flatten(1).map { |str| FileInMenu.for_menu(str) }
-
-      unless file_names[:data]&.count.positive? || files_in_directories&.count.positive? || found_in_block_names[:data]&.count.positive?
-        return { exit: true }
-      end
-
-      vbn = found_in_block_names[:matched_contents].map do |matched_contents|
-        filename, details, = matched_contents
-        nexo = AnsiFormatter.new(@options).format_and_highlight_array(
-          details,
-          highlight: [value]
-        )
-        [FileInMenu.for_menu(filename)] +
-          nexo.map do |str|
-            { disabled: '', name: (' ' * 20) + str }
-          end
-      end.flatten
-
+    def found_files_build_menu_user_select(file_names, directory_names, found_in_block_names,
+                                           file_name_choices, choices_from_block_names)
       choices = MenuBuilder.new.build_menu(file_names, directory_names, found_in_block_names,
-                                           files_in_directories, vbn)
+                                           file_name_choices, choices_from_block_names)
 
       @options[:filename] = FileInMenu.from_menu(
         select_document_if_multiple(
@@ -519,13 +544,11 @@ module MarkdownExec
           prompt: options[:prompt_select_md].to_s + ' ¤ Age in months'.fg_rgbh_AF_AF_00
         )
       )
-      { exit: false }
     end
 
     ## Sets up the options and returns the parsed arguments
     #
     def initialize_and_parse_cli_options
-      # @options = base_options
       @options = HashDelegator.new(base_options)
 
       read_configuration_file!(@options,
