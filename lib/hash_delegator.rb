@@ -661,6 +661,7 @@ module MarkdownExec
         dname: HashDelegator.new(@delegate_object).string_send_color(
           formatted_name, :menu_chrome_color
         ),
+        nickname: formatted_name,
         oname: formatted_name
       )
 
@@ -789,6 +790,9 @@ module MarkdownExec
       @dml_blocks_in_file.find do |item|
         # 2024-08-04 match oname for long block names
         # 2024-08-04 match nickname for long block names
+        block_name == item.pub_name || block_name == item.nickname || block_name == item.oname
+      end || @dml_menu_blocks.find do |item|
+        # 2024-08-22 search in menu blocks to allow matching of automatic chrome with nickname
         block_name == item.pub_name || block_name == item.nickname || block_name == item.oname
       end
     end
@@ -1244,9 +1248,9 @@ module MarkdownExec
                                                                             '_') })
     end
 
-    def dump_and_warn_block_state(selected:)
+    def dump_and_warn_block_state(name:, selected:)
       if selected.nil?
-        Exceptions.warn_format("Block not found -- name: #{@delegate_object[:block_name]}",
+        Exceptions.warn_format("Block not found -- name: #{name}",
                                { abort: true })
       end
 
@@ -1354,13 +1358,16 @@ module MarkdownExec
 
       # if the same menu is being displayed, collect the display name of the selected menu item for use as the default item
       [lfls.link_state,
-       lfls.load_file == LoadFile::LOAD ? nil : selected.dname]
+       lfls.load_file == LoadFile::LOAD ? nil : selected.dname,
+       # 2024-08-22 true to quit
+       lfls.load_file == LoadFile::EXIT]
     end
 
     def execute_block_in_state(block_name)
       @dml_block_state = block_state_for_name_from_cli(block_name)
-      dump_and_warn_block_state(selected: @dml_block_state.block)
-      @dml_link_state, @dml_menu_default_dname =
+      dump_and_warn_block_state(name: block_name,
+                                selected: @dml_block_state.block)
+      @dml_link_state, @dml_menu_default_dname, quit =
         execute_block_for_state_and_name(
           selected: @dml_block_state.block,
           mdoc: @dml_mdoc,
@@ -1370,6 +1377,7 @@ module MarkdownExec
             time_now_date: Time.now.utc.strftime(@delegate_object[:shell_code_label_time_format])
           }
         )
+      :break if quit
     end
 
     # Executes a given command and processes its input, output, and error streams.
@@ -1520,6 +1528,11 @@ module MarkdownExec
                                            selected: selected,
                                            link_state: link_state,
                                            block_source: block_source)
+
+      # from CLI
+      elsif selected.nickname == @delegate_object[:menu_option_exit_name][:line]
+        debounce_reset
+        LoadFileLinkState.new(LoadFile::EXIT, link_state)
 
       elsif @menu_user_clicked_back_link
         debounce_reset
@@ -2571,12 +2584,12 @@ module MarkdownExec
       obj = {}
 
       # concatenated body of all required blocks loaded a YAML
-      data = YAML.load(
+      data = (YAML.load(
         collect_required_code_lines(
           mdoc: mdoc, selected: selected,
           link_state: link_state, block_source: {}
         ).join("\n")
-      ).transform_keys(&:to_sym)
+      ) || {}).transform_keys(&:to_sym)
 
       if selected.shell == BlockType::OPTS
         obj = data
@@ -2971,11 +2984,11 @@ module MarkdownExec
         return
       end
 
-      execute_block_in_state(block_name)
+      return :break if execute_block_in_state(block_name) == :break
 
       if prompt_user_exit(block_name_from_cli: @run_state.source.block_name_from_cli,
                           selected: @dml_block_state.block)
-        return true
+        return :break
       end
 
       ## order of block name processing: link block, cli, from user
@@ -2989,7 +3002,7 @@ module MarkdownExec
         )
 
       # &bsp '!block_name_from_ui + cli_break -> break'
-      !@dml_block_state.source.block_name_from_ui && cli_break
+      !@dml_block_state.source.block_name_from_ui && cli_break && :break
     end
 
     def vux_execute_block_per_type(block_name, formatted_choice_ostructs)
@@ -3043,7 +3056,7 @@ module MarkdownExec
         InputSequencer.next_link_state(prior_block_was_link: true)
 
       else
-        return :break if vux_execute_and_prompt(block_name)
+        return :break if vux_execute_and_prompt(block_name) == :break
 
         InputSequencer.next_link_state(
           block_name: @dml_link_state.block_name,

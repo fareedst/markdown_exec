@@ -30,6 +30,7 @@ class LinkKeys
 end
 
 class LoadFile
+  EXIT = :exit
   LOAD = true
   REUSE = false
 end

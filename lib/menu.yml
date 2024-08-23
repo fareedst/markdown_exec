@@ -376,7 +376,6 @@
   :description: Line-oriented text decoration (Main)
   :env_var: MDE_LINE_DECOR_MAIN
   :opt_name: line_decor_main
-  :procname: val_as_str
 - :default: []
   :description: Line-oriented text decoration (Post)
   :env_var: MDE_LINE_DECOR_POST
@@ -509,7 +508,6 @@
   :description: closing demarcations for menu
   :env_var: MDE_MENU_FINAL_DIVIDER
   :opt_name: menu_final_divider
-  :procname: val_as_str
 - :default: fg_bg_rgbh_80_80_c0_10_10_20
   :description: Color for heading 1 in menu
   :env_var: MDE_MENU_HEADING1_COLOR
@@ -584,7 +582,6 @@
   :description: opening demarcation for menu
   :env_var: MDE_MENU_INITIAL_DIVIDER
   :opt_name: menu_initial_divider
-  :procname: val_as_str
 - :default: fg_rgbh_e0_e0_20
   :description: Color of menu link
   :env_var: MDE_MENU_LINK_COLOR
@@ -615,49 +612,41 @@
   :description: Text for Back option
   :env_var: MDE_MENU_OPTION_BACK_NAME
   :opt_name: menu_option_back_name
-  :procname: val_as_str
 - :default:
     :line: "* Edit"
   :description: Text for Edit option
   :env_var: MDE_MENU_OPTION_EDIT_NAME
   :opt_name: menu_option_edit_name
-  :procname: val_as_str
 - :default:
     :line: "* Exit"
   :description: Text for Exit option
   :env_var: MDE_MENU_OPTION_EXIT_NAME
   :opt_name: menu_option_exit_name
-  :procname: val_as_str
 - :default:
     :line: "* History"
   :description: Text for History option
   :env_var: MDE_MENU_OPTION_HISTORY_NAME
   :opt_name: menu_option_history_name
-  :procname: val_as_str
 - :default:
     :line: "* Load"
   :description: Text for Load option
   :env_var: MDE_MENU_OPTION_LOAD_NAME
   :opt_name: menu_option_load_name
-  :procname: val_as_str
 - :default:
     :line: "* Save"
   :description: Text for Save option
   :env_var: MDE_MENU_OPTION_SAVE_NAME
   :opt_name: menu_option_save_name
-  :procname: val_as_str
 - :default:
     :line: "! Shell"
   :description: Text for Shell option
   :env_var: MDE_MENU_OPTION_SHELL_NAME
   :opt_name: menu_option_shell_name
-  :procname: val_as_str
 - :default:
     :line: "* View"
   :description: Text for View option
   :env_var: MDE_MENU_OPTION_VIEW_NAME
   :opt_name: menu_option_view_name
-  :procname: val_as_str
 - :default: fg_rgbh_ff_00_ff
   :description: Color of menu opts
   :env_var: MDE_MENU_OPTS_COLOR

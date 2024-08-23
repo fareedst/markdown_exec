@@ -10,14 +10,16 @@ require 'timeout'
 # If so, it sends escape sequences to query the terminal size and reads the response.
 # It then compares the current terminal size with the calculated size and adjusts if necessary.
 # If the terminal emulator is unsupported, it prints an error message.
-def resize_terminal(show_dims: false, show_rectangle: false)
+# 2024-8-23 add require_stdout to allow for testing
+def resize_terminal(show_dims: false, show_rectangle: false,
+                    require_stdout: true)
   # Check if running in an interactive terminal and no arguments are provided
   unless $stdin.tty?
     warn 'Usage: resize_terminal'
     return
   end
 
-  return unless $stdout.tty?
+  return if require_stdout && !$stdout.tty?
 
   # Save the current state and send the escape sequence to get the cursor position
   print "\e7\e[r\e[999;999H\e[6n\e8"
@@ -50,7 +52,9 @@ def resize_terminal(show_dims: false, show_rectangle: false)
   if ENV['COLUMNS'].to_i == calculated_columns && ENV['LINES'].to_i == calculated_rows
     puts "#{ENV.fetch('TERM', nil)} #{calculated_columns}x#{calculated_rows}"
   elsif calculated_columns.positive? && calculated_rows.positive?
-    warn "#{ENV.fetch('COLUMNS', nil)}x#{ENV.fetch('LINES', nil)} -> #{calculated_columns}x#{calculated_rows}" if show_dims
+    warn "#{ENV.fetch('COLUMNS',
+                      nil)}x#{ENV.fetch('LINES',
+                                        nil)} -> #{calculated_columns}x#{calculated_rows}" if show_dims
     system("stty cols #{calculated_columns} rows #{calculated_rows}")
   else
     warn "Error: Calculated terminal size is invalid. Columns: #{calculated_columns}, Rows: #{calculated_rows}"
@@ -58,16 +62,14 @@ def resize_terminal(show_dims: false, show_rectangle: false)
   end
 
   # Display a text rectangle if the option is enabled
-  display_terminal_rectangle(calculated_columns, calculated_rows) if show_rectangle
-
+  display_terminal_rectangle(calculated_columns,
+                             calculated_rows) if show_rectangle
 rescue Timeout::Error
   warn 'Error: Timeout while reading terminal response. Unsupported terminal emulator.'
   1
-
 rescue StandardError => err
   warn "Error: #{err.message}. Unsupported terminal emulator."
   1
-
 end
 
 # This function draws a rectangle of the given width and height
@@ -123,7 +125,7 @@ class ResizeTerminalTest < Minitest::Test
       $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
         assert_output("\e7\e[r\e[999;999H\e[6n\e8xterm-256color #{columns}x24\n") do
           # assert_output('', '') do
-          resize_terminal
+          resize_terminal(require_stdout: false)
         end
       end
     end
@@ -135,8 +137,9 @@ class ResizeTerminalTest < Minitest::Test
       ARGV.replace([])
       $stdin.stub(:getch, -> { '' }) do
         # assert_output(nil, /Error: No response received from terminal/) do
-        assert_output(nil, "Error: Timeout while reading terminal response. Unsupported terminal emulator.\n") do
-          assert_equal 1, resize_terminal
+        assert_output(nil,
+                      "Error: Timeout while reading terminal response. Unsupported terminal emulator.\n") do
+          assert_equal 1, resize_terminal(require_stdout: false)
         end
       end
     end
@@ -148,8 +151,9 @@ class ResizeTerminalTest < Minitest::Test
       ARGV.replace([])
       response = "\e[999;999H\e[6n\e[InvalidResponse".dup
       $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
-        assert_output(nil, /Error: Failed to match terminal response pattern/) do
-          assert_equal 1, resize_terminal
+        assert_output(nil,
+                      /Error: Failed to match terminal response pattern/) do
+          assert_equal 1, resize_terminal(require_stdout: false)
         end
       end
     end
@@ -161,7 +165,7 @@ class ResizeTerminalTest < Minitest::Test
       ARGV.replace([])
       Timeout.stub(:timeout, ->(_) { raise Timeout::Error }) do
         assert_output(nil, /Error: Timeout while reading terminal response/) do
-          assert_equal 1, resize_terminal
+          assert_equal 1, resize_terminal(require_stdout: false)
         end
       end
     end

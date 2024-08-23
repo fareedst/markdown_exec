@@ -16,7 +16,7 @@ module MarkdownExec
       return default if value.nil?
 
       case value
-      when String, Integer
+      when String, Integer, Hash
         value
       when TrueClass, FalseClass
         value ? true : false
