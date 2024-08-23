@@ -359,7 +359,7 @@ module MarkdownExec
     # Reports and executes block logic
     def execute_block_logic(files)
       @options[:filename] = select_document_if_multiple(files)
-      @options.document_inpseq
+      @options.vux_main_loop
     rescue StandardError
       error_handler('execute_block_logic')
     # rubocop:disable Style/RescueStandardError
@@ -741,7 +741,7 @@ module MarkdownExec
 
       saved_name_split filename
       @options[:save_executed_script] = false
-      @options.document_inpseq
+      @options.vux_main_loop
     rescue StandardError
       error_handler('run_last_script')
     end

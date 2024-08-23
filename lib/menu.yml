@@ -838,6 +838,7 @@
   :default: false
   :description: Whether to pause after manually executing a block and the next menu
   :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
+  :long_name: pause_after_script_execution
   :opt_name: pause_after_script_execution
   :procname: val_as_bool
 - :default: |2-

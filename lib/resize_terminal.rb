@@ -12,58 +12,62 @@ require 'timeout'
 # If the terminal emulator is unsupported, it prints an error message.
 def resize_terminal(show_dims: false, show_rectangle: false)
   # Check if running in an interactive terminal and no arguments are provided
-  if $stdin.tty?
-    begin
-      # Save the current state and send the escape sequence to get the cursor position
-      print "\e7\e[r\e[999;999H\e[6n\e8"
-      $stdout.flush
-
-      # Read the response from the terminal
-      response = String.new
-      Timeout.timeout(5) do
-        loop do
-          char = $stdin.getch
-          response << char
-          break if response.include?('R')
-        end
-      end
-
-      if response.empty?
-        warn "Error: No response received from terminal. Response: #{response.inspect}"
-        return 1
-      end
-
-      # Match the response to extract the terminal dimensions
-      match_data = response.match(/\[(\d+);(\d+)R/)
-      unless match_data
-        warn "Error: Failed to match terminal response pattern. Response: #{response.inspect}"
-        return 1
-      end
-
-      calculated_rows, calculated_columns = match_data.captures.map(&:to_i)
-
-      if ENV['COLUMNS'].to_i == calculated_columns && ENV['LINES'].to_i == calculated_rows
-        puts "#{ENV.fetch('TERM', nil)} #{calculated_columns}x#{calculated_rows}"
-      elsif calculated_columns.positive? && calculated_rows.positive?
-        warn "#{ENV.fetch('COLUMNS', nil)}x#{ENV.fetch('LINES', nil)} -> #{calculated_columns}x#{calculated_rows}" if show_dims
-        system("stty cols #{calculated_columns} rows #{calculated_rows}")
-      else
-        warn "Error: Calculated terminal size is invalid. Columns: #{calculated_columns}, Rows: #{calculated_rows}"
-        return 1
-      end
-
-      # Display a text rectangle if the option is enabled
-      display_terminal_rectangle(calculated_columns, calculated_rows) if show_rectangle
-    rescue Timeout::Error
-      warn 'Error: Timeout while reading terminal response. Unsupported terminal emulator.'
-      1
-    rescue StandardError => err
-      warn "Error: #{err.message}. Unsupported terminal emulator."
-      1
-    end
-  else
+  unless $stdin.tty?
     warn 'Usage: resize_terminal'
+    return
   end
+
+  return unless $stdout.tty?
+
+  # Save the current state and send the escape sequence to get the cursor position
+  print "\e7\e[r\e[999;999H\e[6n\e8"
+  $stdout.flush
+
+  # Read the response from the terminal
+  response = String.new
+  Timeout.timeout(5) do
+    loop do
+      char = $stdin.getch
+      response << char
+      break if response.include?('R')
+    end
+  end
+
+  if response.empty?
+    warn "Error: No response received from terminal. Response: #{response.inspect}"
+    return 1
+  end
+
+  # Match the response to extract the terminal dimensions
+  match_data = response.match(/\[(\d+);(\d+)R/)
+  unless match_data
+    warn "Error: Failed to match terminal response pattern. Response: #{response.inspect}"
+    return 1
+  end
+
+  calculated_rows, calculated_columns = match_data.captures.map(&:to_i)
+
+  if ENV['COLUMNS'].to_i == calculated_columns && ENV['LINES'].to_i == calculated_rows
+    puts "#{ENV.fetch('TERM', nil)} #{calculated_columns}x#{calculated_rows}"
+  elsif calculated_columns.positive? && calculated_rows.positive?
+    warn "#{ENV.fetch('COLUMNS', nil)}x#{ENV.fetch('LINES', nil)} -> #{calculated_columns}x#{calculated_rows}" if show_dims
+    system("stty cols #{calculated_columns} rows #{calculated_rows}")
+  else
+    warn "Error: Calculated terminal size is invalid. Columns: #{calculated_columns}, Rows: #{calculated_rows}"
+    return 1
+  end
+
+  # Display a text rectangle if the option is enabled
+  display_terminal_rectangle(calculated_columns, calculated_rows) if show_rectangle
+
+rescue Timeout::Error
+  warn 'Error: Timeout while reading terminal response. Unsupported terminal emulator.'
+  1
+
+rescue StandardError => err
+  warn "Error: #{err.message}. Unsupported terminal emulator."
+  1
+
 end
 
 # This function draws a rectangle of the given width and height

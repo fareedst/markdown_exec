@@ -53,12 +53,15 @@ end
 
 module HashDelegatorSelf
   # Applies an ANSI color method to a string using a specified color key.
-  # The method retrieves the color method from the provided hash. If the color key
-  # is not present in the hash, it uses a default color method.
+  # The method retrieves the color method from the provided hash. If the
+  # color key is not present in the hash, it uses a default color method.
   # @param string [String] The string to be colored.
-  # @param color_methods [Hash] A hash where keys are color names (String/Symbol) and values are color methods.
-  # @param color_key [String, Symbol] The key representing the desired color method in the color_methods hash.
-  # @param default_method [String] (optional) Default color method to use if color_key is not found in color_methods. Defaults to 'plain'.
+  # @param color_methods [Hash] A hash where keys are color names
+  #   (String/Symbol) and values are color methods.
+  # @param color_key [String, Symbol] The key representing the desired
+  #   color method in the color_methods hash.
+  # @param default_method [String] (optional) Default color method to
+  #   use if color_key is not found in color_methods. Defaults to 'plain'.
   # @return [String] The colored string.
   def apply_color_from_hash(string, color_methods, color_key,
                             default_method: 'plain')
@@ -85,15 +88,21 @@ module HashDelegatorSelf
   # colored_string = apply_color_from_hash(string, color_transformations, :red)
   # puts colored_string  # This will print the string in red
 
-  # Searches for the first element in a collection where the specified message sent to an element matches a given value.
-  # This method is particularly useful for finding a specific hash-like object within an enumerable collection.
+  # Searches for the first element in a collection where the specified
+  # message sent to an element matches a given value.
+  # This method is particularly useful for finding a specific hash-like
+  # object within an enumerable collection.
   # If no match is found, it returns a specified default value.
   #
   # @param blocks [Enumerable] The collection of hash-like objects to search.
-  # @param msg [Symbol, String] The message to send to each element of the collection.
-  # @param value [Object] The value to match against the result of the message sent to each element.
-  # @param default [Object, nil] The default value to return if no match is found (optional).
-  # @return [Object, nil] The first matching element or the default value if no match is found.
+  # @param msg [Symbol, String] The message to send to each element of
+  #   the collection.
+  # @param value [Object] The value to match against the result of the message
+  #   sent to each element.
+  # @param default [Object, nil] The default value to return if no match is
+  #   found (optional).
+  # @return [Object, nil] The first matching element or the default value if
+  #   no match is found.
   def block_find(blocks, msg, value, default = nil)
     blocks.find { |item| item.send(msg) == value } || default
   end
@@ -111,11 +120,13 @@ module HashDelegatorSelf
   end
 
   # Creates a file at the specified path, writes the given content to it,
-  # and sets file permissions if required. Handles any errors encountered during the process.
+  # and sets file permissions if required. Handles any errors encountered
+  # during the process.
   #
   # @param file_path [String] The path where the file will be created.
   # @param content [String] The content to write into the file.
-  # @param chmod_value [Integer] The file permission value to set; skips if zero.
+  # @param chmod_value [Integer] The file permission value to set;
+  #   skips if zero.
   def create_file_and_write_string_with_permissions(file_path, content,
                                                     chmod_value)
     create_directory_for_file(file_path)
@@ -129,7 +140,8 @@ module HashDelegatorSelf
   #   Dir::Tmpname.create(self.class.to_s) { |path| path }
   # end
 
-  # Updates the title of an FCB object from its body content if the title is nil or empty.
+  # Updates the title of an FCB object from its body content if the title
+  # is nil or empty.
   def default_block_title_from_body(fcb)
     return unless fcb.title.nil? || fcb.title.empty?
 
@@ -175,7 +187,8 @@ module HashDelegatorSelf
 
   # Indents all lines in a given string with a specified indentation string.
   # @param body [String] A multi-line string to be indented.
-  # @param indent [String] The string used for indentation (default is an empty string).
+  # @param indent [String] The string used for indentation
+  #   (default is an empty string).
   # @return [String] A single string with each line indented as specified.
   def indent_all_lines(body, indent = nil)
     return body unless indent&.non_empty?
@@ -967,7 +980,6 @@ module MarkdownExec
       end
 
       link_state.block_name = nil
-      LoadFileLinkState.new(LoadFile::REUSE, link_state)
     end
 
     # Check if the expression contains wildcard characters
@@ -1185,354 +1197,39 @@ module MarkdownExec
       @delegate_object[:menu_divider_format].present? && @delegate_object[divider_key].present?
     end
 
+    def dml_menu_append_chrome_item(
+      name, count, type, menu_state: MenuState::LOAD,
+      always_create: true, always_enable: true
+    )
+      raise unless name.present?
+      raise if @dml_menu_blocks.nil?
+
+      item = @dml_menu_blocks.find { |block| block.oname == name }
+
+      # create menu item when it is needed (count > 0)
+      #
+      if item.nil? && (always_create || count.positive?)
+        item = append_chrome_block(menu_blocks: @dml_menu_blocks,
+                                   menu_state: menu_state)
+      end
+
+      # update item if it exists
+      #
+      return unless item
+
+      item.dname = type.present? ? "#{name} (#{count} #{type})" : name
+      if always_enable || count.positive?
+        item.delete(:disabled)
+      else
+        item[:disabled] = ''
+      end
+    end
+
     def do_save_execution_output
       return unless @delegate_object[:save_execution_output]
       return if @run_state.in_own_window
 
       @run_state.files.write_execution_output_to_file(@delegate_object[:logged_stdout_filespec])
-    end
-
-    # Select and execute a code block from a Markdown document.
-    #
-    # This method allows the user to interactively select a code block from a
-    # Markdown document, obtain approval, and execute the chosen block of code.
-    #
-    # @return [Nil] Returns nil if no code block is selected or an error occurs.
-    def document_inpseq
-      @menu_base_options = @delegate_object
-      @dml_link_state = LinkState.new(
-        block_name: @delegate_object[:block_name],
-        document_filename: @delegate_object[:filename]
-      )
-      @run_state.source.block_name_from_cli = @dml_link_state.block_name.present?
-      @cli_block_name = @dml_link_state.block_name
-      @dml_now_using_cli = @run_state.source.block_name_from_cli
-      @dml_menu_default_dname = nil
-      @dml_block_state = SelectedBlockMenuState.new
-      @doc_saved_lines_files = []
-
-      ## load file with code lines per options
-      #
-      if @menu_base_options[:load_code].present?
-        @dml_link_state.inherited_lines =
-          @menu_base_options[:load_code].split(':').map do |path|
-            File.readlines(path, chomp: true)
-          end.flatten(1)
-
-        inherited_block_names = []
-        inherited_dependencies = {}
-        selected = FCB.new(oname: 'load_code')
-        pop_add_current_code_to_head_and_trigger_load(@dml_link_state, inherited_block_names,
-                                                      code_lines, inherited_dependencies, selected)
-      end
-
-      fdo = ->(option) {
-        name = format(@delegate_object[:menu_link_format],
-                      HashDelegator.safeval(@delegate_object[option]))
-        OpenStruct.new(
-          dname: name,
-          oname: name,
-          name: name,
-          pub_name: name.pub_name
-        )
-      }
-      item_back = fdo.call(:menu_option_back_name)
-      item_edit = fdo.call(:menu_option_edit_name)
-      item_history = fdo.call(:menu_option_history_name)
-      item_load = fdo.call(:menu_option_load_name)
-      item_save = fdo.call(:menu_option_save_name)
-      item_shell = fdo.call(:menu_option_shell_name)
-      item_view = fdo.call(:menu_option_view_name)
-
-      @run_state.batch_random = Random.new.rand
-      @run_state.batch_index = 0
-
-      @run_state.files = StreamsOut.new
-
-      InputSequencer.new(
-        @delegate_object[:filename],
-        @delegate_object[:input_cli_rest]
-      ).run do |msg, data|
-        # &bt msg
-        case msg
-        when :parse_document # once for each menu
-          # puts "@ - parse document #{data}"
-          inpseq_parse_document(data)
-
-          publish_document_file_name_for_external_automation
-
-          if @delegate_object[:menu_for_history]
-            history_files(@dml_link_state).tap do |files|
-              if files.count.positive?
-                menu_enable_option(item_history.oname, files.count, 'files',
-                                   menu_state: MenuState::HISTORY)
-              end
-            end
-          end
-
-          if @delegate_object[:menu_for_saved_lines] && @delegate_object[:document_saved_lines_glob].present?
-
-            sf = document_name_in_glob_as_file_name(
-              @dml_link_state.document_filename,
-              @delegate_object[:document_saved_lines_glob]
-            )
-            files = sf ? Dir.glob(sf) : []
-            @doc_saved_lines_files = files.count.positive? ? files : []
-
-            lines_count = @dml_link_state.inherited_lines_count
-
-            # add menu items (glob, load, save) and enable selectively
-            if files.count.positive? || lines_count.positive?
-              menu_add_disabled_option(sf)
-            end
-            if files.count.positive?
-              menu_enable_option(item_load.dname, files.count, 'files',
-                                 menu_state: MenuState::LOAD)
-            end
-            if @delegate_object[:menu_inherited_lines_edit_always] || lines_count.positive?
-              menu_enable_option(item_edit.dname, lines_count, 'lines',
-                                 menu_state: MenuState::EDIT)
-            end
-            if lines_count.positive?
-              menu_enable_option(item_save.dname, 1, '',
-                                 menu_state: MenuState::SAVE)
-            end
-            if lines_count.positive?
-              menu_enable_option(item_view.dname, 1, '',
-                                 menu_state: MenuState::VIEW)
-            end
-            if @delegate_object[:menu_with_shell]
-              menu_enable_option(item_shell.dname, 1, '',
-                                 menu_state: MenuState::SHELL)
-            end
-
-          end
-
-        when :display_menu
-          # warn "@ - display menu:"
-          # ii_display_menu
-          @dml_block_state = SelectedBlockMenuState.new
-          @delegate_object[:block_name] = nil
-
-        when :user_choice
-          if @dml_link_state.block_name.present?
-            # @prior_block_was_link = true
-            @dml_block_state.block = blocks_find_by_block_name(@dml_blocks_in_file,
-                                                               @dml_link_state.block_name)
-            @dml_link_state.block_name = nil
-          else
-            # puts "? - Select a block to execute (or type #{$texit} to exit):"
-            break if inpseq_user_choice == :break # into @dml_block_state
-            break if @dml_block_state.block.nil? # no block matched
-          end
-          # puts "! - Executing block: #{data}"
-          @dml_block_state.block&.pub_name
-
-        when :execute_block
-          case (block_name = data)
-          when item_back.pub_name
-            debounce_reset
-            @menu_user_clicked_back_link = true
-
-            keep_code = @dml_link_state.keep_code
-            inherited_lines = keep_code ? @dml_link_state.inherited_lines_block : nil
-
-            load_file_link_state = pop_link_history_and_trigger_load
-            @dml_link_state = load_file_link_state.link_state
-
-            InputSequencer.merge_link_state(
-              @dml_link_state,
-              InputSequencer.next_link_state(
-                block_name: @dml_link_state.block_name,
-                document_filename: @dml_link_state.document_filename,
-                inherited_lines: inherited_lines,
-                keep_code: keep_code,
-                prior_block_was_link: true
-              )
-            )
-
-          when item_edit.pub_name
-            debounce_reset
-            edited = edit_text(@dml_link_state.inherited_lines_block)
-            @dml_link_state.inherited_lines = edited.split("\n") if edited
-
-            return :break if pause_user_exit
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          when item_history.pub_name
-            debounce_reset
-            files = history_files(@dml_link_state)
-            files_table_rows = files.map do |file|
-              if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
-                begin
-                  OpenStruct.new(
-                    file: file,
-                    row: format(
-                      @delegate_object[:saved_history_format],
-                      # create with default '*' so unknown parameters are given a wildcard
-                      $~.names.each_with_object(Hash.new('*')) do |name, hash|
-                        hash[name.to_sym] = $~[name]
-                      end
-                    )
-                  )
-                rescue KeyError
-                  # pp $!, $@
-                  warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
-                  error_handler('saved_history_format')
-                  break
-                end
-              else
-                warn "Cannot parse name: #{file}"
-                next
-              end
-            end&.compact
-
-            return :break unless files_table_rows
-
-            # repeat select+display until user exits
-            row_attrib = :row
-            loop do
-              # menu with Back and Facet options at top
-              case (name = prompt_select_code_filename(
-                [@delegate_object[:prompt_filespec_back],
-                 @delegate_object[:prompt_filespec_facet]] +
-                 files_table_rows.map(&row_attrib),
-                string: @delegate_object[:prompt_select_history_file],
-                color_sym: :prompt_color_after_script_execution
-              ))
-              when @delegate_object[:prompt_filespec_back]
-                break
-              when @delegate_object[:prompt_filespec_facet]
-                row_attrib = row_attrib == :row ? :file : :row
-              else
-                file = files_table_rows.select { |ftr| ftr.row == name }&.first
-                info = file_info(file.file)
-                warn "#{file.file} - #{info[:lines]} lines / #{info[:size]} bytes"
-                warn(File.readlines(file.file,
-                                    chomp: false).map.with_index do |line, ind|
-                       format(' %s.  %s', format('% 4d', ind + 1).violet, line)
-                     end)
-              end
-            end
-
-            return :break if pause_user_exit
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          when item_load.pub_name
-            debounce_reset
-            sf = document_name_in_glob_as_file_name(@dml_link_state.document_filename,
-                                                    @delegate_object[:document_saved_lines_glob])
-            load_filespec = load_filespec_from_expression(sf)
-            if load_filespec
-              @dml_link_state.inherited_lines_append(
-                File.readlines(load_filespec, chomp: true)
-              )
-            end
-
-            return :break if pause_user_exit
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          when item_save.pub_name
-            debounce_reset
-            sf = document_name_in_glob_as_file_name(@dml_link_state.document_filename,
-                                                    @delegate_object[:document_saved_lines_glob])
-            save_filespec = save_filespec_from_expression(sf)
-            if save_filespec && !write_file_with_directory_creation(
-              save_filespec,
-              HashDelegator.join_code_lines(@dml_link_state.inherited_lines)
-            )
-              return :break
-
-            end
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          when item_shell.pub_name
-            debounce_reset
-            loop do
-              command = prompt_for_command(":MDE #{Time.now.strftime('%FT%TZ')}> ".bgreen)
-              break if !command.present? || command == 'exit'
-
-              exit_status = execute_command_with_streams(
-                [@delegate_object[:shell], '-c', command]
-              )
-              case exit_status
-              when 0
-                warn "#{'OK'.green} #{exit_status}"
-              else
-                warn "#{'ERR'.bred} #{exit_status}"
-              end
-            end
-
-            return :break if pause_user_exit
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          when item_view.pub_name
-            debounce_reset
-            warn @dml_link_state.inherited_lines_block
-
-            return :break if pause_user_exit
-
-            InputSequencer.next_link_state(prior_block_was_link: true)
-
-          else
-            @dml_block_state = block_state_for_name_from_cli(block_name)
-            if @dml_block_state.block && @dml_block_state.block.shell == BlockType::OPTS
-              debounce_reset
-              link_state = LinkState.new
-              options_state = read_show_options_and_trigger_reuse(
-                link_state: link_state,
-                mdoc: @dml_mdoc,
-                selected: @dml_block_state.block
-              )
-
-              update_menu_base(options_state.options)
-              options_state.load_file_link_state.link_state
-            else
-              inpseq_execute_block(block_name)
-
-              if prompt_user_exit(block_name_from_cli: @run_state.source.block_name_from_cli,
-                                  selected: @dml_block_state.block)
-                return :break
-              end
-
-              ## order of block name processing: link block, cli, from user
-              #
-              @dml_link_state.block_name, @run_state.source.block_name_from_cli, cli_break =
-                HashDelegator.next_link_state(
-                  block_name: @dml_link_state.block_name,
-                  block_name_from_cli: @dml_now_using_cli,
-                  block_state: @dml_block_state,
-                  was_using_cli: @dml_now_using_cli
-                )
-
-              if !@dml_block_state.source.block_name_from_ui && cli_break
-                # &bsp '!block_name_from_ui + cli_break -> break'
-                return :break
-              end
-
-              InputSequencer.next_link_state(
-                block_name: @dml_link_state.block_name,
-                prior_block_was_link: @dml_block_state.block.shell != BlockType::BASH
-              )
-            end
-          end
-
-        when :exit?
-          data == $texit
-        when :stay?
-          data == $stay
-        else
-          raise "Invalid message: #{msg}"
-        end
-      end
-    rescue StandardError
-      HashDelegator.error_handler('document_inpseq',
-                                  { abort: true })
     end
 
     # remove leading "./"
@@ -1646,8 +1343,9 @@ module MarkdownExec
       result_text
     end
 
-    def exec_bash_next_state(selected:, mdoc:, link_state:, block_source: {})
-      lfls = execute_shell_type(
+    def execute_block_for_state_and_name(selected:, mdoc:, link_state:,
+                                         block_source: {})
+      lfls = execute_block_by_type_for_lfls(
         selected: selected,
         mdoc: mdoc,
         link_state: link_state,
@@ -1657,7 +1355,21 @@ module MarkdownExec
       # if the same menu is being displayed, collect the display name of the selected menu item for use as the default item
       [lfls.link_state,
        lfls.load_file == LoadFile::LOAD ? nil : selected.dname]
-      #.tap { |ret| pp [__FILE__,__LINE__,'exec_bash_next_state()',ret] }
+    end
+
+    def execute_block_in_state(block_name)
+      @dml_block_state = block_state_for_name_from_cli(block_name)
+      dump_and_warn_block_state(selected: @dml_block_state.block)
+      @dml_link_state, @dml_menu_default_dname =
+        execute_block_for_state_and_name(
+          selected: @dml_block_state.block,
+          mdoc: @dml_mdoc,
+          link_state: @dml_link_state,
+          block_source: {
+            document_filename: @delegate_object[:filename],
+            time_now_date: Time.now.utc.strftime(@delegate_object[:shell_code_label_time_format])
+          }
+        )
     end
 
     # Executes a given command and processes its input, output, and error streams.
@@ -1710,6 +1422,68 @@ module MarkdownExec
       exit_status
     end
 
+    def execute_history_select(files_table_rows, stream:)
+      # repeat select+display until user exits
+      row_attrib = :row
+      loop do
+        # menu with Back and Facet options at top
+        case (name = prompt_select_code_filename(
+          [@delegate_object[:prompt_filespec_back],
+           @delegate_object[:prompt_filespec_facet]] +
+           files_table_rows.map(&row_attrib),
+          string: @delegate_object[:prompt_select_history_file],
+          color_sym: :prompt_color_after_script_execution
+        ))
+        when @delegate_object[:prompt_filespec_back]
+          break
+        when @delegate_object[:prompt_filespec_facet]
+          row_attrib = row_attrib == :row ? :file : :row
+        else
+          file = files_table_rows.select { |ftr| ftr.row == name }&.first
+          info = file_info(file.file)
+          stream.puts "#{file.file} - #{info[:lines]} lines / " \
+                      "#{info[:size]} bytes"
+          stream.puts(
+            File.readlines(file.file,
+                           chomp: false).map.with_index do |line, ind|
+              format(' %s.  %s', format('% 4d', ind + 1).violet, line)
+            end
+          )
+        end
+      end
+    end
+
+    def execute_inherited_save
+      save_filespec = save_filespec_from_expression(
+        document_name_in_glob_as_file_name(
+          @dml_link_state.document_filename,
+          @delegate_object[:document_saved_lines_glob]
+        )
+      )
+      if save_filespec && !write_file_with_directory_creation(
+        save_filespec,
+        HashDelegator.join_code_lines(@dml_link_state.inherited_lines)
+      )
+        :break
+      end
+    end
+
+    def execute_navigate_back
+      @menu_user_clicked_back_link = true
+
+      keep_code = @dml_link_state.keep_code
+      inherited_lines = keep_code ? @dml_link_state.inherited_lines_block : nil
+
+      @dml_link_state = pop_link_history_new_state
+
+      {
+        block_name: @dml_link_state.block_name,
+        document_filename: @dml_link_state.document_filename,
+        inherited_lines: inherited_lines,
+        keep_code: keep_code
+      }
+    end
+
     # Executes a block of code that has been approved for execution.
     # It sets the script block name, writes command files if required, and handles the execution
     # including output formatting and summarization.
@@ -1737,8 +1511,8 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     #
-    def execute_shell_type(selected:, mdoc:, block_source:,
-                           link_state: LinkState.new)
+    def execute_block_by_type_for_lfls(selected:, mdoc:, block_source:,
+                                       link_state: LinkState.new)
       if selected.shell == BlockType::LINK
         debounce_reset
         push_link_history_and_trigger_load(link_block_body: selected.body,
@@ -1749,7 +1523,11 @@ module MarkdownExec
 
       elsif @menu_user_clicked_back_link
         debounce_reset
-        pop_link_history_and_trigger_load
+        # pop_link_history_new_state
+        LoadFileLinkState.new(
+          LoadFile::LOAD,
+          pop_link_history_new_state
+        )
 
       elsif selected.shell == BlockType::OPTS
         debounce_reset
@@ -1785,6 +1563,7 @@ module MarkdownExec
                                           selected: selected,
                                           link_state: link_state,
                                           block_source: block_source)
+        LoadFileLinkState.new(LoadFile::REUSE, link_state)
 
       else
         LoadFileLinkState.new(LoadFile::REUSE, link_state)
@@ -1865,6 +1644,27 @@ module MarkdownExec
     # Expand expression if it contains format specifiers
     def formatted_expression(expr)
       expr.include?('%{') ? format_expression(expr) : expr
+    end
+
+    def fout_execution_report
+      @fout.fout fetch_color(data_sym: :execution_report_preview_head,
+                             color_sym: :execution_report_preview_frame_color)
+      [
+        ['Block', @run_state.script_block_name],
+        ['Command', ([MarkdownExec::BIN_NAME, @delegate_object[:filename]] +
+                     (@run_state.link_history.map { |item|
+                        item[:block_name]
+                      }) +
+                     [@run_state.script_block_name]).join(' ')],
+        ['Script', @run_state.saved_filespec],
+        ['StdOut', @delegate_object[:logged_stdout_filespec]]
+      ].each do |label, value|
+        next unless value
+
+        output_labeled_value(label, value, DISPLAY_LEVEL_ADMIN)
+      end
+      @fout.fout fetch_color(data_sym: :execution_report_preview_tail,
+                             color_sym: :execution_report_preview_frame_color)
     end
 
     def generate_temp_filename(ext = '.sh')
@@ -1982,45 +1782,6 @@ module MarkdownExec
         in_fenced_block: false,
         headings: []
       }
-    end
-
-    def inpseq_execute_block(block_name)
-      @dml_block_state = block_state_for_name_from_cli(block_name)
-      dump_and_warn_block_state(selected: @dml_block_state.block)
-      @dml_link_state, @dml_menu_default_dname =
-        exec_bash_next_state(
-          selected: @dml_block_state.block,
-          mdoc: @dml_mdoc,
-          link_state: @dml_link_state,
-          block_source: {
-            document_filename: @delegate_object[:filename],
-            time_now_date: Time.now.utc.strftime(@delegate_object[:shell_code_label_time_format])
-          }
-        )
-    end
-
-    def inpseq_parse_document(_document_filename)
-      @run_state.batch_index += 1
-      @run_state.in_own_window = false
-
-      # &bsp 'loop', block_name_from_cli, @cli_block_name
-      @run_state.source.block_name_from_cli, @dml_now_using_cli, @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc =
-        set_delobj_menu_loop_vars(block_name_from_cli: @run_state.source.block_name_from_cli,
-                                  now_using_cli: @dml_now_using_cli,
-                                  link_state: @dml_link_state)
-    end
-
-    def inpseq_user_choice
-      @dml_block_state = load_cli_or_user_selected_block(all_blocks: @dml_blocks_in_file,
-                                                         menu_blocks: @dml_menu_blocks,
-                                                         default: @dml_menu_default_dname)
-      # &bsp '@run_state.source.block_name_from_cli:',@run_state.source.block_name_from_cli
-      if !@dml_block_state
-        HashDelegator.error_handler('block_state missing', { abort: true })
-      elsif @dml_block_state.state == MenuState::EXIT
-        # &bsp 'load_cli_or_user_selected_block -> break'
-        :break
-      end
     end
 
     # Iterates through blocks in a file, applying the provided block to each line.
@@ -2222,6 +1983,23 @@ module MarkdownExec
       end
     end
 
+    def manage_cli_selection_state(block_name_from_cli:, now_using_cli:,
+                                   link_state:)
+      if block_name_from_cli && @cli_block_name == @menu_base_options[:menu_persist_block_name]
+        # &bsp 'pause cli control, allow user to select block'
+        block_name_from_cli = false
+        now_using_cli = false
+        @menu_base_options[:block_name] =
+          @delegate_object[:block_name] = \
+            link_state.block_name =
+              @cli_block_name = nil
+      end
+
+      @delegate_object = @menu_base_options.dup
+      @menu_user_clicked_back_link = false
+      [block_name_from_cli, now_using_cli]
+    end
+
     def mdoc_and_blocks_from_nested_files
       menu_blocks = blocks_from_nested_files
       mdoc = MDoc.new(menu_blocks) do |nopts|
@@ -2302,49 +2080,6 @@ module MarkdownExec
       end
     end
 
-    def menu_enable_option(name, count, type, menu_state: MenuState::LOAD,
-                           always_create: true, always_enable: true)
-      raise unless name.present?
-      raise if @dml_menu_blocks.nil?
-
-      item = @dml_menu_blocks.find { |block| block.oname == name }
-
-      # create menu item when it is needed (count > 0)
-      #
-      if item.nil? && (always_create || count.positive?)
-        item = append_chrome_block(menu_blocks: @dml_menu_blocks,
-                                   menu_state: menu_state)
-      end
-
-      # update item if it exists
-      #
-      return unless item
-
-      item.dname = type.present? ? "#{name} (#{count} #{type})" : name
-      if always_enable || count.positive?
-        item.delete(:disabled)
-      else
-        item[:disabled] = ''
-      end
-    end
-
-    def manage_cli_selection_state(block_name_from_cli:, now_using_cli:,
-                                   link_state:)
-      if block_name_from_cli && @cli_block_name == @menu_base_options[:menu_persist_block_name]
-        # &bsp 'pause cli control, allow user to select block'
-        block_name_from_cli = false
-        now_using_cli = false
-        @menu_base_options[:block_name] =
-          @delegate_object[:block_name] = \
-            link_state.block_name =
-              @cli_block_name = nil
-      end
-
-      @delegate_object = @menu_base_options.dup
-      @menu_user_clicked_back_link = false
-      [block_name_from_cli, now_using_cli]
-    end
-
     # If a method is missing, treat it as a key for the @delegate_object.
     def method_missing(method_name, *args, &block)
       if @delegate_object.respond_to?(method_name)
@@ -2384,27 +2119,6 @@ module MarkdownExec
       formatted_string = string_send_color(@delegate_object[data_sym],
                                            color_sym)
       @fout.fout formatted_string
-    end
-
-    def fout_execution_report
-      @fout.fout fetch_color(data_sym: :execution_report_preview_head,
-                             color_sym: :execution_report_preview_frame_color)
-      [
-        ['Block', @run_state.script_block_name],
-        ['Command', ([MarkdownExec::BIN_NAME, @delegate_object[:filename]] +
-                     (@run_state.link_history.map { |item|
-                        item[:block_name]
-                      }) +
-                     [@run_state.script_block_name]).join(' ')],
-        ['Script', @run_state.saved_filespec],
-        ['StdOut', @delegate_object[:logged_stdout_filespec]]
-      ].each do |label, value|
-        next unless value
-
-        output_labeled_value(label, value, DISPLAY_LEVEL_ADMIN)
-      end
-      @fout.fout fetch_color(data_sym: :execution_report_preview_tail,
-                             color_sym: :execution_report_preview_frame_color)
     end
 
     def output_execution_summary
@@ -2477,20 +2191,17 @@ module MarkdownExec
     end
 
     # This method handles the back-link operation in the Markdown execution context.
-    # It updates the history state and prepares to load the next block.
+    # It updates the history state for the next block.
     #
-    # @return [LoadFileLinkState] An object indicating the action to load the next block.
-    def pop_link_history_and_trigger_load
+    # @return [LinkState] An object indicating the state for the next block.
+    def pop_link_history_new_state
       pop = @link_history.pop
       peek = @link_history.peek
-      LoadFileLinkState.new(
-        LoadFile::LOAD,
-        LinkState.new(
-          document_filename: pop.document_filename,
-          inherited_block_names: peek.inherited_block_names,
-          inherited_dependencies: peek.inherited_dependencies,
-          inherited_lines: peek.inherited_lines
-        )
+      LinkState.new(
+        document_filename: pop.document_filename,
+        inherited_block_names: peek.inherited_block_names,
+        inherited_dependencies: peek.inherited_dependencies,
+        inherited_lines: peek.inherited_lines
       )
     end
 
@@ -2726,15 +2437,6 @@ module MarkdownExec
         prompt_select_continue == MenuState::EXIT
     end
 
-    def publish_document_file_name_for_external_automation
-      return unless @delegate_object[:publish_document_file_name].present?
-
-      File.write(
-        absolute_path(@delegate_object[:publish_document_file_name]),
-        File.join(Dir.getwd, @delegate_object[:filename])
-      )
-    end
-
     # Handles the processing of a link block in Markdown Execution.
     # It loads YAML data from the link_block_body content, pushes the state to history,
     # sets environment variables, and decides on the next block to load.
@@ -2830,6 +2532,34 @@ module MarkdownExec
                   { expr: filespec })
       puts @delegate_object[:prompt_enter_filespec]
       gets.chomp
+    end
+
+    def read_saved_assets_for_history_table
+      files = history_files(@dml_link_state)
+      files.map do |file|
+        if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
+          begin
+            OpenStruct.new(
+              file: file,
+              row: format(
+                @delegate_object[:saved_history_format],
+                # create with default '*' so unknown parameters are given a wildcard
+                $~.names.each_with_object(Hash.new('*')) do |name, hash|
+                  hash[name.to_sym] = $~[name]
+                end
+              )
+            )
+          rescue KeyError
+            # pp $!, $@
+            warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
+            error_handler('saved_history_format')
+            return nil
+          end
+        else
+          warn "Cannot parse name: #{file}"
+          next
+        end
+      end&.compact
     end
 
     # Processes YAML data from the selected menu item, updating delegate objects and optionally printing formatted output.
@@ -3033,36 +2763,6 @@ module MarkdownExec
       HashDelegator.error_handler('select_option_with_metadata')
     end
 
-    # Update the block name in the link state and delegate object.
-    #
-    # This method updates the block name based on whether it was specified
-    # through the CLI or derived from the link state.
-    #
-    # @param link_state [LinkState] The current link state object.
-    # @param block_name_from_cli [Boolean] Indicates if the block name is from CLI.
-    def set_delob_filename_block_name(link_state:, block_name_from_cli:)
-      @delegate_object[:filename] = link_state.document_filename
-      link_state.block_name = @delegate_object[:block_name] =
-        block_name_from_cli ? @cli_block_name : link_state.block_name
-    end
-
-    def set_delobj_menu_loop_vars(block_name_from_cli:, now_using_cli:,
-                                  link_state:)
-      block_name_from_cli, now_using_cli =
-        manage_cli_selection_state(block_name_from_cli: block_name_from_cli,
-                                   now_using_cli: now_using_cli,
-                                   link_state: link_state)
-      set_delob_filename_block_name(link_state: link_state,
-                                    block_name_from_cli: block_name_from_cli)
-
-      # update @delegate_object and @menu_base_options in auto_load
-      #
-      blocks_in_file, menu_blocks, mdoc = mdoc_menu_and_blocks_from_nested_files(link_state)
-      dump_delobj(blocks_in_file, menu_blocks, link_state)
-
-      [block_name_from_cli, now_using_cli, blocks_in_file, menu_blocks, mdoc]
-    end
-
     def set_environment_variables_for_block(selected)
       code_lines = []
       YAML.load(selected.body.join("\n"))&.each do |key, value|
@@ -3230,6 +2930,373 @@ module MarkdownExec
     def update_menu_base(options)
       @menu_base_options.merge!(options)
       @delegate_object.merge!(options)
+    end
+
+    def vux_await_user_selection
+      @dml_block_state = load_cli_or_user_selected_block(all_blocks: @dml_blocks_in_file,
+                                                         menu_blocks: @dml_menu_blocks,
+                                                         default: @dml_menu_default_dname)
+      # &bsp '@run_state.source.block_name_from_cli:',@run_state.source.block_name_from_cli
+      if !@dml_block_state
+        HashDelegator.error_handler('block_state missing', { abort: true })
+      elsif @dml_block_state.state == MenuState::EXIT
+        # &bsp 'load_cli_or_user_selected_block -> break'
+        :break
+      end
+    end
+
+    def vux_clear_menu_state
+      @dml_block_state = SelectedBlockMenuState.new
+      @delegate_object[:block_name] = nil
+    end
+
+    def vux_edit_inherited
+      edited = edit_text(@dml_link_state.inherited_lines_block)
+      @dml_link_state.inherited_lines = edited.split("\n") if edited
+    end
+
+    def vux_execute_and_prompt(block_name)
+      @dml_block_state = block_state_for_name_from_cli(block_name)
+      if @dml_block_state.block && @dml_block_state.block.shell == BlockType::OPTS
+        debounce_reset
+        link_state = LinkState.new
+        options_state = read_show_options_and_trigger_reuse(
+          link_state: link_state,
+          mdoc: @dml_mdoc,
+          selected: @dml_block_state.block
+        )
+
+        update_menu_base(options_state.options)
+        options_state.load_file_link_state.link_state
+        return
+      end
+
+      execute_block_in_state(block_name)
+
+      if prompt_user_exit(block_name_from_cli: @run_state.source.block_name_from_cli,
+                          selected: @dml_block_state.block)
+        return true
+      end
+
+      ## order of block name processing: link block, cli, from user
+      #
+      @dml_link_state.block_name, @run_state.source.block_name_from_cli, cli_break =
+        HashDelegator.next_link_state(
+          block_name: @dml_link_state.block_name,
+          block_name_from_cli: @dml_now_using_cli,
+          block_state: @dml_block_state,
+          was_using_cli: @dml_now_using_cli
+        )
+
+      # &bsp '!block_name_from_ui + cli_break -> break'
+      !@dml_block_state.source.block_name_from_ui && cli_break
+    end
+
+    def vux_execute_block_per_type(block_name, formatted_choice_ostructs)
+      case block_name
+      when formatted_choice_ostructs[:back].pub_name
+        debounce_reset
+        vux_navigate_back_for_ls
+
+      when formatted_choice_ostructs[:edit].pub_name
+        debounce_reset
+        vux_edit_inherited
+        return :break if pause_user_exit
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      when formatted_choice_ostructs[:history].pub_name
+        debounce_reset
+        files_table_rows = read_saved_assets_for_history_table
+        return :break unless files_table_rows
+
+        execute_history_select(files_table_rows, stream: $stderr)
+        return :break if pause_user_exit
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      when formatted_choice_ostructs[:load].pub_name
+        debounce_reset
+        vux_load_inherited
+        return :break if pause_user_exit
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      when formatted_choice_ostructs[:save].pub_name
+        debounce_reset
+        return :break if execute_inherited_save == :break
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      when formatted_choice_ostructs[:shell].pub_name
+        debounce_reset
+        vux_input_and_execute_shell_commands(stream: $stderr)
+        return :break if pause_user_exit
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      when formatted_choice_ostructs[:view].pub_name
+        debounce_reset
+        vux_view_inherited(stream: $stderr)
+        return :break if pause_user_exit
+
+        InputSequencer.next_link_state(prior_block_was_link: true)
+
+      else
+        return :break if vux_execute_and_prompt(block_name)
+
+        InputSequencer.next_link_state(
+          block_name: @dml_link_state.block_name,
+          prior_block_was_link: @dml_block_state.block.shell != BlockType::BASH
+        )
+      end
+    end
+
+    def vux_formatted_names_for_state_chrome_blocks(
+      names: %w[back edit history load save shell view]
+    )
+      names.each_with_object({}) do |name, result|
+        do_key = :"menu_option_#{name}_name"
+        oname = HashDelegator.safeval(@delegate_object[do_key])
+        dname = format(@delegate_object[:menu_link_format], oname)
+        result[name.to_sym] = OpenStruct.new(
+          dname: dname,
+          name: dname,
+          oname: dname,
+          pub_name: dname.pub_name
+        )
+      end
+    end
+
+    def vux_init
+      @menu_base_options = @delegate_object
+      @dml_link_state = LinkState.new(
+        block_name: @delegate_object[:block_name],
+        document_filename: @delegate_object[:filename]
+      )
+      @run_state.source.block_name_from_cli = @dml_link_state.block_name.present?
+      @cli_block_name = @dml_link_state.block_name
+      @dml_now_using_cli = @run_state.source.block_name_from_cli
+      @dml_menu_default_dname = nil
+      @dml_block_state = SelectedBlockMenuState.new
+      @doc_saved_lines_files = []
+
+      @run_state.batch_random = Random.new.rand
+      @run_state.batch_index = 0
+
+      @run_state.files = StreamsOut.new
+    end
+
+    def vux_input_and_execute_shell_commands(stream:)
+      loop do
+        command = prompt_for_command(":MDE #{Time.now.strftime('%FT%TZ')}> ".bgreen)
+        break if !command.present? || command == 'exit'
+
+        exit_status = execute_command_with_streams(
+          [@delegate_object[:shell], '-c', command]
+        )
+        case exit_status
+        when 0
+          stream.puts "#{'OK'.green} #{exit_status}"
+        else
+          stream.puts "#{'ERR'.bred} #{exit_status}"
+        end
+      end
+    end
+
+    ## load file with code lines per options
+    #
+    def vux_load_code_files_into_state
+      return unless @menu_base_options[:load_code].present?
+
+      @dml_link_state.inherited_lines =
+        @menu_base_options[:load_code].split(':').map do |path|
+          File.readlines(path, chomp: true)
+        end.flatten(1)
+
+      inherited_block_names = []
+      inherited_dependencies = {}
+      selected = FCB.new(oname: 'load_code')
+      pop_add_current_code_to_head_and_trigger_load(
+        @dml_link_state, inherited_block_names,
+        code_lines, inherited_dependencies, selected
+      )
+    end
+
+    def vux_load_inherited
+      sf = document_name_in_glob_as_file_name(@dml_link_state.document_filename,
+                                              @delegate_object[:document_saved_lines_glob])
+      load_filespec = load_filespec_from_expression(sf)
+      return unless load_filespec
+
+      @dml_link_state.inherited_lines_append(
+        File.readlines(load_filespec, chomp: true)
+      )
+    end
+
+    # Select and execute a code block from a Markdown document.
+    #
+    # This method allows the user to interactively select a code block from a
+    # Markdown document, obtain approval, and execute the chosen block of code.
+    #
+    # @return [Nil] Returns nil if no code block is selected or an error occurs.
+    def vux_main_loop
+      vux_init
+      vux_load_code_files_into_state
+      formatted_choice_ostructs = vux_formatted_names_for_state_chrome_blocks
+
+      InputSequencer.new(
+        @delegate_object[:filename],
+        @delegate_object[:input_cli_rest]
+      ).run do |msg, data|
+        # &bt msg
+        case msg
+        when :parse_document # once for each menu
+          vux_parse_document
+          vux_menu_append_history_files(formatted_choice_ostructs)
+          vux_publish_document_file_name_for_external_automation
+
+        when :display_menu
+          vux_clear_menu_state
+
+        when :user_choice
+          vux_user_selected_block_name.tap do |val|
+            return val if val == :break
+          end
+
+        when :execute_block
+          vux_execute_block_per_type(data,
+                                     formatted_choice_ostructs).tap do |val|
+            return val if val == :break
+          end
+
+        when :exit?
+          data == $texit
+
+        when :stay?
+          data == $stay
+
+        else
+          raise "Invalid message: #{msg}"
+
+        end
+      end
+    rescue StandardError
+      HashDelegator.error_handler('vux_main_loop', { abort: true })
+    end
+
+    def vux_menu_append_history_files(formatted_choice_ostructs)
+      if @delegate_object[:menu_for_history]
+        history_files(@dml_link_state).tap do |files|
+          if files.count.positive?
+            dml_menu_append_chrome_item(
+              formatted_choice_ostructs[:history].oname, files.count,
+              'files', menu_state: MenuState::HISTORY
+            )
+          end
+        end
+      end
+
+      return unless @delegate_object[:menu_for_saved_lines] && @delegate_object[:document_saved_lines_glob].present?
+
+      sf = document_name_in_glob_as_file_name(
+        @dml_link_state.document_filename,
+        @delegate_object[:document_saved_lines_glob]
+      )
+      files = sf ? Dir.glob(sf) : []
+      @doc_saved_lines_files = files.count.positive? ? files : []
+
+      lines_count = @dml_link_state.inherited_lines_count
+
+      # add menu items (glob, load, save) and enable selectively
+      if files.count.positive? || lines_count.positive?
+        menu_add_disabled_option(sf)
+      end
+      if files.count.positive?
+        dml_menu_append_chrome_item(formatted_choice_ostructs[:load].dname, files.count, 'files',
+                                    menu_state: MenuState::LOAD)
+      end
+      if @delegate_object[:menu_inherited_lines_edit_always] || lines_count.positive?
+        dml_menu_append_chrome_item(formatted_choice_ostructs[:edit].dname, lines_count, 'lines',
+                                    menu_state: MenuState::EDIT)
+      end
+      if lines_count.positive?
+        dml_menu_append_chrome_item(formatted_choice_ostructs[:save].dname, 1, '',
+                                    menu_state: MenuState::SAVE)
+      end
+      if lines_count.positive?
+        dml_menu_append_chrome_item(formatted_choice_ostructs[:view].dname, 1, '',
+                                    menu_state: MenuState::VIEW)
+      end
+      # rubocop:disable Style/GuardClause
+      if @delegate_object[:menu_with_shell]
+        dml_menu_append_chrome_item(formatted_choice_ostructs[:shell].dname, 1, '',
+                                    menu_state: MenuState::SHELL)
+      end
+      # rubocop:enable Style/GuardClause
+
+      # # reflect new menu items
+      # @dml_mdoc = MDoc.new(@dml_menu_blocks)
+    end
+
+    def vux_navigate_back_for_ls
+      InputSequencer.merge_link_state(
+        @dml_link_state,
+        InputSequencer.next_link_state(
+          **execute_navigate_back.merge(prior_block_was_link: true)
+        )
+      )
+    end
+
+    def vux_parse_document
+      @run_state.batch_index += 1
+      @run_state.in_own_window = false
+
+      @run_state.source.block_name_from_cli, @dml_now_using_cli =
+        manage_cli_selection_state(
+          block_name_from_cli: @run_state.source.block_name_from_cli,
+          now_using_cli: @dml_now_using_cli,
+          link_state: @dml_link_state
+        )
+
+      @delegate_object[:filename] = @dml_link_state.document_filename
+      @dml_link_state.block_name = @delegate_object[:block_name] =
+        @run_state.source.block_name_from_cli ? @cli_block_name : @dml_link_state.block_name
+
+      # update @delegate_object and @menu_base_options in auto_load
+      #
+      @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc = mdoc_menu_and_blocks_from_nested_files(@dml_link_state)
+      dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
+      # &bsp 'loop', @run_state.source.block_name_from_cli, @cli_block_name
+    end
+
+    def vux_publish_document_file_name_for_external_automation
+      return unless @delegate_object[:publish_document_file_name].present?
+
+      File.write(
+        absolute_path(@delegate_object[:publish_document_file_name]),
+        File.join(Dir.getwd, @delegate_object[:filename])
+      )
+    end
+
+    # return :break to break from loop
+    def vux_user_selected_block_name
+      if @dml_link_state.block_name.present?
+        # @prior_block_was_link = true
+        @dml_block_state.block = blocks_find_by_block_name(@dml_blocks_in_file,
+                                                           @dml_link_state.block_name)
+        @dml_link_state.block_name = nil
+      else
+        # puts "? - Select a block to execute (or type #{$texit} to exit):"
+        return :break if vux_await_user_selection == :break # into @dml_block_state
+        return :break if @dml_block_state.block.nil? # no block matched
+      end
+      # puts "! - Executing block: #{data}"
+      @dml_block_state.block&.pub_name
+    end
+
+    def vux_view_inherited(stream:)
+      stream.puts @dml_link_state.inherited_lines_block
     end
 
     def wait_for_stream_processing
@@ -3939,16 +4006,14 @@ module MarkdownExec
         @hd.stubs(:history_state_pop)
       end
 
-      def test_pop_link_history_and_trigger_load
+      def test_pop_link_history_new_state
         # Verifying that history_state_pop is called
         # @hd.expects(:history_state_pop).once
 
-        result = @hd.pop_link_history_and_trigger_load
+        result = @hd.pop_link_history_new_state
 
-        # Asserting the result is an instance of LoadFileLinkState
-        assert_instance_of LoadFileLinkState, result
-        assert_equal LoadFile::LOAD, result.load_file
-        assert_nil result.link_state.block_name
+        # Asserting the result is an instance of LinkState
+        assert_nil result.block_name
       end
     end
 
@@ -4367,10 +4432,7 @@ module MarkdownExec
 
     def test_prompt_for_filespec_with_interruption
       $stdin = StringIO.new
-      # rubocop disable:Lint/NestedMethodDefinition
       def $stdin.gets; raise Interrupt; end
-      # rubocop enable:Lint/NestedMethodDefinition
-
       result = prompt_for_filespec_with_wildcard('*.txt')
       assert_nil result
     end

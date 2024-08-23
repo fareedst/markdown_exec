@@ -88,6 +88,8 @@ _mde() {
             
               -p) COMPREPLY="."; return 0 ;;
             
+              --pause_after_script_execution) COMPREPLY="0"; return 0 ;;
+            
               --user-must-approve) COMPREPLY="0"; return 0 ;;
             
               -q) COMPREPLY="0"; return 0 ;;
@@ -102,7 +104,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pause_after_script_execution" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -176,6 +178,8 @@ _mde() {
           --path) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
           -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
+        
+          --pause_after_script_execution) COMPREPLY=".BOOL."; return 0 ;;
         
           --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
         

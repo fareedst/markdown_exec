@@ -381,7 +381,7 @@ RSpec.describe 'MarkdownExec' do
 
       opts.merge!(block_name: 'one')
       hopts = MarkdownExec::HashDelegator.new(opts)
-      hopts.exec_bash_next_state(
+      hopts.execute_block_for_state_and_name(
         selected: MarkdownExec::FCB.new,
         mdoc: mdoc,
         link_state: MarkdownExec::LinkState.new
