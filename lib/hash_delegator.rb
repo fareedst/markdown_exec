@@ -2908,7 +2908,7 @@ module MarkdownExec
             fcb: state[:fcb],
             messages: selected_messages,
             configuration: @delegate_object,
-                                                          &block
+            &block
           )
           state[:in_fenced_block] = false
         else

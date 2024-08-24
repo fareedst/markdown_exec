@@ -407,7 +407,7 @@ module MarkdownExec
 
       simple_commands = {
         doc_glob: -> { @fout.fout options[:md_filename_glob] },
-        # list_blocks: -> { list_blocks },
+        list_blocks: -> { list_blocks },
         list_default_env: -> { @fout.fout_list list_default_env },
         list_default_yaml: -> { @fout.fout_list list_default_yaml },
         list_docs: -> { @fout.fout_list files },
@@ -628,7 +628,16 @@ module MarkdownExec
       end
     end
 
-    # def list_blocks; end
+    def list_blocks
+      @options.iter_blocks_from_nested_files do |btype, fcb|
+        case btype
+        when :blocks
+          @fout.fout fcb.oname
+        when :filter
+          %i[blocks]
+        end
+      end
+    end
 
     def list_default_env
       menu_iter do |item|

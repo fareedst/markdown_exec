@@ -74,6 +74,12 @@ task :clean do
   system 'rm *.gem'
 end
 
+desc 'bats'
+task :bats do
+  system 'bats bats/mde.bats'
+  system 'bats bats/options.bats'
+end
+
 desc 'minitest'
 task :minitest do
   commands = [
@@ -120,6 +126,7 @@ desc 'test'
 task :test do
   system 'bundle exec rspec'
   Rake::Task['minitest'].execute
+  Rake::Task['bats'].execute
 end
 
 private
@@ -150,7 +157,8 @@ end
 # write tab_completion.sh with erb
 #
 def update_tab_completion(target)
-  words = `#{File.join BF, MarkdownExec::BIN_NAME} --tab-completions`.split("\n")
+  words = `#{File.join BF,
+                       MarkdownExec::BIN_NAME} --tab-completions`.split("\n")
   mde_tab_completions = "(#{words_list(words)})"
   mde_help = `#{File.join BF, MarkdownExec::BIN_NAME} --help`.split("\n")
 
@@ -173,7 +181,8 @@ end
 
 desc 'update installed tab_completion.sh'
 task :update_installed_tab_completion do
-  update_tab_completion(fs = File.join(`mde --pwd`.chomp, BF, 'tab_completion.sh'))
+  update_tab_completion(fs = File.join(`mde --pwd`.chomp, BF,
+                                       'tab_completion.sh'))
 
   puts `cat #{fs}` ###
 end
