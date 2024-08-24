@@ -1,5 +1,11 @@
 # Automated tests
 
+## Shell blocks
+
+```bash :bash1
+echo "bash1!"
+```
+
 ## Link Vars
 
 | inputs to MDE| expected output

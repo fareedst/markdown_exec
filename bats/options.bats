@@ -2,7 +2,21 @@
 
 load 'test_helper.bash'
 
+# Defaults
+
+@test 'Defaults' {
+  spec_mde_args_expect \
+   'docs/dev/specs.md bash1' \
+   ' bash1!'
+}
+
 # Options
+
+@test 'Options - block-name' {
+  spec_mde_args_expect \
+   '--block-name bash1 docs/dev/specs.md' \
+   ' bash1!'
+}
 
 @test 'Options - find' {
   spec_mde_args_expect \

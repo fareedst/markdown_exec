@@ -35,12 +35,12 @@ expect_equal_output () {
 
 exec_mde () {
   echo "bin/bmde "$1" "${@:2}""
-  run bin/bmde "$1" "${@:2}"
+  run bin/bmde "$1" ${@:2}
 }
 
 specs_md () {
   expect="${!#}"
-  exec_mde docs/dev/specs.md "${@:1:$#-1}"
+  exec_mde docs/dev/specs.md ${@:1:$#-1}
 
   if ( ! expect_equal_output "$expect" "$output" ); then
     echo -e "- command: ${@:1:$#-1}"

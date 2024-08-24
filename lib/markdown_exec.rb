@@ -469,9 +469,6 @@ module MarkdownExec
         end
       end
 
-      ## position 1: block name (optional)
-      #
-      @options[:block_name] = nil
       @options[:input_cli_rest] = @rest
     rescue FileMissingError
       warn_format('finalize_cli_argument_processing',
@@ -550,7 +547,6 @@ module MarkdownExec
     #
     def initialize_and_parse_cli_options
       @options = HashDelegator.new(base_options)
-
       read_configuration_file!(@options,
                                ".#{MarkdownExec::APP_NAME.downcase}.yml")
 
@@ -568,11 +564,11 @@ module MarkdownExec
       end
       @option_parser.load
       @option_parser.environment
-      @rest = rest = @option_parser.parse!(arguments_for_mde)
-      @options.pass_args = ARGV[rest.count + 1..]
+      @rest = @option_parser.parse!(arguments_for_mde)
+      @options.pass_args = ARGV[@rest.count + 1..]
       @options.merge(@options.run_state.to_h)
 
-      rest
+      @rest
     end
 
     ##

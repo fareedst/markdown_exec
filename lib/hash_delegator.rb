@@ -964,16 +964,20 @@ module MarkdownExec
     # @param selected [Hash] The selected item from the menu to be executed.
     # @return [LoadFileLinkState] An object indicating whether to load the next block or reuse the current one.
     def compile_execute_and_trigger_reuse(mdoc:, selected:, block_source:,
-                                          link_state: nil)
-      required_lines = collect_required_code_lines(mdoc: mdoc, selected: selected, link_state: link_state,
-                                                   block_source: block_source)
+                                          link_state:)
+      required_lines = collect_required_code_lines(
+        mdoc: mdoc, selected: selected,
+        link_state: link_state, block_source: block_source
+      )
       output_or_approval = @delegate_object[:output_script] || @delegate_object[:user_must_approve]
       if output_or_approval
         display_required_code(required_lines: required_lines)
       end
       allow_execution = if @delegate_object[:user_must_approve]
-                          prompt_for_user_approval(required_lines: required_lines,
-                                                   selected: selected)
+                          prompt_for_user_approval(
+                            required_lines: required_lines,
+                            selected: selected
+                          )
                         else
                           true
                         end
@@ -3158,9 +3162,12 @@ module MarkdownExec
       vux_load_code_files_into_state
       formatted_choice_ostructs = vux_formatted_names_for_state_chrome_blocks
 
+      block_list = [@delegate_object[:block_name]].select(&:present?).compact + @delegate_object[:input_cli_rest]
+      @delegate_object[:block_name] = nil
+
       InputSequencer.new(
         @delegate_object[:filename],
-        @delegate_object[:input_cli_rest]
+        block_list
       ).run do |msg, data|
         # &bt msg
         case msg
