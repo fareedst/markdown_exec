@@ -1315,6 +1315,28 @@
   :opt_name: tab_completions
   :procname: val_as_bool
 
+- :default: fg_bg_rgbh_00_00_df_14_18_1c
+  :description: Color for table border
+  :env_var: MDE_TABLE_BORDER_COLOR
+  :opt_name: table_border_color
+
+- :default: fg_bg_rgbh_df_7f_00_14_18_1c
+  :description: Color for table header row
+  :env_var: MDE_TABLE_HEADER_ROW_COLOR
+  :opt_name: table_header_row_color
+
+- :default: 
+    - fg_bg_rgbh_cf_cf_cf_14_18_1c
+    - fg_bg_rgbh_df_df_df_24_24_24
+  :description: Color for table row
+  :env_var: MDE_TABLE_ROW_COLOR
+  :opt_name: table_row_color
+
+- :default: fg_bg_rgbh_df_df_00_14_18_1c
+  :description: Color for table separator line
+  :env_var: MDE_TABLE_SEPARATOR_LINE_COLOR
+  :opt_name: table_separator_line_color
+
 - :arg_name: BOOL
   :default: false
   :description: Requires user approval before executing a script

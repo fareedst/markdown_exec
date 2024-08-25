@@ -296,7 +296,17 @@ module HashDelegatorSelf
     text_tables.each do |match|
       range = match[:start_index]..(match[:start_index] + match[:rows] - 1)
       lines = blocks_menu[range].map(&:oname)
-      formatted = format_table(lines, match[:columns])
+      formatted = MarkdownTableFormatter.format_table(
+        lines,
+        match[:columns],
+        decorate: {
+          border: delegate_object[:table_border_color],
+          header_row: delegate_object[:table_header_row_color],
+          row: delegate_object[:table_row_color],
+          separator_line: delegate_object[:table_separator_line_color],
+        }
+      )
+
       if formatted.count == range.size
         # read indentation from first line
         indent = blocks_menu[range.first].oname.split('|', 2).first
@@ -308,7 +318,7 @@ module HashDelegatorSelf
         end
       else
         warn [__LINE__, range, lines, formatted].inspect
-        raise 'Invalid result from format_table()'
+        raise 'Invalid result from MarkdownTableFormatter.format_table()'
       end
     end
   end

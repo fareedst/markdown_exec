@@ -16,7 +16,7 @@ module MarkdownExec
       return default if value.nil?
 
       case value
-      when String, Integer, Hash
+      when String, Integer, Array, Hash
         value
       when TrueClass, FalseClass
         value ? true : false
@@ -64,8 +64,12 @@ if $PROGRAM_NAME == __FILE__
       assert_equal false, MarkdownExec::OptionValue.for_hash(false)
     end
 
-    def test_for_hash_with_empty_value
-      assert_equal 'default', MarkdownExec::OptionValue.for_hash([], 'default')
+    def test_for_hash_with_empty_array
+      assert_equal [], MarkdownExec::OptionValue.for_hash([], 'default')
+    end
+
+    def test_for_hash_with_empty_hash
+      assert_equal({}, MarkdownExec::OptionValue.for_hash({}, 'default'))
     end
 
     def test_for_yaml_with_string

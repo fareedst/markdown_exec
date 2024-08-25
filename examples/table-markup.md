@@ -20,7 +20,7 @@ Centered columns.
 	|
 	|-:|-:
 	| Tapanuli Orangutan| Pongo tapanuliensis
-	| Hydrodynastes bicincßtus|
+	| Hydrodynastes bicinctus|
 
 ## Non-table text is not modified
 1. |
