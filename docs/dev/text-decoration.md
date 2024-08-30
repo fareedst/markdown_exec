@@ -1,0 +1,7 @@
+- **_Bold-Underline_**
+- **Bold**
+- **~Bold-Italic~**
+- __Underline__
+- _~Underline-Italic~_
+- `Italic`
+- ~~Strikethrough~~

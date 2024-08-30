@@ -34,11 +34,16 @@ module MarkdownTableFormatter
   end
 
   def update_role(current_role, line)
-    if current_role == :header_row && line =~ /^[ \t]*\| *[:\-][:\- |]*$/
-      :separator_line
-    elsif current_role == :separator_line
+    case current_role
+    when :header_row
+      if line =~ /^[ \t]*\| *[:\-][:\- |]*$/
+        :separator_line
+      else
+        current_role
+      end
+    when :separator_line
       :row
-    elsif :row
+    when :row
       current_role
     else
       raise "Unexpected role: #{current_role} for line #{line}"
@@ -95,33 +100,33 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_row_line(row, alignment_indicators, column_widths, decorate)
+  def format_row_line(row, alignment_indicators, column_widths, decorate,
+                      text_sym: :text, style_sym: :color)
     return '' if row.cells.nil?
 
     border_style = decorate && decorate[:border]
     HierarchyString.new(
-      [{ text: '| ', style: border_style },
+      [{ text_sym => '| ', style_sym => border_style },
        *insert_every_other(
          row.cells.map.with_index do |cell, i|
            next unless alignment_indicators[i] && column_widths[i]
 
            if row.role == :separator_line
-             { text: '-' * column_widths[i],
-               style: decorate && decorate[row.role] }
+             { text_sym => '-' * column_widths[i],
+               style_sym => decorate && decorate[row.role] }
            else
              {
-               text: format_cell(cell, alignment_indicators[i],
-                                 column_widths[i]),
-               style: decoration_style(row.role, row.counter, decorate)
+               text_sym => format_cell(cell, alignment_indicators[i],
+                                       column_widths[i]),
+               style_sym => decoration_style(row.role, row.counter, decorate)
              }
            end
          end.compact,
-         { text: ' | ', style: border_style }
+         { text_sym => ' | ', style_sym => border_style }
        ),
-       { text: ' |',
-         style: border_style }].compact,
-      style_sym: :style,
-      text_sym: :text
+       { text_sym => ' |', style_sym => border_style }].compact,
+      style_sym: style_sym,
+      text_sym: text_sym
     ).decorate
   end
 
@@ -141,7 +146,7 @@ module MarkdownTableFormatter
 
     return line unless (style = decoration_style(line, role, counter, decorate))
 
-    line.send(style)
+    AnsiString.new(line).send(style)
   end
 
   def decoration_style(role, counter, decorate)

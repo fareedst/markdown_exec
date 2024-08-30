@@ -76,13 +76,17 @@ end
 
 desc 'bats'
 task :bats do
-  system 'bats bats/mde.bats'
-  system 'bats bats/options.bats'
+  FileList['bats/**/*.bats'].each do |file|
+    next if %w[bats/bats.bats bats/fail.bats].include?(file)
+
+    system "bats #{file}"
+  end
 end
 
 desc 'minitest'
 task :minitest do
   commands = [
+    './lib/argument_processor.rb',
     './lib/block_label.rb',
     './lib/cached_nested_file_reader.rb',
     './lib/dev/process_template.rb --test',
@@ -125,8 +129,8 @@ end
 desc 'test'
 task :test do
   system 'bundle exec rspec'
-  Rake::Task['minitest'].execute
-  Rake::Task['bats'].execute
+  Rake::Task['minitest'].invoke
+  Rake::Task['bats'].invoke
 end
 
 private
@@ -153,6 +157,7 @@ task :update_menu_yml do
   File.write(MENU_YML, menu_options.to_yaml)
   puts `stat #{MENU_YML}`
 end
+task :menu => 'update_menu_yml'
 
 # write tab_completion.sh with erb
 #

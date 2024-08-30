@@ -32,29 +32,29 @@ _mde() {
         
               --config) COMPREPLY="."; return 0 ;;
             
-              --debug) COMPREPLY="0"; return 0 ;;
+              --debug) COMPREPLY="f"; return 0 ;;
             
-              -d) COMPREPLY="0"; return 0 ;;
+              -d) COMPREPLY="f"; return 0 ;;
             
-              --dump-blocks-in-file) COMPREPLY="0"; return 0 ;;
+              --dump-blocks-in-file) COMPREPLY="f"; return 0 ;;
             
-              --dump-delegate-object) COMPREPLY="0"; return 0 ;;
+              --dump-delegate-object) COMPREPLY="f"; return 0 ;;
             
-              --dump-dependencies) COMPREPLY="0"; return 0 ;;
+              --dump-dependencies) COMPREPLY="f"; return 0 ;;
             
-              --dump-inherited-block_names) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-block-names) COMPREPLY="f"; return 0 ;;
             
-              --dump-inherited-dependencies) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-dependencies) COMPREPLY="f"; return 0 ;;
             
-              --dump-inherited-lines) COMPREPLY="0"; return 0 ;;
+              --dump-inherited-lines) COMPREPLY="f"; return 0 ;;
             
-              --dump-menu-blocks) COMPREPLY="0"; return 0 ;;
+              --dump-menu-blocks) COMPREPLY="f"; return 0 ;;
             
-              --dump-selected-block) COMPREPLY="0"; return 0 ;;
+              --dump-selected-block) COMPREPLY="f"; return 0 ;;
             
-              --execute_in_own_window) COMPREPLY="0"; return 0 ;;
+              --execute-in-own-window) COMPREPLY="f"; return 0 ;;
             
-              -w) COMPREPLY="0"; return 0 ;;
+              -w) COMPREPLY="f"; return 0 ;;
             
               --filename) COMPREPLY="."; return 0 ;;
             
@@ -70,7 +70,15 @@ _mde() {
             
               -?) COMPREPLY="''"; return 0 ;;
             
+              --list-blocks-eval) COMPREPLY="''"; return 0 ;;
+            
+              --list-blocks-message) COMPREPLY="oname"; return 0 ;;
+            
+              --list-blocks-type) COMPREPLY="0"; return 0 ;;
+            
               --list-count) COMPREPLY="32"; return 0 ;;
+            
+              --format) COMPREPLY="text"; return 0 ;;
             
               --load-code) COMPREPLY="''"; return 0 ;;
             
@@ -80,19 +88,19 @@ _mde() {
             
               -o) COMPREPLY="''"; return 0 ;;
             
-              --output-script) COMPREPLY="0"; return 0 ;;
+              --output-script) COMPREPLY="f"; return 0 ;;
             
-              --output-stdout) COMPREPLY="1"; return 0 ;;
+              --output-stdout) COMPREPLY="t"; return 0 ;;
             
               --path) COMPREPLY="."; return 0 ;;
             
               -p) COMPREPLY="."; return 0 ;;
             
-              --pause_after_script_execution) COMPREPLY="0"; return 0 ;;
+              --pause-after-script-execution) COMPREPLY="f"; return 0 ;;
             
-              --user-must-approve) COMPREPLY="0"; return 0 ;;
+              --user-must-approve) COMPREPLY="f"; return 0 ;;
             
-              -q) COMPREPLY="0"; return 0 ;;
+              -q) COMPREPLY="f"; return 0 ;;
             
               --display-level) COMPREPLY="1"; return 0 ;;
             
@@ -104,7 +112,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block_names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute_in_own_window" "--exit" "--filename" "--find" "--find-path" "--help" "--how" "--list-blocks" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--list-recent-output" "--list-recent-scripts" "--load-code" "--open" "--output-script" "--output-stdout" "--path" "--pause_after_script_execution" "--pwd" "--run-last-script" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--config" "--debug" "--dig" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block-names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute-in-own-window" "--exit" "--filename" "--find" "--find-path" "--help" "--history" "--how" "--list-blocks" "--list-blocks-eval" "--list-blocks-message" "--list-blocks-type" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--format" "--list-recent-output" "--list-recent-scripts" "--load-code" "--mine" "--open" "--output-script" "--output-stdout" "--path" "--pause-after-script-execution" "--probe" "--publish-document-file-mode" "--publish-document-file-name" "--pwd" "--run-last-script" "--sift" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -133,7 +141,7 @@ _mde() {
         
           --dump-dependencies) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-inherited-block_names) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-inherited-block-names) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-inherited-dependencies) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -143,7 +151,7 @@ _mde() {
         
           --dump-selected-block) COMPREPLY=".BOOL."; return 0 ;;
         
-          --execute_in_own_window) COMPREPLY=".BOOL."; return 0 ;;
+          --execute-in-own-window) COMPREPLY=".BOOL."; return 0 ;;
         
           -w) COMPREPLY=".BOOL."; return 0 ;;
         
@@ -161,7 +169,15 @@ _mde() {
         
           -?) COMPREPLY=".HOW."; return 0 ;;
         
+          --list-blocks-eval) COMPREPLY=".EVAL."; return 0 ;;
+        
+          --list-blocks-message) COMPREPLY=".MESSAGE."; return 0 ;;
+        
+          --list-blocks-type) COMPREPLY=".TYPE."; return 0 ;;
+        
           --list-count) COMPREPLY=".INT.1-."; return 0 ;;
+        
+          --format) COMPREPLY=".FORMAT."; return 0 ;;
         
           --load-code) COMPREPLY=".PATH."; return 0 ;;
         
@@ -179,7 +195,7 @@ _mde() {
         
           -p) COMPREPLY=".RELATIVE_PATH."; return 0 ;;
         
-          --pause_after_script_execution) COMPREPLY=".BOOL."; return 0 ;;
+          --pause-after-script-execution) COMPREPLY=".BOOL."; return 0 ;;
         
           --user-must-approve) COMPREPLY=".BOOL."; return 0 ;;
         

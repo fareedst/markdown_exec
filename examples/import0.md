@@ -40,3 +40,26 @@ menu_include_imported_notes: true
 ```link :page_1
 file: examples/import1.md
 ```
+
+::: Imported `{wrap1}` blocks. 
+```bash :test-wrap1 +{wrap1}
+echo "test wrap1"
+```
+
+::: Imported and Overloaded `{wrap2}` blocks. 
+```bash :test-wrap2 +{wrap2}
+echo "test wrap2 - overloaded"
+```
+```bash :{wrap2}
+echo "wrap2 before - overloaded"
+```
+```bash :{wrap2-after}
+echo "wrap2 after- overloaded"
+```
+	Local wrapped blocks, before or after the principal block, generate the same output.
+	__Output__
+		wrap2 before
+		wrap2 before - overloaded
+		test wrap2 - overloaded
+		wrap2 after
+		wrap2 after- overloaded

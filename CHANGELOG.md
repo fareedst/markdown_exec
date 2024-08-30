@@ -1,16 +1,23 @@
 # Changelog
 
-## [2.4.0] - 2024-08-19
+## [2.4.0] - 2024-09-12
 
 ### Added
 
-- Option to enable formatting of tables over multiple lines as columns.
-- Example document to demonstrate wrapped blocks.
+- Commands to list, search, and view saved asset history.
+- BATS tests for basic and common options.
+- Options to format lists in report output.
+- Options to format tables over multiple lines by role and order.
 - Options for automatic menu entry to edit inherited code when none exists.
+- Example documents for wrapped blocks, text and table formatting.
 
 ### Changed
 
+- Rework argument processing.
 - Update default line decorations. Avoid patterns likely to exist in code.
+- Refactor block selection to default to all.
+- Use AnsiString over String to decorate output.
+- Handle Ctrl-C at menu.
 
 ## [2.3.0] - 2024-08-05
 

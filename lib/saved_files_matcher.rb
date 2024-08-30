@@ -45,15 +45,18 @@ if $PROGRAM_NAME == __FILE__
     end
 
     def test_list_all
-      assert_kind_of Array, MarkdownExec::SavedFilesMatcher.list_all(@folder, @glob)
+      assert_kind_of Array,
+                     MarkdownExec::SavedFilesMatcher.list_all(@folder, @glob)
     end
 
     def test_most_recent
-      assert_match(/\.md$/, MarkdownExec::SavedFilesMatcher.most_recent(@folder, @glob))
+      assert_match(/\.md$/,
+                   MarkdownExec::SavedFilesMatcher.most_recent(@folder, @glob))
     end
 
     def test_most_recent_list
-      result = MarkdownExec::SavedFilesMatcher.most_recent_list(@folder, @glob, 5)
+      result = MarkdownExec::SavedFilesMatcher.most_recent_list(@folder, @glob,
+                                                                5)
       assert_kind_of Array, result
       assert_operator result.size, :<=, 16
     end

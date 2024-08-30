@@ -52,23 +52,33 @@ module MarkdownExec
     end
 
     def inherited_lines
-      @inherited_lines.tap { |ret| pp ['LinkState.inherited_lines() ->', ret] if $pd }
+      @inherited_lines.tap { |ret|
+        pp ['LinkState.inherited_lines() ->', ret] if $pd
+      }
     end
 
     def inherited_lines=(value)
-      @inherited_lines = value.tap { |ret| pp ['LinkState.inherited_lines=() ->', ret] if $pd }
+      @inherited_lines = value.tap { |ret|
+        pp ['LinkState.inherited_lines=() ->', ret] if $pd
+      }
     end
 
     def inherited_lines_append(value)
-      @inherited_lines = ((@inherited_lines || []) + value).tap { |ret| pp ['LinkState.inherited_lines_append() ->', ret] if $pd }
+      @inherited_lines = ((@inherited_lines || []) + value).tap { |ret|
+        pp ['LinkState.inherited_lines_append() ->', ret] if $pd
+      }
     end
 
     def inherited_lines_block
-      (@inherited_lines || []).join("\n").tap { |ret| pp ['LinkState.inherited_lines_block() ->', ret] if $pd }
+      (@inherited_lines || []).join("\n").tap { |ret|
+        pp ['LinkState.inherited_lines_block() ->', ret] if $pd
+      }
     end
 
     def inherited_lines_count
-      (@inherited_lines&.count || 0).tap { |ret| pp ['LinkState.inherited_lines_count() ->', ret] if $pd }
+      (@inherited_lines&.count || 0).tap { |ret|
+        pp ['LinkState.inherited_lines_count() ->', ret] if $pd
+      }
     end
 
     def inherited_lines_map
@@ -78,7 +88,9 @@ module MarkdownExec
     end
 
     def inherited_lines_present?
-      @inherited_lines.present?.tap { |ret| pp ['LinkState.inherited_lines_present?() ->', ret] if $pd }
+      @inherited_lines.present?.tap { |ret|
+        pp ['LinkState.inherited_lines_present?() ->', ret] if $pd
+      }
     end
   end
 

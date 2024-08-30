@@ -48,9 +48,9 @@ class InputSequencer
   # Generates the next menu state based on provided attributes.
 
   def self.next_link_state(
-        block_name: nil, display_menu: nil, document_filename: nil,
-        inherited_lines: nil, keep_code: false, prior_block_was_link: false
-      )
+    block_name: nil, display_menu: nil, document_filename: nil,
+    inherited_lines: nil, keep_code: false, prior_block_was_link: false
+  )
     MarkdownExec::LinkState.new(
       block_name: block_name,
       display_menu: display_menu,
@@ -64,6 +64,8 @@ class InputSequencer
   # Orchestrates the flow of menu states and user interactions.
   def run_yield(sym, *args, &block)
     block.call sym, *args
+  rescue AppInterrupt
+    raise
   # rubocop:disable Style/RescueStandardError
   rescue
     pp $!, $@
@@ -96,17 +98,17 @@ class InputSequencer
         run_yield :display_menu, &block
 
         choice = run_yield :user_choice, &block
+        break if choice == :break
 
-        raise 'Block not recognized.' if choice.nil?
+        raise BlockMissing, 'Block not recognized.' if choice.nil?
         # Exit loop and method to terminate the app
         break if run_yield(:exit?, choice&.to_s.downcase, &block)
 
         next_state = run_yield :execute_block, choice, &block
         # imw_ins next_state, 'next_state'
-        return :break if next_state == :break
+        break if next_state == :break
 
         next_menu = next_state
-
       else
         if now_menu.block_name && !now_menu.block_name.empty?
           block_name = now_menu.block_name
@@ -122,6 +124,8 @@ class InputSequencer
                       InputSequencer.next_link_state(display_menu: true)
                     else
                       state = run_yield :execute_block, block_name, &block
+                      break if state == :break
+
                       state.display_menu = bq_is_empty?
                       state
                     end
@@ -130,11 +134,8 @@ class InputSequencer
       end
       now_menu = InputSequencer.merge_link_state(now_menu, next_menu)
     end
-  # rubocop:disable Style/RescueStandardError
-  rescue
-    pp $!, $@
-    exit 1
-    # rubocop:enable Style/RescueStandardError
+
+    run_yield :close_ux, &block
   end
 end
 

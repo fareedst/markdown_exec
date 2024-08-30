@@ -5,6 +5,22 @@
 
 require_relative 'block_types'
 
+class AppInterrupt < StandardError; end
+class BlockMissing < StandardError; end
+
+class ArgPro
+  ActFileIsMissing = :file_missing
+  ActFind = :find
+  ActSetBlockName = :block_name
+  ActSetFileName = :set_filename
+  ActSetOption = :set_option
+  ActSetPath = :set_path
+  ArgIsOption = :option
+  ArgIsPosition = :position
+  CallProcess = :proc_name
+  ConvertValue = :convert
+end
+
 class ExecutionStreams
   STD_ERR = :stderr
   STD_IN  = :stdin

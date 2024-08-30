@@ -57,6 +57,16 @@ echo outer-after
 
 @import specs-import.md
 
+/ Import `{wrap1}` blocks. 
+```bash :[test-wrap-from-import] +{wrap-from-import}
+echo "test-wrap-from-import"
+```
+
+/ Include a wrapped block.
+```bash :[test-require-wrapped-block] +[single]
+echo "test-require-wrapped-block"
+```
+
 ```opts :(disable_dump_*)
 dump_blocks_in_file: false
 dump_dependencies: false
@@ -66,17 +76,8 @@ dump_inherited_lines: false
 dump_menu_blocks: false
 ```
 
+@import bats-document-configuration.md
 ```opts :(document_options) +(disable_dump_*)
-execute_in_own_window: false
-menu_with_inherited_lines: false
-output_execution_report: false
-output_execution_summary: false
-pause_after_script_execution: false
-script_execution_head:
-script_execution_tail:
-user_must_approve: false
-
 menu_note_color: 'plain'
-script_execution_frame_color: 'plain'
-
+menu_with_inherited_lines: false
 ```

@@ -1,34 +1,36 @@
 # frozen_string_literal: true
 
+require_relative 'ansi_string'
+
 # Class representing a hierarchy of substrings stored as Hash nodes
 # HierarchyString is a class that represents and manipulates strings based on a hierarchical structure.
-# The input to the class can be a single hash or an array of nested hashes, where each hash contains a 
+# The input to the class can be a single hash or an array of nested hashes, where each hash contains a
 # text string and an optional decoration or transformation (like `:downcase`, `:upcase`, etc.).
 #
 # The primary functionalities of the class include:
-# 
-# - **Initialization**: The class can be initialized with either a single hash or an array of nested hashes. 
-#   Each hash contains a @text_sym key representing the string and a @style_sym key representing the transformation 
+#
+# - **Initialization**: The class can be initialized with either a single hash or an array of nested hashes.
+#   Each hash contains a @text_sym key representing the string and a @style_sym key representing the transformation
 #   (optional).
 #
 # - **Concatenation**: The `concatenate` method concatenates all text strings in the hierarchy into a single string.
 #
-# - **Decoration**: The `decorate` method applies the specified transformation (like `:downcase`, `:upcase`) to the 
+# - **Decoration**: The `decorate` method applies the specified transformation (like `:downcase`, `:upcase`) to the
 #   text in the hierarchy and returns the decorated string.
 #
-# - **Text Replacement**: The `replace_text!` method allows in-place replacement of text in the hierarchy by applying 
+# - **Text Replacement**: The `replace_text!` method allows in-place replacement of text in the hierarchy by applying
 #   a block to each text string.
 #
-# - **Method Delegation**: The class uses `method_missing` and `respond_to_missing?` to delegate undefined method calls 
+# - **Method Delegation**: The class uses `method_missing` and `respond_to_missing?` to delegate undefined method calls
 #   to the string object, allowing for dynamic method handling on the concatenated string (e.g., `capitalize`).
 #
-# This class is useful for situations where strings are represented in a hierarchical or nested structure and need 
+# This class is useful for situations where strings are represented in a hierarchical or nested structure and need
 # to be manipulated or transformed in a consistent and customizable manner.
 class HierarchyString
   attr_accessor :substrings
 
   # Initialize with a single hash or an array of hashes
-  def initialize(substrings, text_sym: :text, style_sym: :style)
+  def initialize(substrings, text_sym: :text, style_sym: :color)
     @substrings = parse_substrings(substrings)
     @text_sym = text_sym
     @style_sym = style_sym
@@ -127,7 +129,7 @@ class HierarchyString
       case s
       when Hash
         if s[@style_sym]
-          s[@text_sym].send(s[@style_sym]) + prior_color
+          AnsiString.new(s[@text_sym]).send(s[@style_sym]) + prior_color
         else
           s[@text_sym]
         end
@@ -144,12 +146,15 @@ require 'minitest/autorun'
 
 class TestHierarchyString < Minitest::Test
   def setup
-    @single_hash = { text: 'Hello', style: :downcase }
+    text_sym = :text
+    style_sym = :color
+
+    @single_hash = { text_sym => 'Hello', style_sym => :downcase }
     @nested_hashes = [
-      { text: 'Hello', style: :downcase },
+      { text_sym => 'Hello', style_sym => :downcase },
       [
-        { text: ' ', style: nil },
-        { text: 'World', style: :upcase }
+        { text_sym => ' ', style_sym => nil },
+        { text_sym => 'World', style_sym => :upcase }
       ]
     ]
     @hierarchy_single = HierarchyString.new(@single_hash)
@@ -157,16 +162,22 @@ class TestHierarchyString < Minitest::Test
   end
 
   def test_initialize_single_hash
-    assert_equal [{ text: 'Hello', style: :downcase }],
+    text_sym = :text
+    style_sym = :color
+
+    assert_equal [{ text_sym => 'Hello', style_sym => :downcase }],
                  @hierarchy_single.substrings
   end
 
   def test_initialize_nested_hashes
+    text_sym = :text
+    style_sym = :color
+
     expected = [
-      [{ text: 'Hello', style: :downcase }],
+      [{ text_sym => 'Hello', style_sym => :downcase }],
       [
-        [{ text: ' ', style: nil }],
-        [{ text: 'World', style: :upcase }]
+        [{ text_sym => ' ', style_sym => nil }],
+        [{ text_sym => 'World', style_sym => :upcase }]
       ]
     ]
     assert_equal expected, @hierarchy_nested.substrings

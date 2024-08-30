@@ -3,6 +3,8 @@
 
 # encoding=utf-8
 
+require_relative 'ansi_string'
+
 class AnsiFormatter
   def initialize(options = {})
     @options = options
@@ -18,10 +20,10 @@ class AnsiFormatter
     line_postfix: '',
     detail_sep: ''
   )
-    (data&.map do |item|
+    data&.map do |item|
       scan_and_process_multiple_substrings(item, highlight, plain_color_sym,
                                            highlight_color_sym).join
-    end || [])
+    end || []
   end
 
   # Function to scan a string and process its segments based on multiple substrings
@@ -30,8 +32,10 @@ class AnsiFormatter
   # @param plain_sym [Symbol] The symbol for non-matching segments.
   # @param color_sym [Symbol] The symbol for matching segments.
   # @return [Array<String>] The processed segments.
-  def scan_and_process_multiple_substrings(str, substrings, plain_sym, color_sym)
-    return string_send_color(str, plain_sym) if substrings.empty? || substrings.any?(&:empty?)
+  def scan_and_process_multiple_substrings(str, substrings, plain_sym,
+                                           color_sym)
+    return string_send_color(str,
+                             plain_sym) if substrings.empty? || substrings.any?(&:empty?)
 
     substring_patterns = substrings.map do |value|
       [value, Regexp.new(value, Regexp::IGNORECASE)]
@@ -41,7 +45,9 @@ class AnsiFormatter
     remaining_str = str.dup
 
     while remaining_str.length.positive?
-      match_indices = substring_patterns.map { |_, pattern| remaining_str.index(pattern) }.compact
+      match_indices = substring_patterns.map do |_, pattern|
+        remaining_str.index(pattern)
+      end.compact
       earliest_match = match_indices.min
 
       if earliest_match
@@ -112,6 +118,6 @@ class AnsiFormatter
   # @return [String] The string with the applied color method.
   def string_send_color(string, color_sym, default: 'plain')
     color_method = @options.fetch(color_sym, default).to_sym
-    string.to_s.send(color_method)
+    AnsiString.new(string.to_s).send(color_method)
   end
 end

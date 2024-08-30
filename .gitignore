@@ -1,8 +1,17 @@
+# MDE history
+/logs/
+
+# tests
+/bats/.bats/run-logs/*
+
+# demos
+/examples/hypercard-stack/
+
+# dev
+.tbkp/
 /*.gem
+/*.patch
 /.*key
-/.bundle/
-/.yardoc
-/_yardoc/
 /assets/.*.key
 /coverage/
 /doc/
@@ -11,7 +20,12 @@
 /lib/dev/
 /llm_prompts/
 /llm_responses/
-/logs/
-/pkg/
+/recordings/
 /tmp/
+
+# Ruby
+/.bundle/
+/.yardoc
+/_yardoc/
+/pkg/
 /vendor/

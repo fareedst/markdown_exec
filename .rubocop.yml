@@ -25,6 +25,9 @@ Lint/Debugger:
 Lint/LiteralAsCondition:
   Enabled: false
 
+Lint/RedundantSplatExpansion:
+  Enabled: false
+
 Lint/SafeNavigationChain:
   Enabled: false
 

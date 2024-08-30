@@ -11,14 +11,17 @@ module TextAnalyzer
   # @return [Array<Hash>, Array<Array<Hash>>] an array or nested arrays of highlighted segments
   #
   # @raise [ArgumentError] if the hierarchy structure is neither a String nor an Array
-  def self.analyze_hierarchy(hierarchy, pattern, default_color, match_color)
+  def self.analyze_hierarchy(
+    hierarchy, pattern, default_color, match_color,
+    text_sym: :text, style_sym: :color
+  )
     case hierarchy
     when String
       highlight_segments(hierarchy, pattern, default_color, match_color)
 
     when Hash
-      decorated = highlight_segments(hierarchy[:text], pattern,
-                                     hierarchy[:color], match_color)
+      decorated = highlight_segments(hierarchy[text_sym], pattern,
+                                     hierarchy[style_sym], match_color)
 
       case decorated
       when String

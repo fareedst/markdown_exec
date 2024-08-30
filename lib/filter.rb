@@ -3,6 +3,17 @@
 
 # encoding=utf-8
 
+# Determines if a given block type is selected based on a list.
+#
+# @param selected_types [Array<String>, nil] An array of block types to
+# check against. If nil, all types are considered selected.
+# @param type [String] The block type to check for selection.
+# @return [Boolean] Returns true if the type is selected or if
+# selected_types is nil (indicating all types are selected).
+def block_type_selected?(selected_types, type)
+  !selected_types || selected_types.include?(type)
+end
+
 module MarkdownExec
   # Filter
   #
@@ -96,7 +107,8 @@ module MarkdownExec
 
       return unless shell.present? && options[:exclude_by_shell_regex].present?
 
-      filters[:shell_exclude] = !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
+      filters[:shell_exclude] =
+        !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
     end
 
     # Applies additional filters to determine whether to include or
@@ -176,14 +188,15 @@ module MarkdownExec
     end
 
     # Yields to the provided block with specified parameters if certain conditions are met.
-    # The method checks if a block is given, if the selected_messages include :blocks,
+    # The method checks if a block is given, if the selected_types include :blocks,
     # and if the fcb_select? method returns true for the given fcb.
     #
     # @param fcb [Object] The object to be evaluated and potentially passed to the block.
-    # @param selected_messages [Array<Symbol>] A collection of message types, one of which must be :blocks.
+    # @param selected_types [Array<Symbol>] A collection of message types, one of which must be :blocks.
     # @param block [Block] A block to be called if conditions are met.
-    def self.yield_to_block_if_applicable(fcb, selected_messages, configuration = {}, &block)
-      if block_given? && selected_messages.include?(:blocks) &&
+    def self.yield_to_block_if_applicable(fcb, selected_types, configuration = {}, &block)
+      if block_given? &&
+         block_type_selected?(selected_types, :blocks) &&
          fcb_select?(configuration, fcb)
         block.call :blocks, fcb
       end

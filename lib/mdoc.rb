@@ -31,8 +31,8 @@ module MarkdownExec
     def collect_block_code_cann(fcb)
       body = fcb.body.join("\n")
       xcall = fcb[:cann][1..-2]
-      mstdin = xcall.match(/<(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
-      mstdout = xcall.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/)
+      mstdin = xcall.match(/<(?<type>\$)?(?<name>[\-.\w]+)/)
+      mstdout = xcall.match(/>(?<type>\$)?(?<name>[\-.\w]+)/)
 
       yqcmd = if mstdin[:type]
                 "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
@@ -503,18 +503,14 @@ if $PROGRAM_NAME == __FILE__
     class TestMDoc < Minitest::Test
       def setup
         @table = [
-          OpenStruct.new(nickname: nil, oname: 'block1', body: ['code for block1'], reqs: ['block2']),
-          OpenStruct.new(nickname: nil, oname: 'block2', body: ['code for block2'], reqs: nil),
-          OpenStruct.new(nickname: nil, oname: 'block3', body: ['code for block3'], reqs: ['block1'])
-        ]
+          { oname: 'block1', body: ['code for block1'], reqs: ['block2'] },
+          { oname: 'block2', body: ['code for block2'], reqs: nil },
+          { oname: 'block3', body: ['code for block3'], reqs: ['block1'] }
+        ].map do |row|
+          OpenStruct.new(nickname: nil, **row)
+        end
         @doc = MDoc.new(@table)
       end
-
-      # def test_collect_recursively_required_code
-      #   result = @doc.collect_recursively_required_code('block1')[:code]
-      #   expected_result = @table[0][:body] + @table[1][:body]
-      #   assert_equal expected_result, result
-      # end
 
       def test_get_block_by_name
         result = @doc.get_block_by_anyname('block1')

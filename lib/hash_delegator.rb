@@ -17,6 +17,7 @@ require 'tmpdir'
 require 'tty-prompt'
 require 'yaml'
 
+require_relative 'ansi_string'
 require_relative 'array'
 require_relative 'array_util'
 require_relative 'block_label'
@@ -40,6 +41,8 @@ require_relative 'streams_out'
 require_relative 'string_util'
 require_relative 'table_extractor'
 require_relative 'text_analyzer'
+
+require_relative 'argument_processor'
 
 $pd = false unless defined?($pd)
 
@@ -66,7 +69,7 @@ module HashDelegatorSelf
   def apply_color_from_hash(string, color_methods, color_key,
                             default_method: 'plain')
     color_method = color_methods.fetch(color_key, default_method).to_sym
-    string.to_s.send(color_method)
+    AnsiString.new(string.to_s).send(color_method)
   end
 
   # # Enhanced `apply_color_from_hash` method to support dynamic color transformations
@@ -303,7 +306,7 @@ module HashDelegatorSelf
           border: delegate_object[:table_border_color],
           header_row: delegate_object[:table_header_row_color],
           row: delegate_object[:table_row_color],
-          separator_line: delegate_object[:table_separator_line_color],
+          separator_line: delegate_object[:table_separator_line_color]
         }
       )
 
@@ -329,7 +332,7 @@ module HashDelegatorSelf
   def tty_prompt_without_disabled_symbol
     TTY::Prompt.new(
       interrupt: lambda {
-        puts
+        puts # next line in case not at start
         raise TTY::Reader::InputInterrupt
       },
       symbols: { cross: ' ' }
@@ -341,7 +344,7 @@ module HashDelegatorSelf
   # If the fcb has a body and meets certain conditions, it yields to the given block.
   #
   # @param fcb [Object] The fcb object whose attributes are to be updated.
-  # @param selected_messages [Array<Symbol>] A list of message types to determine if yielding is applicable.
+  # @param selected_types [Array<Symbol>] A list of message types to determine if yielding is applicable.
   # @param block [Block] An optional block to yield to if conditions are met.
   def update_menu_attrib_yield_selected(fcb:, messages:, configuration: {},
                                         &block)
@@ -355,10 +358,10 @@ module HashDelegatorSelf
 
   # Yields a line as a new block if the selected message type includes :line.
   # @param [String] line The line to be processed.
-  # @param [Array<Symbol>] selected_messages A list of message types to check.
+  # @param [Array<Symbol>] selected_types A list of message types to check.
   # @param [Proc] block The block to be called with the line data.
-  def yield_line_if_selected(line, selected_messages, &block)
-    return unless block && selected_messages.include?(:line)
+  def yield_line_if_selected(line, selected_types, &block)
+    return unless block && block_type_selected?(selected_types, :line)
 
     block.call(:line, MarkdownExec::FCB.new(body: [line]))
   end
@@ -532,7 +535,8 @@ module MarkdownExec
   end
 
   class HashDelegatorParent
-    attr_accessor :most_recent_loaded_filename, :pass_args, :run_state
+    attr_accessor :most_recent_loaded_filename, :pass_args, :run_state,
+                  :p_all_arguments, :p_options_parsed, :p_params, :p_rest
 
     extend HashDelegatorSelf
     include CompactionHelpers
@@ -553,6 +557,11 @@ module MarkdownExec
 
       @process_mutex = Mutex.new
       @process_cv = ConditionVariable.new
+
+      @p_all_arguments = []
+      @p_options_parsed = []
+      @p_params = {}
+      @p_rest = []
     end
 
     # private
@@ -605,18 +614,14 @@ module MarkdownExec
         add_exit_option(menu_blocks: menu_blocks)
       end
 
-      add_dividers(menu_blocks: menu_blocks)
+      append_divider(menu_blocks: menu_blocks, position: :initial)
+      append_divider(menu_blocks: menu_blocks, position: :final)
     end
 
     private
 
     def add_back_option(menu_blocks:)
       append_chrome_block(menu_blocks: menu_blocks, menu_state: MenuState::BACK)
-    end
-
-    def add_dividers(menu_blocks:)
-      append_divider(menu_blocks: menu_blocks, position: :initial)
-      append_divider(menu_blocks: menu_blocks, position: :final)
     end
 
     def add_exit_option(menu_blocks:)
@@ -1444,22 +1449,34 @@ module MarkdownExec
       exit_status
     end
 
-    def execute_history_select(files_table_rows, stream:)
+    def execute_history_select(
+      files_table_rows,
+      exit_prompt: @delegate_object[:prompt_filespec_back],
+      pause_refresh: false,
+      stream:
+    )
       # repeat select+display until user exits
+
+      pause_now = false
       row_attrib = :row
       loop do
+        if pause_now
+          break if prompt_select_continue == MenuState::EXIT
+        end
+
         # menu with Back and Facet options at top
         case (name = prompt_select_code_filename(
-          [@delegate_object[:prompt_filespec_back],
+          [exit_prompt,
            @delegate_object[:prompt_filespec_facet]] +
            files_table_rows.map(&row_attrib),
           string: @delegate_object[:prompt_select_history_file],
           color_sym: :prompt_color_after_script_execution
         ))
-        when @delegate_object[:prompt_filespec_back]
+        when exit_prompt
           break
         when @delegate_object[:prompt_filespec_facet]
           row_attrib = row_attrib == :row ? :file : :row
+          pause_now = false
         else
           file = files_table_rows.select { |ftr| ftr.row == name }&.first
           info = file_info(file.file)
@@ -1468,9 +1485,11 @@ module MarkdownExec
           stream.puts(
             File.readlines(file.file,
                            chomp: false).map.with_index do |line, ind|
-              format(' %s.  %s', format('% 4d', ind + 1).violet, line)
+              format(' %s.  %s',
+                     AnsiString.new(format('% 4d', ind + 1)).send(:violet), line)
             end
           )
+          pause_now = pause_refresh
         end
       end
     end
@@ -1818,11 +1837,11 @@ module MarkdownExec
       return unless check_file_existence(@delegate_object[:filename])
 
       state = initial_state
-      selected_messages = yield :filter
+      selected_types = yield :filter
       cfile.readlines(@delegate_object[:filename],
                       import_paths: @delegate_object[:import_paths]&.split(':')).each do |nested_line|
         if nested_line
-          update_line_and_block_state(nested_line, state, selected_messages,
+          update_line_and_block_state(nested_line, state, selected_types,
                                       &block)
         end
       end
@@ -1968,8 +1987,6 @@ module MarkdownExec
       end
 
       SelectedBlockMenuState.new(block, source, state)
-    rescue StandardError
-      HashDelegator.error_handler('load_cli_or_user_selected_block')
     end
 
     # format + glob + select for file in load block
@@ -2337,8 +2354,6 @@ module MarkdownExec
 
       @allowed_execution_block = @prior_execution_block
       true
-    rescue TTY::Reader::InputInterrupt
-      exit 1
     end
 
     def prompt_for_command(prompt)
@@ -2407,8 +2422,6 @@ module MarkdownExec
       end
 
       sel == MenuOptions::YES
-    rescue TTY::Reader::InputInterrupt
-      exit 1
     end
 
     # public
@@ -2437,8 +2450,6 @@ module MarkdownExec
           end
         end
       end
-    rescue TTY::Reader::InputInterrupt
-      exit 1
     end
 
     def prompt_select_continue(filter: true, quiet: true)
@@ -2452,8 +2463,6 @@ module MarkdownExec
         menu.choice @delegate_object[:prompt_exit]
       end
       sel == @delegate_object[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
-    rescue TTY::Reader::InputInterrupt
-      exit 1
     end
 
     # user prompt to exit if the menu will be displayed again
@@ -2562,7 +2571,7 @@ module MarkdownExec
     end
 
     def read_saved_assets_for_history_table
-      files = history_files(@dml_link_state)
+      files = history_files(@dml_link_state).sort
       files.map do |file|
         if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
           begin
@@ -2683,14 +2692,19 @@ module MarkdownExec
       if @delegate_object[exception_sym] != 0
         data = { name: name, detail: items.join(', ') }
         warn(
-          format(
-            @delegate_object.fetch(:exception_format_name, "\n%{name}"),
-            data
-          ).send(@delegate_object.fetch(:exception_color_name, :red)) +
-          format(
-            @delegate_object.fetch(:exception_format_detail, " - %{detail}\n"),
-            data
-          ).send(@delegate_object.fetch(:exception_color_detail, :yellow))
+          AnsiString.new(format(
+                           @delegate_object.fetch(:exception_format_name,
+                                                  "\n%{name}"),
+                           data
+                         )).send(@delegate_object.fetch(:exception_color_name,
+                                                        :red)) +
+          AnsiString.new(format(
+                           @delegate_object.fetch(:exception_format_detail,
+                                                  " - %{detail}\n"),
+                           data
+                         )).send(@delegate_object.fetch(
+                                   :exception_color_detail, :yellow
+                                 ))
         )
       end
       return unless (@delegate_object[exception_sym]).positive?
@@ -2743,6 +2757,24 @@ module MarkdownExec
       @fout.fout "File saved: #{@run_state.saved_filespec}"
     end
 
+    def select_document_if_multiple(options, files, prompt:)
+      # binding.irb
+      return files if files.class == String ###
+      return files[0] if (count = files.count) == 1
+
+      return unless count >= 2
+
+      opts = options.dup
+      select_option_or_exit(
+        string_send_color(
+          prompt,
+          :prompt_color_after_script_execution
+        ),
+        files,
+        opts.merge(per_page: opts[:select_page_height])
+      )
+    end
+
     # Presents a TTY prompt to select an option or exit, returns metadata including option and selected
     def select_option_with_metadata(prompt_text, menu_items, opts = {})
       ## configure to environment
@@ -2784,10 +2816,6 @@ module MarkdownExec
       end
 
       selected
-    rescue TTY::Reader::InputInterrupt
-      exit 1
-    rescue StandardError
-      HashDelegator.error_handler('select_option_with_metadata')
     end
 
     def set_environment_variables_for_block(selected)
@@ -2874,7 +2902,7 @@ module MarkdownExec
         stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
                  tn.named_captures.sym_keys
                end,
-        stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[A-Za-z_\-.\w]+)/))
+        stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[\w.\-]+)/))
                   tn.named_captures.sym_keys
                 end,
         title: title,
@@ -2899,7 +2927,7 @@ module MarkdownExec
     # @param line [String] The current line being processed.
     # @param state [Hash] The current state of the parser, including flags and data related to the processing.
     # @param opts [Hash] A hash containing various options for line and block processing.
-    # @param selected_messages [Array<String>] Accumulator for lines or messages that are subject to further processing.
+    # @param selected_types [Array<String>] Accumulator for lines or messages that are subject to further processing.
     # @param block [Proc] An optional block for further processing or transformation of lines.
     #
     # @option state [Array<String>] :headings Current headings to be updated based on the line.
@@ -2909,9 +2937,9 @@ module MarkdownExec
     #
     # @option opts [Boolean] :menu_blocks_with_headings Flag indicating whether to update headings while processing.
     #
-    # @return [Void] The function modifies the `state` and `selected_messages` arguments in place.
+    # @return [Void] The function modifies the `state` and `selected_types` arguments in place.
     ##
-    def update_line_and_block_state(nested_line, state, selected_messages,
+    def update_line_and_block_state(nested_line, state, selected_types,
                                     &block)
       line = nested_line.to_s
       if line.match(@delegate_object[:fenced_start_and_end_regex])
@@ -2920,7 +2948,7 @@ module MarkdownExec
           #
           HashDelegator.update_menu_attrib_yield_selected(
             fcb: state[:fcb],
-            messages: selected_messages,
+            messages: selected_types,
             configuration: @delegate_object,
             &block
           )
@@ -2944,7 +2972,7 @@ module MarkdownExec
       elsif nested_line[:depth].zero? || @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it
         #
-        HashDelegator.yield_line_if_selected(line, selected_messages, &block)
+        HashDelegator.yield_line_if_selected(line, selected_types, &block)
 
       else
         # &bsp 'line is not recognized for block state'
@@ -2955,7 +2983,8 @@ module MarkdownExec
     ## apply options to current state
     #
     def update_menu_base(options)
-      @menu_base_options.merge!(options)
+      # under simple uses, @menu_base_options may be nil
+      @menu_base_options&.merge!(options)
       @delegate_object.merge!(options)
     end
 
@@ -3116,7 +3145,7 @@ module MarkdownExec
 
     def vux_input_and_execute_shell_commands(stream:)
       loop do
-        command = prompt_for_command(":MDE #{Time.now.strftime('%FT%TZ')}> ".bgreen)
+        command = prompt_for_command(AnsiString.new(":MDE #{Time.now.strftime('%FT%TZ')}> ").send(:bgreen))
         break if !command.present? || command == 'exit'
 
         exit_status = execute_command_with_streams(
@@ -3175,6 +3204,37 @@ module MarkdownExec
       block_list = [@delegate_object[:block_name]].select(&:present?).compact + @delegate_object[:input_cli_rest]
       @delegate_object[:block_name] = nil
 
+      process_commands(
+        arguments: @p_all_arguments,
+        named_procs: yield(:command_names, @delegate_object),
+        options_parsed: @p_options_parsed,
+        rest: @p_rest,
+        enable_search: @delegate_object[:default_find_select_open]
+      ) do |type, data|
+        case type
+        when ArgPro::ActSetBlockName
+          @delegate_object[:block_name] = data
+          @delegate_object[:input_cli_rest] = ''
+        when ArgPro::ConvertValue
+          # call for side effects, output, or exit
+          data[0].call(data[1])
+        when ArgPro::ActFileIsMissing
+          raise FileMissingError, data, caller
+        when ArgPro::ActFind
+          find_value(data, execute_chosen_found: true)
+        when ArgPro::ActSetFileName
+          @delegate_object[:filename] = data
+        when ArgPro::ActSetPath
+          @delegate_object[:path] = data
+        when ArgPro::CallProcess
+          yield :call_proc, [@delegate_object, data]
+        when ArgPro::ActSetOption
+          @delegate_object[data[0]] = data[1]
+        else
+          raise
+        end
+      end
+
       InputSequencer.new(
         @delegate_object[:filename],
         block_list
@@ -3190,14 +3250,21 @@ module MarkdownExec
           vux_clear_menu_state
 
         when :user_choice
-          vux_user_selected_block_name.tap do |val|
-            return val if val == :break
-          end
+          vux_user_selected_block_name
 
         when :execute_block
-          vux_execute_block_per_type(data,
-                                     formatted_choice_ostructs).tap do |val|
-            return val if val == :break
+          ret = vux_execute_block_per_type(data, formatted_choice_ostructs)
+          vux_publish_block_name_for_external_automation(data)
+          ret
+
+        when :close_ux
+          if @vux_pipe_open.present? && File.exist?(@vux_pipe_open)
+            @vux_pipe_open.close
+            @vux_pipe_open = nil
+          end
+          if @vux_pipe_created.present? && File.exist?(@vux_pipe_created)
+            File.delete(@vux_pipe_created)
+            @vux_pipe_created = nil
           end
 
         when :exit?
@@ -3211,8 +3278,6 @@ module MarkdownExec
 
         end
       end
-    rescue StandardError
-      HashDelegator.error_handler('vux_main_loop', { abort: true })
     end
 
     def vux_menu_append_history_files(formatted_choice_ostructs)
@@ -3291,21 +3356,68 @@ module MarkdownExec
 
       @delegate_object[:filename] = @dml_link_state.document_filename
       @dml_link_state.block_name = @delegate_object[:block_name] =
-        @run_state.source.block_name_from_cli ? @cli_block_name : @dml_link_state.block_name
+        @run_state.source.block_name_from_cli ?
+        @cli_block_name :
+        @dml_link_state.block_name
 
       # update @delegate_object and @menu_base_options in auto_load
       #
-      @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc = mdoc_menu_and_blocks_from_nested_files(@dml_link_state)
+      @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc =
+        mdoc_menu_and_blocks_from_nested_files(@dml_link_state)
       dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
       # &bsp 'loop', @run_state.source.block_name_from_cli, @cli_block_name
+    end
+
+    def publish_for_external_automation(message:)
+      return if @delegate_object[:publish_document_file_name].empty?
+
+      pipe_path = absolute_path(@delegate_object[:publish_document_file_name])
+
+      case @delegate_object[:publish_document_file_mode]
+      when 'append'
+        File.write(pipe_path, message + "\n", mode: 'a')
+      when 'fifo'
+        unless @vux_pipe_open
+          unless File.exist?(pipe_path)
+            FileUtils.mkfifo(pipe_path)
+            @vux_pipe_created = pipe_path
+          end
+          @vux_pipe_open = File.open(pipe_path, 'w')
+        end
+        @vux_pipe_open.puts(message + "\n")
+        @vux_pipe_open.flush
+      when 'write'
+        File.write(pipe_path, message)
+      else
+        raise 'Invalid publish_document_file_mode:' \
+              " #{@delegate_object[:publish_document_file_mode]}"
+      end
+    end
+
+    def vux_publish_block_name_for_external_automation(block_name)
+      publish_for_external_automation(
+        message: format(
+          @delegate_object[:publish_block_name_format],
+          { block: block_name,
+            document: @delegate_object[:filename],
+            time: Time.now.utc.strftime(
+              @delegate_object[:publish_time_format]
+            ) }
+        )
+      )
     end
 
     def vux_publish_document_file_name_for_external_automation
       return unless @delegate_object[:publish_document_file_name].present?
 
-      File.write(
-        absolute_path(@delegate_object[:publish_document_file_name]),
-        File.join(Dir.getwd, @delegate_object[:filename])
+      publish_for_external_automation(
+        message: format(
+          @delegate_object[:publish_document_name_format],
+          { document: @delegate_object[:filename],
+            time: Time.now.utc.strftime(
+              @delegate_object[:publish_time_format]
+            ) }
+        )
       )
     end
 
@@ -3341,8 +3453,6 @@ module MarkdownExec
       block_state = wait_for_user_selection(all_blocks, menu_blocks, default)
       handle_back_or_continue(block_state)
       block_state
-    rescue StandardError
-      HashDelegator.error_handler('wait_for_user_selected_block')
     end
 
     def wait_for_user_selection(_all_blocks, menu_blocks, default)
@@ -4174,9 +4284,9 @@ module MarkdownExec
       def test_iter_blocks_from_nested_files
         @hd.cfile.expect(:readlines, ['line 1', 'line 2'], ['test.md'],
                          import_paths: nil)
-        selected_messages = ['filtered message']
+        selected_types = ['filtered message']
 
-        result = @hd.iter_blocks_from_nested_files { selected_messages }
+        result = @hd.iter_blocks_from_nested_files { selected_types }
         assert_equal ['line 1', 'line 2'], result
 
         @hd.cfile.verify
@@ -4201,11 +4311,11 @@ module MarkdownExec
                                   })
         @hd.stubs(:menu_chrome_formatted_option).with(:menu_option_back_name).returns('-- Back --')
         @hd.stubs(:string_send_color).with('-- Back --',
-                                           :menu_chrome_color).returns('-- Back --'.red)
+                                           :menu_chrome_color).returns(AnsiString.new('-- Back --').red)
       end
 
       def test_menu_chrome_colored_option_with_color
-        assert_equal '-- Back --'.red,
+        assert_equal AnsiString.new('-- Back --').red,
                      @hd.menu_chrome_colored_option(:menu_option_back_name)
       end
 
@@ -4269,10 +4379,11 @@ module MarkdownExec
       end
 
       def test_string_send_color
-        assert_equal 'Hello'.red, @hd.string_send_color('Hello', :red)
-        assert_equal 'World'.green,
+        assert_equal AnsiString.new('Hello').red,
+                     @hd.string_send_color('Hello', :red)
+        assert_equal AnsiString.new('World').green,
                      @hd.string_send_color('World', :green)
-        assert_equal 'Default'.plain,
+        assert_equal AnsiString.new('Default').plain,
                      @hd.string_send_color('Default', :blue)
       end
     end

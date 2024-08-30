@@ -4,13 +4,12 @@
 These are the Main decorations predefined:
 
 - **_Bold-Underline_**
-- **~Bold-Italic~**
 - **Bold**
-- __Bold__
-- *Underline*
+- **~Bold-Italic~**
+- __Underline__
 - _~Underline-Italic~_
+- `Italic`
 - ~~Strikethrough~~
-- `code`
 
 ## LINE_DECOR_PRE
 These decorations are performed before Main, allowing for overrides without redefining Main.

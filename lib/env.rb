@@ -18,7 +18,7 @@ module Env
 
   # :reek:UtilityFunction
   def env_bool_false(name)
-    !(val = (name && ENV.fetch(name, nil))).nil? && !(val.empty? || val == '0')
+    !(val = name && ENV.fetch(name, nil)).nil? && !(val.empty? || val == '0')
   end
 
   # skip :reek:DataClump

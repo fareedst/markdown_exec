@@ -3,10 +3,13 @@
 
 # encoding=utf-8
 
+require_relative 'ansi_string'
+
 module Exceptions
   def self.error_handler(name = '', opts = {}, backtrace: $@, format_string: "\nError: %{name} -- %{message}", color_symbol: :red, take_count: 16)
-    warn(error = format(format_string,
-                        { name: name, message: $! }).send(color_symbol))
+    warn(error = AnsiString.new(format(format_string,
+                                       { name: name,
+                                         message: $! })).send(color_symbol))
     if backtrace
       warn(backtrace.select do |s|
              s.include? 'markdown_exec'
@@ -21,10 +24,10 @@ module Exceptions
 
   def self.warn_format(message = '', opts = {})
     warn(
-      error = format(
-        opts.fetch(:format_string, "\nError: %{error}"),
-        { error: message }
-      ).send(opts.fetch(:color_symbol, :yellow))
+      error = AnsiString.new(format(
+                               opts.fetch(:format_string, "\nError: %{error}"),
+                               { error: message }
+                             )).send(opts.fetch(:color_symbol, :yellow))
     )
     # warn(caller.take(4).map.with_index { |line, ind| " *   #{ind}: #{line}" })
 

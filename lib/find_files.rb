@@ -28,7 +28,8 @@
 # Example:
 #   find_files('version.rb', ['lib/**', 'spec'], true, true)
 #   # This might return file paths like ['markdown_exec/version.rb', 'spec/version_spec.rb'].
-def find_files(pattern, paths = ['', Dir.pwd], base_dir: Dir.pwd, exclude_dirs: false, use_relative_paths: true)
+def find_files(pattern, paths = ['', Dir.pwd], base_dir: Dir.pwd,
+               exclude_dirs: false, use_relative_paths: true)
   matched_files = []
 
   paths.each do |path_with_wildcard|
@@ -39,10 +40,14 @@ def find_files(pattern, paths = ['', Dir.pwd], base_dir: Dir.pwd, exclude_dirs: 
     files = Dir.glob(search_pattern, File::FNM_DOTMATCH)
 
     # Optionally exclude "." and ".." and directory names
-    files.reject! { |file| file.end_with?('/.', '/..') || File.directory?(file) } if exclude_dirs
+    files.reject! { |file|
+      file.end_with?('/.', '/..') || File.directory?(file)
+    } if exclude_dirs
 
     # Optionally use relative paths
-    files.map! { |file| file.sub(/^#{Regexp.escape(base_dir)}\//, '') } if use_relative_paths
+    files.map! { |file|
+      file.sub(/^#{Regexp.escape(base_dir)}\//, '')
+    } if use_relative_paths
 
     matched_files += files
   end

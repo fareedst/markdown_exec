@@ -35,8 +35,6 @@ unless defined?(Env)
   end
 end
 
-# rubocop:disable Metrics/ParameterLists
-
 ## application-level debug control
 #
 # :reek:TooManyConstants
@@ -98,8 +96,8 @@ module Tap
 
   # :reek:ControlParameter
   # :reek:LongParameterList
-  def tap_inspect(name_ = nil, caller_first: nil, mask: TDD, name: DN, source: nil,
-                  type: nil)
+  def tap_inspect(name_ = nil, caller_first: nil, mask: TDD, name: DN,
+                  source: nil, type: nil)
     return self unless $tap_enable
     return self unless (mask & $tap_mask).positive?
 
@@ -107,7 +105,8 @@ module Tap
     outs = []
     outs.push(source.to_s) if source.present?
 
-    vs = (caller_first || caller[0]).scan(/in `?(\S+)'$/).fetch(0, []).fetch(0, '')
+    vs = (caller_first || caller[0]).scan(/in `?(\S+)'$/)
+                                    .fetch(0, []).fetch(0, '')
     outs.push("#{vs}()") if vs.present?
 
     outs.push(tap_named_value(name_ || name, method(fn).call))
@@ -143,7 +142,7 @@ module Tap
   # :reek:ControlParameter
   # :reek:LongParameterList
   def tap_yaml(name_ = nil, caller_first: nil, mask: TDD, name: DN, source: nil)
-    tap_inspect name_, caller_first: (caller_first || caller[0]),
+    tap_inspect name_, caller_first: caller_first || caller[0],
                        mask: mask, name: name, source: source, type: :yaml
   end
 

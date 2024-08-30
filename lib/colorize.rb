@@ -22,6 +22,9 @@ class String
       fg_rgb_color($'.gsub('_', ';'))
     when /^fg_rgbh_/
       hex_to_rgb($')
+
+    when 'to_a', 'to_ary', 'to_hash', 'to_int', 'to_io', 'to_regexp'
+      nil
     else
       super
     end
@@ -102,16 +105,20 @@ class String
   def violet;  fg_rgbh_94_00_D3; end
   def yellow;  fg_rgbh_FF_FF_00; end
 
+  def x
+    pp [__LINE__, caller[1]]; binding.irb
+  end
+
   # graphics modes
-  def bold;             "\033[1m#{self}\033[22m"; end
-  def bold_italic;      "\033[1m\033[3m#{self}\033[22m\033[23m"; end
-  def bold_underline;   "\033[1m\033[4m#{self}\033[22m\033[24m"; end
-  def dim;              "\033[2m#{self}\033[22m"; end
-  def italic;           "\033[3m#{self}\033[23m"; end
-  def underline;        "\033[4m#{self}\033[24m"; end
-  def underline_italic; "\033[4m\033[3m#{self}\033[23m\033[24m"; end
-  def blinking;         "\033[5m#{self}\033[25m"; end
-  def inverse;          "\033[7m#{self}\033[27m"; end
-  def hidden;           "\033[8m#{self}\033[28m"; end
-  def strikethrough;    "\033[9m#{self}\033[29m"; end
+  def bold;             x; "\033[1m#{self}\033[22m"; end
+  def bold_italic;      x; "\033[1m\033[3m#{self}\033[22m\033[23m"; end
+  def bold_underline;   x; "\033[1m\033[4m#{self}\033[22m\033[24m"; end
+  def dim;              x; "\033[2m#{self}\033[22m"; end
+  def italic;           x; "\033[3m#{self}\033[23m"; end
+  def underline;        x; "\033[4m#{self}\033[24m"; end
+  def underline_italic; x; "\033[4m\033[3m#{self}\033[23m\033[24m"; end
+  def blinking;         x; "\033[5m#{self}\033[25m"; end
+  def inverse;          x; "\033[7m#{self}\033[27m"; end
+  def hidden;           x; "\033[8m#{self}\033[28m"; end
+  def strikethrough;    x; "\033[9m#{self}\033[29m"; end
 end

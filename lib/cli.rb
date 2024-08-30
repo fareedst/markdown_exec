@@ -11,7 +11,7 @@ module CLI
     when 'String'
       Shellwords.escape value
     when 'FalseClass', 'TrueClass'
-      value ? '1' : '0'
+      value ? 't' : 'f'
     else
       Shellwords.escape value.to_s
     end

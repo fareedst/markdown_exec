@@ -10,7 +10,9 @@ class Hash
   # block name in commands and documents
   def pub_name(**kwargs)
     full = fetch(:nickname, nil) || fetch(:oname, nil)
-    full&.to_s&.pub_name(**kwargs).tap { |ret| pp [__LINE__, 'Hash.pub_name() ->', ret] if $pd }
+    full&.to_s&.pub_name(**kwargs).tap { |ret|
+      pp [__LINE__, 'Hash.pub_name() ->', ret] if $pd
+    }
   end
 end
 
@@ -35,7 +37,8 @@ class String
                 self
               end
 
-    trimmed.gsub(pattern, replacement).tap { |ret| pp [__LINE__, 'String.pub_name() ->', ret] if $pd }
+    trimmed.gsub(pattern, replacement).tap { |ret|
+      pp [__LINE__, 'String.pub_name() ->', ret] if $pd
+    }
   end
 end
-

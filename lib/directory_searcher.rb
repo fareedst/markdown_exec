@@ -155,11 +155,13 @@ class DirectorySearcher
         Find.prune unless @include_subdirectories || path == p
         next unless File.file?(p)
 
-        next if @filename_glob && !File.fnmatch(@filename_glob, File.basename(p))
+        next if @filename_glob && !File.fnmatch(@filename_glob,
+                                                File.basename(p))
 
         begin
           File.foreach(p).with_index(1) do |line, line_num| # Index starts from 1 for line numbers
-            line_utf8 = line.encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+            line_utf8 = line.encode('UTF-8', invalid: :replace,
+                                             undef: :replace, replace: '')
 
             line_utf8 = yield(line_utf8) if block_given?
 

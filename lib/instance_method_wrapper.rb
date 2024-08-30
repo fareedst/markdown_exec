@@ -68,7 +68,8 @@ module InstanceMethodWrapper
 
   def self.prepended(base)
     base.instance_methods(false).each do |method_name|
-      wrap_method(base, method_name) unless %i[method_missing].include? method_name
+      wrap_method(base,
+                  method_name) unless %i[method_missing].include? method_name
     end
 
     base.singleton_class.send(:define_method, :method_added) do |method_name|

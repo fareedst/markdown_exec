@@ -1,226 +1,232 @@
 ---
-- :description: Show current configuration values
+- :short_name: '0'
+  :description: Show current configuration values
   :procname: show_config
-  :short_name: '0'
-- :arg_name: BOOL
-  :default: true
-  :description: Display only blocks of type "bash"
+- :opt_name: bash_only
   :env_var: MDE_BASH_ONLY
-  :opt_name: bash_only
+  :description: Display only blocks of type "bash"
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: "%\\([^\\)]+\\)"
+- :opt_name: block_calls_scan
   :env_var: MDE_BLOCK_CALLS_SCAN
-  :opt_name: block_calls_scan
+  :default: "%\\([^\\)]+\\)"
   :procname: val_as_str
-- :arg_name: NAME
-  :compreply: false
-  :description: Name of block to execute
-  :env_var: MDE_BLOCK_NAME
+- :opt_name: block_name
   :long_name: block-name
-  :opt_name: block_name
-  :procname: val_as_str
   :short_name: b
-- :default: "^-.+-$"
-  :description: Pattern for blocks to hide from user-selection
+  :env_var: MDE_BLOCK_NAME
+  :description: Name of block to execute
+  :arg_name: NAME
+  :compreply: false
+  :procname: val_as_str
+- :opt_name: block_name_hidden_match
   :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
-  :opt_name: block_name_hidden_match
-  :procname: val_as_str
-- :default: "^\\(.*\\)$"
   :description: Pattern for blocks to hide from user-selection
+  :default: "^-.+-$"
+  :procname: val_as_str
+- :opt_name: block_name_include_match
   :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
-  :opt_name: block_name_include_match
+  :description: Pattern for blocks to hide from user-selection
+  :default: "^\\(.*\\)$"
   :procname: val_as_str
-- :default: ":(?<title>\\S+)( |$)"
+- :opt_name: block_name_match
   :env_var: MDE_BLOCK_NAME_MATCH
-  :opt_name: block_name_match
+  :default: ":(?<title>\\S+)( |$)"
   :procname: val_as_str
-- :default: "^\\[.*\\]$"
-  :description: Pattern for block nicknames (name is not used in menu)
+- :opt_name: block_name_nick_match
   :env_var: MDE_BLOCK_NAME_NICK_MATCH
-  :opt_name: block_name_nick_match
+  :description: Pattern for block nicknames (name is not used in menu)
+  :default: "^\\[.*\\]$"
   :procname: val_as_str
-- :default: "^{.+}$"
-  :description: Pattern for block names to use as wrappers
+- :opt_name: block_name_wrapper_match
   :env_var: MDE_BLOCK_NAME_WRAPPER_MATCH
-  :opt_name: block_name_wrapper_match
+  :description: Pattern for block names to use as wrappers
+  :default: "^{.+}$"
   :procname: val_as_str
-- :default: "\\+\\S+"
+- :opt_name: block_required_scan
   :env_var: MDE_BLOCK_REQUIRED_SCAN
-  :opt_name: block_required_scan
+  :default: "\\+\\S+"
   :procname: val_as_str
-- :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+- :opt_name: block_stdin_scan
   :env_var: MDE_BLOCK_STDIN_SCAN
-  :opt_name: block_stdin_scan
+  :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
   :procname: val_as_str
-- :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
-  :description: Match to place block body into a file or a variable
+- :opt_name: block_stdout_scan
   :env_var: MDE_BLOCK_STDOUT_SCAN
-  :opt_name: block_stdout_scan
+  :description: Match to place block body into a file or a variable
+  :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
   :procname: val_as_str
-- :default: ": ${%{key}:=%{value}}"
+- :opt_name: block_type_port_set_format
   :env_var: MDE_BLOCK_TYPE_PORT_SET_FORMAT
-  :opt_name: block_type_port_set_format
+  :default: ": ${%{key}:=%{value}}"
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: clear_screen_for_select_block
+- :opt_name: clear_screen_for_select_block
   :env_var: MDE_CLEAR_SCREEN_FOR_SELECT_BLOCK
-  :opt_name: clear_screen_for_select_block
+  :description: clear_screen_for_select_block
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :arg_name: PATH
-  :default: "."
+- :long_name: config
   :description: Read configuration file
-  :long_name: config
+  :arg_name: PATH
+  :default: "."
   :procname: path
-- :arg_name: BOOL
-  :default: true
-  :description: debounce_execution
+- :opt_name: debounce_execution
   :env_var: MDE_DEBOUNCE_EXECUTION
-  :opt_name: debounce_execution
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :description: debounce_execution
+  :arg_name: BOOL
   :default: true
-  :description: Format tables as columns
+  :procname: val_as_bool
+- :opt_name: tables_into_columns
   :env_var: MDE_TABLES_INTO_COLUMNS
-  :opt_name: tables_into_columns
+  :description: Format tables as columns
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Debug output
-  :env_var: MDE_DEBUG
-  :long_name: debug
-  :procname: debug
+- :long_name: debug
   :short_name: d
-- :arg_name: BOOL
-  :default: true
-  :description: default_find_select_open
+  :env_var: MDE_DEBUG
+  :description: Debug output
+  :arg_name: BOOL
+  :default: false
+  :procname: debug
+- :opt_name: default_find_select_open
   :env_var: MDE_DEFAULT_FIND_SELECT_OPEN
-  :opt_name: default_find_select_open
+  :description: default_find_select_open
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: "> "
+- :opt_name: dig
+  :long_name: dig
+  :description: Dig history (Present menu of history)
+- :opt_name: display_level_xbase_prefix
   :env_var: MDE_DISPLAY_LEVEL_XBASE_PREFIX
-  :opt_name: display_level_xbase_prefix
+  :default: "> "
   :procname: val_as_str
-- :default: "(document_options)"
-  :description: Name of Opts block to load with the document
+- :opt_name: document_load_opts_block_name
   :env_var: MDE_DOCUMENT_LOAD_OPTS_BLOCK_NAME
-  :opt_name: document_load_opts_block_name
+  :description: Name of Opts block to load with the document
+  :default: "(document_options)"
   :procname: val_as_str
-- :arg_name: GLOB
-  :default: document_configurations/%{document_filename}_*.sh
-  :description: Glob for saved lines for a document
+- :opt_name: document_saved_lines_glob
   :env_var: MDE_DOCUMENT_SAVED_LINES_GLOB
-  :opt_name: document_saved_lines_glob
+  :description: Glob for saved lines for a document
+  :arg_name: GLOB
+  :default: document_configurations/%{document_filename}_*.sh
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Add menu options for saved lines
+- :opt_name: menu_for_saved_lines
   :env_var: MDE_MENU_FOR_SAVED_LINES
-  :opt_name: menu_for_saved_lines
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :description: Add menu options for saved lines
+  :arg_name: BOOL
   :default: true
+  :procname: val_as_bool
+- :opt_name: menu_for_history
+  :env_var: MDE_MENU_FOR_HISTORY
   :description: Add menu options for history
-  :env_var: MDE_menu_for_history
-  :opt_name: menu_for_history
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Dump BlocksInFile (stage 1)
-  :env_var: MDE_DUMP_BLOCKS_IN_FILE
+- :opt_name: dump_blocks_in_file
   :long_name: dump-blocks-in-file
-  :opt_name: dump_blocks_in_file
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_BLOCKS_IN_FILE
+  :description: Dump BlocksInFile (stage 1)
+  :arg_name: BOOL
   :default: false
-  :description: Dump @delegate_object
-  :env_var: MDE_DUMP_DELEGATE_OBJECT
+  :procname: val_as_bool
+- :opt_name: dump_delegate_object
   :long_name: dump-delegate-object
-  :opt_name: dump_delegate_object
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_DELEGATE_OBJECT
+  :description: Dump @delegate_object
+  :arg_name: BOOL
   :default: false
-  :description: Dump dependencies
-  :env_var: MDE_DUMP_DEPENDENCIES
+  :procname: val_as_bool
+- :opt_name: dump_dependencies
   :long_name: dump-dependencies
-  :opt_name: dump_dependencies
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_DEPENDENCIES
+  :description: Dump dependencies
+  :arg_name: BOOL
   :default: false
-  :description: Dump inherited block_names
+  :procname: val_as_bool
+- :opt_name: dump_inherited_block_names
+  :long_name: dump-inherited-block-names
   :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
-  :long_name: dump-inherited-block_names
-  :opt_name: dump_inherited_block_names
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :description: Dump inherited block_names
+  :arg_name: BOOL
   :default: false
-  :description: Dump inherited dependencies
-  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
+  :procname: val_as_bool
+- :opt_name: dump_inherited_dependencies
   :long_name: dump-inherited-dependencies
-  :opt_name: dump_inherited_dependencies
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
+  :description: Dump inherited dependencies
+  :arg_name: BOOL
   :default: false
-  :description: Dump inherited lines
-  :env_var: MDE_DUMP_INHERITED_LINES
+  :procname: val_as_bool
+- :opt_name: dump_inherited_lines
   :long_name: dump-inherited-lines
-  :opt_name: dump_inherited_lines
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_INHERITED_LINES
+  :description: Dump inherited lines
+  :arg_name: BOOL
   :default: false
-  :description: Dump MenuBlocks (stage 2)
-  :env_var: MDE_DUMP_MENU_BLOCKS
+  :procname: val_as_bool
+- :opt_name: dump_menu_blocks
   :long_name: dump-menu-blocks
-  :opt_name: dump_menu_blocks
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :env_var: MDE_DUMP_MENU_BLOCKS
+  :description: Dump MenuBlocks (stage 2)
+  :arg_name: BOOL
   :default: false
-  :description: Dump selected block
-  :env_var: MDE_DUMP_SELECTED_BLOCK
-  :long_name: dump-selected-block
-  :opt_name: dump_selected_block
   :procname: val_as_bool
-- :default: fg_rgbh_ff_00_7f
-  :description: Color of exception detail
+- :opt_name: dump_selected_block
+  :long_name: dump-selected-block
+  :env_var: MDE_DUMP_SELECTED_BLOCK
+  :description: Dump selected block
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: exception_color_detail
   :env_var: MDE_EXCEPTION_COLOR_DETAIL
-  :opt_name: exception_color_detail
+  :description: Color of exception detail
+  :default: fg_rgbh_ff_00_7f
   :procname: val_as_str
-- :default: " - %{detail}\n"
-  :description: Format for exception detail
+- :opt_name: exception_format_detail
   :env_var: MDE_EXCEPTION_FORMAT_DETAIL
-  :opt_name: exception_format_detail
+  :description: Format for exception detail
+  :default: " - %{detail}\n"
   :procname: val_as_str
-- :default: fg_rgbh_ff_00_00
-  :description: Color of exception name
+- :opt_name: exception_color_name
   :env_var: MDE_EXCEPTION_COLOR_NAME
-  :opt_name: exception_color_name
+  :description: Color of exception name
+  :default: fg_rgbh_ff_00_00
   :procname: val_as_str
-- :default: |2-
+- :opt_name: exception_format_name
+  :env_var: MDE_EXCEPTION_FORMAT_NAME
+  :description: Format for exception name
+  :default: |2-
 
     %{name}
-  :description: Format for exception name
-  :env_var: MDE_EXCEPTION_FORMAT_NAME
-  :opt_name: exception_format_name
   :procname: val_as_str
-- :arg_name: REGEX
-  :default:
-  :description: Exclude blocks with name matching
+- :opt_name: exclude_by_name_regex
   :env_var: MDE_EXCLUDE_BY_NAME_REGEX
-  :opt_name: exclude_by_name_regex
-  :procname: val_as_str
-- :arg_name: REGEX
+  :description: Exclude blocks with name matching
+  :arg_name: REGEX
   :default:
-  :description: Exclude blocks with shell matching
-  :env_var: MDE_EXCLUDE_BY_SHELL_REGEX
-  :opt_name: exclude_by_shell_regex
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Hide all blocks of type "expect"
+- :opt_name: exclude_by_shell_regex
+  :env_var: MDE_EXCLUDE_BY_SHELL_REGEX
+  :description: Exclude blocks with shell matching
+  :arg_name: REGEX
+  :default:
+  :procname: val_as_str
+- :opt_name: exclude_expect_blocks
   :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
-  :opt_name: exclude_expect_blocks
+  :description: Hide all blocks of type "expect"
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: |
+- :opt_name: execute_command_format
+  :env_var: MDE_EXECUTE_COMMAND_FORMAT
+  :description: execute_command_format
+  :default: |
     osascript -e '
       on run argv
           set batch_index to "%{batch_index}"
@@ -242,123 +248,122 @@
               end tell
           end tell
       end run'
-  :description: execute_command_format
-  :env_var: MDE_EXECUTE_COMMAND_FORMAT
-  :opt_name: execute_command_format
   :procname: val_as_str
-- :default: "%T"
-  :description: Format for time in window title
+- :opt_name: execute_command_title_time_format
   :env_var: MDE_EXECUTE_COMMAND_TITLE_TIME_FORMAT
-  :opt_name: execute_command_title_time_format
+  :description: Format for time in window title
+  :default: "%T"
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: false
-  :description: Execute script in own window
-  :env_var: MDE_EXECUTE_IN_OWN_WINDOW
-  :long_name: execute_in_own_window
-  :opt_name: execute_in_own_window
-  :procname: val_as_bool
+- :opt_name: execute_in_own_window
+  :long_name: execute-in-own-window
   :short_name: w
-- :default: fg_rgbh_7f_ff_00
-  :description: execution_report_preview_frame_color
+  :env_var: MDE_EXECUTE_IN_OWN_WINDOW
+  :description: Execute script in own window
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
-  :opt_name: execution_report_preview_frame_color
+  :description: execution_report_preview_frame_color
+  :default: fg_rgbh_7f_ff_00
   :procname: val_as_str
-- :default: |2-
-
-     -^-
-  :description: execution_report_preview_head
+- :opt_name: execution_report_preview_head
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_HEAD
-  :opt_name: execution_report_preview_head
+  :description: execution_report_preview_head
   :procname: val_as_str
-- :default: " -v-"
+- :opt_name: execution_report_preview_tail
   :description: execution_report_preview_tail
-  :env_var: MDE_EXECUTION_REPORT_PREVIEW_TAIL
-  :opt_name: execution_report_preview_tail
+  :default: " -v-"
   :procname: val_as_str
-- :description: Exit app
-  :long_name: exit
-  :procname: exit
+- :long_name: exit
   :short_name: x
-- :default: "^(?<indent>[ \t]*)`{3,}"
-  :description: Matches the start and end of a fenced code block
+  :description: Exit app
+  :procname: exit
+- :opt_name: fenced_start_and_end_regex
   :env_var: MDE_FENCED_START_AND_END_REGEX
-  :opt_name: fenced_start_and_end_regex
+  :description: Matches the start and end of a fenced code block
+  :default: "^(?<indent>[ \t]*)`{3,}"
   :procname: val_as_str
-- :default: "^(?<indent>[ \t]*)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*)
-    *$"
-  :description: Match the start of a fenced block
+- :opt_name: fenced_start_extended_regex
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
-  :opt_name: fenced_start_extended_regex
+  :description: Match the start of a fenced block
+  :default: "^(?<indent>[ \t]*)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*)
+    *$"
   :procname: val_as_str
-- :arg_name: RELATIVE_PATH
-  :compreply: "."
-  :description: Name of the document to load
-  :env_var: MDE_FILENAME
+- :opt_name: filename
   :long_name: filename
-  :opt_name: filename
-  :procname: val_as_str
   :short_name: f
-- :arg_name: FIND
-  :default: ''
-  :description: Find argument in documents
-  :long_name: find
-  :procname: find
+  :env_var: MDE_FILENAME
+  :description: Name of the document to load
+  :arg_name: RELATIVE_PATH
+  :compreply: "."
+  :procname: val_as_str
+- :long_name: find
   :short_name: "?"
-- :arg_name: FIND_PATH
+  :description: Find argument in documents
+  :arg_name: FIND
   :default: ''
-  :description: Path for find (uses PATH if empty)
-  :env_var: MDE_FIND_PATH
+  :procname: find
+- :opt_name: find_path
   :long_name: find-path
-  :opt_name: find_path
+  :env_var: MDE_FIND_PATH
+  :description: Path for find (uses PATH if empty)
+  :arg_name: FIND_PATH
+  :default: ''
   :procname: val_as_str
-- :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :opt_name: heading1_match
   :env_var: MDE_HEADING1_MATCH
-  :opt_name: heading1_match
+  :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
-- :default: "^##(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :opt_name: heading2_match
   :env_var: MDE_HEADING2_MATCH
-  :opt_name: heading2_match
+  :default: "^##(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
-- :default: "^###(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+- :opt_name: heading3_match
   :env_var: MDE_HEADING3_MATCH
-  :opt_name: heading3_match
+  :default: "^###(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
-- :description: App help
-  :long_name: help
-  :procname: help
+- :long_name: help
   :short_name: h
-- :arg_name: BOOL
-  :default: true
+  :description: App help
+  :procname: help
+- :opt_name: hide_blocks_by_name
+  :env_var: MDE_HIDE_BLOCKS_BY_NAME
   :description: |-
     Exclude blocks with name matching expression " \
          "`block_name_hidden_match`
-  :env_var: MDE_HIDE_BLOCKS_BY_NAME
-  :opt_name: hide_blocks_by_name
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: "|"
+- :opt_name: history
+  :long_name: history
+  :description: History
+- :opt_name: history_document_separator
   :env_var: MDE_HISTORY_DOCUMENT_SEPARATOR
-  :opt_name: history_document_separator
+  :default: "|"
   :procname: val_as_str
-- :default: "&"
+- :opt_name: history_property_separator
   :env_var: MDE_HISTORY_PROPERTY_SEPARATOR
-  :opt_name: history_property_separator
+  :default: "&"
   :procname: val_as_str
-- :arg_name: HOW
-  :default: ''
-  :description: Find keyword in YAML configuration options
-  :long_name: how
-  :procname: how
+- :long_name: how
   :short_name: "?"
-- :default:
+  :description: Find keyword in YAML configuration options
+  :arg_name: HOW
+  :default: ''
+  :procname: how
+- :opt_name: import_paths
   :env_var: MDE_IMPORT_PATHS
-  :opt_name: import_paths
+  :default:
   :procname: val_as_str
-- :default: "^ *@import +(?<name>.+?) *$"
+- :opt_name: import_pattern
   :env_var: MDE_IMPORT_PATTERN
-  :opt_name: import_pattern
+  :default: "^ *@import +(?<name>.+?) *$"
   :procname: val_as_str
-- :default:
+- :opt_name: line_decor_main
+  :env_var: MDE_LINE_DECOR_MAIN
+  :description: Line-oriented text decoration (Main)
+  :default:
   - :color_method: :bold_underline
     :pattern: "\\*\\*_([^_]{0,64})_\\*\\*"
   - :color_method: :bold_italic
@@ -373,796 +378,850 @@
     :pattern: _~([^_]{0,64})~_
   - :color_method: strikethrough
     :pattern: "~~([^~]{0,64})~~"
-  :description: Line-oriented text decoration (Main)
-  :env_var: MDE_LINE_DECOR_MAIN
-  :opt_name: line_decor_main
-- :default: []
-  :description: Line-oriented text decoration (Post)
+- :opt_name: line_decor_post
   :env_var: MDE_LINE_DECOR_POST
-  :opt_name: line_decor_post
+  :description: Line-oriented text decoration (Post)
+  :default: []
   :procname: val_as_str
-- :default: []
-  :description: Line-oriented text decoration (Pre)
+- :opt_name: line_decor_pre
   :env_var: MDE_LINE_DECOR_PRE
-  :opt_name: line_decor_pre
+  :description: Line-oriented text decoration (Pre)
+  :default: []
   :procname: val_as_str
-- :description: List blocks
+- :opt_name: list_blocks
   :long_name: list-blocks
-  :opt_name: list_blocks
-  :procname: val_as_bool
-- :arg_name: INT.1-
-  :default: 32
-  :description: Max. items to return in list
-  :env_var: MDE_LIST_COUNT
-  :long_name: list-count
-  :opt_name: list_count
+  :description: List blocks
+- :opt_name: list_blocks_eval
+  :long_name: list-blocks-eval
+  :env_var: MDE_LIST_BLOCKS_EVAL
+  :description: Eval block, supercedes Message, for report
+  :arg_name: EVAL
+  :default:
+  :procname: val_as_str
+- :opt_name: list_blocks_message
+  :long_name: list-blocks-message
+  :env_var: MDE_LIST_BLOCKS_MESSAGE
+  :description: Message to blocks, for report
+  :arg_name: MESSAGE
+  :default: oname
+  :procname: val_as_sym
+- :opt_name: list_blocks_type
+  :long_name: list-blocks-type
+  :env_var: MDE_LIST_BLOCKS_TYPE
+  :description: Block type to report
+  :arg_name: TYPE
+  :default: 0
   :procname: val_as_int
-- :description: List default configuration as environment variables
+- :opt_name: list_count
+  :long_name: list-count
+  :env_var: MDE_LIST_COUNT
+  :description: Max. items to return in list
+  :arg_name: INT.1-
+  :default: 32
+  :procname: val_as_int
+- :opt_name: list_default_env
   :long_name: list-default-env
-  :opt_name: list_default_env
-- :description: List default configuration as YAML
+  :description: List default configuration as environment variables
+- :opt_name: list_default_yaml
   :long_name: list-default-yaml
-  :opt_name: list_default_yaml
-- :description: List docs in current folder
+  :description: List default configuration as YAML
+- :opt_name: list_docs
   :long_name: list-docs
-  :opt_name: list_docs
-  :procname: val_as_bool
-- :description: List recent saved output
+  :description: List docs in current folder
+- :opt_name: list_output_format
+  :long_name: format
+  :env_var: MDE_OUTPUT_LIST_FORMAT
+  :description: Format for list
+  :arg_name: FORMAT
+  :default: text
+  :procname: val_as_sym
+- :opt_name: list_recent_output
   :long_name: list-recent-output
-  :opt_name: list_recent_output
-  :procname: val_as_bool
-- :description: List recent saved scripts
+  :description: List recent saved output
+- :opt_name: list_recent_scripts
   :long_name: list-recent-scripts
-  :opt_name: list_recent_scripts
-  :procname: val_as_bool
-- :arg_name: PATH
-  :default: ''
-  :description: Load code
-  :env_var: MDE_LOAD_CODE
+  :description: List recent saved scripts
+- :opt_name: load_code
   :long_name: load-code
-  :opt_name: load_code
-  :procname: val_as_str
   :short_name: l
-- :arg_name: PREFIX
-  :default: mde
-  :description: Name prefix for stdout files
+  :env_var: MDE_LOAD_CODE
+  :description: Load code
+  :arg_name: PATH
+  :default: ''
+  :procname: val_as_str
+- :opt_name: logged_stdout_filename_prefix
   :env_var: MDE_LOGGED_STDOUT_FILENAME_PREFIX
-  :opt_name: logged_stdout_filename_prefix
+  :description: Name prefix for stdout files
+  :arg_name: PREFIX
+  :default: mde
   :procname: val_as_str
-- :default: "*.[Mm][Dd]"
+- :opt_name: md_filename_glob
   :env_var: MDE_MD_FILENAME_GLOB
-  :opt_name: md_filename_glob
+  :default: "*.[Mm][Dd]"
   :procname: val_as_str
-- :default: ".+\\.md"
+- :opt_name: md_filename_match
   :env_var: MDE_MD_FILENAME_MATCH
-  :opt_name: md_filename_match
+  :default: ".+\\.md"
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Display Back option at top of menu (vs bottom)
+- :opt_name: menu_back_at_top
   :env_var: MDE_MENU_BACK_AT_TOP
-  :opt_name: menu_back_at_top
-  :procname: val_as_bool
-- :default: fg_rgbh_00_c0_c0
-  :description: Color of menu bash
-  :env_var: MDE_MENU_BASH_COLOR
-  :opt_name: menu_bash_color
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: false
-  :description: Display document name in block selection menu
-  :env_var: MDE_MENU_BLOCKS_WITH_DOCNAME
-  :opt_name: menu_blocks_with_docname
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :description: Display Back option at top of menu (vs bottom)
+  :arg_name: BOOL
   :default: true
+  :procname: val_as_bool
+- :opt_name: menu_bash_color
+  :env_var: MDE_MENU_BASH_COLOR
+  :description: Color of menu bash
+  :default: fg_rgbh_00_c0_c0
+  :procname: val_as_str
+- :opt_name: menu_blocks_with_docname
+  :env_var: MDE_MENU_BLOCKS_WITH_DOCNAME
+  :description: Display document name in block selection menu
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: menu_blocks_with_headings
+  :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
   :description: Controls whether headings(levels 1,2,3) are displayed in the block
     selection menu
-  :env_var: MDE_MENU_BLOCKS_WITH_HEADINGS
-  :opt_name: menu_blocks_with_headings
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: fg_rgbh_40_c0_c0
-  :description: Color of menu chrome
+- :opt_name: menu_chrome_color
   :env_var: MDE_MENU_CHROME_COLOR
-  :opt_name: menu_chrome_color
+  :description: Color of menu chrome
+  :default: fg_rgbh_40_c0_c0
   :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu chromes
+- :opt_name: menu_chrome_format
   :env_var: MDE_MENU_CHROME_FORMAT
-  :opt_name: menu_chrome_format
+  :description: format for menu chromes
+  :default: "%{line}"
   :procname: val_as_str
-- :default: fg_rgbh_80_d0_c0
-  :description: Color of menu divider
+- :opt_name: menu_divider_color
   :env_var: MDE_MENU_DIVIDER_COLOR
-  :opt_name: menu_divider_color
+  :description: Color of menu divider
+  :default: fg_rgbh_80_d0_c0
   :procname: val_as_str
-- :default: "-:=   %{line}   =:-"
-  :description: format for menu dividers and demarcations
+- :opt_name: menu_divider_format
   :env_var: MDE_MENU_DIVIDER_FORMAT
-  :opt_name: menu_divider_format
-  :procname: val_as_str
-- :default: "^(?<indent>[ \t]*):::(?<line>(?<text>.*?)(?<trailing>[ \t]*))?$"
-  :description: Pattern for topics/dividers in block selection menu
-  :env_var: MDE_MENU_DIVIDER_MATCH
-  :opt_name: menu_divider_match
-  :procname: val_as_str
-- :default: ">"
-  :description: Symbol before each divider
-  :env_var: MDE_MENU_DIVIDER_SYMBOL
-  :opt_name: menu_divider_symbol
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Display Exit option at top of menu (vs bottom)
-  :env_var: MDE_MENU_EXIT_AT_TOP
-  :opt_name: menu_exit_at_top
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Display Load option at top of menu (vs bottom)
-  :env_var: MDE_MENU_LOAD_AT_TOP
-  :opt_name: menu_load_at_top
-  :procname: val_as_bool
-- :default:
-    :line: "~~~"
-  :description: closing demarcations for menu
-  :env_var: MDE_MENU_FINAL_DIVIDER
-  :opt_name: menu_final_divider
-- :default: fg_bg_rgbh_80_80_c0_10_10_20
-  :description: Color for heading 1 in menu
-  :env_var: MDE_MENU_HEADING1_COLOR
-  :opt_name: menu_heading1_color
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu heading1 in menu
-  :env_var: MDE_MENU_HEADING1_FORMAT
-  :opt_name: menu_heading1_format
-  :procname: val_as_str
-- :default: fg_bg_rgbh_60_60_c0_10_10_20
-  :description: Color for heading 2 in menu
-  :env_var: MDE_MENU_HEADING2_COLOR
-  :opt_name: menu_heading2_color
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu heading2 in menu
-  :env_var: MDE_MENU_HEADING2_FORMAT
-  :opt_name: menu_heading2_format
-  :procname: val_as_str
-- :default: fg_bg_rgbh_40_40_c0_10_10_20
-  :description: Color for heading 3 in menu
-  :env_var: MDE_MENU_HEADING3_COLOR
-  :opt_name: menu_heading3_color
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu heading3 in menu
-  :env_var: MDE_MENU_HEADING3_FORMAT
-  :opt_name: menu_heading3_format
-  :procname: val_as_str
-- :default: '0'
-  :description: Import levels for blocks to appear in menu. Empty is all.
-  :env_var: MDE_MENU_IMPORT_LEVEL_MATCH
-  :opt_name: menu_import_level_match
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Include imported blocks in menu
-  :env_var: MDE_MENU_INCLUDE_IMPORTED_BLOCKS
-  :opt_name: menu_include_imported_blocks
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Whether imported blocks should be included in the menu
-  :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
-  :opt_name: menu_include_imported_notes
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: true
-  :description: Display inherited lines at top of menu (vs bottom)
-  :env_var: MDE_MENU_INHERITED_LINES_AT_TOP
-  :opt_name: menu_inherited_lines_at_top
-  :procname: val_as_bool
-- :default: fg_rgbh_94_00_D3
-  :description: Color of inherited lines in menu
-  :env_var: MDE_MENU_INHERITED_LINES_COLOR
-  :opt_name: menu_inherited_lines_color
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: false
-  :description: Display Edit option always (when no lines exist)
-  :env_var: MDE_INHERITED_LINES_EDIT_ALWAYS
-  :opt_name: menu_inherited_lines_edit_always
-  :procname: val_as_bool
-- :default: "%{line}"
-  :description: format for inherited lines in menu
-  :env_var: MDE_MENU_INHERITED_LINES_FORMAT
-  :opt_name: menu_inherited_lines_format
-  :procname: val_as_str
-- :default:
-    :line: ''
-  :description: opening demarcation for menu
-  :env_var: MDE_MENU_INITIAL_DIVIDER
-  :opt_name: menu_initial_divider
-- :default: fg_rgbh_e0_e0_20
-  :description: Color of menu link
-  :env_var: MDE_MENU_LINK_COLOR
-  :opt_name: menu_link_color
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu link
-  :env_var: MDE_MENU_LINK_FORMAT
-  :opt_name: menu_link_format
-  :procname: val_as_str
-- :default: fg_rgbh_c0_c0_c0
-  :description: Color of menu note
-  :env_var: MDE_MENU_NOTE_COLOR
-  :opt_name: menu_note_color
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: format for menu notes
-  :env_var: MDE_MENU_NOTE_FORMAT
-  :opt_name: menu_note_format
-  :procname: val_as_str
-- :default: "^(?<line>(?![ \t]*/)(?<text>.*?)(?<trailing>[ \t]*))?$"
-  :description: Pattern for notes in block selection menu
-  :env_var: MDE_MENU_NOTE_MATCH
-  :opt_name: menu_note_match
-  :procname: val_as_str
-- :default:
-    :line: "* Back"
-  :description: Text for Back option
-  :env_var: MDE_MENU_OPTION_BACK_NAME
-  :opt_name: menu_option_back_name
-- :default:
-    :line: "* Edit"
-  :description: Text for Edit option
-  :env_var: MDE_MENU_OPTION_EDIT_NAME
-  :opt_name: menu_option_edit_name
-- :default:
-    :line: "* Exit"
-  :description: Text for Exit option
-  :env_var: MDE_MENU_OPTION_EXIT_NAME
-  :opt_name: menu_option_exit_name
-- :default:
-    :line: "* History"
-  :description: Text for History option
-  :env_var: MDE_MENU_OPTION_HISTORY_NAME
-  :opt_name: menu_option_history_name
-- :default:
-    :line: "* Load"
-  :description: Text for Load option
-  :env_var: MDE_MENU_OPTION_LOAD_NAME
-  :opt_name: menu_option_load_name
-- :default:
-    :line: "* Save"
-  :description: Text for Save option
-  :env_var: MDE_MENU_OPTION_SAVE_NAME
-  :opt_name: menu_option_save_name
-- :default:
-    :line: "! Shell"
-  :description: Text for Shell option
-  :env_var: MDE_MENU_OPTION_SHELL_NAME
-  :opt_name: menu_option_shell_name
-- :default:
-    :line: "* View"
-  :description: Text for View option
-  :env_var: MDE_MENU_OPTION_VIEW_NAME
-  :opt_name: menu_option_view_name
-- :default: fg_rgbh_ff_00_ff
-  :description: Color of menu opts
-  :env_var: MDE_MENU_OPTS_COLOR
-  :opt_name: menu_opts_color
-  :procname: val_as_str
-- :default: fg_rgbh_7f_00_ff
-  :description: Color of menu opts
-  :env_var: MDE_MENU_OPTS_SET_COLOR
-  :opt_name: menu_opts_set_color
-  :procname: val_as_str
-- :default: "%{key} = %{value}\n"
-  :description: format for menu opts output
-  :env_var: MDE_MENU_OPTS_SET_FORMAT
-  :opt_name: menu_opts_set_format
-  :procname: val_as_str
-- :default: "."
-  :description: Block name to display menu
-  :env_var: MDE_MENU_PERSIST_BLOCK_NAME
-  :opt_name: menu_persist_block_name
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Resize terminal when displaying menu.
-  :env_var: MDE_MENU_RESIZE_TERMINAL
-  :opt_name: menu_resize_terminal
-  :procname: val_as_bool
-- :default: fg_rgbh_ff_ff_ff
-  :description: Color of menu task
-  :env_var: MDE_MENU_TASK_COLOR
-  :opt_name: menu_task_color
-  :procname: val_as_str
-- :default: "%{name} [%{status}]"
-  :description: format for menu tasks and demarcations
-  :env_var: MDE_MENU_TASK_FORMAT
-  :opt_name: menu_task_format
-  :procname: val_as_str
-- :default: "^ *\\[(?<status>.{1,4})\\] *(?<name>.*) *$"
-  :description: Pattern for tasks
-  :env_var: MDE_MENU_TASK_MATCH
-  :opt_name: menu_task_match
-  :procname: val_as_str
-- :default: ">"
-  :description: Symbol before each task
-  :env_var: MDE_MENU_TASK_SYMBOL
-  :opt_name: menu_task_symbol
-  :procname: val_as_str
-- :default: fg_rgbh_ff_a0_ff
-  :description: Color of menu vars
-  :env_var: MDE_MENU_VARS_COLOR
-  :opt_name: menu_vars_color
-  :procname: val_as_str
-- :default: fg_rgbh_00_ff_ff
-  :description: Color of menu vars
-  :env_var: MDE_MENU_VARS_SET_COLOR
-  :opt_name: menu_vars_set_color
-  :procname: val_as_str
-- :default: "%{key} = %{value}\n"
-  :description: format for menu vars output
-  :env_var: MDE_MENU_VARS_SET_FORMAT
-  :opt_name: menu_vars_set_format
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Display Back option in menu
-  :env_var: MDE_MENU_WITH_BACK
-  :opt_name: menu_with_back
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: true
-  :description: Display Exit option in menu
-  :env_var: MDE_MENU_WITH_EXIT
-  :opt_name: menu_with_exit
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Display inherited lines in menu
-  :env_var: MDE_MENU_WITH_INHERITED_LINES
-  :opt_name: menu_with_inherited_lines
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: true
-  :description: Display Shell option in menu
-  :env_var: MDE_MENU_WITH_SHELL
-  :opt_name: menu_with_shell
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Hide decorative menu entries
-  :env_var: MDE_NO_CHROME
-  :opt_name: no_chrome
-  :procname: val_as_bool
-- :arg_name: OPEN
-  :default: ''
-  :description: Find argument in documents, present list, and open user selection
-  :long_name: open
-  :procname: open
-  :short_name: o
-- :default:
-  :description: Expression to match to start collecting lines
-  :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
-  :opt_name: output_assignment_begin
-  :procname: val_as_str
-- :default:
-  :description: Expression to match to stop collecting lines
-  :env_var: MDE_OUTPUT_ASSIGNMENT_END
-  :opt_name: output_assignment_end
-  :procname: val_as_str
-- :default: "%{line}"
-  :description: Format for assignments from output
-  :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
-  :opt_name: output_assignment_format
-  :procname: val_as_str
-- :default: "^ *(?<line>\\w+=.*?) *$"
-  :description: Pattern for assignments from output
-  :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
-  :opt_name: output_assignment_match
-  :procname: val_as_str
-- :arg_name: BOOL
-  :default: false
-  :description: Display summary for execution
-  :env_var: MDE_OUTPUT_EXECUTION_SUMMARY
-  :opt_name: output_execution_summary
-  :procname: val_as_bool
-- :default: "%{name}: %{value}"
   :description: format for menu dividers and demarcations
-  :env_var: MDE_OUTPUT_EXECUTION_LABEL_FORMAT
-  :opt_name: output_execution_label_format
+  :default: "-:=   %{line}   =:-"
   :procname: val_as_str
-- :default: fg_rgbh_00_ff_00
-  :description: Color of output_execution_label_name
-  :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
-  :opt_name: output_execution_label_name_color
+- :opt_name: menu_divider_match
+  :env_var: MDE_MENU_DIVIDER_MATCH
+  :description: Pattern for topics/dividers in block selection menu
+  :default: "^(?<indent>[ \t]*):::(?<line>(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
-- :default: fg_rgbh_00_ff_00
-  :description: Color of output_execution_label_value
-  :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
-  :opt_name: output_execution_label_value_color
+- :opt_name: menu_divider_symbol
+  :env_var: MDE_MENU_DIVIDER_SYMBOL
+  :description: Symbol before each divider
+  :default: ">"
   :procname: val_as_str
-- :arg_name: BOOL
+- :opt_name: menu_exit_at_top
+  :env_var: MDE_MENU_EXIT_AT_TOP
+  :description: Display Exit option at top of menu (vs bottom)
+  :arg_name: BOOL
   :default: true
-  :description: Output execution report at end of execution
-  :env_var: MDE_OUTPUT_EXECUTION_REPORT
-  :opt_name: output_execution_report
   :procname: val_as_bool
-- :arg_name: BOOL
+- :opt_name: menu_load_at_top
+  :env_var: MDE_MENU_LOAD_AT_TOP
+  :description: Display Load option at top of menu (vs bottom)
+  :arg_name: BOOL
   :default: false
-  :description: Output saved script filename at end of execution
-  :env_var: MDE_OUTPUT_SAVED_SCRIPT_FILENAME
-  :opt_name: output_saved_script_filename
   :procname: val_as_bool
-- :arg_name: BOOL
-  :default: false
-  :description: Display script prior to execution
-  :env_var: MDE_OUTPUT_SCRIPT
-  :long_name: output-script
-  :opt_name: output_script
-  :procname: val_as_bool
-- :arg_name: BOOL
-  :default: true
-  :description: Whether standard output from execution is displayed
-  :env_var: MDE_OUTPUT_STDOUT
-  :long_name: output-stdout
-  :opt_name: output_stdout
-  :procname: val_as_bool
-- :description: Options for viewing saved output file
-  :env_var: MDE_OUTPUT_VIEWER_OPTIONS
-  :opt_name: output_viewer_options
+- :opt_name: menu_final_divider
+  :env_var: MDE_MENU_FINAL_DIVIDER
+  :description: closing demarcations for menu
+  :default:
+    :line: "~~~"
+- :opt_name: menu_heading1_color
+  :env_var: MDE_MENU_HEADING1_COLOR
+  :description: Color for heading 1 in menu
+  :default: fg_bg_rgbh_80_80_c0_10_10_20
   :procname: val_as_str
-- :arg_name: RELATIVE_PATH
+- :opt_name: menu_heading1_format
+  :env_var: MDE_MENU_HEADING1_FORMAT
+  :description: format for menu heading1 in menu
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_heading2_color
+  :env_var: MDE_MENU_HEADING2_COLOR
+  :description: Color for heading 2 in menu
+  :default: fg_bg_rgbh_60_60_c0_10_10_20
+  :procname: val_as_str
+- :opt_name: menu_heading2_format
+  :env_var: MDE_MENU_HEADING2_FORMAT
+  :description: format for menu heading2 in menu
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_heading3_color
+  :env_var: MDE_MENU_HEADING3_COLOR
+  :description: Color for heading 3 in menu
+  :default: fg_bg_rgbh_40_40_c0_10_10_20
+  :procname: val_as_str
+- :opt_name: menu_heading3_format
+  :env_var: MDE_MENU_HEADING3_FORMAT
+  :description: format for menu heading3 in menu
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_import_level_match
+  :env_var: MDE_MENU_IMPORT_LEVEL_MATCH
+  :description: Import levels for blocks to appear in menu. Empty is all.
+  :default: '0'
+  :procname: val_as_str
+- :opt_name: menu_include_imported_blocks
+  :env_var: MDE_MENU_INCLUDE_IMPORTED_BLOCKS
+  :description: Include imported blocks in menu
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: menu_include_imported_notes
+  :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
+  :description: Whether imported blocks should be included in the menu
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: menu_inherited_lines_at_top
+  :env_var: MDE_MENU_INHERITED_LINES_AT_TOP
+  :description: Display inherited lines at top of menu (vs bottom)
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: menu_inherited_lines_color
+  :env_var: MDE_MENU_INHERITED_LINES_COLOR
+  :description: Color of inherited lines in menu
+  :default: fg_rgbh_94_00_D3
+  :procname: val_as_str
+- :opt_name: menu_inherited_lines_edit_always
+  :env_var: MDE_INHERITED_LINES_EDIT_ALWAYS
+  :description: Display Edit option always (when no lines exist)
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: menu_inherited_lines_format
+  :env_var: MDE_MENU_INHERITED_LINES_FORMAT
+  :description: format for inherited lines in menu
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_initial_divider
+  :env_var: MDE_MENU_INITIAL_DIVIDER
+  :description: opening demarcation for menu
+  :default:
+    :line: ''
+- :opt_name: menu_link_color
+  :env_var: MDE_MENU_LINK_COLOR
+  :description: Color of menu link
+  :default: fg_rgbh_e0_e0_20
+  :procname: val_as_str
+- :opt_name: menu_link_format
+  :env_var: MDE_MENU_LINK_FORMAT
+  :description: format for menu link
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_note_color
+  :env_var: MDE_MENU_NOTE_COLOR
+  :description: Color of menu note
+  :default: fg_rgbh_c0_c0_c0
+  :procname: val_as_str
+- :opt_name: menu_note_format
+  :env_var: MDE_MENU_NOTE_FORMAT
+  :description: format for menu notes
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: menu_note_match
+  :env_var: MDE_MENU_NOTE_MATCH
+  :description: Pattern for notes in block selection menu
+  :default: "^(?<line>(?![ \t]*/)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :procname: val_as_str
+- :opt_name: menu_option_back_name
+  :env_var: MDE_MENU_OPTION_BACK_NAME
+  :description: Text for Back option
+  :default:
+    :line: "* Back"
+- :opt_name: menu_option_edit_name
+  :env_var: MDE_MENU_OPTION_EDIT_NAME
+  :description: Text for Edit option
+  :default:
+    :line: "* Edit"
+- :opt_name: menu_option_exit_name
+  :env_var: MDE_MENU_OPTION_EXIT_NAME
+  :description: Text for Exit option
+  :default:
+    :line: "* Exit"
+- :opt_name: menu_option_history_name
+  :env_var: MDE_MENU_OPTION_HISTORY_NAME
+  :description: Text for History option
+  :default:
+    :line: "* History"
+- :opt_name: menu_option_load_name
+  :env_var: MDE_MENU_OPTION_LOAD_NAME
+  :description: Text for Load option
+  :default:
+    :line: "* Load"
+- :opt_name: menu_option_save_name
+  :env_var: MDE_MENU_OPTION_SAVE_NAME
+  :description: Text for Save option
+  :default:
+    :line: "* Save"
+- :opt_name: menu_option_shell_name
+  :env_var: MDE_MENU_OPTION_SHELL_NAME
+  :description: Text for Shell option
+  :default:
+    :line: "! Shell"
+- :opt_name: menu_option_view_name
+  :env_var: MDE_MENU_OPTION_VIEW_NAME
+  :description: Text for View option
+  :default:
+    :line: "* View"
+- :opt_name: menu_opts_color
+  :env_var: MDE_MENU_OPTS_COLOR
+  :description: Color of menu opts
+  :default: fg_rgbh_ff_00_ff
+  :procname: val_as_str
+- :opt_name: menu_opts_set_color
+  :env_var: MDE_MENU_OPTS_SET_COLOR
+  :description: Color of menu opts
+  :default: fg_rgbh_7f_00_ff
+  :procname: val_as_str
+- :opt_name: menu_opts_set_format
+  :env_var: MDE_MENU_OPTS_SET_FORMAT
+  :description: format for menu opts output
+  :default: "%{key} = %{value}\n"
+  :procname: val_as_str
+- :opt_name: menu_persist_block_name
+  :env_var: MDE_MENU_PERSIST_BLOCK_NAME
+  :description: Block name to display menu
   :default: "."
-  :description: Path to documents
-  :env_var: MDE_PATH
-  :long_name: path
-  :opt_name: path
   :procname: val_as_str
-  :short_name: p
-- :arg_name: BOOL
-  :default: false
-  :description: Whether to pause after manually executing a block and the next menu
-  :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
-  :long_name: pause_after_script_execution
-  :opt_name: pause_after_script_execution
+- :opt_name: menu_resize_terminal
+  :env_var: MDE_MENU_RESIZE_TERMINAL
+  :description: Resize terminal when displaying menu.
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :default: |2-
+- :opt_name: menu_task_color
+  :env_var: MDE_MENU_TASK_COLOR
+  :description: Color of menu task
+  :default: fg_rgbh_ff_ff_ff
+  :procname: val_as_str
+- :opt_name: menu_task_format
+  :env_var: MDE_MENU_TASK_FORMAT
+  :description: format for menu tasks and demarcations
+  :default: "%{name} [%{status}]"
+  :procname: val_as_str
+- :opt_name: menu_task_match
+  :env_var: MDE_MENU_TASK_MATCH
+  :description: Pattern for tasks
+  :default: "^ *\\[(?<status>.{1,4})\\] *(?<name>.*) *$"
+  :procname: val_as_str
+- :opt_name: menu_task_symbol
+  :env_var: MDE_MENU_TASK_SYMBOL
+  :description: Symbol before each task
+  :default: ">"
+  :procname: val_as_str
+- :opt_name: menu_vars_color
+  :env_var: MDE_MENU_VARS_COLOR
+  :description: Color of menu vars
+  :default: fg_rgbh_ff_a0_ff
+  :procname: val_as_str
+- :opt_name: menu_vars_set_color
+  :env_var: MDE_MENU_VARS_SET_COLOR
+  :description: Color of menu vars
+  :default: fg_rgbh_00_ff_ff
+  :procname: val_as_str
+- :opt_name: menu_vars_set_format
+  :env_var: MDE_MENU_VARS_SET_FORMAT
+  :description: format for menu vars output
+  :default: "%{key} = %{value}\n"
+  :procname: val_as_str
+- :opt_name: menu_with_back
+  :env_var: MDE_MENU_WITH_BACK
+  :description: Display Back option in menu
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: menu_with_exit
+  :env_var: MDE_MENU_WITH_EXIT
+  :description: Display Exit option in menu
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: menu_with_inherited_lines
+  :env_var: MDE_MENU_WITH_INHERITED_LINES
+  :description: Display inherited lines in menu
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: menu_with_shell
+  :env_var: MDE_MENU_WITH_SHELL
+  :description: Display Shell option in menu
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: mine
+  :long_name: mine
+  :description: Mine history (List lines matched by probe)
+- :opt_name: no_chrome
+  :env_var: MDE_NO_CHROME
+  :description: Hide decorative menu entries
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :long_name: open
+  :short_name: o
+  :description: Find argument in documents, present list, and open user selection
+  :arg_name: OPEN
+  :default: ''
+  :procname: open
+- :opt_name: output_assignment_begin
+  :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
+  :description: Expression to match to start collecting lines
+  :default:
+  :procname: val_as_str
+- :opt_name: output_assignment_end
+  :env_var: MDE_OUTPUT_ASSIGNMENT_END
+  :description: Expression to match to stop collecting lines
+  :default:
+  :procname: val_as_str
+- :opt_name: output_assignment_format
+  :env_var: MDE_OUTPUT_ASSIGNMENT_FORMAT
+  :description: Format for assignments from output
+  :default: "%{line}"
+  :procname: val_as_str
+- :opt_name: output_assignment_match
+  :env_var: MDE_OUTPUT_ASSIGNMENT_MATCH
+  :description: Pattern for assignments from output
+  :default: "^ *(?<line>\\w+=.*?) *$"
+  :procname: val_as_str
+- :opt_name: output_execution_summary
+  :env_var: MDE_OUTPUT_EXECUTION_SUMMARY
+  :description: Display summary for execution
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: output_execution_label_format
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_FORMAT
+  :description: format for menu dividers and demarcations
+  :default: "%{name}: %{value}"
+  :procname: val_as_str
+- :opt_name: output_execution_label_name_color
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
+  :description: Color of output_execution_label_name
+  :default: fg_rgbh_00_ff_00
+  :procname: val_as_str
+- :opt_name: output_execution_label_value_color
+  :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
+  :description: Color of output_execution_label_value
+  :default: fg_rgbh_00_ff_00
+  :procname: val_as_str
+- :opt_name: output_execution_report
+  :env_var: MDE_OUTPUT_EXECUTION_REPORT
+  :description: Output execution report at end of execution
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: output_saved_script_filename
+  :env_var: MDE_OUTPUT_SAVED_SCRIPT_FILENAME
+  :description: Output saved script filename at end of execution
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: output_script
+  :long_name: output-script
+  :env_var: MDE_OUTPUT_SCRIPT
+  :description: Display script prior to execution
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: output_stdout
+  :long_name: output-stdout
+  :env_var: MDE_OUTPUT_STDOUT
+  :description: Whether standard output from execution is displayed
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: output_viewer_options
+  :env_var: MDE_OUTPUT_VIEWER_OPTIONS
+  :description: Options for viewing saved output file
+  :procname: val_as_str
+- :opt_name: path
+  :long_name: path
+  :short_name: p
+  :env_var: MDE_PATH
+  :description: Path to documents
+  :arg_name: RELATIVE_PATH
+  :default: "."
+  :procname: val_as_str
+- :opt_name: pause_after_script_execution
+  :long_name: pause-after-script-execution
+  :env_var: MDE_PAUSE_AFTER_SCRIPT_EXECUTION
+  :description: Whether to pause after manually executing a block and the next menu
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :opt_name: probe
+  :long_name: probe
+  :env_var: MDE_PROBE
+  :description: Probe history (Filter history to files with lines matching a pattern)
+  :procname: val_as_str
+- :opt_name: prompt_after_script_execution
+  :env_var: MDE_PROMPT_AFTER_SCRIPT_EXECUTION
+  :description: Prompt after manually executing a block and the next menu
+  :default: |2-
 
     Continue?
-  :description: Prompt after manually executing a block and the next menu
-  :env_var: MDE_PROMPT_AFTER_SCRIPT_EXECUTION
-  :opt_name: prompt_after_script_execution
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_approve_block
+  :env_var: MDE_PROMPT_APPROVE_BLOCK
+  :description: Prompt to approve a block
+  :default: |2-
 
     Process?
-  :description: Prompt to approve a block
-  :env_var: MDE_PROMPT_APPROVE_BLOCK
-  :opt_name: prompt_approve_block
   :procname: val_as_str
-- :default: fg_rgbh_00_ff_00
-  :description: Color of prompt after script execution
+- :opt_name: prompt_color_after_script_execution
   :env_var: MDE_PROMPT_COLOR_AFTER_SCRIPT_EXECUTION
-  :opt_name: prompt_color_after_script_execution
+  :description: Color of prompt after script execution
+  :default: fg_rgbh_00_ff_00
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_debounce
+  :env_var: MDE_PROMPT_DEBOUNCE
+  :description: Prompt to debounce
+  :default: |2-
 
     Repeat this block?
-  :description: Prompt to debounce
-  :env_var: MDE_PROMPT_DEBOUNCE
-  :opt_name: prompt_debounce
   :procname: val_as_str
-- :default: 'Name? '
-  :description: Prompt to enter a filespec
+- :opt_name: prompt_enter_filespec
   :env_var: MDE_PROMPT_ENTER_FILESPEC
-  :opt_name: prompt_enter_filespec
+  :description: Prompt to enter a filespec
+  :default: 'Name? '
   :procname: val_as_str
-- :default: Exit
-  :description: Prompt to exit app
+- :opt_name: prompt_exit
   :env_var: MDE_PROMPT_EXIT
-  :opt_name: prompt_exit
+  :description: Prompt to exit app
+  :default: Exit
   :procname: val_as_str
-- :default: Back
-  :description: User wants out of menu
+- :opt_name: prompt_filespec_back
   :env_var: MDE_PROMPT_FILESPEC_BACK
-  :opt_name: prompt_filespec_back
+  :description: User wants out of menu
+  :default: Back
   :procname: val_as_str
-- :default: Facet
-  :description: User wants to tailor the menu
+- :opt_name: prompt_filespec_facet
   :env_var: MDE_PROMPT_FILESPEC_FACET
-  :opt_name: prompt_filespec_facet
+  :description: User wants to tailor the menu
+  :default: Facet
   :procname: val_as_str
-- :default: Other
-  :description: User wants a custom file name
+- :opt_name: prompt_filespec_other
   :env_var: MDE_PROMPT_FILESPEC_OTHER
-  :opt_name: prompt_filespec_other
+  :description: User wants a custom file name
+  :default: Other
   :procname: val_as_str
-- :default: 'No'
-  :description: Prompt for no
+- :opt_name: prompt_no
   :env_var: MDE_PROMPT_NO
-  :opt_name: prompt_no
+  :description: Prompt for no
+  :default: 'No'
   :procname: val_as_str
-- :default: Save script
-  :description: Prompt to save script
+- :opt_name: prompt_save_script
   :env_var: MDE_PROMPT_SAVE_SCRIPT
-  :opt_name: prompt_save_script
+  :description: Prompt to save script
+  :default: Save script
   :procname: val_as_str
-- :default: Copy script to clipboard
-  :description: Prompt to copy script to clipboard
+- :opt_name: prompt_script_to_clipboard
   :env_var: MDE_PROMPT_SCRIPT_TO_CLIPBOARD
-  :opt_name: prompt_script_to_clipboard
+  :description: Prompt to copy script to clipboard
+  :default: Copy script to clipboard
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_select_block
+  :env_var: MDE_PROMPT_SELECT_BLOCK
+  :description: Prompt to select a block
+  :default: |2-
 
     Choose a block:
-  :description: Prompt to select a block
-  :env_var: MDE_PROMPT_SELECT_BLOCK
-  :opt_name: prompt_select_block
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_select_code_file
+  :env_var: MDE_PROMPT_SELECT_CODE_FILE
+  :description: Prompt to select a file with inherited lines
+  :default: |2-
 
     Choose a file:
-  :description: Prompt to select a file with inherited lines
-  :env_var: MDE_PROMPT_SELECT_CODE_FILE
-  :opt_name: prompt_select_code_file
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_select_history_file
+  :env_var: MDE_PROMPT_SELECT_HISTORY_FILE
+  :description: Prompt to select a saved asset
+  :default: |2-
 
     View file:
-  :description: Prompt to select a saved asset
-  :env_var: MDE_PROMPT_SELECT_HISTORY_FILE
-  :opt_name: prompt_select_history_file
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_select_md
+  :env_var: MDE_PROMPT_SELECT_MD
+  :description: Prompt to select a markdown document
+  :default: |2-
 
     Choose a file:
-  :description: Prompt to select a markdown document
-  :env_var: MDE_PROMPT_SELECT_MD
-  :opt_name: prompt_select_md
   :procname: val_as_str
-- :default: |2-
+- :opt_name: prompt_select_output
+  :env_var: MDE_PROMPT_SELECT_OUTPUT
+  :default: |2-
 
     Choose a file:
   :description: Prompt to select a saved file
-  :env_var: MDE_PROMPT_SELECT_OUTPUT
-  :opt_name: prompt_select_output
   :procname: val_as_str
-- :default: 'Expr: %{expr}'
-  :description: prompt_show_expr_format
+- :opt_name: prompt_show_expr_format
   :env_var: MDE_PROMPT_SHOW_EXPR_FORMAT
-  :opt_name: prompt_show_expr_format
+  :description: prompt_show_expr_format
+  :default: 'Expr: %{expr}'
   :procname: val_as_str
-- :default: Uninterrupted
-  :description: Uninterrupted execution
+- :opt_name: prompt_uninterrupted
   :env_var: MDE_PROMPT_UNINTERRUPTED
-  :opt_name: prompt_uninterrupted
+  :description: Uninterrupted execution
+  :default: Uninterrupted
   :procname: val_as_str
-- :default: 'Yes'
-  :description: Prompt for yes
+- :opt_name: prompt_yes
   :env_var: MDE_PROMPT_YES
-  :opt_name: prompt_yes
+  :description: Prompt for yes
+  :default: 'Yes'
   :procname: val_as_str
-- :default: ''
-  :description: File path for publishing document file
+- :opt_name: publish_block_name_format
+  :env_var: MDE_PUBLISH_BLOCK_NAME_FORMAT
+  :description: format for block name published
+  :default: "%{time} Blc %{document} / %{block}\n"
+  :procname: val_as_str
+- :opt_name: publish_document_file_mode
+  :long_name: publish-document-file-mode
+  :env_var: MDE_PUBLISH_DOCUMENT_FILE_MODE
+  :description: Published file mode (fifo/append/write)
+  :default: fifo
+  :procname: val_as_str
+- :opt_name: publish_document_file_name
+  :long_name: publish-document-file-name
   :env_var: MDE_PUBLISH_DOCUMENT_FILE_NAME
-  :opt_name: publish_document_file_name
+  :description: File path for publishing
+  :default: ''
   :procname: val_as_str
-- :description: Print the gem's home directory
+- :opt_name: publish_document_name_format
+  :env_var: MDE_PUBLISH_DOCUMENT_NAME_FORMAT
+  :description: format for document name published
+  :default: "%{time} Doc %{document}\n"
+  :procname: val_as_str
+- :opt_name: publish_time_format
+  :env_var: MDE_PUBLISH_TIME_FORMAT
+  :description: Format for time in published messages
+  :default: "%FT%TZ"
+  :procname: val_as_str
+- :opt_name: pwd
   :long_name: pwd
-  :opt_name: pwd
-  :procname: val_as_bool
-- :description: Run most recently saved script
+  :description: Print the gem's home directory
+- :opt_name: run_last_script
   :long_name: run-last-script
-  :opt_name: run_last_script
+  :description: Run most recently saved script
   :procname: val_as_bool
-- :default: 1
+- :opt_name: runtime_exception_error_level
   :description: Runtime exception error level (warn if < 0, ignore if 0, abort if
     > 0)
+  :default: 1
   :env_var: MDE_RUNTIME_EXCEPTION_ERROR_LEVEL
-  :opt_name: runtime_exception_error_level
   :procname: val_as_int
-- :default: "%{prefix}%{join}%{time}%{join}%{filename}%{join}%{mark}%{join}%{blockname}%{join}%{exts}"
-  :description: Format for script and log file names
+- :opt_name: saved_asset_format
   :env_var: MDE_SAVED_ASSET_FORMAT
-  :opt_name: saved_asset_format
+  :description: Format for script and log file names
+  :default: "%{prefix}%{join}%{time}%{join}%{filename}%{join}%{mark}%{join}%{blockname}%{join}%{exts}"
   :procname: val_as_str
-- :default: "^(?<prefix>.+)(?<join>_)(?<time>[0-9\\-]+)\\g'join'(?<filename>.+)\\g'join'(?<mark>~)\\g'join'(?<blockname>.+)\\g'join'(?<exts>\\..+)$"
-  :description: Regexp for script and log file names
+- :opt_name: saved_asset_match
   :env_var: MDE_SAVED_ASSET_MATCH
-  :opt_name: saved_asset_match
+  :description: Regexp for script and log file names
+  :default: "^(?<prefix>.+)(?<join>_)(?<time>[0-9\\-]+)\\g'join'(?<filename>.+)\\g'join'(?<mark>~)\\g'join'(?<blockname>.+)\\g'join'(?<exts>\\..+)$"
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: false
-  :description: Whether to save an executed script
+- :opt_name: save_executed_script
   :env_var: MDE_SAVE_EXECUTED_SCRIPT
-  :opt_name: save_executed_script
-  :procname: val_as_bool
-- :arg_name: BOOL
+  :description: Whether to save an executed script
+  :arg_name: BOOL
   :default: false
-  :description: Save standard output of the executed script
+  :procname: val_as_bool
+- :opt_name: save_execution_output
   :env_var: MDE_SAVE_EXECUTION_OUTPUT
-  :opt_name: save_execution_output
+  :description: Save standard output of the executed script
+  :arg_name: BOOL
+  :default: false
   :procname: val_as_bool
-- :default: "/"
-  :description: Pattern to replace in file names
+- :opt_name: saved_filename_pattern
   :env_var: MDE_SAVED_FILENAME_PATTERN
-  :opt_name: saved_filename_pattern
+  :description: Pattern to replace in file names
+  :default: "/"
   :procname: val_as_str
-- :default: ",~"
-  :description: Replacement for pattern in file names
+- :opt_name: saved_filename_replacement
   :env_var: MDE_SAVED_FILENAME_REPLACEMENT
-  :opt_name: saved_filename_replacement
+  :description: Replacement for pattern in file names
+  :default: ",~"
   :procname: val_as_str
-- :default: "%{time}  %{blockname}  %{exts}"
-  :description: Format for each row displayed in history
+- :opt_name: saved_history_format
   :env_var: MDE_SAVED_HISTORY_FORMAT
-  :opt_name: saved_history_format
+  :description: Format for each row displayed in history
+  :default: "%{time}  %{blockname}  %{exts}"
   :procname: val_as_str
-- :arg_name: INT
-  :default: 493
-  :description: chmod for saved scripts
+- :opt_name: saved_script_chmod
   :env_var: MDE_SAVED_SCRIPT_CHMOD
-  :opt_name: saved_script_chmod
+  :description: chmod for saved scripts
+  :arg_name: INT
+  :default: 493
   :procname: val_as_int
-- :arg_name: PREFIX
-  :default: mde
-  :description: Name prefix for saved scripts
+- :opt_name: saved_script_filename_prefix
   :env_var: MDE_SAVED_SCRIPT_FILENAME_PREFIX
-  :opt_name: saved_script_filename_prefix
+  :description: Name prefix for saved scripts
+  :arg_name: PREFIX
+  :default: mde
   :procname: val_as_str
-- :arg_name: RELATIVE_PATH
-  :default: logs
-  :description: Folder where saved scripts are stored
+- :opt_name: saved_script_folder
   :env_var: MDE_SAVED_SCRIPT_FOLDER
-  :opt_name: saved_script_folder
-  :procname: val_as_str
-- :arg_name: GLOB
-  :default: mde_*.sh
-  :description: Glob matching saved scripts
-  :env_var: MDE_SAVED_SCRIPT_GLOB
-  :opt_name: saved_script_glob
-  :procname: val_as_str
-- :arg_name: RELATIVE_PATH
+  :description: Folder where saved scripts are stored
+  :arg_name: RELATIVE_PATH
   :default: logs
-  :description: Saved stdout folder
+  :procname: val_as_str
+- :opt_name: saved_script_glob
+  :env_var: MDE_SAVED_SCRIPT_GLOB
+  :description: Glob matching saved scripts
+  :arg_name: GLOB
+  :default: mde_*.sh
+  :procname: val_as_str
+- :opt_name: saved_stdout_folder
   :env_var: MDE_SAVED_STDOUT_FOLDER
-  :opt_name: saved_stdout_folder
+  :description: Saved stdout folder
+  :arg_name: RELATIVE_PATH
+  :default: logs
   :procname: val_as_str
-- :arg_name: GLOB
-  :default: mde_*.out.txt
-  :description: Glob matching saved outputs
+- :opt_name: saved_stdout_glob
   :env_var: MDE_SAVED_STDOUT_GLOB
-  :opt_name: saved_stdout_glob
+  :description: Glob matching saved outputs
+  :arg_name: GLOB
+  :default: mde_*.out.txt
   :procname: val_as_str
-- :default: fg_rgbh_00_ff_7f
-  :description: script_execution_frame_color
+- :opt_name: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
-  :opt_name: script_execution_frame_color
+  :description: script_execution_frame_color
+  :default: fg_rgbh_00_ff_7f
   :procname: val_as_str
-- :default: |2-
-
-     -^-
-  :description: script_execution_head
+- :opt_name: script_execution_head
   :env_var: MDE_SCRIPT_EXECUTION_HEAD
-  :opt_name: script_execution_head
-  :procname: val_as_str
-- :default: " -v-\n"
-  :description: script_execution_tail
-  :env_var: MDE_SCRIPT_EXECUTION_TAIL
-  :opt_name: script_execution_tail
-  :procname: val_as_str
-- :default: fg_rgbh_7f_ff_00
-  :description: Color of output divider
-  :env_var: MDE_OUTPUT_DIVIDER_COLOR
-  :opt_name: script_preview_frame_color
-  :procname: val_as_str
-- :default: |2-
+  :description: script_execution_head
+  :default: |2-
 
      -^-
-  :description: script_preview_head
+  :procname: val_as_str
+- :opt_name: script_execution_tail
+  :env_var: MDE_SCRIPT_EXECUTION_TAIL
+  :description: script_execution_tail
+  :default: " -v-\n"
+  :procname: val_as_str
+- :opt_name: script_preview_frame_color
+  :env_var: MDE_OUTPUT_DIVIDER_COLOR
+  :description: Color of output divider
+  :default: fg_rgbh_7f_ff_00
+  :procname: val_as_str
+- :opt_name: script_preview_head
   :env_var: MDE_SCRIPT_PREVIEW_HEAD
-  :opt_name: script_preview_head
+  :description: script_preview_head
+  :default: |2-
+
+     -^-
   :procname: val_as_str
-- :default: " -v-\n"
-  :description: script_preview_tail
+- :opt_name: script_preview_tail
   :env_var: MDE_SCRIPT_PREVIEW_TAIL
-  :opt_name: script_preview_tail
+  :description: script_preview_tail
+  :default: " -v-\n"
   :procname: val_as_str
-- :arg_name: REGEX
-  :default:
-  :description: Select blocks with name matching
+- :opt_name: select_by_name_regex
   :env_var: MDE_SELECT_BY_NAME_REGEX
-  :opt_name: select_by_name_regex
-  :procname: val_as_str
-- :arg_name: REGEX
+  :description: Select blocks with name matching
+  :arg_name: REGEX
   :default:
-  :description: Select blocks with shell matching
+  :procname: val_as_str
+- :opt_name: select_by_shell_regex
   :env_var: MDE_SELECT_BY_SHELL_REGEX
-  :opt_name: select_by_shell_regex
+  :description: Select blocks with shell matching
+  :arg_name: REGEX
+  :default:
   :procname: val_as_str
-- :default: 0
-  :description: 'Maximum # of rows in select list. Detects current limit if not specified.'
+- :opt_name: select_page_height
   :env_var: MDE_SELECT_PAGE_HEIGHT
-  :opt_name: select_page_height
+  :description: 'Maximum # of rows in select list. Detects current limit if not specified.'
+  :default: 0
   :procname: val_as_int
-- :default: "#!/usr/bin/env"
-  :description: Shebang for saved scripts
+- :opt_name: shebang
   :env_var: MDE_SHEBANG
-  :opt_name: shebang
+  :description: Shebang for saved scripts
+  :default: "#!/usr/bin/env"
   :procname: val_as_str
-- :default: bash
-  :description: Shell for launched scripts
+- :opt_name: shell
   :env_var: MDE_SHELL
-  :opt_name: shell
+  :description: Shell for launched scripts
+  :default: bash
   :procname: val_as_str
-- :default:
-  :description: shell_code_label_format_above
+- :opt_name: shell_code_label_format_above
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
-  :opt_name: shell_code_label_format_above
+  :description: shell_code_label_format_above
+  :default:
   :procname: val_as_str
-- :default:
-  :description: shell_code_label_format_below
+- :opt_name: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
-  :opt_name: shell_code_label_format_below
+  :description: shell_code_label_format_below
+  :default:
   :procname: val_as_str
-- :default: "%FT%TZ"
-  :description: Format for time in code lael
+- :opt_name: shell_code_label_time_format
   :env_var: MDE_SHELL_CODE_LABEL_TIME_FORMAT
-  :opt_name: shell_code_label_time_format
+  :description: Format for time in code lael
+  :default: "%FT%TZ"
   :procname: val_as_str
-- :arg_name: BOOL
-  :default: true
-  :description: Whether saved file names include shell parameter expansion
+- :opt_name: shell_parameter_expansion
   :env_var: MDE_SHELL_PARAMETER_EXPANSION
-  :opt_name: shell_parameter_expansion
+  :description: Whether saved file names include shell parameter expansion
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
-- :description: List tab completions
+- :opt_name: sift
+  :long_name: sift
+  :env_var: MDE_SIFT
+  :description: Sift history (Filter history to file names matching a pattern)
+  :procname: val_as_str
+- :opt_name: tab_completions
   :long_name: tab-completions
-  :opt_name: tab_completions
-  :procname: val_as_bool
-- :default: fg_bg_rgbh_00_00_df_14_18_1c
-  :description: Color for table border
+  :description: List tab completions
+- :opt_name: table_border_color
   :env_var: MDE_TABLE_BORDER_COLOR
-  :opt_name: table_border_color
-- :default: fg_bg_rgbh_df_7f_00_14_18_1c
-  :description: Color for table header row
+  :description: Color for table border
+  :default: fg_bg_rgbh_00_00_df_14_18_1c
+- :opt_name: table_header_row_color
   :env_var: MDE_TABLE_HEADER_ROW_COLOR
-  :opt_name: table_header_row_color
-- :default:
+  :description: Color for table header row
+  :default: fg_bg_rgbh_df_7f_00_14_18_1c
+- :opt_name: table_row_color
+  :env_var: MDE_TABLE_ROW_COLOR
+  :description: Color for table row
+  :default:
   - fg_bg_rgbh_cf_cf_cf_14_18_1c
   - fg_bg_rgbh_df_df_df_24_24_24
-  :description: Color for table row
-  :env_var: MDE_TABLE_ROW_COLOR
-  :opt_name: table_row_color
-- :default: fg_bg_rgbh_df_df_00_14_18_1c
-  :description: Color for table separator line
+- :opt_name: table_separator_line_color
   :env_var: MDE_TABLE_SEPARATOR_LINE_COLOR
-  :opt_name: table_separator_line_color
-- :arg_name: BOOL
-  :default: false
-  :description: Requires user approval before executing a script
-  :env_var: MDE_USER_MUST_APPROVE
+  :description: Color for table separator line
+  :default: fg_bg_rgbh_df_df_00_14_18_1c
+- :opt_name: user_must_approve
   :long_name: user-must-approve
-  :opt_name: user_must_approve
-  :procname: val_as_bool
   :short_name: q
-- :description: Print the gem's version
-  :long_name: version
-  :procname: version
+  :env_var: MDE_USER_MUST_APPROVE
+  :description: Requires user approval before executing a script
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+- :long_name: version
   :short_name: v
-- :default: fg_rgbh_ff_7f_00
-  :description: Color of warning message
+  :description: Print the gem's version
+  :procname: version
+- :opt_name: warning_color
   :env_var: MDE_WARNING_COLOR
-  :opt_name: warning_color
+  :description: Color of warning message
+  :default: fg_rgbh_ff_7f_00
   :procname: val_as_str
-- :default: 'Error: %{error}'
-  :description: Format of warning message
+- :opt_name: warning_format
   :env_var: MDE_WARNING_FORMAT
-  :opt_name: warning_format
+  :description: Format of warning message
+  :default: 'Error: %{error}'
   :procname: val_as_str
 - :arg_name: INT.0-3
   :default: 1
