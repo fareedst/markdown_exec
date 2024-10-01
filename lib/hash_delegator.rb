@@ -293,12 +293,15 @@ module HashDelegatorSelf
     return unless delegate_object[:tables_into_columns]
 
     lines = blocks_menu.map(&:oname)
-    text_tables = TableExtractor.extract_tables(lines)
+    text_tables = TableExtractor.extract_tables(
+      lines,
+      regexp: delegate_object[:table_parse_regexp]
+    )
     return unless text_tables.count.positive?
 
     text_tables.each do |match|
       range = match[:start_index]..(match[:start_index] + match[:rows] - 1)
-      lines = blocks_menu[range].map(&:oname)
+      lines = blocks_menu[range].map(&:dname)
       formatted = MarkdownTableFormatter.format_table(
         lines,
         match[:columns],
@@ -751,10 +754,14 @@ module MarkdownExec
 
     def apply_tree_decorations(text, color_method, decor_patterns)
       tree = HierarchyString.new([{ text: text, color: color_method }])
-      decor_patterns.each do |pc|
-        analyzed_hierarchy = TextAnalyzer.analyze_hierarchy(tree.substrings, pc[:pattern],
-                                                            color_method, pc[:color_method])
-        tree = HierarchyString.new(analyzed_hierarchy)
+      if color_method
+        decor_patterns.each do |pc|
+          analyzed_hierarchy = TextAnalyzer.analyze_hierarchy(
+            tree.substrings, pc[:pattern],
+            color_method, pc[:color_method]
+          )
+          tree = HierarchyString.new(analyzed_hierarchy)
+        end
       end
       tree.decorate
     end
@@ -1091,8 +1098,7 @@ module MarkdownExec
 
         # format expects :line to be text only
         line_obj[:line] = line_obj[:text]
-        oname = format(format_option, line_obj)
-
+        oname = format_option ? format(format_option, line_obj) : line_obj[:line]
         decorated = apply_tree_decorations(oname, color_method, decor_patterns)
 
         line_obj[:line] = line_obj[:indent] + line_obj[:text]
@@ -4328,7 +4334,7 @@ module MarkdownExec
       end
     end
 
-    class TestHashDelegatorMenuChromeFormattedOptionWithoutFormat < Minitest::Test
+    class TestHashDelegatorMenuChromeOption < Minitest::Test
       def setup
         @hd = HashDelegator.new
         @hd.instance_variable_set(:@delegate_object, {

@@ -635,7 +635,7 @@
 - :opt_name: menu_note_match
   :env_var: MDE_MENU_NOTE_MATCH
   :description: Pattern for notes in block selection menu
-  :default: "^(?<line>(?![ \t]*/)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :default: "^(?<line>(?![ \t]*/)(?<text>.*?)(?<trailing>[ \t]*))$"
   :procname: val_as_str
 - :opt_name: menu_option_back_name
   :env_var: MDE_MENU_OPTION_BACK_NAME
@@ -703,6 +703,11 @@
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
+- :opt_name: menu_table_rows_match
+  :env_var: MDE_MENU_TABLE_ROWS_MATCH
+  :description: Pattern for table rows
+  :default: "^(?<line>[ \\t]*\\|(?<text>.*?)(?<trailing>[ \\t]*))$"
+  :procname: val_as_str
 - :opt_name: menu_task_color
   :env_var: MDE_MENU_TASK_COLOR
   :description: Color of menu task
@@ -1195,6 +1200,10 @@
   :env_var: MDE_TABLE_HEADER_ROW_COLOR
   :description: Color for table header row
   :default: fg_bg_rgbh_df_7f_00_14_18_1c
+- :opt_name: table_parse_regexp
+  :env_var: MDE_TABLE_PARSE_REGEXP
+  :description: Match table for formatting
+  :default: "^[ \\t]*\\|? *(?::?-+:?) *( *\\| *(?::?-+:?) *)*\\|? *$"
 - :opt_name: table_row_color
   :env_var: MDE_TABLE_ROW_COLOR
   :description: Color for table row

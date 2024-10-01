@@ -3,19 +3,18 @@
 class TableExtractor
   # Extract tables from an array of text lines formatted in Markdown style
   # @param [Array<String>] lines The array of text lines
-  # @return [Array<Hash>] An array of tables with row count, column count, and start index
-  def self.extract_tables(lines)
+  # @return [Array<Hash>] An array of tables with row count,
+  #                       column count, and start index
+  def self.extract_tables(lines, regexp:)
     tables = []
     inside_table = false
     table_start = nil
     row_count = 0
     column_count = 0
 
-    separator_regexp = /^[ \t]*\|? *(?::?-+:?) *( *\| *(?::?-+:?) *)+\|? *$/
-
     lines.each_with_index do |line, index|
       # Match line separators with at least 2 columns
-      if line.strip.match?(separator_regexp)
+      if line.strip.match?(regexp)
         if inside_table
           # Add the current table before starting a new one
           tables << {
@@ -63,6 +62,8 @@ return if $PROGRAM_NAME != __FILE__
 require 'minitest/autorun'
 
 class TestTableExtractor < Minitest::Test
+  regexp = /^[ \t]*\|? *(?::?-+:?) *( *\| *(?::?-+:?) *)*\|? *$/
+
   def test_single_table
     lines = [
       '| Species| Genus| Family',
@@ -71,7 +72,7 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_indented_table
@@ -82,7 +83,7 @@ class TestTableExtractor < Minitest::Test
       "\t | | Histiophryne| Antennariidae"
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_multiple_tables
@@ -100,7 +101,7 @@ class TestTableExtractor < Minitest::Test
       { rows: 4, columns: 3, start_index: 0 },
       { rows: 3, columns: 2, start_index: 5 }
     ]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_no_tables
@@ -109,7 +110,7 @@ class TestTableExtractor < Minitest::Test
       'Another regular line.'
     ]
     expected = []
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_inconsistent_columns
@@ -126,7 +127,7 @@ class TestTableExtractor < Minitest::Test
     # number of columns determined from row of dividers
     expected = [{ rows: 4, columns: 2, start_index: 0 },
                 { rows: 3, columns: 3, start_index: 5 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_table_at_end_of_lines
@@ -138,7 +139,7 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 1 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_table_without_starting_pipe
@@ -150,7 +151,7 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 1 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 
   def test_table_with_colon_hyphens
@@ -161,6 +162,6 @@ class TestTableExtractor < Minitest::Test
       '| Jane Doe| 25| Los Angeles'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines)
+    assert_equal expected, TableExtractor.extract_tables(lines, regexp: regexp)
   end
 end

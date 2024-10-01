@@ -8,7 +8,7 @@ module MarkdownTableFormatter
   module_function
 
   def format_table(lines, columns, decorate: nil)
-    rows = parse_rows(lines, columns)
+    rows = raw_lines_into_row_role_cells(lines, columns)
 
     alignment_indicators, column_widths =
       calculate_column_alignment_and_widths(rows, columns)
@@ -16,24 +16,24 @@ module MarkdownTableFormatter
     format_rows(rows, alignment_indicators, column_widths, decorate)
   end
 
-  def parse_rows(lines, columns)
+  def raw_lines_into_row_role_cells(lines, columns)
     role = :header_row
     counter = -1
 
-    lines.map.with_index do |line, _row_ind|
+    ret = []
+    lines.each do |line|
       line += '|' unless line.end_with?('|')
       counter += 1
 
-      role = update_role(role, line)
+      role = role_for_raw_row(role, line)
       counter = reset_counter_if_needed(role, counter)
-
-      cells = extract_cells(line, columns)
-
-      OpenStruct.new(cells: cells, role: role, counter: counter)
+      cells = split_decorated_row_into_cells(line, columns)
+      ret << OpenStruct.new(cells: cells, role: role, counter: counter)
     end
+    ret
   end
 
-  def update_role(current_role, line)
+  def role_for_raw_row(current_role, line)
     case current_role
     when :header_row
       if line =~ /^[ \t]*\| *[:\-][:\- |]*$/
@@ -54,9 +54,9 @@ module MarkdownTableFormatter
     %i[header_row row].include?(role) ? counter : 0
   end
 
-  def extract_cells(line, columns)
+  def split_decorated_row_into_cells(line, columns)
     cells = line.split('|').map(&:strip)[1..-1]
-    cells&.fill('', cells.length...columns)
+    cells&.slice(0, columns)&.fill('', cells.length...columns)
   end
 
   def calculate_column_alignment_and_widths(rows, columns)
@@ -76,7 +76,7 @@ module MarkdownTableFormatter
     end
 
     # 2024-08-24 remove last column if it is 0-width
-    if column_widths.last.zero?
+    if column_widths.last&.zero?
       column_widths.pop
       alignment_indicators.pop
     end
