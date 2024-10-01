@@ -19,17 +19,18 @@ module MarkdownExec
       @attrs = {
         body: nil,
         call: nil,
-        headings: [],
         dname: nil,
+        headings: [],
         indent: '',
         name: nil,
         nickname: nil,
         oname: nil,
+        random: Random.new.rand,
         reqs: [],
         shell: '',
-        title: '',
-        random: Random.new.rand,
-        text: nil # displayable in menu
+        start_line: nil,
+        text: nil, # displayable in menu
+        title: ''
       }.merge(options)
     end
 
@@ -58,7 +59,8 @@ module MarkdownExec
     private
 
     # Formats multiline body content as a title string.
-    # indents all but first line with two spaces so it displays correctly in menu
+    # indents all but first line with two spaces
+    # so it displays correctly in menu.
     # @param body_lines [Array<String>] The lines of body content.
     # @return [String] Formatted title.
     def format_multiline_body_as_title(body_lines)
@@ -82,8 +84,7 @@ module MarkdownExec
            " *args: #{args.inspect}, &block)")
       warn err.inspect
       warn(caller[0..4])
-      # raise StandardError, error
-      raise err # Here, we simply propagate the original error instead of wrapping it in a StandardError.
+      raise err
     end
 
     public
@@ -109,19 +110,32 @@ if $PROGRAM_NAME == __FILE__
   require 'minitest/autorun'
   require 'yaml'
 
+  def assert_equal_hash(expected, actual, message = nil)
+    sorted_expected = sort_hash_recursively(expected)
+    sorted_actual = sort_hash_recursively(actual)
+    assert_equal sorted_expected, sorted_actual, message
+  end
+
+  def sort_hash_recursively(hash)
+    hash.each_with_object({}) do |(k, v), new_hash|
+      new_hash[k] = v.is_a?(Hash) ? sort_hash_recursively(v) : v
+    end.sort.to_h
+  end
+
   class FCBTest < Minitest::Test
     def setup
       @fcb_data = {
         body: 'Sample body',
         call: 'Sample call',
-        headings: %w[Header1 Header2],
         dname: 'Sample name',
+        headings: %w[Header1 Header2],
         indent: '',
-        nickname: nil,
         name: 'Sample name',
+        nickname: nil,
         oname: 'Sample name',
         reqs: %w[req1 req2],
         shell: 'bash',
+        start_line: nil,
         text: 'Sample Text',
         title: 'Sample Title'
       }
@@ -134,12 +148,13 @@ if $PROGRAM_NAME == __FILE__
     end
 
     def test_to_h_method
-      assert_equal @fcb_data.merge({ random: @fcb.random }), @fcb.to_h
+      assert_equal_hash @fcb_data.merge({ random: @fcb.random }), @fcb.to_h
     end
 
     def test_to_yaml_method
-      assert_equal YAML.load(@fcb_data.merge({ random: @fcb.random }).to_yaml),
-                   YAML.load(@fcb.to_yaml)
+      assert_equal_hash YAML.load(@fcb_data.merge({ random: @fcb.random })
+                                           .to_yaml),
+                        YAML.load(@fcb.to_yaml)
     end
 
     def test_method_missing_getter

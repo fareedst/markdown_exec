@@ -12,6 +12,10 @@
   :env_var: MDE_BLOCK_CALLS_SCAN
   :default: "%\\([^\\)]+\\)"
   :procname: val_as_str
+- :opt_name: block_disable_match
+  :env_var: MDE_BLOCK_DISABLE_MATCH
+  :default: "@disable"
+  :procname: val_as_str
 - :opt_name: block_name
   :long_name: block-name
   :short_name: b

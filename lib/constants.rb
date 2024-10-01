@@ -90,4 +90,6 @@ SHELL_COLOR_OPTIONS = {
   BlockType::VARS => :menu_vars_color
 }.freeze
 
-### Struct.new(:state, :block)
+class TtyMenu
+  DISABLE = ''
+end

@@ -16,6 +16,11 @@
   :default: "%\\([^\\)]+\\)"
   :procname: val_as_str
 
+- :opt_name: block_disable_match
+  :env_var: MDE_BLOCK_DISABLE_MATCH
+  :default: '@disable'
+  :procname: val_as_str
+
 - :opt_name: block_name
   :long_name: block-name
   :short_name: b
@@ -1116,7 +1121,6 @@
 
 - :opt_name: prompt_select_md
   :env_var: MDE_PROMPT_SELECT_MD
-
   :description: Prompt to select a markdown document
   :default: "\nChoose a file:"
   :procname: val_as_str

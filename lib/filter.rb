@@ -71,17 +71,19 @@ module MarkdownExec
       filters[:name_select] = true
       filters[:name_exclude] = false
 
-      if name.present? && filters[:name_select].nil? && options[:select_by_name_regex].present?
+      if name.present? && filters[:name_select].nil? &&
+         options[:select_by_name_regex].present?
         filters[:name_select] =
-          !!(name =~ /#{options[:select_by_name_regex]}/)
+          !!(name =~ Regexp.new(options[:select_by_name_regex]))
       end
 
-      unless name.present? && filters[:name_exclude].nil? && options[:exclude_by_name_regex].present?
+      unless name.present? && filters[:name_exclude].nil? &&
+             options[:exclude_by_name_regex].present?
         return
       end
 
       filters[:name_exclude] =
-        !!(name =~ /#{options[:exclude_by_name_regex]}/)
+        !!(name =~ Regexp.new(options[:exclude_by_name_regex]))
     end
 
     # Applies shell-based filters to determine whether to include or
@@ -102,13 +104,13 @@ module MarkdownExec
 
       if shell.present? && options[:select_by_shell_regex].present?
         filters[:shell_select] =
-          !!(shell =~ /#{options[:select_by_shell_regex]}/)
+          !!(shell =~ Regexp.new(options[:select_by_shell_regex]))
       end
 
       return unless shell.present? && options[:exclude_by_shell_regex].present?
 
       filters[:shell_exclude] =
-        !!(shell =~ /#{options[:exclude_by_shell_regex]}/)
+        !!(shell =~ Regexp.new(options[:exclude_by_shell_regex]))
     end
 
     # Applies additional filters to determine whether to include or
@@ -123,20 +125,25 @@ module MarkdownExec
       name = fcb.oname
       shell = fcb.shell
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
+      filters[:shell_default] = (shell == BlockType::BASH)
 
-      if name.present? && options[:hide_blocks_by_name]
+      if options[:block_disable_match].present? &&
+         fcb.start_line =~ Regexp.new(options[:block_disable_match])
+        fcb.disabled = TtyMenu::DISABLE
+      end
+      return unless name.present?
+
+      if options[:hide_blocks_by_name]
         filters[:hidden_name] =
           !!(options[:block_name_hidden_match].present? &&
-                    name =~ /#{options[:block_name_hidden_match]}/)
+                    name =~ Regexp.new(options[:block_name_hidden_match]))
       end
       filters[:include_name] =
         !!(options[:block_name_include_match].present? &&
-                  name =~ /#{options[:block_name_include_match]}/)
+                  name =~ Regexp.new(options[:block_name_include_match]))
       filters[:wrap_name] =
         !!(options[:block_name_wrapper_match].present? &&
-                  name =~ /#{options[:block_name_wrapper_match]}/)
-
-      filters[:shell_default] = (shell == BlockType::BASH)
+                  name =~ Regexp.new(options[:block_name_wrapper_match]))
     end
 
     # Evaluates the filter settings to make a final decision on
@@ -177,8 +184,10 @@ module MarkdownExec
     #
     # @param options [Hash] Options hash containing various settings
     # @param fcb [Hash] Hash representing a file code block
-    # @param match_patterns [Array<String>] Array of regular expression patterns for matching
-    # @return [Boolean] True if the block should not be in the menu, false otherwise
+    # @param match_patterns [Array<String>] Array of regular
+    #  expression patterns for matching
+    # @return [Boolean] True if the block should not be in the menu,
+    #  false otherwise
     def self.prepared_not_in_menu?(options, fcb, match_patterns)
       return false unless fcb.shell == BlockType::BASH
 
@@ -187,14 +196,19 @@ module MarkdownExec
       end
     end
 
-    # Yields to the provided block with specified parameters if certain conditions are met.
-    # The method checks if a block is given, if the selected_types include :blocks,
+    # Yields to the provided block with specified parameters if
+    #  certain conditions are met.
+    # The method checks if a block is given, if the selected_types
+    #  include :blocks,
     # and if the fcb_select? method returns true for the given fcb.
     #
-    # @param fcb [Object] The object to be evaluated and potentially passed to the block.
-    # @param selected_types [Array<Symbol>] A collection of message types, one of which must be :blocks.
+    # @param fcb [Object] The object to be evaluated and potentially
+    #  passed to the block.
+    # @param selected_types [Array<Symbol>] A collection of message types,
+    #  one of which must be :blocks.
     # @param block [Block] A block to be called if conditions are met.
-    def self.yield_to_block_if_applicable(fcb, selected_types, configuration = {}, &block)
+    def self.yield_to_block_if_applicable(fcb, selected_types,
+                                          configuration = {}, &block)
       if block_given? &&
          block_type_selected?(selected_types, :blocks) &&
          fcb_select?(configuration, fcb)
@@ -208,10 +222,29 @@ if $PROGRAM_NAME == __FILE__
   require 'bundler/setup'
   Bundler.require(:default)
 
-  require 'fcb'
   require 'minitest/autorun'
 
+  require_relative 'constants'
+
   module MarkdownExec
+    # Define a mock fenced code block class for testing purposes
+    class FCB
+      attr_accessor :oname, :shell, :start_line, :chrome, :disabled
+
+      def initialize(chrome: false, dname: nil,
+                     oname: nil, shell: '', start_line: nil)
+        @chrome = chrome
+        @dname = dname
+        @oname = oname
+        @shell = shell
+        @start_line = start_line
+      end
+
+      def fetch(key, default)
+        instance_variable_get("@#{key}") || default
+      end
+    end
+
     class FilterTest < Minitest::Test
       def setup
         @options = {}
@@ -224,7 +257,7 @@ if $PROGRAM_NAME == __FILE__
       # Tests for fcb_select? method
       def test_no_chrome_condition
         @options[:no_chrome] = true
-        @fcb[:chrome] = true
+        @fcb.chrome = true
         refute Filter.fcb_select?(@options, @fcb)
       end
 
@@ -281,6 +314,67 @@ if $PROGRAM_NAME == __FILE__
 
       def test_default_case
         assert Filter.fcb_select?(@options, @fcb)
+      end
+    end
+
+    class TestApplyOtherFilters < Minitest::Test
+      BlockType = Struct.new(:BASH).new('bash')
+
+      def setup
+        @filters = {}
+        @options = {}
+      end
+
+      def test_fcb_chrome
+        fcb = FCB.new(oname: 'test', shell: BlockType.BASH, start_line: '')
+        fcb.chrome = true
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal true, @filters[:fcb_chrome]
+      end
+
+      def test_shell_default_is_bash
+        fcb = FCB.new(oname: 'test', shell: BlockType.BASH, start_line: '')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal true, @filters[:shell_default]
+      end
+
+      def test_shell_default_is_not_bash
+        fcb = FCB.new(oname: 'test', shell: 'ruby', start_line: '')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal false, @filters[:shell_default]
+      end
+
+      def test_disable_block_when_match_found
+        @options[:block_disable_match] = 'disable_this'
+        fcb = FCB.new(oname: 'test', shell: BlockType.BASH,
+                      start_line: 'disable_this')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal TtyMenu::DISABLE, fcb.disabled
+      end
+
+      def test_hidden_block_by_name
+        @options[:block_name_hidden_match] = 'hidden_block'
+        @options[:hide_blocks_by_name] = true
+        fcb = FCB.new(oname: 'hidden_block', shell: BlockType.BASH,
+                      start_line: '')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal true, @filters[:hidden_name]
+      end
+
+      def test_include_block_by_name
+        @options[:block_name_include_match] = 'include_block'
+        fcb = FCB.new(oname: 'include_block', shell: BlockType.BASH,
+                      start_line: '')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal true, @filters[:include_name]
+      end
+
+      def test_wrap_block_by_name
+        @options[:block_name_wrapper_match] = 'wrap_block'
+        fcb = FCB.new(oname: 'wrap_block', shell: BlockType.BASH,
+                      start_line: '')
+        Filter.apply_other_filters(@options, @filters, fcb)
+        assert_equal true, @filters[:wrap_name]
       end
     end
   end

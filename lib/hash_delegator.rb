@@ -1731,7 +1731,7 @@ module MarkdownExec
     def get_block_summary(fcb)
       return fcb unless @delegate_object[:bash]
 
-      fcb.call = fcb.title.match(Regexp.new(@delegate_object[:block_calls_scan]))&.fetch(1, nil)
+      fcb.call = fcb.start_line.match(Regexp.new(@delegate_object[:block_calls_scan]))&.fetch(1, nil)
       titlexcall = fcb.call ? fcb.title.sub("%#{fcb.call}", '') : fcb.title
       bm = extract_named_captures_from_option(titlexcall,
                                               @delegate_object[:block_name_match])
@@ -2375,7 +2375,7 @@ module MarkdownExec
       puts @delegate_object[:prompt_enter_filespec]
 
       begin
-        input = gets.chomp
+        input = $stdin.gets.chomp
         PathUtils.resolve_path_or_substitute(input, filespec)
       rescue Interrupt
         puts "\nOperation interrupted. Returning nil."
@@ -2886,7 +2886,7 @@ module MarkdownExec
       end
 
       # disable fcb for data blocks
-      disabled = fcb_title_groups.fetch(:shell, '') == 'yaml' ? '' : nil
+      disabled = fcb_title_groups.fetch(:shell, '') == 'yaml' ? TtyMenu::DISABLE : nil
 
       MarkdownExec::FCB.new(
         body: [],
@@ -2899,6 +2899,7 @@ module MarkdownExec
         oname: oname,
         reqs: reqs,
         shell: fcb_title_groups.fetch(:shell, ''),
+        start_line: line,
         stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
                  tn.named_captures.sym_keys
                end,
