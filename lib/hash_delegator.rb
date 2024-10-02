@@ -1173,6 +1173,7 @@ module MarkdownExec
     def create_and_add_chrome_blocks(blocks, fcb)
       # rubocop:disable Layout/LineLength
       match_criteria = [
+        {                              format: :menu_note_format,     match: :menu_table_rows_match },
         { color: :menu_heading1_color, format: :menu_heading1_format, match: :heading1_match, center: true, case_conversion: :upcase, wrap: true },
         { color: :menu_heading2_color, format: :menu_heading2_format, match: :heading2_match, center: true, wrap: true },
         { color: :menu_heading3_color, format: :menu_heading3_format, match: :heading3_match, center: true, case_conversion: :downcase, wrap: true },
@@ -1192,9 +1193,12 @@ module MarkdownExec
           blocks: blocks,
           case_conversion: criteria[:case_conversion],
           center: criteria[:center],
-          color_method: @delegate_object[criteria[:color]].to_sym,
-          decor_patterns: @decor_patterns_from_delegate_object_for_block_create,
-          format_option: @delegate_object[criteria[:format]],
+          color_method: criteria[:color] &&
+                        @delegate_object[criteria[:color]].to_sym,
+          decor_patterns:
+            @decor_patterns_from_delegate_object_for_block_create,
+          format_option: criteria[:format] &&
+                         @delegate_object[criteria[:format]],
           match_data: mbody,
           wrap: criteria[:wrap]
         )
