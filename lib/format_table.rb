@@ -7,58 +7,6 @@ require_relative 'hierarchy_string'
 module MarkdownTableFormatter
   module_function
 
-  def format_table(lines, columns, decorate: nil)
-    rows = raw_lines_into_row_role_cells(lines, columns)
-
-    alignment_indicators, column_widths =
-      calculate_column_alignment_and_widths(rows, columns)
-
-    format_rows(rows, alignment_indicators, column_widths, decorate)
-  end
-
-  def raw_lines_into_row_role_cells(lines, columns)
-    role = :header_row
-    counter = -1
-
-    ret = []
-    lines.each do |line|
-      line += '|' unless line.end_with?('|')
-      counter += 1
-
-      role = role_for_raw_row(role, line)
-      counter = reset_counter_if_needed(role, counter)
-      cells = split_decorated_row_into_cells(line, columns)
-      ret << OpenStruct.new(cells: cells, role: role, counter: counter)
-    end
-    ret
-  end
-
-  def role_for_raw_row(current_role, line)
-    case current_role
-    when :header_row
-      if line =~ /^[ \t]*\| *[:\-][:\- |]*$/
-        :separator_line
-      else
-        current_role
-      end
-    when :separator_line
-      :row
-    when :row
-      current_role
-    else
-      raise "Unexpected role: #{current_role} for line #{line}"
-    end
-  end
-
-  def reset_counter_if_needed(role, counter)
-    %i[header_row row].include?(role) ? counter : 0
-  end
-
-  def split_decorated_row_into_cells(line, columns)
-    cells = line.split('|').map(&:strip)[1..-1]
-    cells&.slice(0, columns)&.fill('', cells.length...columns)
-  end
-
   def calculate_column_alignment_and_widths(rows, columns)
     alignment_indicators = Array.new(columns, :left)
     column_widths = Array.new(columns, 0)
@@ -84,6 +32,26 @@ module MarkdownTableFormatter
     [alignment_indicators, column_widths]
   end
 
+  def decorate_line(line, role, counter, decorate)
+    return line unless decorate
+
+    return line unless (style = decoration_style(line, role, counter, decorate))
+
+    AnsiString.new(line).send(style)
+  end
+
+  def decoration_style(role, counter, decorate)
+    return nil unless decorate
+
+    return nil unless (style = decorate[role])
+
+    if style.is_a?(Array)
+      style[counter % style.count]
+    else
+      style
+    end
+  end
+
   def determine_column_alignment(cell)
     if cell =~ /^-+:$/
       :right
@@ -94,9 +62,14 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_rows(rows, alignment_indicators, column_widths, decorate)
-    rows.map do |row|
-      format_row_line(row, alignment_indicators, column_widths, decorate)
+  def format_cell(cell, align, width)
+    case align
+    when :center
+      cell.center(width)
+    when :right
+      cell.rjust(width)
+    else
+      cell.ljust(width)
     end
   end
 
@@ -130,35 +103,19 @@ module MarkdownTableFormatter
     ).decorate
   end
 
-  def format_cell(cell, align, width)
-    case align
-    when :center
-      cell.center(width)
-    when :right
-      cell.rjust(width)
-    else
-      cell.ljust(width)
+  def format_rows(rows, alignment_indicators, column_widths, decorate)
+    rows.map do |row|
+      format_row_line(row, alignment_indicators, column_widths, decorate)
     end
   end
 
-  def decorate_line(line, role, counter, decorate)
-    return line unless decorate
+  def format_table(lines, columns, decorate: nil)
+    rows = raw_lines_into_row_role_cells(lines, columns)
 
-    return line unless (style = decoration_style(line, role, counter, decorate))
+    alignment_indicators, column_widths =
+      calculate_column_alignment_and_widths(rows, columns)
 
-    AnsiString.new(line).send(style)
-  end
-
-  def decoration_style(role, counter, decorate)
-    return nil unless decorate
-
-    return nil unless (style = decorate[role])
-
-    if style.is_a?(Array)
-      style[counter % style.count]
-    else
-      style
-    end
+    format_rows(rows, alignment_indicators, column_widths, decorate)
   end
 
   def insert_every_other(array, obj)
@@ -168,6 +125,49 @@ module MarkdownTableFormatter
       result << obj if index < array.size - 1
     end
     result
+  end
+
+  def raw_lines_into_row_role_cells(lines, columns)
+    role = :header_row
+    counter = -1
+
+    ret = []
+    lines.each do |line|
+      line += '|' unless line.end_with?('|')
+      counter += 1
+
+      role = role_for_raw_row(role, line)
+      counter = reset_counter_if_needed(role, counter)
+      cells = split_decorated_row_into_cells(line, columns)
+      ret << OpenStruct.new(cells: cells, role: role, counter: counter)
+    end
+    ret
+  end
+
+  def reset_counter_if_needed(role, counter)
+    %i[header_row row].include?(role) ? counter : 0
+  end
+
+  def role_for_raw_row(current_role, line)
+    case current_role
+    when :header_row
+      if line =~ /^[ \t]*\| *[:\-][:\- |]*$/
+        :separator_line
+      else
+        current_role
+      end
+    when :separator_line
+      :row
+    when :row
+      current_role
+    else
+      raise "Unexpected role: #{current_role} for line #{line}"
+    end
+  end
+
+  def split_decorated_row_into_cells(line, columns)
+    cells = line.split('|').map(&:strip)[1..-1]
+    cells&.slice(0, columns)&.fill('', cells.length...columns)
   end
 end
 

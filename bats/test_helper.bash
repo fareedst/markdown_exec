@@ -20,6 +20,12 @@ expect_equal_with_conversion () {
   local actual="$2"
   if [[ $3 == A ]]; then
     actual="$(remove_ansi_escape_sequences "$2")"
+    if [[ -n $EXPECT_VERBOSE ]]; then
+      echo "- expected"
+      echo "$expected" | hexdump -C
+      echo "- actual"
+      echo "$actual" | hexdump -C
+    fi
   fi
   [[ "$expected" == "$actual" ]]
 }

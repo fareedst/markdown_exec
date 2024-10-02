@@ -73,9 +73,9 @@ class MenuState
 end
 
 # a struct to hold the data for a single line
-NestedLine = Struct.new(:text, :depth) do
+NestedLine = Struct.new(:text, :depth, :indention) do
   def to_s
-    text
+    indention + text
   end
 end
 

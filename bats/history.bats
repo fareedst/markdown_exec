@@ -2,8 +2,8 @@
 
 load 'test_helper'
 
-@test 'Options - history' {
-  local log_files="$(ls -1 logs/*examples_save_md*)"
+@test 'Options - history, sorted' {
+  local log_files="$(ls -1t logs/*examples_save_md*)"
   spec_mde_args_expect examples/save.md --history \
    "$log_files"
 }

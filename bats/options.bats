@@ -17,9 +17,14 @@ load 'test_helper'
    ' bash1!'
 }
 
-@test 'Options - find' {
-  run_mde_specs_md_args_expect_xansi --find search \
-   'Searching in: . In directory names ./docs/research In file names ./examples/search.md'
+@test 'Options - find, find-path in directory names' {
+  run_mde_specs_md_args_expect_xansi --find-path ./docs --find search \
+   'Searching in: ./docs In directory names ./docs/research'
+}
+
+@test 'Options - find, find-path in file names' {
+  run_mde_specs_md_args_expect_xansi --find-path ./examples --find search \
+   'Searching in: ./examples In file names ./examples/search.md'
 }
 
 @test 'Options - list blocks' {

@@ -39,7 +39,7 @@ class CachedNestedFileReader
     )
   end
 
-  def readlines(filename, depth = 0, context: '', import_paths: nil, &block)
+  def readlines(filename, depth = 0, context: '', import_paths: nil, indention: '', &block)
     if @file_cache.key?(filename)
       @file_cache[filename].each(&block) if block
       return @file_cache[filename]
@@ -50,6 +50,7 @@ class CachedNestedFileReader
     File.readlines(filename, chomp: true).each.with_index do |line, ind|
       if Regexp.new(@import_pattern) =~ line
         name_strip = $~[:name].strip
+        import_indention = indention + $~[:indention]
         included_file_path = if name_strip =~ %r{^/}
                                name_strip
                              elsif import_paths
@@ -62,9 +63,10 @@ class CachedNestedFileReader
         processed_lines += readlines(included_file_path, depth + 1,
                                      context: "#{filename}:#{ind + 1}",
                                      import_paths: import_paths,
+                                     indention: import_indention,
                                      &block)
       else
-        nested_line = NestedLine.new(line, depth)
+        nested_line = NestedLine.new(line, depth, indention)
         processed_lines.push(nested_line)
         block&.call(nested_line)
       end
@@ -92,7 +94,7 @@ class CachedNestedFileReaderTest < Minitest::Test
     @file1 = Tempfile.new('test1.txt')
     @file1.write("Line1\nLine2\n #insert #{@file2.path}\nLine3")
     @file1.rewind
-    @reader = CachedNestedFileReader.new(import_pattern: /^ *#insert (?'name'.+)$/)
+    @reader = CachedNestedFileReader.new(import_pattern: /^(?<indention> *)#insert (?'name'.+)$/)
   end
 
   def teardown
@@ -110,7 +112,7 @@ class CachedNestedFileReaderTest < Minitest::Test
 
   def test_readlines_with_imports
     result = @reader.readlines(@file1.path).map(&:to_s)
-    assert_equal %w[Line1 Line2 ImportedLine1 ImportedLine2 Line3],
+    assert_equal ['Line1', 'Line2', ' ImportedLine1', ' ImportedLine2', 'Line3'],
                  result
   end
 

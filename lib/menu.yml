@@ -362,7 +362,7 @@
   :procname: val_as_str
 - :opt_name: import_pattern
   :env_var: MDE_IMPORT_PATTERN
-  :default: "^ *@import +(?<name>.+?) *$"
+  :default: "^(?<indention> *)@import +(?<name>.+?) *$"
   :procname: val_as_str
 - :opt_name: line_decor_main
   :env_var: MDE_LINE_DECOR_MAIN

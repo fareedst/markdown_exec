@@ -3155,6 +3155,7 @@ module MarkdownExec
             @delegate_object[:fenced_start_extended_regex]
           )
           state[:fcb][:depth] = nested_line[:depth]
+          state[:fcb][:indention] = nested_line[:indention]
           state[:in_fenced_block] = true
         end
       elsif state[:in_fenced_block] && state[:fcb].body
