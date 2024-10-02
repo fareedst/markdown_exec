@@ -2735,29 +2735,28 @@ module MarkdownExec
     end
 
     def read_saved_assets_for_history_table
-      files = history_files(@dml_link_state).sort
-      files.map do |file|
-        if Regexp.new(@delegate_object[:saved_asset_match]) =~ file
-          begin
-            OpenStruct.new(
-              file: file,
-              row: format(
-                @delegate_object[:saved_history_format],
-                # create with default '*' so unknown parameters are given a wildcard
-                $~.names.each_with_object(Hash.new('*')) do |name, hash|
-                  hash[name.to_sym] = $~[name]
-                end
-              )
-            )
-          rescue KeyError
-            # pp $!, $@
-            warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
-            error_handler('saved_history_format')
-            return nil
-          end
-        else
+      history_files(@dml_link_state).map do |file|
+        unless Regexp.new(@delegate_object[:saved_asset_match]) =~ file
           warn "Cannot parse name: #{file}"
           next
+        end
+
+        begin
+          OpenStruct.new(
+            file: file,
+            row: format(
+              @delegate_object[:saved_history_format],
+              # create with default '*' so unknown parameters are given a wildcard
+              $~.names.each_with_object(Hash.new('*')) do |name, hash|
+                hash[name.to_sym] = $~[name]
+              end
+            )
+          )
+        rescue KeyError
+          # pp $!, $@
+          warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
+          error_handler('saved_history_format')
+          return nil
         end
       end&.compact
     end
