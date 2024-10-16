@@ -120,6 +120,7 @@ task :minitest do
     end
   end
 end
+task mini: %i[minitest]
 
 desc 'reek'
 task :reek do

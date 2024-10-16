@@ -72,7 +72,8 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_indented_table
@@ -83,7 +84,8 @@ class TestTableExtractor < Minitest::Test
       "\t | | Histiophryne| Antennariidae"
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_multiple_tables
@@ -101,7 +103,8 @@ class TestTableExtractor < Minitest::Test
       { rows: 4, columns: 3, start_index: 0 },
       { rows: 3, columns: 2, start_index: 5 }
     ]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_no_tables
@@ -110,7 +113,8 @@ class TestTableExtractor < Minitest::Test
       'Another regular line.'
     ]
     expected = []
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_inconsistent_columns
@@ -127,7 +131,8 @@ class TestTableExtractor < Minitest::Test
     # number of columns determined from row of dividers
     expected = [{ rows: 4, columns: 2, start_index: 0 },
                 { rows: 3, columns: 3, start_index: 5 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_table_at_end_of_lines
@@ -139,7 +144,8 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 1 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_table_without_starting_pipe
@@ -151,7 +157,8 @@ class TestTableExtractor < Minitest::Test
       '| | Histiophryne| Antennariidae'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 1 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 
   def test_table_with_colon_hyphens
@@ -162,6 +169,7 @@ class TestTableExtractor < Minitest::Test
       '| Jane Doe| 25| Los Angeles'
     ]
     expected = [{ rows: 4, columns: 3, start_index: 0 }]
-    assert_equal expected, TableExtractor.extract_tables(lines, regexp: @@regexp)
+    assert_equal expected,
+                 TableExtractor.extract_tables(lines, regexp: @@regexp)
   end
 end

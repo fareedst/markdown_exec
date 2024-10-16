@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.4.1] - 2024-10-15
+
+### Added
+
+- Indent imported blocks.
+- Option for default shell (Bash or Sh).
+- Option to enable cycling past top or bottom of menu.
+- Options for matching table rows.
+- Option to disable blocks with token in title.
+- Remember and process start line for each block.
+- Tests for published data.
+
+### Changed
+
+- Fix sorting of history menu choices.
+- Color is optional for menu entries.
+- Display decorated line in table.
+- Fix input source for prompt for input from user.
+
 ## [2.4.0] - 2024-09-12
 
 ### Added

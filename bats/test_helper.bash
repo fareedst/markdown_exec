@@ -81,8 +81,13 @@ run_mde_specs_md_args_expect_xansi () {
   fi
 
   expect_equal_with_conversion "$expected" "$output" "$filter"
-  (( $status != $0 )) && echo "- status: $status"
+  (( $status != 0 )) && echo "- status: $status"
   [ "$status" -eq 0 ]
+}
+
+silence_ww () {
+  unset WW
+  "$@"
 }
 
 spec_mde_args_expect () {
@@ -95,7 +100,27 @@ spec_mde_args_expect () {
   #   esac
   #   shift "$SHIFT_COUNT"
   # done
-  spec_mde_args_grep_filter_expect ${@:1:$#-1} "$BATS_OUTPUT_GREP" "$BATS_OUTPUT_FILTER" "${@: -1}"
+  # spec_mde_args_grep_filter_expect ${@:1:$#-1} "$BATS_OUTPUT_GREP" "$BATS_OUTPUT_FILTER" "${@: -1}"
+
+  # Use an array to handle the words
+  # IFS=' ' read -r -a args <<< "$@"
+
+  args=()
+  for arg in "$@"; do
+    if [[ $arg =~ ^\"(.*)\"$ ]]; then
+      # Handle fully quoted string (preserves spaces inside quotes)
+      args+=("${BASH_REMATCH[1]}")
+    else
+      # Non-quoted or partially quoted strings (preserves as-is)
+      args+=("$arg")
+    fi
+  done
+
+  spec_mde_args_grep_filter_expect \
+   "${args[@]:0:${#args[@]}-1}" \
+   "$BATS_OUTPUT_GREP" \
+   "$BATS_OUTPUT_FILTER" \
+   "${args[@]: -1}"
 }
 
 spec_mde_args_grep_filter_expect () {
@@ -107,8 +132,22 @@ spec_mde_args_grep_filter_expect () {
   local STATUS="${BATS_STATUS:-0}"
 
   if [[ -z $SL ]]; then
-    # echo bin/bmde "$remaining"
-    run bin/bmde $remaining
+    # Use read command to properly handle quoted strings
+    args=()
+    while [[ $remaining ]]; do
+      if [[ $remaining =~ ^\"([^\"]*)\"[[:space:]]* ]]; then
+        # Extract quoted string
+        args+=("${BASH_REMATCH[1]}")
+        remaining=${remaining:${#BASH_REMATCH[0]}}
+      elif [[ $remaining =~ ^([^[:space:]]+)[[:space:]]* ]]; then
+        # Extract non-quoted argument
+        args+=("${BASH_REMATCH[1]}")
+        remaining=${remaining:${#BASH_REMATCH[0]}}
+      else
+        break
+      fi
+    done
+    run silence_ww bin/bmde "${args[@]}"
   else
     bash -c "
       SL=$SL

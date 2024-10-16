@@ -4,9 +4,9 @@
   :procname: show_config
 - :opt_name: bash_only
   :env_var: MDE_BASH_ONLY
-  :description: Display only blocks of type "bash"
+  :description: Execute only blocks of type "bash"
   :arg_name: BOOL
-  :default: true
+  :default: false
   :procname: val_as_bool
 - :opt_name: block_calls_scan
   :env_var: MDE_BLOCK_CALLS_SCAN
@@ -60,6 +60,10 @@
   :env_var: MDE_BLOCK_STDOUT_SCAN
   :description: Match to place block body into a file or a variable
   :default: ">(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
+  :procname: val_as_str
+- :opt_name: block_type_default
+  :env_var: MDE_BLOCK_TYPE_DEFAULT
+  :default: bash
   :procname: val_as_str
 - :opt_name: block_type_port_set_format
   :env_var: MDE_BLOCK_TYPE_PORT_SET_FORMAT
@@ -229,7 +233,7 @@
   :procname: val_as_bool
 - :opt_name: execute_command_format
   :env_var: MDE_EXECUTE_COMMAND_FORMAT
-  :description: execute_command_format
+  :description: AppleScript to execute a command in a window
   :default: |
     osascript -e '
       on run argv
@@ -291,7 +295,7 @@
 - :opt_name: fenced_start_extended_regex
   :env_var: MDE_FENCED_START_EXTENDED_REGEX
   :description: Match the start of a fenced block
-  :default: "^(?<indent>[ \t]*)`{3,}(?<shell>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*)
+  :default: "^(?<indent>[ \t]*)`{3,}(?<type>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*)
     *$"
   :procname: val_as_str
 - :opt_name: filename
@@ -706,7 +710,7 @@
 - :opt_name: menu_table_rows_match
   :env_var: MDE_MENU_TABLE_ROWS_MATCH
   :description: Pattern for table rows
-  :default: "^(?<line>[ \\t]*\\|(?<text>.*?)(?<trailing>[ \\t]*))$"
+  :default: "^(?<line>[ \\t]*(?<text>\\|.*?)(?<trailing>[ \\t]*))$"
   :procname: val_as_str
 - :opt_name: menu_task_color
   :env_var: MDE_MENU_TASK_COLOR
@@ -1148,6 +1152,11 @@
   :arg_name: REGEX
   :default:
   :procname: val_as_str
+- :opt_name: select_page_cycle
+  :env_var: MDE_SELECT_PAGE_CYCLE
+  :description: Enable cycling past top or bottom
+  :default: true
+  :procname: val_as_bool
 - :opt_name: select_page_height
   :env_var: MDE_SELECT_PAGE_HEIGHT
   :description: 'Maximum # of rows in select list. Detects current limit if not specified.'

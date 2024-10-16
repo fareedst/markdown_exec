@@ -1,8 +1,6 @@
-#!/usr/bin/env ruby
 # frozen_string_literal: true
 
 # encoding=utf-8
-
 require_relative 'block_types'
 
 class AppInterrupt < StandardError; end
@@ -20,6 +18,13 @@ class ArgPro
   CallProcess = :proc_name
   ConvertValue = :convert
 end
+
+BLOCK_TYPE_COLOR_OPTIONS = {
+  BlockType::LINK => :menu_link_color,
+  BlockType::OPTS => :menu_opts_color,
+  BlockType::SHELL => :menu_bash_color,
+  BlockType::VARS => :menu_vars_color
+}.freeze
 
 class ExecutionStreams
   STD_ERR = :stderr
@@ -82,13 +87,6 @@ end
 # selected block and subsequent menu state
 #
 SelectedBlockMenuState = Struct.new(:block, :source, :state)
-
-SHELL_COLOR_OPTIONS = {
-  BlockType::BASH => :menu_bash_color,
-  BlockType::LINK => :menu_link_color,
-  BlockType::OPTS => :menu_opts_color,
-  BlockType::VARS => :menu_vars_color
-}.freeze
 
 class TtyMenu
   DISABLE = ''

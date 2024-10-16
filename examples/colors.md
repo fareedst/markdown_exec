@@ -17,9 +17,6 @@
 / ff00ff magenta - opts text
 / ff007f rose - exception frame
 
-```opts :(document_options)
-```
-
 ```opts :load_colors
 exception_color_detail: fg_rgbh_1f_00_7f
 exception_color_name: fg_rgbh_1f_00_00

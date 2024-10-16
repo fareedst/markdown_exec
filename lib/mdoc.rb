@@ -137,14 +137,14 @@ module MarkdownExec
                 collect_block_code_cann(fcb)
               elsif fcb[:stdout]
                 collect_block_code_stdout(fcb)
-              elsif [BlockType::OPTS].include? fcb.shell
+              elsif [BlockType::OPTS].include? fcb.type
                 fcb.body # entire body is returned to requesing block
               elsif [BlockType::LINK,
-                     BlockType::VARS].include? fcb.shell
+                     BlockType::VARS].include? fcb.type
                 nil
               elsif fcb[:chrome] # for Link blocks like History
                 nil
-              elsif fcb.shell == BlockType::PORT
+              elsif fcb.type == BlockType::PORT
                 generate_env_variable_shell_commands(fcb)
               elsif label_body
                 generate_label_body_code(fcb, block_source, label_format_above,
@@ -294,12 +294,11 @@ module MarkdownExec
     def get_block_by_anyname(name, default = {})
       # &bt name
       @table.select do |fcb|
-        fcb.tap { |_ret| pp [__LINE__, 'get_block_by_anyname()', 'fcb', fcb] if $pd }
         fcb.nickname == name ||
           fcb.dname == name ||
           fcb.oname == name ||
           fcb.pub_name == name
-      end.fetch(0, default).tap { |ret| pp [__LINE__, 'get_block_by_anyname() ->', ret] if $pd }
+      end.fetch(0, default)
     end
 
     # Checks if a code block should be hidden based on the given options.

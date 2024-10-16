@@ -2,10 +2,19 @@
 
 class BlockType
   ALL = [
-    BASH = 'bash',
     LINK = 'link',
     OPTS = 'opts',
     PORT = 'port',
-    VARS = 'vars'
+    SHELL = 'shell',
+    VARS = 'vars',
+    YAML = 'yaml'
+  ].freeze
+end
+
+class ShellType
+  ALL = [
+    BASH = 'bash',
+    FISH = 'fish',
+    SH = 'sh'
   ].freeze
 end

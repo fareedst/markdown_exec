@@ -46,11 +46,10 @@ module MarkdownExec
         wrap_name: nil
       }
 
-      name = fcb.oname
-      shell = fcb.shell
-
-      apply_name_filters(options, filters, name)
-      apply_shell_filters(options, filters, shell)
+      apply_name_filters(options, filters, fcb.oname)
+      apply_shell_filters(
+        options, filters, shell: fcb.shell || '', type: fcb.type || ''
+      )
       apply_other_filters(options, filters, fcb)
 
       evaluate_filters(options, filters)
@@ -94,9 +93,10 @@ module MarkdownExec
     # @param filters [Hash] The filter settings to be updated.
     # @param shell [String] The shell type of the fenced code block.
     #
-    def self.apply_shell_filters(options, filters, shell)
-      filters[:shell_expect] = shell == 'expect'
+    def self.apply_shell_filters(options, filters, shell:, type:)
+      raise if shell.nil?
 
+      filters[:shell_expect] = type == 'expect'
       if shell.empty? && options[:bash_only]
         filters[:shell_exclude] = true
         return
@@ -125,7 +125,7 @@ module MarkdownExec
       name = fcb.oname
       shell = fcb.shell
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
-      filters[:shell_default] = (shell == BlockType::BASH)
+      filters[:shell_default] = (fcb.type == BlockType::SHELL)
 
       if options[:block_disable_match].present? &&
          fcb.start_line =~ Regexp.new(options[:block_disable_match])
@@ -189,7 +189,7 @@ module MarkdownExec
     # @return [Boolean] True if the block should not be in the menu,
     #  false otherwise
     def self.prepared_not_in_menu?(options, fcb, match_patterns)
-      return false unless fcb.shell == BlockType::BASH
+      return false unless fcb.type == BlockType::SHELL
 
       match_patterns.any? do |pattern|
         options[pattern].present? && fcb.oname =~ /#{options[pattern]}/
@@ -229,14 +229,17 @@ if $PROGRAM_NAME == __FILE__
   module MarkdownExec
     # Define a mock fenced code block class for testing purposes
     class FCB
-      attr_accessor :oname, :shell, :start_line, :chrome, :disabled
+      attr_accessor :chrome, :disabled, :oname, :shell, :start_line, :type
 
-      def initialize(chrome: false, dname: nil,
-                     oname: nil, shell: '', start_line: nil)
+      def initialize(
+        chrome: false, dname: nil, oname: nil,
+        shell: '', start_line: nil, type: nil
+      )
         @chrome = chrome
         @dname = dname
         @oname = oname
         @shell = shell
+        @type = type
         @start_line = start_line
       end
 
@@ -263,7 +266,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_exclude_expect_blocks_condition
         @options[:exclude_expect_blocks] = true
-        @fcb.shell = 'expect'
+        @fcb.type = 'expect'
         refute Filter.fcb_select?(@options, @fcb)
       end
 
@@ -308,7 +311,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_bash_only_condition_true
         @options[:bash_only] = true
-        @fcb.shell = BlockType::BASH
+        @fcb.shell = ShellType::BASH
         assert Filter.fcb_select?(@options, @fcb)
       end
 
@@ -318,22 +321,23 @@ if $PROGRAM_NAME == __FILE__
     end
 
     class TestApplyOtherFilters < Minitest::Test
-      BlockType = Struct.new(:BASH).new('bash')
-
       def setup
         @filters = {}
         @options = {}
       end
 
       def test_fcb_chrome
-        fcb = FCB.new(oname: 'test', shell: BlockType.BASH, start_line: '')
+        fcb = FCB.new(oname: 'test', shell: ShellType::BASH, start_line: '')
         fcb.chrome = true
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal true, @filters[:fcb_chrome]
       end
 
       def test_shell_default_is_bash
-        fcb = FCB.new(oname: 'test', shell: BlockType.BASH, start_line: '')
+        fcb = FCB.new(
+          oname: 'test', shell: ShellType::BASH,
+          type: BlockType::SHELL, start_line: ''
+        )
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal true, @filters[:shell_default]
       end
@@ -346,7 +350,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_disable_block_when_match_found
         @options[:block_disable_match] = 'disable_this'
-        fcb = FCB.new(oname: 'test', shell: BlockType.BASH,
+        fcb = FCB.new(oname: 'test', shell: ShellType::BASH,
                       start_line: 'disable_this')
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal TtyMenu::DISABLE, fcb.disabled
@@ -355,7 +359,7 @@ if $PROGRAM_NAME == __FILE__
       def test_hidden_block_by_name
         @options[:block_name_hidden_match] = 'hidden_block'
         @options[:hide_blocks_by_name] = true
-        fcb = FCB.new(oname: 'hidden_block', shell: BlockType.BASH,
+        fcb = FCB.new(oname: 'hidden_block', shell: ShellType::BASH,
                       start_line: '')
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal true, @filters[:hidden_name]
@@ -363,7 +367,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_include_block_by_name
         @options[:block_name_include_match] = 'include_block'
-        fcb = FCB.new(oname: 'include_block', shell: BlockType.BASH,
+        fcb = FCB.new(oname: 'include_block', shell: ShellType::BASH,
                       start_line: '')
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal true, @filters[:include_name]
@@ -371,7 +375,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_wrap_block_by_name
         @options[:block_name_wrapper_match] = 'wrap_block'
-        fcb = FCB.new(oname: 'wrap_block', shell: BlockType.BASH,
+        fcb = FCB.new(oname: 'wrap_block', shell: ShellType::BASH,
                       start_line: '')
         Filter.apply_other_filters(@options, @filters, fcb)
         assert_equal true, @filters[:wrap_name]

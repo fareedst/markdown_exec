@@ -52,9 +52,9 @@ RSpec.describe 'MarkdownExec' do
   let(:no_chrome) { false }
   let(:option_bash) { false }
   let(:struct_bash) { true }
-  let(:fenced_start_and_end_regex) { '^(?<indent> *)`{3,}' }
+  let(:fenced_start_and_end_regex) { "^(?<indent>[ \t]*)`{3,}" }
   let(:fenced_start_extended_regex) do
-    '^(?<indent> *)`{3,}(?<shell>[^`\\s]*) *:?(?<name>[^\\s]*) *(?<rest>.*) *$'
+    "^(?<indent>[ \t]*)`{3,}(?<type>[^`\\s]*) *(:(?<name>[^\\s]*))? *(?<rest>.*) *$"
   end
 
   let(:options) do
@@ -367,7 +367,7 @@ RSpec.describe 'MarkdownExec' do
       expect_any_instance_of(MarkdownExec::HashDelegator).to \
         receive(:command_execute).with(
           'a',
-          { args: [] }
+          { args: [], shell: '' }
         )
       opts = mp.options.merge(
         bash: true,

@@ -16,16 +16,26 @@ Centered columns.
   | Cappuccino Snake| Hydrodynastes bicinctus| Hydrodynastes| Colubridae| 2021
   | Homo luzonensis| Homo luzonensis| Homo| Hominidae| 2019
 
-	Table indented with one tab.
-	Right-justified columns.
-	| Common Name| Species| Genus| Family| Year Discovered
-	|-:|-:|-:|-:|-:
-	| Spiny Dandelion| Taraxacum japonicum| Taraxacum| Asteraceae| 2022
-	| Mythical Monkey| Cercopithecus lomamiensis| Cercopithecus| Cercopithecidae| 2012
-	| Yeti Crab| Kiwa hirsuta| Kiwa| Kiwaidae| 2005
+  Table indented with one tab.
+  Right-justified columns.
+  | Common Name| Species| Genus| Family| Year Discovered
+  |-:|-:|-:|-:|-:
+  | Spiny Dandelion| Taraxacum japonicum| Taraxacum| Asteraceae| 2022
+  | Mythical Monkey| Cercopithecus lomamiensis| Cercopithecus| Cercopithecidae| 2012
+  | Yeti Crab| Kiwa hirsuta| Kiwa| Kiwaidae| 2005
 
 ## Non-table text is not modified
 1. |
 2. ||
     |
     ||
+
+## markup with table
+| Common Name| Species| Genus| Family| Year Discovered
+|:-:|:-:|:-:|:-:|:-:
+| `Tapanuli Orangutan`| **Pongo tapanuliensis**| __Pongo__| Hominidae| 2017
+
+## Exceptions
+The lines below are an incomplete table
+| Region| VPC ID| VPC Name
+-

@@ -30,12 +30,9 @@ module MarkdownExec
         shell: '',
         start_line: nil,
         text: nil, # displayable in menu
-        title: ''
+        title: '',
+        type: ''
       }.merge(options)
-    end
-
-    def title=(value)
-      @attrs[:title] = value
     end
 
     # Derives a title from the body of an FCB object.
@@ -93,6 +90,22 @@ module MarkdownExec
       @attrs.key?(method_name.to_sym) || super
     end
 
+    def shell
+      @attrs[:shell]
+    end
+
+    def shell=(value)
+      @attrs[:shell] = value
+    end
+
+    def type
+      @attrs[:type]
+    end
+
+    def type=(value)
+      @attrs[:type] = value
+    end
+
     def to_h
       @attrs.to_h
     end
@@ -134,10 +147,11 @@ if $PROGRAM_NAME == __FILE__
         nickname: nil,
         oname: 'Sample name',
         reqs: %w[req1 req2],
-        shell: 'bash',
+        shell: ShellType::BASH,
         start_line: nil,
         text: 'Sample Text',
-        title: 'Sample Title'
+        title: 'Sample Title',
+        type: 'shell'
       }
       @fcb = MarkdownExec::FCB.new(@fcb_data)
     end

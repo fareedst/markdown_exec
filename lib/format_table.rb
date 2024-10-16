@@ -7,9 +7,9 @@ require_relative 'hierarchy_string'
 module MarkdownTableFormatter
   module_function
 
-  def calculate_column_alignment_and_widths(rows, columns)
-    alignment_indicators = Array.new(columns, :left)
-    column_widths = Array.new(columns, 0)
+  def calculate_column_alignment_and_widths(rows, column_count)
+    alignment_indicators = Array.new(column_count, :left)
+    column_widths = Array.new(column_count, 0)
 
     rows.each do |row|
       next if row.cells.nil?
@@ -35,7 +35,8 @@ module MarkdownTableFormatter
   def decorate_line(line, role, counter, decorate)
     return line unless decorate
 
-    return line unless (style = decoration_style(line, role, counter, decorate))
+    style = decoration_style(line, role, counter, decorate)
+    return line unless style
 
     AnsiString.new(line).send(style)
   end
@@ -73,8 +74,10 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_row_line(row, alignment_indicators, column_widths, decorate,
-                      text_sym: :text, style_sym: :color)
+  def format_row_line(
+    row, alignment_indicators, column_widths, decorate,
+    text_sym: :text, style_sym: :color
+  )
     return '' if row.cells.nil?
 
     border_style = decorate && decorate[:border]
@@ -109,11 +112,18 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_table(lines, columns, decorate: nil)
-    rows = raw_lines_into_row_role_cells(lines, columns)
+  def format_table(lines:, column_count:, decorate: nil)
+    unless column_count.positive?
+      return lines.map do |line|
+        HierarchyString.new([{ text: line }])
+        # HierarchyString.new([{ text: line, color: decorate }]) #???
+      end
+    end
+
+    rows = raw_lines_into_row_role_cells(lines, column_count)
 
     alignment_indicators, column_widths =
-      calculate_column_alignment_and_widths(rows, columns)
+      calculate_column_alignment_and_widths(rows, column_count)
 
     format_rows(rows, alignment_indicators, column_widths, decorate)
   end
@@ -127,7 +137,7 @@ module MarkdownTableFormatter
     result
   end
 
-  def raw_lines_into_row_role_cells(lines, columns)
+  def raw_lines_into_row_role_cells(lines, column_count)
     role = :header_row
     counter = -1
 
@@ -138,7 +148,7 @@ module MarkdownTableFormatter
 
       role = role_for_raw_row(role, line)
       counter = reset_counter_if_needed(role, counter)
-      cells = split_decorated_row_into_cells(line, columns)
+      cells = split_decorated_row_into_cells(line, column_count)
       ret << OpenStruct.new(cells: cells, role: role, counter: counter)
     end
     ret
@@ -165,9 +175,9 @@ module MarkdownTableFormatter
     end
   end
 
-  def split_decorated_row_into_cells(line, columns)
+  def split_decorated_row_into_cells(line, column_count)
     cells = line.split('|').map(&:strip)[1..-1]
-    cells&.slice(0, columns)&.fill('', cells.length...columns)
+    cells&.slice(0, column_count)&.fill('', cells.length...column_count)
   end
 end
 
@@ -184,11 +194,13 @@ class TestMarkdownTableFormatter < Minitest::Test
       '| Row 1 Col 1 | Row 1 Col 2 | Row 1 Col 3 |',
       '| Row 2 Col 1 | Row 2 Col 2 | Row 2 Col 3 |'
     ]
-    @columns = 3
+    @column_count = 3
   end
 
   def test_format_table
-    result = MarkdownTableFormatter.format_table(@lines, @columns)
+    result = MarkdownTableFormatter.format_table(
+      column_count: @column_count, lines: @lines
+    )
     expected = [
       '| Header 1    |  Header 2   |    Header 3 |',
       '| ----------- | ----------- | ----------- |',
@@ -200,8 +212,11 @@ class TestMarkdownTableFormatter < Minitest::Test
 
   def test_format_table_with_decoration
     decorate = { header_row: :upcase, row: %i[downcase upcase] }
-    result = MarkdownTableFormatter.format_table(@lines, @columns,
-                                                 decorate: decorate)
+    result = MarkdownTableFormatter.format_table(
+      column_count: @column_count,
+      decorate: decorate,
+      lines: @lines
+    )
     expected = [
       '| HEADER 1    |  HEADER 2   |    HEADER 3 |',
       '| ----------- | ----------- | ----------- |',
@@ -219,7 +234,10 @@ class TestMarkdownTableFormatter < Minitest::Test
       '',
       '| Row 2 Col 1 | Row 2 Col 2 | Row 2 Col 3 |'
     ]
-    result = MarkdownTableFormatter.format_table(lines_with_empty, @columns)
+    result = MarkdownTableFormatter.format_table(
+      lines: lines_with_empty,
+      column_count: @column_count
+    )
     expected = [
       '| Header 1    |  Header 2   |    Header 3 |',
       '| ----------- | ----------- | ----------- |',
@@ -235,7 +253,10 @@ class TestMarkdownTableFormatter < Minitest::Test
       '| Header 1 | Header 2 | Header 3 |',
       '|:-------- |:--------:| --------:|'
     ]
-    result = MarkdownTableFormatter.format_table(lines_with_alignment, @columns)
+    result = MarkdownTableFormatter.format_table(
+      lines: lines_with_alignment,
+      column_count: @column_count
+    )
     expected = [
       '| Header 1  |  Header 2  |  Header 3 |',
       '| --------- | ---------- | --------- |'
@@ -252,46 +273,55 @@ class TestFormatTable < Minitest::Test
       '| Pongo tapanuliensis| Pongo| Hominidae',
       '| | Histiophryne| Antennariidae'
     ]
-    columns = 3
+    column_count = 3
     expected = [
       '| Species             | Genus        | Family        |',
       '| ------------------- | ------------ | ------------- |',
       '| Pongo tapanuliensis | Pongo        | Hominidae     |',
       '|                     | Histiophryne | Antennariidae |'
     ]
-    assert_equal expected, MarkdownTableFormatter.format_table(lines, columns)
+    assert_equal expected, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: column_count
+    )
   end
 
-  def test_missing_columns
+  def test_missing_column_count
     lines = [
       '| A| B| C',
       '| 1| 2',
       '| X'
     ]
-    columns = 3
+    column_count = 3
     expected = [
       '| A | B | C |',
       '| 1 | 2 |   |',
       '| X |   |   |'
     ]
-    assert_equal expected, MarkdownTableFormatter.format_table(lines, columns)
+    assert_equal expected, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: column_count
+    )
   end
 
-  # def test_extra_columns
+  # def test_extra_column_count
   #   lines = [
   #     "| A| B| C| D",
   #     "| 1| 2| 3| 4| 5"
   #   ]
-  #   columns = 3
+  #   column_count = 3
   #   expected = [
   #     "| A | B | C ",
   #     "| 1 | 2 | 3 "
   #   ]
-  #   assert_equal expected, MarkdownTableFormatter.format_table(lines, columns)
+  #   assert_equal expected, MarkdownTableFormatter.format_table(lines, column_count)
   # end
 
   def test_empty_input
-    assert_equal [], MarkdownTableFormatter.format_table([], 3)
+    assert_equal [], MarkdownTableFormatter.format_table(
+      lines: [],
+      column_count: 3
+    )
   end
 
   def test_single_column
@@ -300,13 +330,16 @@ class TestFormatTable < Minitest::Test
       '| Longer text',
       '| Short'
     ]
-    columns = 1
+    column_count = 1
     expected = [
       '| A           |',
       '| Longer text |',
       '| Short       |'
     ]
-    assert_equal expected, MarkdownTableFormatter.format_table(lines, columns)
+    assert_equal expected, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: column_count
+    )
   end
 
   def test_no_pipe_at_end
@@ -314,12 +347,15 @@ class TestFormatTable < Minitest::Test
       '| A| B| C',
       '| 1| 2| 3'
     ]
-    columns = 3
+    column_count = 3
     expected = [
       '| A | B | C |',
       '| 1 | 2 | 3 |'
     ]
-    assert_equal expected, MarkdownTableFormatter.format_table(lines, columns)
+    assert_equal expected, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: column_count
+    )
   end
 end
 
@@ -335,10 +371,13 @@ class TestFormatTable2 < Minitest::Test
       '| John | 30  | New York    |',
       '| Jane | 25  | Los Angeles |'
     ]
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 
-  def test_incomplete_columns
+  def test_incomplete_column_count
     lines = [
       '| Name | Age |',
       '| John | 30 | New York |',
@@ -349,10 +388,13 @@ class TestFormatTable2 < Minitest::Test
       '| John | 30  | New York    |',
       '| Jane | 25  | Los Angeles |'
     ]
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 
-  def test_extra_columns
+  def test_extra_column_count
     lines = [
       '| Name | Age | City | Country |',
       '| John | 30 | New York | USA |',
@@ -363,7 +405,10 @@ class TestFormatTable2 < Minitest::Test
       '| John | 30  | New York    | USA     |',
       '| Jane | 25  | Los Angeles | USA     |'
     ]
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 4)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 4
+    )
   end
 
   def test_varied_column_lengths
@@ -377,19 +422,28 @@ class TestFormatTable2 < Minitest::Test
       '| Johnathan | 30  | New York |',
       '| Jane      | 25  | LA       |'
     ]
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 
   def test_single_line
     lines = ['| Name | Age | City |']
     expected_output = ['| Name | Age | City |']
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 
   def test_empty_lines
     lines = []
     expected_output = []
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 
   def test_complete_rows
@@ -401,6 +455,9 @@ class TestFormatTable2 < Minitest::Test
       '| Name | Age |',
       '| John | 30  |'
     ]
-    assert_equal expected_output, MarkdownTableFormatter.format_table(lines, 3)
+    assert_equal expected_output, MarkdownTableFormatter.format_table(
+      lines: lines,
+      column_count: 3
+    )
   end
 end

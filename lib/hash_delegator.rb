@@ -42,8 +42,6 @@ require_relative 'string_util'
 require_relative 'table_extractor'
 require_relative 'text_analyzer'
 
-require_relative 'argument_processor'
-
 $pd = false unless defined?($pd)
 
 class String
@@ -179,8 +177,9 @@ module HashDelegatorSelf
     merged.empty? ? [] : merged
   end
 
-  def next_link_state(block_name_from_cli:, was_using_cli:, block_state:,
-                      block_name: nil)
+  def next_link_state(
+    block_name_from_cli:, was_using_cli:, block_state:, block_name: nil
+  )
     # Set block_name based on block_name_from_cli
     block_name = @cli_block_name if block_name_from_cli
 
@@ -191,7 +190,7 @@ module HashDelegatorSelf
     breaker = !block_name &&
               !block_name_from_cli &&
               was_using_cli &&
-              block_state.block.shell == BlockType::BASH
+              block_state.block.type == BlockType::SHELL
 
     # Reset block_name_from_cli if the conditions are not met
     block_name_from_cli ||= false
@@ -273,18 +272,20 @@ module HashDelegatorSelf
     )
     return unless text_tables.count.positive?
 
-    text_tables.each do |match|
-      range = match[:start_index]..(match[:start_index] + match[:rows] - 1)
+    text_tables.each do |table|
+      next unless table[:columns].positive?
+
+      range = table[:start_index]..(table[:start_index] + table[:rows] - 1)
       lines = blocks_menu[range].map(&:dname)
       formatted = MarkdownTableFormatter.format_table(
-        lines,
-        match[:columns],
+        column_count: table[:columns],
         decorate: {
           border: delegate_object[:table_border_color],
           header_row: delegate_object[:table_header_row_color],
           row: delegate_object[:table_row_color],
           separator_line: delegate_object[:table_separator_line_color]
-        }
+        },
+        lines: lines
       )
 
       unless formatted.count == range.size
@@ -733,11 +734,11 @@ module MarkdownExec
     # Applies shell color options to the given string if applicable.
     #
     # @param name [String] The name to potentially colorize.
-    # @param shell_color_option [Symbol, nil] The shell color option to apply.
+    # @param block_type_color_option [Symbol, nil] The shell color option to apply.
     # @return [String] The colorized or original name string.
-    def apply_shell_color_option(name, shell_color_option)
-      if shell_color_option && @delegate_object[shell_color_option].present?
-        string_send_color(name, shell_color_option)
+    def apply_block_type_color_option(name, block_type_color_option)
+      if block_type_color_option && @delegate_object[block_type_color_option].present?
+        string_send_color(name, block_type_color_option)
       else
         name
       end
@@ -823,7 +824,8 @@ module MarkdownExec
           prefix: @delegate_object[:logged_stdout_filename_prefix],
           time: Time.now.utc,
           exts: '.out.txt',
-          saved_asset_format: shell_escape_asset_format(@dml_link_state)
+          saved_asset_format:
+            shell_escape_asset_format(@dml_link_state, shell: ShellType::BASH)
         ).generate_name
 
       @logged_stdout_filespec =
@@ -926,11 +928,11 @@ module MarkdownExec
         )
       end
 
-      if selected[:shell] == BlockType::OPTS
+      if selected[:type] == BlockType::OPTS
         # body of blocks is returned as a list of lines to be read an YAML
         HashDelegator.code_merge(required[:blocks].map(&:body).flatten(1))
       else
-        code_lines = if selected.shell == BlockType::VARS
+        code_lines = if selected.type == BlockType::VARS
                        code_lines_to_set_environment_variables_for_block(selected)
                      else
                        []
@@ -940,7 +942,7 @@ module MarkdownExec
       end
     end
 
-    def command_execute(command, args: [])
+    def command_execute(command, shell:, args: [])
       @run_state.files = StreamsOut.new
       @run_state.options = @delegate_object
       @run_state.started_at = Time.now.utc
@@ -948,20 +950,18 @@ module MarkdownExec
       if @delegate_object[:execute_in_own_window] &&
          @delegate_object[:execute_command_format].present? &&
          @run_state.saved_filespec.present?
+
         @run_state.in_own_window = true
-        system(
-          format(
-            @delegate_object[:execute_command_format],
-            command_execute_in_own_window_format_arguments(
-              rest: args ? args.join(' ') : ''
-            )
-          )
+        command_execute_in_own_window(
+          args: args,
+          script: @delegate_object[:execute_command_format]
         )
+
       else
         @run_state.in_own_window = false
-        execute_command_with_streams(
-          [@delegate_object[:shell], '-c', command,
-           @delegate_object[:filename], *args]
+        command_execute_in_process(
+          args: args, command: command,
+          filename: @delegate_object[:filename], shell: shell
         )
       end
 
@@ -982,6 +982,17 @@ module MarkdownExec
       @run_state.files.append_stream_line(ExecutionStreams::STD_ERR,
                                           @run_state.error_message)
       @fout.fout "Error ENOENT: #{err.inspect}"
+    end
+
+    def command_execute_in_own_window(args:, script:)
+      system(
+        format(
+          script,
+          command_execute_in_own_window_format_arguments(
+            rest: args ? args.join(' ') : ''
+          )
+        )
+      )
     end
 
     def command_execute_in_own_window_format_arguments(home: Dir.pwd, rest: '')
@@ -1005,6 +1016,14 @@ module MarkdownExec
       }
     end
 
+    def command_execute_in_process(args:, command:, filename:, shell:)
+      execute_command_with_streams(
+        [shell, '-c', command,
+         @delegate_object[:filename], *args]
+      )
+
+    end
+
     # This method is responsible for handling the execution of
     #  generic blocks in a markdown document.
     # It collects the required code lines from the document and,
@@ -1017,8 +1036,9 @@ module MarkdownExec
     #  to be executed.
     # @return [LoadFileLinkState] An object indicating whether to load
     #  the next block or reuse the current one.
-    def compile_execute_and_trigger_reuse(mdoc:, selected:, block_source:,
-                                          link_state:)
+    def compile_execute_and_trigger_reuse(
+      mdoc:, selected:, block_source:, link_state:
+    )
       required_lines = collect_required_code_lines(
         mdoc: mdoc, selected: selected,
         link_state: link_state, block_source: block_source
@@ -1039,7 +1059,8 @@ module MarkdownExec
 
       if allow_execution
         execute_required_lines(required_lines: required_lines,
-                               selected: selected)
+                               selected: selected,
+                               shell: selected.shell)
       end
 
       link_state.block_name = nil
@@ -1456,8 +1477,9 @@ module MarkdownExec
       result_text
     end
 
-    def execute_block_for_state_and_name(selected:, mdoc:, link_state:,
-                                         block_source: {})
+    def execute_block_for_state_and_name(
+      selected:, mdoc:, link_state:, block_source: {}
+    )
       lfls = execute_block_by_type_for_lfls(
         selected: selected,
         mdoc: mdoc,
@@ -1631,15 +1653,18 @@ module MarkdownExec
     #
     # @param required_lines [Array<String>] The lines of code to be executed.
     # @param selected [FCB] The selected functional code block object.
-    def execute_required_lines(required_lines: [], selected: FCB.new)
+    def execute_required_lines(
+      required_lines: [], selected: FCB.new, shell:
+    )
       if @delegate_object[:save_executed_script]
         write_command_file(required_lines: required_lines,
-                           selected: selected)
+                           selected: selected,
+                           shell: shell)
       end
       if @dml_block_state
         calc_logged_stdout_filename(block_name: @dml_block_state.block.oname)
       end
-      format_and_execute_command(code_lines: required_lines)
+      format_and_execute_command(code_lines: required_lines, shell: shell)
       post_execution_process
     end
 
@@ -1652,9 +1677,10 @@ module MarkdownExec
     # @param opts [Hash] Options hash containing configuration settings.
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     #
-    def execute_block_by_type_for_lfls(selected:, mdoc:, block_source:,
-                                       link_state: LinkState.new)
-      if selected.shell == BlockType::LINK
+    def execute_block_by_type_for_lfls(
+      selected:, mdoc:, block_source:, link_state: LinkState.new
+    )
+      if selected.type == BlockType::LINK
         debounce_reset
         push_link_history_and_trigger_load(link_block_body: selected.body,
                                            mdoc: mdoc,
@@ -1675,7 +1701,7 @@ module MarkdownExec
           pop_link_history_new_state
         )
 
-      elsif selected.shell == BlockType::OPTS
+      elsif selected.type == BlockType::OPTS
         debounce_reset
         code_lines = []
         options_state = read_show_options_and_trigger_reuse(
@@ -1689,7 +1715,7 @@ module MarkdownExec
         link_state = LinkState.new
         next_state_append_code(selected, link_state, code_lines)
 
-      elsif selected.shell == BlockType::PORT
+      elsif selected.type == BlockType::PORT
         debounce_reset
         required_lines = collect_required_code_lines(
           mdoc: @dml_mdoc,
@@ -1699,10 +1725,10 @@ module MarkdownExec
         )
         next_state_set_code(selected, link_state, required_lines)
 
-      elsif selected.shell == BlockType::VARS
+      elsif selected.type == BlockType::VARS
         debounce_reset
         next_state_append_code(selected, link_state,
-                               code_lines_to_set_environment_variables_for_block(selected))
+                               code_from_vars_block_to_set_environment_variables(selected))
 
       elsif debounce_allows
         compile_execute_and_trigger_reuse(mdoc: mdoc,
@@ -1749,11 +1775,11 @@ module MarkdownExec
       { size: file_size, lines: line_count }
     end
 
-    def format_and_execute_command(code_lines:)
+    def format_and_execute_command(code_lines:, shell:)
       formatted_command = code_lines.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
                              color_sym: :script_execution_frame_color)
-      command_execute(formatted_command, args: @pass_args)
+      command_execute(formatted_command, args: @pass_args, shell: shell)
       @fout.fout fetch_color(data_sym: :script_execution_tail,
                              color_sym: :script_execution_frame_color)
     end
@@ -1854,7 +1880,7 @@ module MarkdownExec
         @delegate_object[:block_name_match]
       )
 
-      shell_color_option = SHELL_COLOR_OPTIONS[fcb.shell]
+      block_type_color_option = BLOCK_TYPE_COLOR_OPTIONS[BlockType::SHELL]
 
       if @delegate_object[:block_name_nick_match].present? &&
          fcb.oname =~ Regexp.new(@delegate_object[:block_name_nick_match])
@@ -1865,7 +1891,7 @@ module MarkdownExec
       end
 
       fcb.dname = HashDelegator.indent_all_lines(
-        apply_shell_color_option(fcb.oname, shell_color_option),
+        apply_block_type_color_option(fcb.oname, block_type_color_option),
         fcb.indent
       )
 
@@ -1917,7 +1943,8 @@ module MarkdownExec
           @delegate_object[:saved_script_folder],
           SavedAsset.new(
             filename: @delegate_object[:filename],
-            saved_asset_format: shell_escape_asset_format(link_state)
+            saved_asset_format:
+              shell_escape_asset_format(link_state, shell: shell)
           ).generate_name
         )
       )
@@ -1971,13 +1998,13 @@ module MarkdownExec
     end
 
     def link_block_data_eval(link_state, code_lines, selected, link_block_data,
-                             block_source:)
+                             block_source:, shell:)
       all_code = HashDelegator.code_merge(link_state&.inherited_lines,
                                           code_lines)
       output_lines = []
 
       Tempfile.open do |file|
-        cmd = "#{@delegate_object[:shell]} #{file.path}"
+        cmd = "#{shell} #{file.path}"
         file.write(all_code.join("\n"))
         file.rewind
 
@@ -2574,7 +2601,10 @@ module MarkdownExec
       if sel == MenuOptions::SCRIPT_TO_CLIPBOARD
         copy_to_clipboard(required_lines)
       elsif sel == MenuOptions::SAVE_SCRIPT
-        save_to_file(required_lines: required_lines, selected: selected)
+        save_to_file(
+          required_lines: required_lines, selected: selected,
+          shell: selected.shell
+        )
       end
 
       sel == MenuOptions::YES
@@ -2624,7 +2654,7 @@ module MarkdownExec
     # user prompt to exit if the menu will be displayed again
     #
     def prompt_user_exit(block_name_from_cli:, selected:)
-      selected.shell == BlockType::BASH &&
+      selected.type == BlockType::SHELL &&
         @delegate_object[:pause_after_script_execution] &&
         prompt_select_continue == MenuState::EXIT
     end
@@ -2691,7 +2721,8 @@ module MarkdownExec
                                                                false)
         code_lines = link_block_data_eval(
           link_state, code_lines, selected, link_block_data,
-          block_source: block_source
+          block_source: block_source,
+          shell: @delegate_object[:block_type_default]
         )
       end
 
@@ -2783,7 +2814,7 @@ module MarkdownExec
         ).join("\n")
       ) || {}).transform_keys(&:to_sym)
 
-      if selected.shell == BlockType::OPTS
+      if selected.type == BlockType::OPTS
         obj = data
       else
         (data || []).each do |key, value|
@@ -2937,8 +2968,10 @@ module MarkdownExec
       end
     end
 
-    def save_to_file(required_lines:, selected:)
-      write_command_file(required_lines: required_lines, selected: selected)
+    def save_to_file(required_lines:, selected:, shell:)
+      write_command_file(
+        required_lines: required_lines, selected: selected, shell: shell
+      )
       @fout.fout "File saved: #{@run_state.saved_filespec}"
     end
 
@@ -2994,7 +3027,7 @@ module MarkdownExec
 
       if selection == menu_chrome_colored_option(:menu_option_back_name)
         selected.option = selection
-        selected.shell = BlockType::LINK
+        selected.type = BlockType::LINK
       elsif selection == menu_chrome_colored_option(:menu_option_exit_name)
         selected.option = selection
       else
@@ -3004,7 +3037,15 @@ module MarkdownExec
       selected
     end
 
-    def shell_escape_asset_format(link_state)
+    def shell
+      @delegate_object[:shell]
+    end
+
+    def shell=(value)
+      @delegate_object[:shell] = value
+    end
+
+    def shell_escape_asset_format(link_state, shell:)
       raw = @delegate_object[:saved_asset_format]
 
       return raw unless @delegate_object[:shell_parameter_expansion]
@@ -3013,7 +3054,7 @@ module MarkdownExec
       return raw unless /$/ =~ raw
 
       filespec = generate_temp_filename
-      cmd = [@delegate_object[:shell], '-c', filespec].join(' ')
+      cmd = [shell, '-c', filespec].join(' ')
 
       marker = Random.new.rand.to_s
 
@@ -3050,6 +3091,20 @@ module MarkdownExec
         !name.match(Regexp.new(@delegate_object[:block_name_wrapper_match]))
       end
 
+      # adjust captured type
+      if fcb_title_groups[:type].present?
+        case fcb_title_groups[:type]
+        when *ShellType::ALL
+          # convert type to shell
+          fcb_title_groups[:shell] = fcb_title_groups[:type]
+          fcb_title_groups[:type] = BlockType::SHELL
+        end
+      else
+        # treat as the default shell
+        fcb_title_groups[:shell] = @delegate_object[:block_type_default]
+        fcb_title_groups[:type] = BlockType::SHELL
+      end
+
       dname = oname = title = ''
       nickname = nil
       if @delegate_object[:block_name_nick_match].present? &&
@@ -3060,7 +3115,7 @@ module MarkdownExec
       end
 
       # disable fcb for data blocks
-      disabled = if fcb_title_groups.fetch(:shell, '') == 'yaml'
+      disabled = if fcb_title_groups.fetch(:type, '') == BlockType::YAML
                    TtyMenu::DISABLE
                  else
                    nil
@@ -3087,6 +3142,7 @@ module MarkdownExec
                   tn.named_captures.sym_keys
                 end,
         title: title,
+        type: fcb_title_groups.fetch(:type, ''),
         wraps: wraps
       )
     end
@@ -3213,7 +3269,7 @@ module MarkdownExec
     def vux_execute_and_prompt(block_name)
       @dml_block_state = block_state_for_name_from_cli(block_name)
       if @dml_block_state.block &&
-         @dml_block_state.block.shell == BlockType::OPTS
+         @dml_block_state.block.type == BlockType::OPTS
         debounce_reset
         link_state = LinkState.new
         options_state = read_show_options_and_trigger_reuse(
@@ -3290,7 +3346,7 @@ module MarkdownExec
 
       when formatted_choice_ostructs[:shell].pub_name
         debounce_reset
-        vux_input_and_execute_shell_commands(stream: $stderr)
+        vux_input_and_execute_shell_commands(stream: $stderr, shell: shell)
         return :break if pause_user_exit
 
         InputSequencer.next_link_state(prior_block_was_link: true)
@@ -3307,7 +3363,7 @@ module MarkdownExec
 
         InputSequencer.next_link_state(
           block_name: @dml_link_state.block_name,
-          prior_block_was_link: @dml_block_state.block.shell != BlockType::BASH
+          prior_block_was_link: @dml_block_state.block.type != BlockType::SHELL
         )
       end
     end
@@ -3348,7 +3404,7 @@ module MarkdownExec
       @run_state.files = StreamsOut.new
     end
 
-    def vux_input_and_execute_shell_commands(stream:)
+    def vux_input_and_execute_shell_commands(stream:, shell:)
       loop do
         command = prompt_for_command(
           AnsiString.new(":MDE #{Time.now.strftime('%FT%TZ')}> ").send(:bgreen)
@@ -3356,13 +3412,13 @@ module MarkdownExec
         break if !command.present? || command == 'exit'
 
         exit_status = execute_command_with_streams(
-          [@delegate_object[:shell], '-c', command]
+          [shell, '-c', command]
         )
         case exit_status
         when 0
-          stream.puts "#{'OK'.green} #{exit_status}"
+          stream.puts "#{AnsiString.new('OK').green} #{exit_status}"
         else
-          stream.puts "#{'ERR'.bred} #{exit_status}"
+          stream.puts "#{AnsiString.new('ERR').bred} #{exit_status}"
         end
       end
     end
@@ -3413,6 +3469,7 @@ module MarkdownExec
 
       block_list = [@delegate_object[:block_name]].select(&:present?).compact +
                    @delegate_object[:input_cli_rest]
+
       @delegate_object[:block_name] = nil
 
       process_commands(
@@ -3707,9 +3764,10 @@ module MarkdownExec
                          @delegate_object
                        end
 
-      sph = @delegate_object[:select_page_height]
-      selection_opts.merge!(per_page: sph)
-
+      selection_opts.merge!(
+        { cycle: @delegate_object[:select_page_cycle],
+          per_page: @delegate_object[:select_page_height] }
+      )
       selected_option = select_option_with_metadata(prompt_title, menu_items,
                                                     selection_opts)
       determine_block_state(selected_option)
@@ -3717,7 +3775,7 @@ module MarkdownExec
 
     # Handles the core logic for generating the command
     # file's metadata and content.
-    def write_command_file(required_lines:, selected:)
+    def write_command_file(required_lines:, selected:, shell: nil)
       return unless @delegate_object[:save_executed_script]
 
       time_now = Time.now.utc
@@ -3727,7 +3785,8 @@ module MarkdownExec
           exts: '.sh',
           filename: @delegate_object[:filename],
           prefix: @delegate_object[:saved_script_filename_prefix],
-          saved_asset_format: shell_escape_asset_format(@dml_link_state),
+          saved_asset_format:
+            shell_escape_asset_format(@dml_link_state, shell: shell),
           time: time_now
         ).generate_name
       @run_state.saved_filespec =
@@ -3735,7 +3794,7 @@ module MarkdownExec
                   @run_state.saved_script_filename)
 
       shebang = if @delegate_object[:shebang]&.present?
-                  "#{@delegate_object[:shebang]} #{@delegate_object[:shell]}\n"
+                  "#{@delegate_object[:shebang]} #{shell}\n"
                 else
                   ''
                 end
@@ -3912,11 +3971,12 @@ module MarkdownExec
       # called with argument args having value pigeon
       c.expects(:command_execute).with(
         '',
-        args: pigeon
+        args: pigeon,
+        shell: ShellType::BASH
       )
 
       # Call method opts_execute_required_lines
-      c.execute_required_lines
+      c.execute_required_lines(shell: ShellType::BASH)
     end
 
     # Test case for empty body
@@ -4109,7 +4169,10 @@ module MarkdownExec
         @hd = HashDelegator.new
         @hd.instance_variable_set(:@delegate_object, {})
         @mdoc = mock('YourMDocClass')
-        @selected = FCB.new(shell: BlockType::VARS, body: ['key: value'])
+        @selected = FCB.new(
+          body: ['key: value'],
+          type: BlockType::VARS
+        )
         HashDelegator.stubs(:read_required_blocks_from_temp_file).returns([])
         @hd.stubs(:string_send_color)
         @hd.stubs(:print)
