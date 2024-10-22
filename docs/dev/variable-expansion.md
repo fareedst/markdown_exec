@@ -1,0 +1,35 @@
+# Evidence
+## SOURCE is: ${SOURCE}
+:::: SOURCE is: ${SOURCE}
+SOURCE is: ${SOURCE}
+| SOURCE
+| -
+| ${SOURCE}
+```bash :name_with_${SOURCE}_in_name
+# notice the string is not expanded by the shell
+echo "SOURCE is now ${SOURCE}"
+```
+```link
+load: file_${SOURCE}.sh
+```
+# Sources
+```link :(LINK_LOAD_SOURCE)
+load: temp_variable_expansion.sh
+```
+```link :(LINK_VARS_SOURCE)
+vars:
+  SOURCE: Link block
+```
+```vars :(VARS_SOURCE)
+SOURCE: Vars block
+```
+@import bats-document-configuration.md
+```opts :(document_options)
+menu_final_divider:
+menu_for_saved_lines: false
+menu_initial_divider:
+menu_vars_set_format:
+menu_with_back: false
+menu_with_exit: false
+menu_with_shell: false
+```

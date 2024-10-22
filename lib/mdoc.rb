@@ -25,7 +25,7 @@ module MarkdownExec
     #
     def initialize(table = [])
       @table = table
-      # &bt @table.count
+      # !!t @table.count
     end
 
     def collect_block_code_cann(fcb)
@@ -83,9 +83,9 @@ module MarkdownExec
       nickname = name_block.pub_name
 
       dependencies = collect_dependencies(nickname)
-      # &bt dependencies.count
+      # !!t dependencies.count
       all_dependency_names = collect_unique_names(dependencies).push(nickname).uniq
-      # &bt all_dependency_names.count
+      # !!t all_dependency_names.count
 
       # select blocks in order of appearance in source documents
       #
@@ -93,7 +93,7 @@ module MarkdownExec
         # 2024-08-04 match nickname
         all_dependency_names.include?(fcb.pub_name) || all_dependency_names.include?(fcb.nickname) || all_dependency_names.include?(fcb.oname)
       end
-      # &bt blocks.count
+      # !!t blocks.count
 
       ## add cann key to blocks, calc unmet_dependencies
       #
@@ -110,7 +110,7 @@ module MarkdownExec
           []
         end + [fcb]
       end.flatten(1)
-      # &bt unmet_dependencies.count
+      # !!t unmet_dependencies.count
 
       { all_dependency_names: all_dependency_names,
         blocks: blocks,
@@ -128,7 +128,7 @@ module MarkdownExec
       block_search = collect_block_dependencies(anyname: anyname)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
-        # &bt blocks.count
+        # !!t blocks.count
 
         block_search.merge(
           { block_names: blocks.map(&:pub_name),
@@ -140,6 +140,7 @@ module MarkdownExec
               elsif [BlockType::OPTS].include? fcb.type
                 fcb.body # entire body is returned to requesing block
               elsif [BlockType::LINK,
+                     BlockType::LOAD,
                      BlockType::VARS].include? fcb.type
                 nil
               elsif fcb[:chrome] # for Link blocks like History
@@ -292,7 +293,7 @@ module MarkdownExec
     # @return [Hash] The code block as a hash or the default value if not found.
     #
     def get_block_by_anyname(name, default = {})
-      # &bt name
+      # !!t name
       @table.select do |fcb|
         fcb.nickname == name ||
           fcb.dname == name ||

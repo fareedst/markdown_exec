@@ -44,6 +44,7 @@ module MarkdownExec
     #
     # @return [String] the generated formatted name
     def generate_name
+      # !!ey ({saved_asset_format: @saved_asset_format, blockname: @blockname, exts: @exts, filename: @filename, join: @join_str, mark: @mark, prefix: @prefix, time: @time })
       format(
         @saved_asset_format,
         {

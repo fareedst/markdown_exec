@@ -94,11 +94,18 @@ class InputSequencer
       break if exit_when_bq_empty && bq_is_empty? && !now_menu.prior_block_was_link
 
       if now_menu.display_menu
+        # !!b
+        break if run_yield(:end_of_cli, &block) == :exit
+        # !!b
+
         exit_when_bq_empty = false
         run_yield :display_menu, &block
+        # !!b
 
         choice = run_yield :user_choice, &block
+        # !!b
         break if choice == :break
+        # !!b
 
         raise BlockMissing, 'Block not recognized.' if choice.nil?
         # Exit loop and method to terminate the app
@@ -113,7 +120,12 @@ class InputSequencer
         if now_menu.block_name && !now_menu.block_name.empty?
           block_name = now_menu.block_name
         else
-          break if bq_is_empty? # Exit loop if no more blocks to process
+          # break if bq_is_empty? # Exit loop if no more blocks to process
+          if bq_is_empty? # Exit loop if no more blocks to process
+            # !!b
+            run_yield :end_of_cli, &block
+            break
+          end
 
           block_name = @block_queue.shift
         end
@@ -134,6 +146,8 @@ class InputSequencer
       end
       now_menu = InputSequencer.merge_link_state(now_menu, next_menu)
     end
+
+    # run_yield :end_of_cli, &block
 
     run_yield :close_ux, &block
   end

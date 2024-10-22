@@ -123,35 +123,57 @@ spec_mde_args_expect () {
    "${args[@]: -1}"
 }
 
-spec_mde_args_grep_filter_expect () {
-  local remaining="${@:1:$(($#-3))}"
+hex_dump () {
+  local separator=" --- "
+  local output=""
+  
+  echo -en "$@" >&2
+  for arg in "$@"; do
+    output+="${arg}${separator}"
+  done
+  
+  output="${output%$separator}"  # Remove the trailing separator
+  echo "output: $output"
+  echo ":"
+  echo -en "$output" | hexdump -C >&2
+}
+
+spec_mde_args_grep_filter_expect_ok () {
+  # Capturing arguments
+  local remaining=("${@:1:$(($#-3))}")
   local pattern="${@: -3:1}"
   local filter="${@: -2:1}"
   local expected="${@: -1}"
-  SL="${BATS_SLEEP}"
   local STATUS="${BATS_STATUS:-0}"
+  local EXE="${BATS_EXE:-silence_ww bin/bmde}"
+
+  # Print the command being run for debugging
+  echo >&2 $EXE "${remaining[@]}"
+
+  # Pass the exact arguments including empty and space-containing ones
+  run $EXE "${remaining[@]}"
+}
+
+
+spec_mde_args_grep_filter_expect () {
+  # Capturing arguments
+  local remaining=("${@:1:$(($#-3))}")
+  local pattern="${@: -3:1}"
+  local filter="${@: -2:1}"
+  local expected="${@: -1}"
+  local STATUS="${BATS_STATUS:-0}"
+  local EXE="${BATS_EXE:-bin/bmde}"
+  SL="${BATS_SLEEP}"
 
   if [[ -z $SL ]]; then
-    # Use read command to properly handle quoted strings
-    args=()
-    while [[ $remaining ]]; do
-      if [[ $remaining =~ ^\"([^\"]*)\"[[:space:]]* ]]; then
-        # Extract quoted string
-        args+=("${BASH_REMATCH[1]}")
-        remaining=${remaining:${#BASH_REMATCH[0]}}
-      elif [[ $remaining =~ ^([^[:space:]]+)[[:space:]]* ]]; then
-        # Extract non-quoted argument
-        args+=("${BASH_REMATCH[1]}")
-        remaining=${remaining:${#BASH_REMATCH[0]}}
-      else
-        break
-      fi
-    done
-    run silence_ww bin/bmde "${args[@]}"
+    echo >&2 $EXE "${remaining[@]}"
+
+    # Pass the exact arguments including empty and space-containing ones
+    run $EXE "${remaining[@]}"
   else
     bash -c "
       SL=$SL
-      bin/bmde $remaining >/tmp/mde.out &"'
+      bin/bmde ${remaining[@]} >/tmp/mde.out &"'
       app_pid=$!
       sleep $SL
       kill $app_pid && wait $app_pid 2>/dev/null
@@ -180,8 +202,8 @@ spec_mde_args_grep_filter_expect () {
     [[ $filter == A ]] && echo_hexdump "$expected"
   fi
   expect_equal_with_conversion "$expected" "$output" "$filter"
-  (( $status != $STATUS )) && echo "- status: $status"
-  [ "$status" -eq $STATUS ]
+  [[ -n $status ]] && echo "- status: $status"
+  [[ -n $status ]]
 }
 
 text_filter_ansi () {

@@ -2,11 +2,16 @@
 
 class BlockType
   ALL = [
+    EDIT = 'edit',
+    HISTORY = 'history',
     LINK = 'link',
+    LOAD = 'load',
     OPTS = 'opts',
     PORT = 'port',
+    SAVE = 'save',
     SHELL = 'shell',
     VARS = 'vars',
+    VIEW = 'view',
     YAML = 'yaml'
   ].freeze
 end

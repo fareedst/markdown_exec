@@ -112,6 +112,24 @@
   :env_var: MDE_DISPLAY_LEVEL_XBASE_PREFIX
   :default: "> "
   :procname: val_as_str
+- :opt_name: document_configurations_directory
+  :env_var: MDE_DOCUMENT_CONFIGURATIONS_DIRECTORY
+  :description: Directory with files
+  :arg_name: DIRECTORY
+  :default: document_configurations
+  :procname: val_as_str
+- :opt_name: document_configurations_extension
+  :env_var: MDE_DOCUMENT_CONFIGURATIONS_EXTENSION
+  :description: extension for filenames
+  :arg_name: EXTENSION
+  :default: ".sh"
+  :procname: val_as_str
+- :opt_name: document_configurations_glob
+  :env_var: MDE_DOCUMENT_CONFIGURATIONS_GLOB
+  :description: filenames to match
+  :arg_name: GLOB
+  :default: "*.sh"
+  :procname: val_as_str
 - :opt_name: document_load_opts_block_name
   :env_var: MDE_DOCUMENT_LOAD_OPTS_BLOCK_NAME
   :description: Name of Opts block to load with the document
@@ -1231,6 +1249,23 @@
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
+- :opt_name: variable_expression_regexp
+  :env_var: MDE_VARIABLE_EXPRESSION_REGEXP
+  :description: variable_expression_regexp
+  :default: "(?<expression>\\${(?<variable>[A-Z0-9a-z_]+)})"
+  :procname: val_as_str
+- :opt_name: vars_block_filename_view
+  :env_var: MDE_VARS_BLOCK_VIEW
+  :description: Portions of filename to display
+  :arg_name: FORMAT
+  :default: "%{base}"
+  :procname: val_as_str
+- :opt_name: vars_block_filename_pattern
+  :env_var: MDE_VARS_BLOCK_filename_pattern
+  :description: vars_block_filename_pattern
+  :arg_name: PATTERN
+  :default: "^(?<path>.*/)(?<base>[^/]+?)(?<extension>\\.?[^./]*)?$"
+  :procname: val_as_str
 - :long_name: version
   :short_name: v
   :description: Print the gem's version

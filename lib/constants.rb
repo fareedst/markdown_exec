@@ -20,8 +20,12 @@ class ArgPro
 end
 
 BLOCK_TYPE_COLOR_OPTIONS = {
+  BlockType::EDIT => :menu_link_color,
+  BlockType::HISTORY => :menu_link_color,
   BlockType::LINK => :menu_link_color,
+  BlockType::LOAD => :menu_link_color,
   BlockType::OPTS => :menu_opts_color,
+  BlockType::SAVE => :menu_link_color,
   BlockType::SHELL => :menu_bash_color,
   BlockType::VARS => :menu_vars_color
 }.freeze

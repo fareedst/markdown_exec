@@ -394,31 +394,44 @@ module MarkdownExec
     #
     def execute_block_with_error_handling
       finalize_cli_argument_processing
-      execute_code_block_based_on_options(@options, @options.run_state)
+      execute_initial_commands_and_main_loop(@options, @options.run_state)
     rescue FileMissingError
       warn "File missing: #{$!}"
     end
 
     # Main method to execute a block based on options and block_name
-    def execute_code_block_based_on_options(options, run_state)
+    def execute_initial_commands_and_main_loop(options, run_state)
       options = calculated_options.merge(options)
       update_options(options, over: false)
       # recognize commands with an opt_name, no procname
-      return if execute_simple_commands(options)
+      # !!b
+      return if execute_simple_commands(options, stage: 1)
+      # !!b
 
       mde_vux_main_loop(opts_prepare_file_list(options))
+      # !!b
       return unless @options[:output_saved_script_filename]
+      # !!b
 
       @fout.fout "script_block_name: #{run_state.script_block_name}"
       @fout.fout "s_save_filespec: #{run_state.saved_filespec}"
     end
 
     # Executes command based on the provided option keys
-    def execute_simple_commands(options)
-      simple_commands(options).each do |key, proc|
+    def execute_simple_commands(options, stage: nil)
+      # !!p stage
+      simple_commands(options).each do |key, (cstage, proc)|
         if @options[key].is_a?(TrueClass) || @options[key].present?
-          proc.call
-          return true
+          # !!v key, 'cstage', cstage
+          if stage && stage == cstage
+            # !!b
+            proc.call
+            return true
+          else
+          # !!b
+          end
+        else
+          # !!b
         end
       end
       false
@@ -558,8 +571,9 @@ module MarkdownExec
         sift_regexp = Regexp.new(@options[:sift], Regexp::IGNORECASE)
       end
 
-      files_table_rows = @options.read_saved_assets_for_history_table
-
+      files_table_rows = @options.read_saved_assets_for_history_table(
+        asset: @options[:filename]
+      ) # !!v files_table_rows
       if sift_regexp
         # Filter history to file names matching a pattern
         files_table_rows.select! { |item| sift_regexp.match(item[:file]) }
@@ -791,13 +805,21 @@ module MarkdownExec
 
     # Reports and executes block logic
     def mde_vux_main_loop(files)
+      # !!b
       @options[:filename] = select_document_if_multiple(files)
       @options.vux_main_loop do |type, data|
         case type
         when :command_names
+          # !!b
           simple_commands(data).keys
         when :call_proc
-          simple_commands(data[0])[data[1]].call
+          # !!b
+          # simple_commands(data[0])[data[1]].call
+          simple_commands(data[0])[data[1]][1].call
+
+        when :end_of_cli
+          # !!b
+          execute_simple_commands(options, stage: 2)
         else
           raise
         end
@@ -999,29 +1021,30 @@ module MarkdownExec
     end
 
     def simple_commands(options)
+      # !!b
       {
-        doc_glob: -> { @fout.fout options[:md_filename_glob] },
-        history: -> { history },
-        list_blocks: -> { list_blocks },
-        list_default_env: -> { @fout.fout_list list_default_env },
-        list_default_yaml: -> { @fout.fout_list list_default_yaml },
-        list_docs: -> { @fout.fout_list opts_prepare_file_list(options) },
-        list_recent_output: -> {
+        doc_glob: [1, -> { @fout.fout options[:md_filename_glob] }],
+        history: [1, -> { history }],
+        list_blocks: [2, -> { list_blocks }],
+        list_default_env: [1, -> { @fout.fout_list list_default_env }],
+        list_default_yaml: [1, -> { @fout.fout_list list_default_yaml }],
+        list_docs: [1, -> { @fout.fout_list opts_prepare_file_list(options) }],
+        list_recent_output: [1, -> {
                               @fout.fout_list list_recent_output(
                                 @options[:saved_stdout_folder],
                                 @options[:saved_stdout_glob], @options[:list_count]
                               )
-                            },
-        list_recent_scripts: -> {
+                            }],
+        list_recent_scripts: [1, -> {
                                @fout.fout_list list_recent_scripts(
                                  options[:saved_script_folder],
                                  options[:saved_script_glob], options[:list_count]
                                )
-                             },
-        menu_export: -> { @fout.fout menu_export },
-        pwd: -> { @fout.fout File.expand_path('..', __dir__) },
-        run_last_script: -> { run_last_script },
-        tab_completions: -> { @fout.fout tab_completions }
+                             }],
+        menu_export: [1, -> {@fout.fout menu_export }],
+        pwd: [1, -> {@fout.fout File.expand_path('..', __dir__) }],
+        run_last_script: [1, -> {run_last_script }],
+        tab_completions: [1, -> {@fout.fout tab_completions }]
       }
     end
 

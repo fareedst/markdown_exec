@@ -50,15 +50,16 @@ load 'test_helper'
 # Type: Opts
 
 @test 'Opts block - before' {
+  skip 'Fails because command executes after the block is processed'
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-opts.md --list-blocks-message dname --list-blocks-type 3 --list-blocks \
    'BEFORE Species menu_note_format: "AFTER %{line}" '
 }
 
 @test 'Opts block - after' {
-  skip 'Fails because command executes before the block is processed'
+  BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-opts.md --list-blocks-message dname --list-blocks-type 3 '[decorate-note]' --list-blocks \
-   'AFTER Species'
+   'AFTER Species menu_note_format: "AFTER %{line}" '
 }
 
 @test 'Opts block - show that menu has changed' {

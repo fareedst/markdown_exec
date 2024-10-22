@@ -113,6 +113,24 @@ module MarkdownExec
     def to_yaml
       @attrs.to_yaml
     end
+
+    def variable_expansion!(pattern, replacement_dictionary)
+      ### update name, nickname, title, label ???
+      @attrs[:dname] = @attrs[:dname].gsub(pattern) { |match|
+        replacement_dictionary[match]
+      }
+      if @attrs[:body]
+        @attrs[:body] = @attrs[:body].map do |line|
+          if line.empty?
+            line
+          else
+            line.gsub(pattern) do |match|
+              replacement_dictionary[match]
+            end
+          end
+        end
+      end
+    end
   end
 end
 

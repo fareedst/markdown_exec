@@ -86,11 +86,12 @@ end
 desc 'minitest'
 task :minitest do
   commands = [
+    './lib/append_to_bash_history.rb',
     './lib/argument_processor.rb',
     './lib/block_label.rb',
     './lib/cached_nested_file_reader.rb',
-    './lib/dev/process_template.rb --test',
     './lib/directory_searcher.rb',
+    './lib/evaluate_shell_expressions.rb',
     './lib/fcb.rb',
     './lib/filter.rb',
     './lib/find_files.rb',
@@ -107,7 +108,8 @@ task :minitest do
     './lib/saved_assets.rb',
     './lib/saved_files_matcher.rb',
     './lib/table_extractor.rb',
-    './lib/text_analyzer.rb'
+    './lib/text_analyzer.rb',
+    './lib/dev/process_template.rb --test'
   ]
 
   commands.each do |command|

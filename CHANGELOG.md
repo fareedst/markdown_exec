@@ -1,9 +1,13 @@
 # Changelog
 
-## [2.4.1] - 2024-10-15
+## [2.5.0] - 2024-10-21
 
 ### Added
 
+- Block types for managing saved history files.
+- Options for document configuration file names.
+- Options for variable expansion in document and links.
+- Options for displaying saved history.
 - Indent imported blocks.
 - Option for default shell (Bash or Sh).
 - Option to enable cycling past top or bottom of menu.

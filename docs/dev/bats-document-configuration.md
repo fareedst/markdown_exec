@@ -19,4 +19,6 @@ script_execution_head:
 script_execution_tail:
 
 user_must_approve: false
+
+clear_screen_for_select_block: false
 ```

@@ -10,9 +10,9 @@ load 'test_helper'
 
 @test 'Position 0 File Name - file does not exist; string not found; select a file from the current directory' {
   skip 'algorithm to exit waiting MDE is not ready'
-  BATS_SLEEP=3
-  spec_mde_args_expect NotFoundAnywhere \
-   'Searching in: .  Choose a file: (Press ↑/↓ arrow to move, Enter to select and letters to filter) ‣ ./CHANGELOG.md   ./CODE_OF_CONDUCT.md   ./README.md   ./TODO.md'
+  BATS_OUTPUT_FILTER=A
+  BATS_SLEEP=8
+  spec_mde_args_expect NotFoundAnywhere 'Searching in: .'
 }
 
 @test 'Position 1 Block Name - block does not exist' {
