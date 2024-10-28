@@ -81,11 +81,22 @@ end
 
 public
 
-# convert regex match groups to a hash with symbol keys
-#
-# :reek:UtilityFunction
-def extract_named_captures_from_option(str, option)
-  str.match(Regexp.new(option))&.named_captures&.sym_keys
+# NamedCaptureExtractor is a utility class for extracting named groups from regular expressions
+# and converting them into symbol-keyed hashes for flexible pattern matching and data extraction.
+class NamedCaptureExtractor
+  # Extracts named groups from a regex match on the given string, converting them into a symbol-keyed hash.
+  #
+  # @param str [String] the string to match against the provided regex pattern
+  # @param pattern [Regexp, String] the regex pattern with named groups
+  # @return [Hash<Symbol, String>, nil] hash of named groups as symbols and their corresponding matches,
+  #   or nil if no match is found
+  def self.extract_named_groups(str, pattern)
+    regexp = pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern)
+    str&.match(regexp)&.named_captures&.transform_keys(&:to_sym)
+  end
+  def self.extract_named_group2(match_data)
+    match_data&.named_captures&.transform_keys(&:to_sym)
+  end
 end
 
 # execute markdown documents
@@ -245,7 +256,7 @@ module MarkdownExec
                         block_name_nick_match)
       return unless line.match(fenced_start_and_end_regex)
 
-      bm = extract_named_captures_from_option(line, block_name_match)
+      bm = NamedCaptureExtractor::extract_named_groups(line, block_name_match)
       return if bm.nil?
 
       name = bm[:title]
@@ -328,7 +339,7 @@ module MarkdownExec
 
     def calculated_options
       {
-        bash: true, # bash block parsing in get_block_summary()
+        bash: true, # bash block parsing in fcb_for_menu!()
         saved_script_filename: nil # calculated
       }
     end

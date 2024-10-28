@@ -25,6 +25,9 @@ SOURCE: Vars block
 ```
 @import bats-document-configuration.md
 ```opts :(document_options)
+heading1_center: false
+heading2_center: false
+heading3_center: false
 menu_final_divider:
 menu_for_saved_lines: false
 menu_initial_divider:

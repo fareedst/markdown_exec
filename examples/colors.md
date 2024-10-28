@@ -24,10 +24,14 @@ execution_report_preview_frame_color: fg_rgbh_7f_1f_00
 menu_bash_color: fg_rgbh_00_c0_c0
 menu_chrome_color: fg_rgbh_40_c0_c0
 menu_divider_color: fg_rgbh_80_d0_c0
+menu_edit_color: fg_rgbh_e0_e0_20
+menu_history_color: fg_rgbh_e0_e0_20
 menu_link_color: fg_rgbh_e0_e0_20
+menu_load_color: fg_rgbh_e0_e0_20
 menu_note_color: fg_rgbh_b0_b0_b0
 menu_opts_color: fg_rgbh_1f_00_1f
 menu_opts_set_color: fg_rgbh_7f_00_1f
+menu_save_color: fg_rgbh_e0_e0_20
 menu_task_color: fg_rgbh_1f_1f_1f
 menu_vars_color: fg_rgbh_1f_a0_1f
 menu_vars_set_color: fg_rgbh_00_1f_1f
@@ -46,10 +50,15 @@ execution_report_preview_frame_color: fg_rgbh_7f_ff_00
 menu_bash_color: fg_rgbh_00_c0_c0
 menu_chrome_color: fg_rgbh_40_c0_c0
 menu_divider_color: fg_rgbh_80_d0_c0
-menu_link_color: fg_rgbh_e0_e0_20
+menu_edit_color: fg_rgbh_e2_e2_20
+menu_history_color: fg_rgbh_e4_e4_20
+menu_link_color: fg_rgbh_e6_e6_20
+menu_load_color: fg_rgbh_e8_e8_20
 menu_note_color: fg_rgbh_b0_b0_b0
 menu_opts_color: fg_rgbh_ff_00_ff
 menu_opts_set_color: fg_rgbh_7f_00_ff
+# menu_save_color: fg_rgbh_ea_ea_20
+menu_save_color: fg_rgbh_ff_ff_20
 menu_task_color: fg_rgbh_ff_ff_ff
 menu_vars_color: fg_rgbh_ff_a0_ff
 menu_vars_set_color: fg_rgbh_00_ff_ff
@@ -66,11 +75,19 @@ warning_color: fg_rgbh_ff_7f_00
 ```
 ```bash :Bash1
 ```
+```edit :Edit1
+```
+```history :History1
+```
 ```link :Link1
+```
+```load :Load1
 ```
 ```opts :Opts1
 ```
 ```port :Port1
+```
+```save :Save1
 ```
 ```vars :Vars1
 ```

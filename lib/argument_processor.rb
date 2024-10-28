@@ -5,7 +5,7 @@ require_relative 'constants'
 require_relative 'object_present'
 
 def process_arguments(arguments, loose_args, options_parsed)
-  # &bt arguments, loose_args, options_parsed
+  # !!t arguments, loose_args, options_parsed
   # loose_args will be empty first command contains pass-through arguments
   while loose_args.any?
     if arguments.first == loose_args.first
@@ -24,7 +24,7 @@ end
 
 def process_commands(options_parsed:, arguments:, enable_search:,
                      named_procs:, rest:)
-  # &bt arguments,options_parsed
+  # !!t arguments,options_parsed
   command_processed = false
   block_executed = false
   requested_menu = false
@@ -32,7 +32,7 @@ def process_commands(options_parsed:, arguments:, enable_search:,
 
   process_arguments(arguments.dup, rest.dup,
                     options_parsed.dup) do |type, item|
-    # &bt type,item
+    # !!t type,item
     case type
     when ArgPro::ArgIsOption
       if named_procs.include?(item[:name])

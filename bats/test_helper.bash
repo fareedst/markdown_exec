@@ -64,7 +64,7 @@ most_recent_history_file_name () {
 #     tabs (\t), carriage returns (\r), vertical tabs (\v), and form feeds (\f).
 #
 remove_ansi_escape_sequences() {
-  echo -en "$1" | perl -pe 's/\e\[\?*[0-9;]*[a-zA-Z]//g' | tr '\n\t\r\v\f' ' '
+  echo -en "$1" | perl -pe 's/\e\[\?*[0-9;]*[a-zA-Z]//g' | tr '\n\t\r\v\f' "${BATS_SAFE:- }"
 }
 
 run_mde_specs_md_args_expect_xansi () {

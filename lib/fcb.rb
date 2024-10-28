@@ -49,8 +49,45 @@ module MarkdownExec
       @attrs[:title] = if body_content.count == 1
                          body_content.first
                        else
-                         format_multiline_body_as_title(body_content)
+                         FCB::format_multiline_body_as_title(body_content)
                        end
+    end
+
+    # Processes a block to generate its summary, modifying its attributes
+    #  based on various matching criteria.
+    # It handles special formatting for bash blocks, extracting and setting
+    #  properties like call, stdin, stdout, and dname.
+    #
+    # @param fcb [Object] An object representing a functional code block.
+    # @return [Object] The modified functional code block with updated
+    #  summary attributes.
+    def for_menu!(
+      block_calls_scan: @delegate_object[:block_calls_scan],
+      block_name_match: @delegate_object[:block_name_match],
+      block_name_nick_match: @delegate_object[:block_name_nick_match]
+    )
+      call = @attrs[:call] = @attrs[:start_line]&.match(
+        Regexp.new(block_calls_scan)
+      )&.fetch(1, nil)
+      titlexcall = call ? @attrs[:title].sub("%#{call}", '') : @attrs[:title]
+
+      oname = if block_name_nick_match.present? &&
+                 @attrs[:oname] =~ Regexp.new(block_name_nick_match)
+                @attrs[:nickname] = $~[0]
+                derive_title_from_body
+              else
+                bm = NamedCaptureExtractor::extract_named_groups(
+                  titlexcall,
+                  block_name_match
+                )
+                bm && bm[1] ? bm[:title] : titlexcall
+              end
+      @attrs[:title] = @attrs[:oname] = oname
+
+      @attrs[:dname] = HashDelegator.indent_all_lines(
+        (yield oname, BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]),
+        @attrs[:indent]
+      )
     end
 
     private
@@ -60,7 +97,7 @@ module MarkdownExec
     # so it displays correctly in menu.
     # @param body_lines [Array<String>] The lines of body content.
     # @return [String] Formatted title.
-    def format_multiline_body_as_title(body_lines)
+    def self.format_multiline_body_as_title(body_lines)
       body_lines.map.with_index do |line, index|
         index.zero? ? line : "  #{line}"
       end.join("\n") << "\n"
@@ -114,6 +151,7 @@ module MarkdownExec
       @attrs.to_yaml
     end
 
+    # Expand in body and dname
     def variable_expansion!(pattern, replacement_dictionary)
       ### update name, nickname, title, label ???
       @attrs[:dname] = @attrs[:dname].gsub(pattern) { |match|

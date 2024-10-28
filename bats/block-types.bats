@@ -59,7 +59,7 @@ load 'test_helper'
 @test 'Opts block - after' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-opts.md --list-blocks-message dname --list-blocks-type 3 '[decorate-note]' --list-blocks \
-   'AFTER Species menu_note_format: "AFTER %{line}" '
+   'AFTER Species menu_note_format: "AFTER %{line}"'
 }
 
 @test 'Opts block - show that menu has changed' {

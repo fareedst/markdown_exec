@@ -397,6 +397,21 @@
   :default: ''
   :procname: val_as_str
 
+- :opt_name: heading1_center
+  :env_var: MDE_HEADING1_CENTER
+  :default: true
+  :procname: val_as_bool
+
+- :opt_name: heading2_center
+  :env_var: MDE_HEADING1_CENTER
+  :default: true
+  :procname: val_as_bool
+
+- :opt_name: heading3_center
+  :env_var: MDE_HEADING1_CENTER
+  :default: true
+  :procname: val_as_bool
+
 - :opt_name: heading1_match
   :env_var: MDE_HEADING1_MATCH
   :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
@@ -641,18 +656,17 @@
   :default: ">"
   :procname: val_as_str
 
+- :opt_name: menu_edit_color
+  :env_var: MDE_MENU_EDIT_COLOR
+  :description: Color of Edit link
+  :default: fg_rgbh_e0_e0_20
+  :procname: val_as_str
+
 - :opt_name: menu_exit_at_top
   :env_var: MDE_MENU_EXIT_AT_TOP
   :description: Display Exit option at top of menu (vs bottom)
   :arg_name: BOOL
   :default: true
-  :procname: val_as_bool
-
-- :opt_name: menu_load_at_top
-  :env_var: MDE_MENU_LOAD_AT_TOP
-  :description: Display Load option at top of menu (vs bottom)
-  :arg_name: BOOL
-  :default: false
   :procname: val_as_bool
 
 - :opt_name: menu_final_divider
@@ -695,6 +709,12 @@
   :env_var: MDE_MENU_HEADING3_FORMAT
   :description: format for menu heading3 in menu
   :default: "%{line}"
+  :procname: val_as_str
+
+- :opt_name: menu_history_color
+  :env_var: MDE_MENU_HISTORY_COLOR
+  :description: Color of History link
+  :default: fg_rgbh_e0_e0_20
   :procname: val_as_str
 
 - :opt_name: menu_import_level_match
@@ -759,6 +779,19 @@
   :env_var: MDE_MENU_LINK_FORMAT
   :description: format for menu link
   :default: "%{line}"
+  :procname: val_as_str
+
+- :opt_name: menu_load_at_top
+  :env_var: MDE_MENU_LOAD_AT_TOP
+  :description: Display Load option at top of menu (vs bottom)
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+
+- :opt_name: menu_load_color
+  :env_var: MDE_MENU_LOAD_COLOR
+  :description: Color of Load link
+  :default: fg_rgbh_e0_e0_20
   :procname: val_as_str
 
 - :opt_name: menu_note_color
@@ -859,6 +892,13 @@
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
+
+- :opt_name: menu_save_color
+  :env_var: MDE_MENU_SAVE_COLOR
+  :description: Color of Save link
+  :default: fg_rgbh_ff_ff_20
+  # :default: fg_rgbh_e0_e0_20
+  :procname: val_as_str
 
 - :opt_name: menu_table_rows_match
   :env_var: MDE_MENU_TABLE_ROWS_MATCH

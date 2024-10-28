@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.5.0] - 2024-10-21
+## [2.5.0] - 2024-10-27
 
 ### Added
 
@@ -20,7 +20,6 @@
 
 - Fix sorting of history menu choices.
 - Color is optional for menu entries.
-- Display decorated line in table.
 - Fix input source for prompt for input from user.
 
 ## [2.4.0] - 2024-09-12
