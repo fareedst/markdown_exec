@@ -79,14 +79,15 @@ task :bats do
   FileList['bats/**/*.bats'].each do |file|
     next if %w[bats/bats.bats bats/fail.bats].include?(file)
 
-    system "bats #{file}"
+    # temporary clear WW to disable debugging
+    # WW pollutes output expected by BATS tests
+    system "unset WW; bats #{file}"
   end
 end
 
 desc 'minitest'
 task :minitest do
   commands = [
-    './lib/append_to_bash_history.rb',
     './lib/argument_processor.rb',
     './lib/block_label.rb',
     './lib/cached_nested_file_reader.rb',
