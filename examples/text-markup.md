@@ -47,7 +47,7 @@ line_decor_post  |  Line-oriented text decoration (Post)
 line_decor_pre   |  Line-oriented text decoration (Pre)
 menu_note_match  |  Pattern for notes in block selection menu
 
-```opts :(document_options)
+```opts :(document_opts)
 line_decor_post:
   - :color_method: blue
     :pattern: '!([^!]{0,64})!blue!'

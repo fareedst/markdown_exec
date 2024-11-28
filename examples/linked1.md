@@ -1,6 +1,6 @@
 # Demo document linking
 
-```opts :(document_options)
+```opts :(document_opts)
 dump_inherited_lines: true
 pause_after_script_execution: false
 user_must_approve: false

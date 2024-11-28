@@ -11,6 +11,6 @@ echo "Sh block"
 echo "Unspecified shell type"
 ```
 @import bats-document-configuration.md
-```opts :(document_options)
+```opts :(document_opts)
 bash_only: false
 ```

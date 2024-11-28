@@ -4,6 +4,7 @@
 # encoding=utf-8
 require_relative 'namer'
 require_relative 'object_present'
+require_relative 'ww'
 
 module MarkdownExec
   # SavedAsset

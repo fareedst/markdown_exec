@@ -16,7 +16,7 @@ Specified block types.
         a: 1
         ```
 
-```opts :(document_options)
+```opts :(document_opts)
 bash_only: false
 execute_in_own_window: false
 output_execution_report: false

@@ -1,5 +1,5 @@
 # Demonstrate requiring blocks
-```opts :(document_options) +(custom) +[custom]
+```opts :(document_opts) +(custom) +[custom]
 menu_divider_color: red     # color to indicate failure
 ```
 ```opts :(custom)

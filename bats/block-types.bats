@@ -51,15 +51,14 @@ load 'test_helper'
 
 @test 'Opts block - before' {
   skip 'Fails because command executes after the block is processed'
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-opts.md --list-blocks-message dname --list-blocks-type 3 --list-blocks \
-   'BEFORE Species menu_note_format: "AFTER %{line}" '
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-opts.md \
+   'BEFORE Species_menu_note_format: "AFTER %{line}" '
 }
 
 @test 'Opts block - after' {
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-opts.md --list-blocks-message dname --list-blocks-type 3 '[decorate-note]' --list-blocks \
-   'AFTER Species menu_note_format: "AFTER %{line}"'
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-opts.md \
+   '[decorate-note]' \
+   'AFTER Species_menu_note_format: "AFTER %{line}"'
 }
 
 @test 'Opts block - show that menu has changed' {
@@ -85,9 +84,16 @@ load 'test_helper'
 
 # Type: Vars
 
+# includes output from automatic vars block
+@test 'Vars block - auto load' {
+  BATS_OUTPUT_FILTER=A
+  spec_mde_args_expect docs/dev/block-type-vars.md show \
+   'Species = Not specified  Species: Not specified VAULT:'
+}
+
 # includes output from assignment and from shell block
 @test 'Vars block - set variable' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-vars.md '[set_vault_1]' show \
-   'VAULT = 1  VAULT: 1'
+   'Species = Not specified VAULT = 1  Species: Not specified VAULT: 1'
 }

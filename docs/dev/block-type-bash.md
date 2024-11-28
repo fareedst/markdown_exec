@@ -83,6 +83,6 @@ This block has no (shell) type. It will execute as the default shell type.
 	It will not appear if `bash_only` is `true`.
 
 @import bats-document-configuration.md
-```opts :(document_options)
+```opts :(document_opts)
 bash_only: false
 ```

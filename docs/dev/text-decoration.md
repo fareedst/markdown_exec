@@ -5,11 +5,8 @@
 - _~Underline-Italic~_
 - `Italic`
 - ~~Strikethrough~~
-```opts :(document_options)
-menu_final_divider:
+@import bats-document-configuration.md
+```opts :(document_opts)
 menu_for_saved_lines: false
 menu_initial_divider:
-menu_with_back: false
-menu_with_exit: false
-menu_with_shell: false
 ```

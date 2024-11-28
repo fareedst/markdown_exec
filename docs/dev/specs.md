@@ -77,7 +77,8 @@ dump_menu_blocks: false
 ```
 
 @import bats-document-configuration.md
-```opts :(document_options) +(disable_dump_*)
+```opts :(document_opts) +(disable_dump_*)
 menu_note_color: 'plain'
+menu_with_exit: true
 menu_with_inherited_lines: false
 ```

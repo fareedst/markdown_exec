@@ -1,7 +1,7 @@
 # Demo options: output_execution_report, output_execution_summary
 
 ::: Options are initially True
-```opts :(document_options) +[document_options]
+```opts :(document_opts) +[document_options]
 output_execution_report: true
 output_execution_summary: true
 pause_after_script_execution: true

@@ -13,7 +13,7 @@ __filedirs_all()
 }
 
 _mde_echo_version() {
-  echo "2.5.0"
+  echo "2.6.0"
 }
 
 _mde() {

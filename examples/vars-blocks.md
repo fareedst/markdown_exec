@@ -1,4 +1,4 @@
-```opts :(document_options)
+```opts :(document_opts)
 execute_in_own_window: false
 output_execution_report: false
 output_execution_summary: false

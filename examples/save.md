@@ -1,5 +1,5 @@
 # Demonstrate custom file names
-```opts :(document_options) +[custom]
+```opts :(document_opts) +[custom]
 pause_after_script_execution: true  # for interactive demos
 save_executed_script:         true  # demonstrate saved scripts
 save_execution_output:        true  # demonstrate saved output

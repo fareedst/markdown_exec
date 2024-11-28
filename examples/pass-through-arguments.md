@@ -1,4 +1,4 @@
-```opts :(document_options)
+```opts :(document_opts)
 execute_in_own_window: false
 pause_after_script_execution: true
 save_executed_script: true

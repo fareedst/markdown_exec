@@ -1,6 +1,6 @@
 Demonstrate setting variable values interactively for use in generated scripts.
 
-```opts :(document_options)
+```opts :(document_opts)
 menu_with_inherited_lines: true
 pause_after_script_execution: false
 user_must_approve: false

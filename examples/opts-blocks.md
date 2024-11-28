@@ -19,7 +19,7 @@ menu_note_match: "^\\+ +(?<line>.+?) *$"
 menu_task_color: fg_rgb_127_127_255
 ```
 
-```opts :(document_options)
+```opts :(document_opts)
 menu_divider_color: green
 menu_link_color: fg_rgbh_88_cc_66
 menu_note_color: yellow

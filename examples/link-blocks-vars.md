@@ -1,5 +1,5 @@
 # Demonstrate link blocks set variables
-```opts :(document_options)
+```opts :(document_opts)
 execute_in_own_window: false
 menu_with_inherited_lines: true
 output_execution_report: false

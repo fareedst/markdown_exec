@@ -30,7 +30,7 @@ class HierarchyString
   attr_accessor :substrings
 
   # Initialize with a single hash or an array of hashes
-  def initialize(substrings, text_sym: :text, style_sym: :color)
+  def initialize(substrings = [], text_sym: :text, style_sym: :color)
     @substrings = parse_substrings(substrings)
     @text_sym = text_sym
     @style_sym = style_sym
@@ -80,6 +80,10 @@ class HierarchyString
   # Method to decorate all substrings into a single string
   def decorate
     decorate_substrings(@substrings)
+  end
+
+  def padded_width
+    concatenate.length
   end
 
   # Handle string inspection methods and pass them to the concatenated string

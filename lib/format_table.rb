@@ -74,11 +74,11 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_row_line(
+  def format_row_line__hs(
     row, alignment_indicators, column_widths, decorate,
     text_sym: :text, style_sym: :color
   )
-    return '' if row.cells.nil?
+    return HierarchyString.new if row.cells.nil?
 
     border_style = decorate && decorate[:border]
     HierarchyString.new(
@@ -103,16 +103,20 @@ module MarkdownTableFormatter
        { text_sym => ' |', style_sym => border_style }].compact,
       style_sym: style_sym,
       text_sym: text_sym
-    ).decorate
+    )
   end
 
-  def format_rows(rows, alignment_indicators, column_widths, decorate)
+  def format_rows__hs(rows, alignment_indicators, column_widths, decorate)
     rows.map do |row|
-      format_row_line(row, alignment_indicators, column_widths, decorate)
+      format_row_line__hs(row, alignment_indicators, column_widths, decorate)
     end
   end
 
-  def format_table(lines:, column_count:, decorate: nil)
+  def format_table(**kwargs)
+    format_table__hs(**kwargs).map(&:decorate)
+  end
+
+  def format_table__hs(lines:, column_count:, decorate: nil)
     unless column_count.positive?
       return lines.map do |line|
         HierarchyString.new([{ text: line }])
@@ -125,7 +129,7 @@ module MarkdownTableFormatter
     alignment_indicators, column_widths =
       calculate_column_alignment_and_widths(rows, column_count)
 
-    format_rows(rows, alignment_indicators, column_widths, decorate)
+    format_rows__hs(rows, alignment_indicators, column_widths, decorate)
   end
 
   def insert_every_other(array, obj)

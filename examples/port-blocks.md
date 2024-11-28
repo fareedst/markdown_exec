@@ -1,6 +1,6 @@
 # Demo variable porting
 
-```opts :(document_options)
+```opts :(document_opts)
 dump_inherited_lines: true
 execute_in_own_window: false
 output_execution_report: false

@@ -4,12 +4,12 @@ Indentation is either leading spaces or tabs.
 Tabs are interpreted as 4 spaces.
 
 ## Related MDE options
+divider_match                |  Pattern for topics/dividers in block selection menu
 fenced_start_and_end_regex   |  Matches the start and end of a fenced code block
 fenced_start_extended_regex  |  Match the start of a fenced block
 heading1_match               |  MDE_HEADING1_MATCH
 heading2_match               |  MDE_HEADING2_MATCH
 heading3_match               |  MDE_HEADING3_MATCH
-menu_divider_match           |  Pattern for topics/dividers in block selection menu
 menu_note_match              |  Pattern for notes in block selection menu
 menu_task_match              |  Pattern for tasks
 

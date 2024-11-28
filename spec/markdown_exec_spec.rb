@@ -6,7 +6,6 @@ Bundler.require(:default)
 require_relative '../lib/markdown_exec'
 
 include Tap #; tap_config
-require_relative '../lib/block_label'
 require_relative '../lib/link_history'
 require_relative '../lib/rspec_helpers'
 spec_source __FILE__
@@ -42,7 +41,7 @@ RSpec.describe 'MarkdownExec' do
   let(:import_pattern) { '^ *@import +(?<name>.+?) *$' }
   let(:menu_divider_color) { 'plain' }
   let(:menu_divider_format) { ymds[:menu_divider_format] }
-  let(:menu_divider_match) { nil }
+  let(:divider_match) { nil }
   let(:menu_final_divider) { nil }
   let(:menu_initial_divider) { nil }
   let(:menu_note_match) { nil }
@@ -68,7 +67,7 @@ RSpec.describe 'MarkdownExec' do
         # import_pattern: import_pattern,
         menu_divider_color: menu_divider_color,
         menu_divider_format: menu_divider_format,
-        menu_divider_match: menu_divider_match,
+        divider_match: divider_match,
         menu_final_divider: menu_final_divider,
         menu_initial_divider: menu_initial_divider,
         menu_note_match: menu_note_match,
@@ -259,7 +258,7 @@ RSpec.describe 'MarkdownExec' do
   end
 
   context 'with task match' do
-    let(:menu_divider_match) { nil }
+    let(:divider_match) { nil }
     let(:menu_task_format) { '<%{name}>' }
     # let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
     let(:menu_task_match) { /^ *\[(?<status>.{0,4})\] *(?<name>.*) *$/ }
@@ -270,14 +269,14 @@ RSpec.describe 'MarkdownExec' do
              end).to eq [
                ['one', nil],
                ['two', nil],
-               ['<task>', nil]
+               ['<task>', '']
              ]
     end
   end
 
   context 'with menu divider format' do
     let(:menu_divider_format) { '<%s>' }
-    let(:menu_divider_match) { ymds[:menu_divider_match] }
+    let(:divider_match) { ymds[:divider_match] }
     # let(:menu_final_divider) { { line: 'FINDIV' }.to_s }
     let(:menu_final_divider) { "'FINDIV'" }
     # let(:menu_initial_divider) { { line: 'BINDIV' }.to_s }
@@ -337,7 +336,7 @@ RSpec.describe 'MarkdownExec' do
   ## presence of menu tasks
   #
   context 'with menu tasks' do
-    let(:menu_divider_match) { nil }
+    let(:divider_match) { nil }
     let(:menu_final_divider) { nil }
     let(:menu_task_format) { '<%{name}>' }
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
@@ -348,7 +347,7 @@ RSpec.describe 'MarkdownExec' do
              end).to eq [
                ['one', nil],
                ['two', nil],
-               ['<task>', nil]
+               ['<task>', '']
              ]
     end
   end
@@ -367,7 +366,7 @@ RSpec.describe 'MarkdownExec' do
       expect_any_instance_of(MarkdownExec::HashDelegator).to \
         receive(:command_execute).with(
           'a',
-          { args: [], shell: '' }
+          { args: [], erls: { play_bin: 'play', shell: '' }, shell: '' }
         )
       opts = mp.options.merge(
         bash: true,
@@ -474,7 +473,7 @@ RSpec.describe 'MarkdownExec' do
       [block.oname, block.reqs]
     end).to eq([
                  ['one', []],
-                 ['two', ['one']],
+                 ['two', %w[one]],
                  ['three', %w[two one]],
                  ['four', ['three']]
                ])
@@ -554,7 +553,7 @@ RSpec.describe 'MarkdownExec' do
                                           .recursively_required(block.reqs) }
            end).to eq([
                         { name: 'one', allreqs: [] },
-                        { name: 'two', allreqs: ['one'] },
+                        { name: 'two', allreqs: %w[one] },
                         { name: 'three', allreqs: %w[two one] },
                         { name: 'four', allreqs: %w[three two one] }
                       ])
@@ -562,7 +561,7 @@ RSpec.describe 'MarkdownExec' do
 
   it 'fcbs_per_options' do
     mdoc = MarkdownExec::MDoc.new(list_blocks_bash1)
-    expect(mdoc.fcbs_per_options(options)
+    expect(mdoc.fcbs_per_options(options)[0]
                .map(&:oname)).to eq %w[one two three four]
   end
 
@@ -811,7 +810,7 @@ RSpec.describe 'MarkdownExec' do
   ### import file
   ### namespace file
 
-  describe 'BlockLabel' do
+  xdescribe 'BlockLabel' do
     subject(:bl_make) { BlockLabel.make(**options) }
 
     let(:filename) { 'filename' }

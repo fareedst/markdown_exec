@@ -39,11 +39,13 @@ class CachedNestedFileReader
     )
   end
 
-  def readlines(filename, depth = 0, context: '', import_paths: nil, indention: '', &block)
+  def readlines(filename, depth = 0, context: '', import_paths: nil,
+                indention: '', &block)
     if @file_cache.key?(filename)
       @file_cache[filename].each(&block) if block
       return @file_cache[filename]
     end
+    raise Errno::ENOENT, filename unless filename
 
     directory_path = File.dirname(filename)
     processed_lines = []
@@ -60,6 +62,8 @@ class CachedNestedFileReader
                                File.join(directory_path, name_strip)
                              end
 
+        raise Errno::ENOENT, name_strip unless included_file_path
+
         processed_lines += readlines(included_file_path, depth + 1,
                                      context: "#{filename}:#{ind + 1}",
                                      import_paths: import_paths,
@@ -73,9 +77,8 @@ class CachedNestedFileReader
     end
 
     @file_cache[filename] = processed_lines
-  rescue Errno::ENOENT
-    # Exceptions.error_handler('readlines', { abort: true })
-    warn_format('readlines', "No such file -- #{filename} @@ #{context}",
+  rescue Errno::ENOENT => err_filename
+    warn_format('readlines', "#{err_filename} @@ #{context}",
                 { abort: true })
   end
 end

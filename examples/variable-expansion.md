@@ -68,7 +68,9 @@ glob: ${ALPHA}.sh
 ```
 
 / import bats-document-configuration.md
-```opts :(document_options)
+```opts :(document_opts)
+divider4_center: false
+
 dump_blocks_in_file: false     # Dump BlocksInFile (stage 1)
 dump_delegate_object: false    # Dump @delegate_object
 dump_inherited_lines: false    # Dump inherited lines
@@ -87,6 +89,8 @@ save_executed_script: false
 script_execution_frame_color: plain
 script_execution_head:
 script_execution_tail:
+
+table_center: false
 
 user_must_approve: false
 

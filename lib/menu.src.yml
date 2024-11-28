@@ -11,6 +11,11 @@
   :default: false
   :procname: val_as_bool
 
+- :opt_name: block_batch_match
+  :env_var: MDE_BLOCK_BATCH_MATCH
+  :default: '@batch'
+  :procname: val_as_str
+
 - :opt_name: block_calls_scan
   :env_var: MDE_BLOCK_CALLS_SCAN
   :default: "%\\([^\\)]+\\)"
@@ -19,6 +24,11 @@
 - :opt_name: block_disable_match
   :env_var: MDE_BLOCK_DISABLE_MATCH
   :default: '@disable'
+  :procname: val_as_str
+
+- :opt_name: block_interactive_match
+  :env_var: MDE_BLOCK_INTERACTIVE_MATCH
+  :default: '@interactive'
   :procname: val_as_str
 
 - :opt_name: block_name
@@ -136,6 +146,27 @@
   :default: "> "
   :procname: val_as_str
 
+- :opt_name: divider_match
+  :env_var: MDE_DIVIDER_MATCH
+  :description: Pattern for topics/dividers in block selection menu
+  :default: "^(?<indent>[ \t]*):::(?<collapse>[+-~]?)(?<leading>[ \t]*)(?<line>(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :procname: val_as_str
+
+- :opt_name: divider4_center
+  :env_var: MDE_DIVIDER4_CENTER
+  :default: true
+  :procname: val_as_bool
+
+- :opt_name: divider4_collapse
+  :env_var: MDE_DIVIDER_COLLAPSE
+  :default: false
+  :procname: val_as_bool
+
+- :opt_name: divider4_collapsible
+  :env_var: MDE_DIVIDER_COLLAPSIBLE
+  :default: true
+  :procname: val_as_bool
+
 - :opt_name: document_configurations_directory
   :env_var: MDE_DOCUMENT_CONFIGURATIONS_DIRECTORY
   :description: Directory with files
@@ -160,7 +191,18 @@
 - :opt_name: document_load_opts_block_name
   :env_var: MDE_DOCUMENT_LOAD_OPTS_BLOCK_NAME
   :description: Name of Opts block to load with the document
-  :default: "(document_options)"
+  :default: "(document_opts)"
+  :procname: val_as_str
+
+- :opt_name: document_load_vars_block_name
+  :env_var: MDE_DOCUMENT_LOAD_VARS_BLOCK_NAME
+  :description: Name of Vars block to load with the document
+  :default: "(document_vars)"
+  :procname: val_as_str
+
+- :opt_name: document_play_bin
+  :env_var: MDE_DOCUMENT_PLAY_BIN
+  :default: play
   :procname: val_as_str
 
 - :opt_name: document_saved_lines_glob
@@ -402,29 +444,59 @@
   :default: true
   :procname: val_as_bool
 
-- :opt_name: heading2_center
-  :env_var: MDE_HEADING1_CENTER
-  :default: true
+- :opt_name: heading1_collapse
+  :env_var: MDE_HEADING1_COLLAPSE
+  :default: false
   :procname: val_as_bool
 
-- :opt_name: heading3_center
-  :env_var: MDE_HEADING1_CENTER
-  :default: true
+- :opt_name: heading1_collapsible
+  :env_var: MDE_HEADING1_COLLAPSIBLE
+  :default: false
   :procname: val_as_bool
 
 - :opt_name: heading1_match
   :env_var: MDE_HEADING1_MATCH
-  :default: "^#(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :default: "^#(?<line>(?!#)(?<collapse>[+-~]?)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
+
+- :opt_name: heading2_center
+  :env_var: MDE_HEADING2_CENTER
+  :default: true
+  :procname: val_as_bool
+
+- :opt_name: heading2_collapse
+  :env_var: MDE_HEADING2_COLLAPSE
+  :default: false
+  :procname: val_as_bool
+
+- :opt_name: heading2_collapsible
+  :env_var: MDE_HEADING2_COLLAPSIBLE
+  :default: true
+  :procname: val_as_bool
 
 - :opt_name: heading2_match
   :env_var: MDE_HEADING2_MATCH
-  :default: "^##(?<line>(?!#)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :default: "^##(?<line>(?!#)(?<collapse>[+-~]?)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
+
+- :opt_name: heading3_center
+  :env_var: MDE_HEADING3_CENTER
+  :default: true
+  :procname: val_as_bool
+
+- :opt_name: heading3_collapse
+  :env_var: MDE_HEADING3_COLLAPSE
+  :default: false
+  :procname: val_as_bool
+
+- :opt_name: heading3_collapsible
+  :env_var: MDE_HEADING3_COLLAPSIBLE
+  :default: true
+  :procname: val_as_bool
 
 - :opt_name: heading3_match
   :env_var: MDE_HEADING3_MATCH
-  :default: "^###(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :default: "^###(?<collapse>[+-~]?)(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
 
 - :long_name: help
@@ -593,6 +665,13 @@
   :default: ".+\\.md"
   :procname: val_as_str
 
+- :opt_name: menu_active_color_pastel_messages
+  :env_var: MDE_MENU_ACTIVE_COLOR_PASTEL_MESSAGES
+  :description: menu_active_color_pastel_messages
+  :default:
+  - bright_magenta
+  - on_black
+
 - :opt_name: menu_back_at_top
   :env_var: MDE_MENU_BACK_AT_TOP
   :description: Display Back option at top of menu (vs bottom)
@@ -632,6 +711,18 @@
   :default: "%{line}"
   :procname: val_as_str
 
+- :opt_name: menu_collapsible_symbol_collapsed
+  :env_var: MDE_MENU_COLLAPSIBLE_SYMBOL_COLLAPSED
+  :description: menu_collapsible_symbol_collapsed
+  :default: '⬢' # ∆ ⬢ +
+  :procname: val_as_str
+
+- :opt_name: menu_collapsible_symbol_expanded
+  :env_var: MDE_MENU_COLLAPSIBLE_SYMBOL_expandED
+  :description: menu_collapsible_symbol_expanded
+  :default: '⬡' # … ⬡ -
+  :procname: val_as_str
+
 - :opt_name: menu_divider_color
   :env_var: MDE_MENU_DIVIDER_COLOR
   :description: Color of menu divider
@@ -642,12 +733,6 @@
   :env_var: MDE_MENU_DIVIDER_FORMAT
   :description: format for menu dividers and demarcations
   :default: "-:=   %{line}   =:-"
-  :procname: val_as_str
-
-- :opt_name: menu_divider_match
-  :env_var: MDE_MENU_DIVIDER_MATCH
-  :description: Pattern for topics/dividers in block selection menu
-  :default: "^(?<indent>[ \t]*):::(?<line>(?<text>.*?)(?<trailing>[ \t]*))?$"
   :procname: val_as_str
 
 - :opt_name: menu_divider_symbol
@@ -903,7 +988,7 @@
 - :opt_name: menu_table_rows_match
   :env_var: MDE_MENU_TABLE_ROWS_MATCH
   :description: Pattern for table rows
-  :default: '^(?<line>[ \t]*(?<text>\|.*?)(?<trailing>[ \t]*))$'
+  :default: '^(?<line>(?<indent>[ \t]*)(?<text>\|.*?)(?<trailing>[ \t]*))$'
   :procname: val_as_str
 
 - :opt_name: menu_task_color
@@ -1094,6 +1179,16 @@
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
+
+- :opt_name: play_bin_batch
+  :env_var: MDE_PLAY_BIN_BATCH
+  :default: play
+  :procname: val_as_str
+
+- :opt_name: play_bin_interactive
+  :env_var: MDE_PLAY_BIN_INTERACTIVE
+  :default: play_interactive
+  :procname: val_as_str
 
 - :opt_name: probe
   :long_name: probe
@@ -1468,6 +1563,12 @@
   :env_var: MDE_TABLE_BORDER_COLOR
   :description: Color for table border
   :default: fg_bg_rgbh_00_00_df_14_18_1c
+
+- :opt_name: table_center
+  :env_var: MDE_TABLE_CENTER
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
 
 - :opt_name: table_header_row_color
   :env_var: MDE_TABLE_HEADER_ROW_COLOR

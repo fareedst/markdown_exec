@@ -8,3 +8,9 @@ load 'test_helper'
    --list-blocks-message indent --list-blocks \
    '              '
 }
+
+@test 'Directives - import, missing' {
+  BATS_OUTPUT_FILTER=A
+  spec_mde_args_expect docs/dev/import-missing.md \
+   ' Error: CachedNestedFileReader.readlines -- No such file or directory - this-is-missing.md @@ '
+}

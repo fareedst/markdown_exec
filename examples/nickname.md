@@ -1,6 +1,6 @@
 # Demo block nicknames
 
-```opts :(document_options)
+```opts :(document_opts)
 pause_after_script_execution: true
 ```
 

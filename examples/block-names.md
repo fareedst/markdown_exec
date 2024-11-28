@@ -54,7 +54,7 @@ The hidden block "(success)" is required above. It prints "Success".
 echo "Success"
 ```
 
-```opts :(document_options)
+```opts :(document_opts)
 execute_in_own_window: false
 output_execution_report: false
 output_execution_summary: false

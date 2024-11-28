@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.6.0] - 2024-11-27
+
+### Added
+
+- Ability to collapse and expand sections.
+- Collapsible state configurable per document and per section.
+- User can collapse and expand sections in the UI.
+- Live shell variable expansion in document text and block content.
+- Option for name of function to manage executed scripts.
+
+### Changed
+
+- Tables are indented per the source.
+- BATS test helper functions.
+
 ## [2.5.0] - 2024-10-27
 
 ### Added

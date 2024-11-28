@@ -64,7 +64,8 @@ module MarkdownExec
     def for_menu!(
       block_calls_scan: @delegate_object[:block_calls_scan],
       block_name_match: @delegate_object[:block_name_match],
-      block_name_nick_match: @delegate_object[:block_name_nick_match]
+      block_name_nick_match: @delegate_object[:block_name_nick_match],
+      id: ''
     )
       call = @attrs[:call] = @attrs[:start_line]&.match(
         Regexp.new(block_calls_scan)
@@ -83,7 +84,7 @@ module MarkdownExec
                 bm && bm[1] ? bm[:title] : titlexcall
               end
       @attrs[:title] = @attrs[:oname] = oname
-
+      @attrs[:id] = id
       @attrs[:dname] = HashDelegator.indent_all_lines(
         (yield oname, BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]),
         @attrs[:indent]
@@ -151,20 +152,22 @@ module MarkdownExec
       @attrs.to_yaml
     end
 
-    # Expand in body and dname
-    def variable_expansion!(pattern, replacement_dictionary)
+    # Expand variables in `dname` and `body` attributes
+    def expand_variables_in_attributes!(pattern, replacements)
       ### update name, nickname, title, label ???
-      @attrs[:dname] = @attrs[:dname].gsub(pattern) { |match|
-        replacement_dictionary[match]
-      }
+
+      # Replace variables in `dname` using the replacements dictionary
+      @attrs[:dname] = @attrs[:dname].gsub(pattern) do |match|
+        replacements[match]
+      end
+
+      # Replace variables in each line of `body` if `body` is present
       if @attrs[:body]
         @attrs[:body] = @attrs[:body].map do |line|
           if line.empty?
             line
           else
-            line.gsub(pattern) do |match|
-              replacement_dictionary[match]
-            end
+            line.gsub(pattern) { |match| replacements[match] }
           end
         end
       end

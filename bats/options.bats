@@ -91,7 +91,7 @@ load 'test_helper'
 }
 
 @test 'Options - version' {
-  version=$(grep VERSION "$PROJECT_ROOT/lib/markdown_exec/version.rb" | cut -d "'" -f 2)
+  version=$(grep VERSION "lib/markdown_exec/version.rb" | cut -d "'" -f 2)
   spec_mde_args_expect --version \
    "$version"
 }

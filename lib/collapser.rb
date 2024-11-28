@@ -32,7 +32,7 @@ class Collapser
   end
 
   def collapse_per_token?(fcb)
-    fcb.token == COLLAPSE_TOKEN
+    fcb.token == COLLAPSIBLE_TOKEN_COLLAPSE
   end
 
   def collapsible_per_options?(fcb, options: @options)
@@ -59,7 +59,7 @@ class Collapser
   end
 
   def expand_per_token?(fcb)
-    fcb.token == EXPAND_TOKEN
+    fcb.token == COLLAPSIBLE_TOKEN_EXPAND
   end
 
   def hide?(fcb,
@@ -156,9 +156,9 @@ class CollapserTest < Minitest::Test
     ff_t2 = ['t2', 'text', nil, '']
     ff_t3 = ['t3', 'text', nil, '']
     ff_t4 = ['t4', 'text', nil, '']
-    ff_h1a_collapse = ['h1a', 'heading', 1, COLLAPSE_TOKEN]
-    ff_h1a_expand = ['h1a', 'heading', 1, EXPAND_TOKEN]
-    ff_h1b_expand = ['h1b', 'heading', 1, EXPAND_TOKEN]
+    ff_h1a_collapse = ['h1a', 'heading', 1, COLLAPSIBLE_TOKEN_COLLAPSE]
+    ff_h1a_expand = ['h1a', 'heading', 1, COLLAPSIBLE_TOKEN_EXPAND]
+    ff_h1b_expand = ['h1b', 'heading', 1, COLLAPSIBLE_TOKEN_EXPAND]
 
     # :collapse, :collapsible, :hide
     cc_init = [false, false, false]
