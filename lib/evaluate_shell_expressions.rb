@@ -21,11 +21,9 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
     script << "\necho #{token}#{index}\n"
     script << expression << "\n"
   end
-  # !!v script
 
   # Execute
   stdout_str, stderr_str, status = Open3.capture3(shell, "-c", script)
-  # !!v stdout_str, stderr_str, status
 
   unless status.success?
     raise "Shell script execution failed: #{stderr_str}"
@@ -38,7 +36,6 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
       result_hash[sprintf(key_format, key)] = output_parts[index].chomp
     end
   end
-  # !!v result_hash
 
   result_hash
 end

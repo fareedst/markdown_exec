@@ -2,7 +2,10 @@
 
 class BlockType
   ALL = [
+    CHROME = 'chrome',
+    DIVIDER = 'divider',
     EDIT = 'edit',
+    HEADING = 'heading',
     HISTORY = 'history',
     LINK = 'link',
     LOAD = 'load',
@@ -10,6 +13,7 @@ class BlockType
     PORT = 'port',
     SAVE = 'save',
     SHELL = 'shell',
+    TEXT = 'text',
     VARS = 'vars',
     VIEW = 'view',
     YAML = 'yaml'

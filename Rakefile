@@ -89,7 +89,6 @@ desc 'minitest'
 task :minitest do
   commands = [
     './lib/argument_processor.rb',
-    './lib/block_label.rb',
     './lib/cached_nested_file_reader.rb',
     './lib/directory_searcher.rb',
     './lib/evaluate_shell_expressions.rb',

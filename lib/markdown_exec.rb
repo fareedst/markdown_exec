@@ -15,7 +15,6 @@ require 'tty-prompt'
 require 'yaml'
 
 require_relative 'ansi_formatter'
-require_relative 'block_label'
 require_relative 'cached_nested_file_reader'
 require_relative 'cli'
 require_relative 'color_scheme'
@@ -94,6 +93,7 @@ class NamedCaptureExtractor
     regexp = pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern)
     str&.match(regexp)&.named_captures&.transform_keys(&:to_sym)
   end
+
   def self.extract_named_group2(match_data)
     match_data&.named_captures&.transform_keys(&:to_sym)
   end
@@ -415,14 +415,10 @@ module MarkdownExec
       options = calculated_options.merge(options)
       update_options(options, over: false)
       # recognize commands with an opt_name, no procname
-      # !!b
       return if execute_simple_commands(options, stage: 1)
-      # !!b
 
       mde_vux_main_loop(opts_prepare_file_list(options))
-      # !!b
       return unless @options[:output_saved_script_filename]
-      # !!b
 
       @fout.fout "script_block_name: #{run_state.script_block_name}"
       @fout.fout "s_save_filespec: #{run_state.saved_filespec}"
@@ -433,16 +429,10 @@ module MarkdownExec
       # !!p stage
       simple_commands(options).each do |key, (cstage, proc)|
         if @options[key].is_a?(TrueClass) || @options[key].present?
-          # !!v key, 'cstage', cstage
           if stage && stage == cstage
-            # !!b
             proc.call
             return true
-          else
-          # !!b
           end
-        else
-          # !!b
         end
       end
       false
@@ -584,7 +574,7 @@ module MarkdownExec
 
       files_table_rows = @options.read_saved_assets_for_history_table(
         asset: @options[:filename]
-      ) # !!v files_table_rows
+      )
       if sift_regexp
         # Filter history to file names matching a pattern
         files_table_rows.select! { |item| sift_regexp.match(item[:file]) }
@@ -816,20 +806,14 @@ module MarkdownExec
 
     # Reports and executes block logic
     def mde_vux_main_loop(files)
-      # !!b
       @options[:filename] = select_document_if_multiple(files)
       @options.vux_main_loop do |type, data|
         case type
         when :command_names
-          # !!b
           simple_commands(data).keys
         when :call_proc
-          # !!b
-          # simple_commands(data[0])[data[1]].call
           simple_commands(data[0])[data[1]][1].call
-
         when :end_of_cli
-          # !!b
           execute_simple_commands(options, stage: 2)
         else
           raise
@@ -1041,21 +1025,21 @@ module MarkdownExec
         list_default_yaml: [1, -> { @fout.fout_list list_default_yaml }],
         list_docs: [1, -> { @fout.fout_list opts_prepare_file_list(options) }],
         list_recent_output: [1, -> {
-                              @fout.fout_list list_recent_output(
-                                @options[:saved_stdout_folder],
-                                @options[:saved_stdout_glob], @options[:list_count]
-                              )
-                            }],
+                                  @fout.fout_list list_recent_output(
+                                    @options[:saved_stdout_folder],
+                                    @options[:saved_stdout_glob], @options[:list_count]
+                                  )
+                                }],
         list_recent_scripts: [1, -> {
-                               @fout.fout_list list_recent_scripts(
-                                 options[:saved_script_folder],
-                                 options[:saved_script_glob], options[:list_count]
-                               )
-                             }],
-        menu_export: [1, -> {@fout.fout menu_export }],
-        pwd: [1, -> {@fout.fout File.expand_path('..', __dir__) }],
-        run_last_script: [1, -> {run_last_script }],
-        tab_completions: [1, -> {@fout.fout tab_completions }]
+                                   @fout.fout_list list_recent_scripts(
+                                     options[:saved_script_folder],
+                                     options[:saved_script_glob], options[:list_count]
+                                   )
+                                 }],
+        menu_export: [1, -> { @fout.fout menu_export }],
+        pwd: [1, -> { @fout.fout File.expand_path('..', __dir__) }],
+        run_last_script: [1, -> { run_last_script }],
+        tab_completions: [1, -> { @fout.fout tab_completions }]
       }
     end
 

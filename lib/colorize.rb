@@ -37,6 +37,14 @@ class String
     "\033[#{self}\033[0m"
   end
 
+  # # Applies a 24-bit RGB background color to the string.
+  # #
+  # # @param rgb [String] The RGB color, expressed as a string like "1;2;3".
+  # # @return [String] The string with the applied RGB foreground color.
+  # def bg_rgb_color(rgb)
+  #   "48;2;#{rgb}m#{self}".ansi_control_sequence
+  # end
+
   # Applies a 24-bit RGB foreground color to the string.
   #
   # @param rgb [String] The RGB color, expressed as a string like "1;2;3".

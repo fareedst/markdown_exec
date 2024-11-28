@@ -30,6 +30,16 @@ BLOCK_TYPE_COLOR_OPTIONS = {
   BlockType::VARS => :menu_vars_color
 }.freeze
 
+
+COLLAPSIBLE_SYMBOL_COLLAPSED = '⬢' # '<+>' # '∆'
+COLLAPSIBLE_SYMBOL_EXPANDED = '⬡' # '< >' # '…' 
+
+# in regexp (?<collapse>[+-~]?)
+COLLAPSIBLE_TOKEN_COLLAPSE = '+'
+COLLAPSIBLE_TOKEN_EXPAND = '-'
+
+COLLAPSIBLE_TYPES = [BlockType::DIVIDER, BlockType::HEADING].freeze
+
 class ExecutionStreams
   STD_ERR = :stderr
   STD_IN  = :stdin
