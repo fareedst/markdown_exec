@@ -72,10 +72,10 @@ load 'test_helper'
 # }
 
 @test 'Options - load-code' {
-  BATS_OUTPUT_FILTER=A
-  BATS_OUTPUT_GREP=var1
-  spec_mde_args_expect examples/load_code.md --load-code examples/load1.sh display_variables \
-   'var1: line2'
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/load_code.md \
+   --load-code docs/dev/load1.sh \
+   --list-blocks-message dname --list-blocks-type 3 --list-blocks \
+   'Demonstrate loading inherited code via the command line.__Run this command to display the inherited code._mde --load-code docs/dev/load1.sh docs/dev/load_code.md__| Variable | Value |_| -------- | ----- |_| var1     | line2 |_| var2     | line4 |'
 }
 
 @test 'Options - pwd' {

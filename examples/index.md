@@ -37,7 +37,7 @@ file: examples/linked3.md
 file: examples/llm.md
 ```
 ```link
-file: examples/load1.sh
+file: docs/dev/load1.sh
 ```
 ```link
 file: examples/load2.sh

@@ -1,7 +1,7 @@
 ::: Load file into inherited lines
 Load (do not evaluate) and append to inherited lines.
 ```link :load1
-load: examples/load1.sh
+load: docs/dev/load1.sh
 ```
 Load, evaluate, and append output to inherited lines.
 ```link :load2_eval
@@ -14,7 +14,7 @@ Load (do not evaluate) and append to inherited lines and switch document.
 ```link :load_from_file_link_and_show
 block: show_vars
 file: examples/linked_show.md
-load: examples/load1.sh
+load: docs/dev/load1.sh
 ```
 
 ::: Save and Load
