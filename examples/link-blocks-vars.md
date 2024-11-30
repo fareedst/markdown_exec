@@ -10,15 +10,14 @@ pause_after_script_execution: true
 
 ## Demonstrate a link block that sets a variable
 ::: Select below to trigger. If it prints "VARIABLE1: 1", the Link block was processed.
-The hidden block "(print-VARIABLE1)" is required below. It prints variable "VARIABLE1".
-```bash :(print-VARIABLE1)
-source bin/colorize_env_vars.sh
-colorize_env_vars '' VARIABLE1
-```
-The block sets VARIABLE1 and requires hidden block "(print-VARIABLE1)".
+
+| Variable| Value
+| -| -
+| VARIABLE1| ${VARIABLE1}
+
+The block sets VARIABLE1.
 For each environment variable in `vars`, append an inherited line that assigns the variable the specified value.
     ```link
-    block: (print-VARIABLE1)
     vars:
       VARIABLE1: 1
     ```
@@ -51,7 +50,10 @@ These blocks require the *output* of the execution of the code in the named shel
     eval: true
     next_block: "(display_variable_ALPHA)"
     ```
+
+| Variable| Value
+| -| -
+| ALPHA| ${ALPHA}
+
 ```bash :(display_variable_ALPHA)
-source bin/colorize_env_vars.sh
-colorize_env_vars '' ALPHA
 ```

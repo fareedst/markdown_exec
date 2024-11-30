@@ -19,9 +19,13 @@ VAULT2
 
 ```bash :show +[vault]
 : ${VAULT:=This variable has not been set.}
-source bin/colorize_env_vars.sh
-colorize_env_vars '' VAULT
 ```
+
+| Variable| Value
+| -| -
+| VAULT| ${VAULT}
+| VAULT2| ${VAULT2}
+
 @import example-document-opts.md
 ```opts :(document_opts)
 dump_inherited_lines: true

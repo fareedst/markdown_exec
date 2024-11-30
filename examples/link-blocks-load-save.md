@@ -12,7 +12,6 @@ eval: true
 ::: Load file into inherited lines and switch document
 Load (do not evaluate) and append to inherited lines and switch document.
 ```link :load_from_file_link_and_show
-block: show_vars
 file: examples/linked_show.md
 load: docs/dev/load1.sh
 ```
@@ -23,16 +22,15 @@ Save inherited lines to a file.
 save: tmp/save1.sh
 ```
 Load inherited lines from a file.
-Subsequently, run the `display_variables` block.
 ```link :load_saved
 load: tmp/save1.sh
-block: display_variables
 ```
-Display variables ALPHA, var1, var2
-```bash :display_variables
-source bin/colorize_env_vars.sh
-colorize_env_vars '' ALPHA var1 var2
-```
+
+| Variable| Value
+| -| -
+| ALPHA| ${ALPHA}
+| var1| ${var1}
+| var2| ${var2}
 
 ::: Load file matching glob pattern into inherited lines
 Load (do not evaluate) and append to inherited lines.

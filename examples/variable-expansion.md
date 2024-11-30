@@ -59,8 +59,9 @@ directory: tmp
 glob: ${ALPHA}.sh
 ```
 ```view
+View
 ```
-```edit
+```edit :edit
 ```
 ```save
 directory: tmp

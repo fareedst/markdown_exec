@@ -15,7 +15,6 @@ ALPHA: 1
 ```
 
 Make the code in the required block `(bash_set_to_3)` into inherited lines.
-Subsequently, run the `display_variable_ALPHA` block.
 ```bash :(bash_set_to_3)
 ALPHA=3
 ```
@@ -25,7 +24,6 @@ block: display_variable_ALPHA
 
 Evaluate the code in the required block `(bash_eval_set_to_4)` and
  save (transformed) output into inherited lines.
-Subsequently, run the `display_variable_ALPHA` block.
 ```link :[set_ALPHA_to_4_via_evaluated_required_block_and_display] +(bash_eval_set_to_4)
 eval: true
 next_block: display_variable_ALPHA
@@ -34,16 +32,15 @@ next_block: display_variable_ALPHA
 echo 'ALPHA="4"'
 ```
 
-::: Display value of ALPHA
+/::: Display value of ALPHA
 ```bash :display_variable_ALPHA
-source bin/colorize_env_vars.sh
-echo The current value of environment variable ALPHA is now:
-colorize_env_vars '' ALPHA
 ```
+| Variable| Value
+| -| -
+| ALPHA| ${ALPHA}
 
 Execute a script requiring input from the user.
 Save the output setting TIMESTAMP into inherited lines.
-Subsequently, run the `display_TIMESTAMP` block.
 ```bash :(input_timestamp)
 if [[ -z $TIMESTAMP ]]; then
   default="$(date -u +%y%m%d)"
@@ -57,12 +54,11 @@ echo "TIMESTAMP=\"$TIMESTAMP\""
 ```
 ```link :set_timestamp +(input_timestamp) +(inherit_timestamp)
 exec: true
-block: display_TIMESTAMP
 ```
-```bash :display_TIMESTAMP
-source bin/colorize_env_vars.sh
-colorize_env_vars '' TIMESTAMP
-```
+
+| Variable| Value
+| -| -
+| TIMESTAMP| ${TIMESTAMP}
 
 ## Values
 Spaces in variable value are unchanged.
