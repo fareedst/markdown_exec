@@ -991,6 +991,7 @@ module MarkdownExec
     end
 
     def select_document_if_multiple(files = list_markdown_files_in_path,
+                                    cycle: true,
                                     prompt: options[:prompt_select_md].to_s)
       return files[0] if (count = files.count) == 1
 
@@ -1004,7 +1005,9 @@ module MarkdownExec
                        :prompt_color_after_script_execution
                      ),
         files,
-        opts.merge(per_page: opts[:select_page_height])
+        HashDelegator.options_for_tty_menu(opts).merge(
+          cycle: cycle
+        )
       )
     end
 

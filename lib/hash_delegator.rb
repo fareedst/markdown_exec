@@ -1864,6 +1864,7 @@ module MarkdownExec
       exit_prompt: @delegate_object[:prompt_filespec_back],
       filename_pattern: @delegate_object[:vars_block_filename_pattern],
       glob: @delegate_object[:document_configurations_glob],
+      menu_options: HashDelegator.options_for_tty_menu(@delegate_object),
       view: @delegate_object[:vars_block_filename_view]
     )
       block_data = HashDelegator.parse_yaml_data_from_body(selected.body)
@@ -1887,7 +1888,9 @@ module MarkdownExec
           ),
             oname: file }
         end,
-        simple_menu_options
+        menu_options.merge(
+          cycle: true
+        )
       )
         if selected_option.dname != exit_prompt
           File.readlines(selected_option.oname, chomp: true)
@@ -3555,11 +3558,7 @@ module MarkdownExec
       menu_with_back && @link_history.prior_state_exist?
     end
 
-    def simple_menu_options(
-      per_page: @delegate_object[:select_page_height]
-    )
-      { cycle: true,
-        per_page: per_page }
+    def simple_menu_options
     end
 
     # Initializes a new fenced code block (FCB) object based
@@ -4373,6 +4372,10 @@ module MarkdownExec
 
     def self.next_link_state(*args, **kwargs, &block)
       super
+    end
+
+    def self.options_for_tty_menu(options)
+      options.slice(:menu_active_color_pastel_messages, :select_page_height)
     end
   end
 end
