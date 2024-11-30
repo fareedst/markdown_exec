@@ -776,7 +776,7 @@ module MarkdownExec
     end
 
     def assign_key_value_in_bash(key, value)
-      if value =~ /["$\\`]/
+      if value.to_s =~ /["$\\`]/
         # requiring ShellWords to write into Bash scripts
         "#{key}=#{Shellwords.escape(value)}"
       else
