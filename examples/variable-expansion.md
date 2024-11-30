@@ -68,6 +68,7 @@ glob: ${ALPHA}.sh
 ```
 
 / import bats-document-configuration.md
+@import example-document-opts.md
 ```opts :(document_opts)
 divider4_center: false
 

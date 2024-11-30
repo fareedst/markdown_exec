@@ -1,5 +1,6 @@
 This document demonstrates the automatic loading of options in a block with a reserved name.
 
+@import example-document-opts.md
 ```opts :(document_opts)
 menu_divider_format: "=> %{line} == %{line} <="
 ```

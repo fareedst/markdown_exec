@@ -1,6 +1,7 @@
 # Demo options: output_execution_report, output_execution_summary
 
 ::: Options are initially True
+@import example-document-opts.md
 ```opts :(document_opts) +[document_options]
 output_execution_report: true
 output_execution_summary: true

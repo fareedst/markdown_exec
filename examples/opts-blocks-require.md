@@ -1,4 +1,5 @@
 # Demonstrate requiring blocks
+@import example-document-opts.md
 ```opts :(document_opts) +(custom) +[custom]
 menu_divider_color: red     # color to indicate failure
 ```

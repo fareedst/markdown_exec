@@ -1,13 +1,5 @@
 # Demo variable porting
 
-```opts :(document_opts)
-dump_inherited_lines: true
-execute_in_own_window: false
-output_execution_report: false
-output_execution_summary: false
-pause_after_script_execution: true
-```
-
 ::: Set the VAULT value in memory.
 ::: Call this block prior to `show` to demonstrate in-memory value being written to script.
 
@@ -29,4 +21,12 @@ VAULT2
 : ${VAULT:=This variable has not been set.}
 source bin/colorize_env_vars.sh
 colorize_env_vars '' VAULT
+```
+@import example-document-opts.md
+```opts :(document_opts)
+dump_inherited_lines: true
+execute_in_own_window: false
+output_execution_report: false
+output_execution_summary: false
+pause_after_script_execution: true
 ```

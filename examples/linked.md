@@ -1,5 +1,6 @@
 Demonstrate setting variable values interactively for use in generated scripts.
 
+@import example-document-opts.md
 ```opts :(document_opts)
 menu_with_inherited_lines: true
 pause_after_script_execution: false

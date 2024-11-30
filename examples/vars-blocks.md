@@ -1,3 +1,4 @@
+@import example-document-opts.md
 ```opts :(document_opts)
 execute_in_own_window: false
 output_execution_report: false

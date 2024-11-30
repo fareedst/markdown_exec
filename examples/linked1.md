@@ -1,5 +1,6 @@
 # Demo document linking
 
+@import example-document-opts.md
 ```opts :(document_opts)
 dump_inherited_lines: true
 pause_after_script_execution: false

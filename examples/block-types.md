@@ -16,6 +16,7 @@ Specified block types.
         a: 1
         ```
 
+@import example-document-opts.md
 ```opts :(document_opts)
 bash_only: false
 execute_in_own_window: false

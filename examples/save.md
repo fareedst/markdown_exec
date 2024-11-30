@@ -1,4 +1,5 @@
 # Demonstrate custom file names
+@import example-document-opts.md
 ```opts :(document_opts) +[custom]
 pause_after_script_execution: true  # for interactive demos
 save_executed_script:         true  # demonstrate saved scripts

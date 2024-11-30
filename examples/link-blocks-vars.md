@@ -1,4 +1,5 @@
 # Demonstrate link blocks set variables
+@import example-document-opts.md
 ```opts :(document_opts)
 execute_in_own_window: false
 menu_with_inherited_lines: true

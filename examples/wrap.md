@@ -100,6 +100,7 @@ shell_code_label_format_above: "#  -^-"
 shell_code_label_format_below: "#  -v-  +%{block_name}  -o-  %{document_filename}  -o-  %{time_now_date}  -v-"
 ```
 
+@import example-document-opts.md
 ```opts :(document_opts)
 execute_in_own_window: false
 output_execution_report: false
