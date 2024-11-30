@@ -3469,16 +3469,18 @@ module MarkdownExec
           filter: true,
         }.freeze
 
-        # crashes if all menu options are disabled
-        # crashes if default is not an existing item
-        #
-        if menu_items.all? { |item| item.key?(:disabled) && !item[:disabled].nil? }
+        if menu_items.all? do |item|
+          !item.is_a?(String) && item[:disabled]
+        end
           menu_items.each do |prompt_item|
             puts prompt_item[:dname]
           end
           return
         end
 
+        # crashes if all menu options are disabled
+        # crashes if default is not an existing item
+        #
         selection = @prompt.select(prompt_text,
                                    menu_items,
                                    opts.merge(props))
@@ -3494,7 +3496,6 @@ module MarkdownExec
 
       selected = menu_items.find do |item|
         if item.instance_of?(Hash)
-          # (item[:id] || item[:name] || item[:dname]) == selection
           [item[:id], item[:name], item[:dname]].include?(selection)
         elsif item.instance_of?(MarkdownExec::FCB)
           item.dname == selection || item.id == selection
