@@ -3472,6 +3472,13 @@ module MarkdownExec
         # crashes if all menu options are disabled
         # crashes if default is not an existing item
         #
+        if menu_items.all? { |item| item.key?(:disabled) && !item[:disabled].nil? }
+          menu_items.each do |prompt_item|
+            puts prompt_item[:dname]
+          end
+          return
+        end
+
         selection = @prompt.select(prompt_text,
                                    menu_items,
                                    opts.merge(props))
