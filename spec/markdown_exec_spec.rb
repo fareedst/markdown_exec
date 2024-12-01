@@ -64,7 +64,6 @@ RSpec.describe 'MarkdownExec' do
         fenced_start_and_end_regex: fenced_start_and_end_regex,
         fenced_start_extended_regex: fenced_start_extended_regex,
         filename: fixtures_filename,
-        # import_pattern: import_pattern,
         menu_divider_color: menu_divider_color,
         menu_divider_format: menu_divider_format,
         divider_match: divider_match,
@@ -193,7 +192,6 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_and_end_regex: fenced_start_and_end_regex,
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/heading1.md',
-      # import_pattern: import_pattern,
       menu_blocks_with_headings: true,
 
       heading1_match: env_str('MDE_HEADING1_MATCH',
@@ -260,7 +258,6 @@ RSpec.describe 'MarkdownExec' do
   context 'with task match' do
     let(:divider_match) { nil }
     let(:menu_task_format) { '<%{name}>' }
-    # let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
     let(:menu_task_match) { /^ *\[(?<status>.{0,4})\] *(?<name>.*) *$/ }
 
     it 'formats tasks' do
@@ -277,9 +274,7 @@ RSpec.describe 'MarkdownExec' do
   context 'with menu divider format' do
     let(:menu_divider_format) { '<%s>' }
     let(:divider_match) { ymds[:divider_match] }
-    # let(:menu_final_divider) { { line: 'FINDIV' }.to_s }
     let(:menu_final_divider) { "'FINDIV'" }
-    # let(:menu_initial_divider) { { line: 'BINDIV' }.to_s }
     let(:menu_initial_divider) { "'BINDIV'" }
     let(:menu_task_match) { nil }
 
@@ -821,8 +816,6 @@ RSpec.describe 'MarkdownExec' do
     context 'with title_only' do
       let(:options) do
         {
-          # fenced_start_and_end_regex: fenced_start_and_end_regex,
-          # fenced_start_extended_regex: fenced_start_extended_regex,
           filename: filename,
           headings: [],
           menu_blocks_with_docname: false,
@@ -841,8 +834,6 @@ RSpec.describe 'MarkdownExec' do
     context 'with title and headings' do
       let(:options) do
         {
-          # fenced_start_and_end_regex: fenced_start_and_end_regex,
-          # fenced_start_extended_regex: fenced_start_extended_regex,
           filename: filename,
           headings: [h1, h2],
           menu_blocks_with_docname: false,
@@ -861,8 +852,6 @@ RSpec.describe 'MarkdownExec' do
     context 'with title, headings, docname' do
       let(:options) do
         {
-          # fenced_start_and_end_regex: fenced_start_and_end_regex,
-          # fenced_start_extended_regex: fenced_start_extended_regex,
           filename: filename,
           headings: [h1, h2],
           menu_blocks_with_docname: true,

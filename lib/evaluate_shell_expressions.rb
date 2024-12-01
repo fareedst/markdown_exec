@@ -6,9 +6,10 @@
 require 'open3'
 
 def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
-                               key_format: "%%<%s>")
+                               key_format: "%%<%s>",
+                               initial_code_required: false)
   # !!p initial_code expressions key_format shell
-  return if initial_code.nil? || initial_code.empty? ||
+  return if (initial_code_required && (initial_code.nil? || initial_code.empty?)) ||
             expressions.nil? || expressions.empty? ||
             key_format.nil? || key_format.empty?
 

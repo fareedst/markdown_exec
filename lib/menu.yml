@@ -83,6 +83,11 @@
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
+- :opt_name: command_substitution_regexp
+  :env_var: MDE_COMMAND_SUBSTITUTION_REGEXP
+  :description: command_substitution_regexp
+  :default: "(?<expression>\\$\\((?<command>([^()]*(\\([^()]*\\))*[^()]*)*)\\))"
+  :procname: val_as_str
 - :long_name: config
   :description: Read configuration file
   :arg_name: PATH

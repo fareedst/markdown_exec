@@ -301,7 +301,7 @@ module HashDelegatorSelf
       # replace text in each block
       range.each.with_index do |block_ind, ind|
         fcb = blocks_menu[block_ind]
-        fcb.s3formatted_table_row = fcb.padded = table__hs[ind] ####
+        fcb.s3formatted_table_row = fcb.padded = table__hs[ind]
         fcb.padded_width = table__hs[ind].padded_width
         if fcb.center
           cw = (screenwidth - table__hs[ind].padded_width) / 2
@@ -321,7 +321,7 @@ module HashDelegatorSelf
   # s0printable: line_obj[:text],
   # s1decorated: decorated,
   # s2title = fcb.oname
-  # s3formatted_table_row = fcb.padded = table__hs[ind]####
+  # s3formatted_table_row = fcb.padded = table__hs[ind]
 
   # Creates a TTY prompt with custom settings. Specifically,
   #  it disables the default 'cross' symbol and
@@ -791,7 +791,9 @@ module MarkdownExec
     # The method categorizes blocks based on their type and processes them accordingly.
     #
     # @return [Array<FCB>] An array of FCB objects representing the blocks.
-    def blocks_from_nested_files
+    def blocks_from_nested_files(
+      link_state: @dml_link_state || LinkState.new
+    )
       register_console_attributes(@delegate_object)
       @decor_patterns_from_delegate_object_for_block_create = collect_line_decor_patterns(@delegate_object)
 
@@ -799,6 +801,23 @@ module MarkdownExec
       blocks = []
       iter_blocks_from_nested_files do |btype, fcb|
         count += 1
+
+        # text substitution in menu
+        #
+        expand_references = -> do
+          expand_variable_references!(blocks: [fcb], link_state: link_state,
+                                      initial_code_required: false)
+          expand_variable_references!(
+            blocks: [fcb],
+            echo_format: '%s',
+            initial_code_required: false,
+            key_format: "$(%s)",
+            link_state: link_state,
+            group_name: :command,
+            pattern: options_command_substitution_regexp
+          )
+        end
+
         case btype
         when :blocks
           if @delegate_object[:bash]
@@ -811,11 +830,13 @@ module MarkdownExec
               apply_block_type_color_option(oname, color)
             end
           end
+          expand_references.call
           blocks << fcb
         when :filter # types accepted
           %i[blocks line]
         when :line
           unless @delegate_object[:no_chrome]
+            expand_references.call
             create_and_add_chrome_blocks(blocks, fcb, id: "*#{count}",
                                                       init_ids: init_ids)
           end
@@ -853,10 +874,12 @@ module MarkdownExec
 
     # private
 
-    def build_replacement_dictionary(commands, link_state)
+    def build_replacement_dictionary(commands, link_state,
+                                     initial_code_required: false, key_format:)
       evaluate_shell_expressions(
-        link_state.inherited_lines_block, commands,
-        key_format: "${%s}" # no need to escape variable name for regexp
+        (link_state&.inherited_lines_block || ''), commands,
+        initial_code_required: initial_code_required,
+        key_format: key_format
       ) # !!t
     end
 
@@ -1145,19 +1168,21 @@ module MarkdownExec
     end
 
     def count_named_group_occurrences(
-      blocks, pattern, exclude_types: [BlockType::SHELL]
+      blocks, pattern, exclude_types: [BlockType::SHELL],
+      group_name:
     )
       # Initialize a counter for named group occurrences
       occurrence_count = Hash.new(0)
+      return occurrence_count if pattern == //
 
       blocks.each do |block|
         # Skip processing for shell-type blocks
         next if exclude_types.include?(block.type)
 
         # Scan each block name for matches of the pattern
-        block.oname.scan(pattern) do |(_, variable_name)|
+        (block.oname || block.body.join("\n")).scan(pattern) do |(_, variable_name)|
           pattern.match($LAST_MATCH_INFO.to_s) # Reapply match for named groups
-          occurrence_count[$LAST_MATCH_INFO[:variable]] += 1
+          occurrence_count[$LAST_MATCH_INFO[group_name]] += 1
         end
       end
 
@@ -1248,7 +1273,6 @@ module MarkdownExec
           collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
           token: line_obj[:collapse],
           disabled: disabled ? TtyMenu::DISABLE : nil,
-          ####
           # id: "#{@delegate_object[:filename]}:#{index}",
           id: "#{id}.#{index}",
           level: level,
@@ -1292,7 +1316,7 @@ module MarkdownExec
                     when COLLAPSIBLE_TOKEN_EXPAND
                       false
                     else
-                      false####
+                      false
                     end,
 
           color_method: criteria[:color] &&
@@ -1896,7 +1920,7 @@ module MarkdownExec
           File.readlines(selected_option.oname, chomp: true)
         end
       else
-        warn "No matching files found" ###
+        warn "No matching files found"
       end
     end
 
@@ -2143,7 +2167,9 @@ module MarkdownExec
     )
       # update blocks
       #
-      Regexp.union(replacements.keys).tap do |pattern|
+      Regexp.union(replacements.keys.map { |word|
+                     Regexp.new(Regexp.escape(word))
+                   }).tap do |pattern|
         menu_blocks.each do |block|
           next if exclude_types.include?(block.type)
 
@@ -2153,25 +2179,31 @@ module MarkdownExec
     end
 
     def expand_variable_references!(
-      # echo_format: 'echo "$%s"',
       echo_format: 'echo $%s',
       link_state:,
       blocks:,
-      pattern: Regexp.new(@delegate_object[:variable_expression_regexp])
+      group_name: :variable,
+      initial_code_required: false,
+      key_format: "${%s}",
+      pattern: nil
     )
-      # Count occurrences of named groups in each block
-      variable_counts = count_named_group_occurrences(blocks, pattern)
+      pattern ||= options_variable_expression_regexp
+      return if pattern.nil?
 
-      # Generate echo commands for each variable based on its count
+      variable_counts = count_named_group_occurrences(blocks, pattern,
+                                                      group_name: group_name)
+      return if variable_counts.nil?
+
       echo_commands = generate_echo_commands(variable_counts, echo_format)
 
-      # Build a dictionary to replace variables with the corresponding commands
-      replacements = build_replacement_dictionary(echo_commands, link_state)
+      replacements = build_replacement_dictionary(
+        echo_commands, link_state,
+        initial_code_required: initial_code_required,
+        key_format: key_format
+      )
 
-      # Exit early if no replacements are needed
       return if replacements.nil?
 
-      # Expand each block with replacements from the dictionary
       expand_blocks_with_replacements(blocks, replacements)
     end
 
@@ -2395,7 +2427,7 @@ module MarkdownExec
       selected_types = yield :filter
       cfile.readlines(
         @delegate_object[:filename],
-        import_paths: @delegate_object[:import_paths]&.split(':')
+        import_paths: options_import_paths
       ).each_with_index do |nested_line, index|
         if nested_line
           update_line_and_block_state(
@@ -2696,11 +2728,6 @@ module MarkdownExec
         @delegate_object.merge!(compressed_ids: @compressed_ids)
       )
 
-      # text substitution in menu
-      #
-      expand_variable_references!(blocks: menu_blocks, link_state: link_state)
-      # expand_command_substition!(blocks: menu_blocks, link_state: link_state)
-
       # chrome for menu
       #
       add_menu_chrome_blocks!(id: id, menu_blocks: menu_blocks,
@@ -2708,7 +2735,7 @@ module MarkdownExec
 
       ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
-      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object) ####
+      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object)
 
       [all_blocks, menu_blocks, mdoc]
     end
@@ -2806,6 +2833,19 @@ module MarkdownExec
         next_keep_code: false,
         next_load_file: LoadFile::REUSE
       )
+    end
+
+    def options_command_substitution_regexp
+      Regexp.new(@delegate_object[:command_substitution_regexp] || '')
+    end
+
+    def options_import_paths
+      @delegate_object[:import_paths]&.split(':') || ''
+    end
+
+    def options_variable_expression_regexp
+      @delegate_object[:variable_expression_regexp].present? &&
+        Regexp.new(@delegate_object[:variable_expression_regexp])
     end
 
     def output_color_formatted(data_sym, color_sym)
@@ -3433,7 +3473,7 @@ module MarkdownExec
     end
 
     def select_document_if_multiple(options, files, prompt:)
-      return files if files.class == String ###
+      return files if files.class == String
       return files[0] if (count = files.count) == 1
 
       return unless count >= 2
@@ -5146,7 +5186,7 @@ module MarkdownExec
 
     def test_iter_blocks_from_nested_files
       @hd.cfile.expect(:readlines, ['line 1', 'line 2'], ['test.md'],
-                       import_paths: nil)
+                       import_paths: '')
       selected_types = ['filtered message']
 
       result = @hd.iter_blocks_from_nested_files { selected_types }

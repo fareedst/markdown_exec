@@ -157,13 +157,19 @@ module MarkdownExec
       ### update name, nickname, title, label ???
 
       # Replace variables in `dname` using the replacements dictionary
-      @attrs[:dname] = @attrs[:dname].gsub(pattern) do |match|
+      @attrs[:dname] = @attrs[:dname]&.gsub(pattern) do |match|
+        replacements[match]
+      end
+      @attrs[:s0printable] = @attrs[:s0printable]&.gsub(pattern) do |match|
+        replacements[match]
+      end
+      @attrs[:s1decorated] = @attrs[:s1decorated]&.gsub(pattern) do |match|
         replacements[match]
       end
 
       # Replace variables in each line of `body` if `body` is present
       if @attrs[:body]
-        @attrs[:body] = @attrs[:body].map do |line|
+        @attrs[:body] = @attrs[:body]&.map do |line|
           if line.empty?
             line
           else
