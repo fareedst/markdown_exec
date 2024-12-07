@@ -17,7 +17,7 @@ end
 def ww(*objs, **kwargs)
   return unless $debug
 
-  ww0(*objs, **kwargs)
+  ww0(*objs, **kwargs.merge(locations: caller_locations))
 end
 
 def ww0(*objs,
