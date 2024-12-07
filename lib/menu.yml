@@ -391,8 +391,8 @@
   :procname: val_as_bool
 - :opt_name: heading1_match
   :env_var: MDE_HEADING1_MATCH
-  :default: "^#(?<line>(?!#)(?<collapse>[+-~]?)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[
-    \t]*))?$"
+  :default: "^(?<indent>[ \t]*)#(?<collapse>[+-~]?)(?<leading>[ \t]*)(?<line>(?!#)(?<text>.*?))?(?<trailing>[
+    \t]*)$"
   :procname: val_as_str
 - :opt_name: heading2_center
   :env_var: MDE_HEADING2_CENTER
@@ -408,8 +408,8 @@
   :procname: val_as_bool
 - :opt_name: heading2_match
   :env_var: MDE_HEADING2_MATCH
-  :default: "^##(?<line>(?!#)(?<collapse>[+-~]?)(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[
-    \t]*))?$"
+  :default: "^(?<indent>[ \t]*)#{2}(?<collapse>[+-~]?)(?<leading>[ \t]*)(?<line>(?!#)(?<text>.*?))?(?<trailing>[
+    \t]*)$"
   :procname: val_as_str
 - :opt_name: heading3_center
   :env_var: MDE_HEADING3_CENTER
@@ -425,8 +425,8 @@
   :procname: val_as_bool
 - :opt_name: heading3_match
   :env_var: MDE_HEADING3_MATCH
-  :default: "^###(?<collapse>[+-~]?)(?<line>(?<indent>[ \t]*)(?<text>.*?)(?<trailing>[
-    \t]*))?$"
+  :default: "^(?<indent>[ \t]*)#{3}(?<collapse>[+-~]?)(?<gap>[ \t]*)(?<line>(?!#)(?<text>.*?))?(?<trailing>[
+    \t]*)$"
   :procname: val_as_str
 - :long_name: help
   :short_name: h
@@ -838,7 +838,7 @@
 - :opt_name: menu_table_rows_match
   :env_var: MDE_MENU_TABLE_ROWS_MATCH
   :description: Pattern for table rows
-  :default: "^(?<line>(?<indent>[ \\t]*)(?<text>\\|.*?)(?<trailing>[ \\t]*))$"
+  :default: "^(?<indent>[ \\t]*)(?<line>(?<text>\\|.*?)(?<trailing>[ \\t]*))$"
   :procname: val_as_str
 - :opt_name: menu_task_color
   :env_var: MDE_MENU_TASK_COLOR
