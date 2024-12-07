@@ -4,27 +4,27 @@ load 'test_helper'
 
 @test 'Variable expansion - default' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/variable-expansion.md \
-   ' EVIDENCE_ SOURCE is:_SOURCE is:_SOURCE is:_| SOURCE |_| ------ |__name_with_${SOURCE}_in_name_load: file_.sh_ SOURCES'
+   'EVIDENCE_SOURCE is:_SOURCE is:_SOURCE is:_| SOURCE |_| ------ |__name_with_${SOURCE}_in_name_load: file_.sh_SOURCES'
 }
 
 @test 'Variable expansion - LINK_LOAD_SOURCE' {
   echo "SOURCE='Loaded file'" > temp_variable_expansion.sh
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/variable-expansion.md \
    '(LINK_LOAD_SOURCE)' \
-   ' EVIDENCE_ SOURCE is: Loaded file_SOURCE is: Loaded file_SOURCE is: Loaded file_| SOURCE      |_| ----------- |_| Loaded file |_name_with_${SOURCE}_in_name_load: file_Loaded file.sh_ SOURCES'
+   'EVIDENCE_SOURCE is: Loaded file_SOURCE is: Loaded file_SOURCE is: Loaded file_| SOURCE      |_| ----------- |_| Loaded file |_name_with_${SOURCE}_in_name_load: file_Loaded file.sh_SOURCES'
   rm temp_variable_expansion.sh
 }
 
 @test 'Variable expansion - LINK_VARS_SOURCE' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/variable-expansion.md \
    '(LINK_VARS_SOURCE)' \
-   ' EVIDENCE_ SOURCE is: Link block_SOURCE is: Link block_SOURCE is: Link block_| SOURCE     |_| ---------- |_| Link block |_name_with_${SOURCE}_in_name_load: file_Link block.sh_ SOURCES'
+   'EVIDENCE_SOURCE is: Link block_SOURCE is: Link block_SOURCE is: Link block_| SOURCE     |_| ---------- |_| Link block |_name_with_${SOURCE}_in_name_load: file_Link block.sh_SOURCES'
 }
 
 @test 'Variable expansion - VARS_SOURCE' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/variable-expansion.md \
    '(VARS_SOURCE)' \
-   ' EVIDENCE_ SOURCE is: Vars block_SOURCE is: Vars block_SOURCE is: Vars block_| SOURCE     |_| ---------- |_| Vars block |_name_with_${SOURCE}_in_name_load: file_Vars block.sh_ SOURCES'
+   'EVIDENCE_SOURCE is: Vars block_SOURCE is: Vars block_SOURCE is: Vars block_| SOURCE     |_| ---------- |_| Vars block |_name_with_${SOURCE}_in_name_load: file_Vars block.sh_SOURCES'
 }
 
 ### Load source
