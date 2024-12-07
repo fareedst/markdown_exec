@@ -3506,7 +3506,9 @@ module MarkdownExec
         props = {
           active_color: active_color_pastel.detach,
           # activate dynamic list searching on letter/number key presses
+          cycle: true,
           filter: true,
+          per_page: @delegate_object[:select_page_height]
         }.freeze
 
         if menu_items.all? do |item|
