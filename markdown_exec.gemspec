@@ -45,6 +45,7 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
     end
   end + Dir['lib/*'] - ['lib/rb.rb']
 
+  spec.bindir = 'bin'
   spec.executables = %w[mde tab_completion.sh]
   spec.require_paths = ['lib']
 
@@ -52,5 +53,5 @@ echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
   spec.add_dependency 'open3', '~> 0.1.1'
   spec.add_dependency 'optparse', '~> 0.1.1'
   spec.add_dependency 'tty-prompt', '~> 0.23.1'
-  spec.add_dependency 'yaml', '>= 0.2.0'
+  spec.add_dependency 'yaml', '~> 0.2'
 end
