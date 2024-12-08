@@ -804,14 +804,14 @@ module MarkdownExec
 
         # text substitution in menu
         #
-        expand_references = -> do
+        expand_references = lambda do |fcb|
           expand_variable_references!(blocks: [fcb], link_state: link_state,
                                       initial_code_required: false)
           expand_variable_references!(
             blocks: [fcb],
             echo_format: '%s',
             initial_code_required: false,
-            key_format: "$(%s)",
+            key_format: '$(%s)',
             link_state: link_state,
             group_name: :command,
             pattern: options_command_substitution_regexp
@@ -825,18 +825,18 @@ module MarkdownExec
               block_calls_scan: @delegate_object[:block_calls_scan],
               block_name_match: @delegate_object[:block_name_match],
               block_name_nick_match: @delegate_object[:block_name_nick_match],
-              id: "*#{count}",
+              id: "*#{count}"
             ) do |oname, color|
               apply_block_type_color_option(oname, color)
             end
           end
-          expand_references.call
+          expand_references.call(fcb)
           blocks << fcb
         when :filter # types accepted
           %i[blocks line]
         when :line
           unless @delegate_object[:no_chrome]
-            expand_references.call
+            expand_references.call(fcb)
             create_and_add_chrome_blocks(blocks, fcb, id: "*#{count}",
                                                       init_ids: init_ids)
           end
@@ -1045,9 +1045,7 @@ module MarkdownExec
     end
 
     def command_execute_in_own_window_format_arguments(
-      home: Dir.pwd,
-      erls:,
-      rest: ''
+      erls:, home: Dir.pwd, rest: ''
     )
       {
         batch_index: @run_state.batch_index,
@@ -1180,7 +1178,7 @@ module MarkdownExec
         next if exclude_types.include?(block.type)
 
         # Scan each block name for matches of the pattern
-        (block.oname || block.body.join("\n")).scan(pattern) do |(_, variable_name)|
+        ([block.oname || ''] + block.body).join("\n").scan(pattern) do |(_, _variable_name)|
           pattern.match($LAST_MATCH_INFO.to_s) # Reapply match for named groups
           occurrence_count[$LAST_MATCH_INFO[group_name]] += 1
         end
@@ -1200,18 +1198,14 @@ module MarkdownExec
     # @param color_method [Symbol] The color method to apply
     #  to the block's display name.
     # return number of lines added
-    def create_and_add_chrome_block(blocks:, match_data:,
-                                    collapse: nil,
-                                    format_option:, color_method:,
-                                    case_conversion: nil,
-                                    center: nil,
-                                    decor_patterns: [],
-                                    disabled: true,
-                                    id: '',
-                                    level: 0,
-                                    type: '',
-                                    wrap: nil)
-      line_cap = NamedCaptureExtractor::extract_named_group2(match_data)
+    def create_and_add_chrome_block(
+      blocks:, case_conversion: nil, center: nil,
+      collapse: nil, color_method:, decor_patterns: [],
+      disabled: true, format_option:, id: '',
+      level: 0, match_data:, type: '',
+      wrap: nil
+    )
+      line_cap = NamedCaptureExtractor.extract_named_group2(match_data)
       # replace tabs in indent
       line_cap[:indent] ||= ''
       line_cap[:indent] = line_cap[:indent].dup if line_cap[:indent].frozen?
@@ -1273,7 +1267,6 @@ module MarkdownExec
           collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
           token: line_obj[:collapse],
           disabled: disabled ? TtyMenu::DISABLE : nil,
-          # id: "#{@delegate_object[:filename]}:#{index}",
           id: "#{id}.#{index}",
           level: level,
           s0indent: indent,
@@ -1903,7 +1896,7 @@ module MarkdownExec
         ).sort.map do |file|
           { name: format(
             block_data['view'] || view,
-            NamedCaptureExtractor::extract_named_group2(
+            NamedCaptureExtractor.extract_named_group2(
               file.match(
                 Regexp.new(block_data['filename_pattern'] ||
                            filename_pattern)
@@ -1920,7 +1913,7 @@ module MarkdownExec
           File.readlines(selected_option.oname, chomp: true)
         end
       else
-        warn "No matching files found"
+        warn 'No matching files found'
       end
     end
 
@@ -1991,7 +1984,7 @@ module MarkdownExec
                        end
 
       save_filespec_from_expression(directory_glob).tap do |save_filespec|
-        if save_filespec && save != exit_prompt
+        if save_filespec && save_filespec != exit_prompt
           begin
             File.write(save_filespec,
                        HashDelegator.join_code_lines(code_lines))
@@ -2167,9 +2160,9 @@ module MarkdownExec
     )
       # update blocks
       #
-      Regexp.union(replacements.keys.map { |word|
+      Regexp.union(replacements.keys.map do |word|
                      Regexp.new(Regexp.escape(word))
-                   }).tap do |pattern|
+                   end).tap do |pattern|
         menu_blocks.each do |block|
           next if exclude_types.include?(block.type)
 
@@ -2184,7 +2177,7 @@ module MarkdownExec
       blocks:,
       group_name: :variable,
       initial_code_required: false,
-      key_format: "${%s}",
+      key_format: '${%s}',
       pattern: nil
     )
       pattern ||= options_variable_expression_regexp
@@ -2319,7 +2312,7 @@ module MarkdownExec
       # commands to echo variables
       #
       commands = {}
-      variable_counts.each do |variable, count|
+      variable_counts.each do |variable, _count|
         command = format(echo_format, variable)
         commands[variable] = command
       end
@@ -2415,8 +2408,6 @@ module MarkdownExec
       }
     end
 
-    public
-
     # Iterates through blocks in a file, applying the provided block to each line.
     # The iteration only occurs if the file exists.
     # @yield [Symbol] :filter Yields to obtain selected messages for processing.
@@ -2429,13 +2420,13 @@ module MarkdownExec
         @delegate_object[:filename],
         import_paths: options_import_paths
       ).each_with_index do |nested_line, index|
-        if nested_line
-          update_line_and_block_state(
-            nested_line, state, selected_types,
-            id: "#{@delegate_object[:filename]}:#{index}",
-            &block
-          )
-        end
+        next unless nested_line
+
+        update_line_and_block_state(
+          nested_line, state, selected_types,
+          id: "#{@delegate_object[:filename]}:#{index}",
+          &block
+        )
       end
     end
 
@@ -2971,7 +2962,8 @@ module MarkdownExec
     # @return [Array<Hash>] The updated blocks menu.
     def blocks_as_menu_items(menu_blocks)
       select_blocks(menu_blocks).map do |fcb|
-        fcb.name = fcb.indented_decorated || (fcb.indent + (fcb.s1decorated || fcb.dname))
+        fcb.name = fcb.indented_decorated ||
+                   (fcb.indent + (fcb.s1decorated || fcb.dname))
         fcb.value = fcb.id || fcb.name
         fcb.to_h
       end
@@ -2996,7 +2988,7 @@ module MarkdownExec
             in_block = false
           elsif scan1.present?
             if format1.present?
-              caps = NamedCaptureExtractor::extract_named_groups(line, scan1)
+              caps = NamedCaptureExtractor.extract_named_groups(line, scan1)
               if caps
                 formatted = format(format1, caps)
                 collected_lines << formatted
@@ -3215,8 +3207,11 @@ module MarkdownExec
       history_files(
         @dml_link_state,
         filename:
-          asset.present? ? saved_asset_filename(asset,
-                                                @dml_link_state) : filename,
+          if asset.present?
+            saved_asset_filename(asset, @dml_link_state)
+          else
+            filename
+          end,
         path: path
       )&.map do |file|
         unless Regexp.new(regexp) =~ file
@@ -3235,24 +3230,23 @@ module MarkdownExec
     def saved_asset_for_history(
       file:, form:, match_info:
     )
-      begin
-        OpenStruct.new(
-          file: file[(Dir.pwd.length + 1)..-1],
-          full: file,
-          row: format(
-            form,
-            # default '*' so unknown parameters are given a wildcard
-            match_info.names.each_with_object(Hash.new('*')) do |name, hash|
-              hash[name.to_sym] = match_info[name]
-            end
-          )
+
+      OpenStruct.new(
+        file: file[(Dir.pwd.length + 1)..-1],
+        full: file,
+        row: format(
+          form,
+          # default '*' so unknown parameters are given a wildcard
+          match_info.names.each_with_object(Hash.new('*')) do |name, hash|
+            hash[name.to_sym] = match_info[name]
+          end
         )
-      rescue KeyError
-        # pp $!, $@
-        warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
-        error_handler('saved_history_format')
-        return :break
-      end
+      )
+    rescue KeyError
+      # pp $!, $@
+      warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
+      error_handler('saved_history_format')
+      :break
     end
 
     # Processes YAML data from the selected menu item, updating delegate
@@ -3348,9 +3342,9 @@ module MarkdownExec
 
     def replace_keys_in_lines(replacement_dictionary, lines)
       # Create a regex pattern that matches any key in the replacement dictionary
-      pattern = Regexp.union(replacement_dictionary.keys.map { |key|
+      pattern = Regexp.union(replacement_dictionary.keys.map do |key|
                                "%<#{key}>"
-                             })
+                             end)
 
       # Iterate over each line and apply gsub with the replacement hash
       lines.map do |line|
@@ -3608,8 +3602,7 @@ module MarkdownExec
       menu_with_back && @link_history.prior_state_exist?
     end
 
-    def simple_menu_options
-    end
+    def simple_menu_options; end
 
     # Initializes a new fenced code block (FCB) object based
     #  on the provided line and heading information.
@@ -3619,7 +3612,7 @@ module MarkdownExec
     #  Regular expression to identify fenced block start.
     # @return [MarkdownExec::FCB] A new FCB instance with the parsed attributes.
     def start_fenced_block(line, headings, fenced_start_extended_regex)
-      fcb_title_groups = NamedCaptureExtractor::extract_named_groups(
+      fcb_title_groups = NamedCaptureExtractor.extract_named_groups(
         line, fenced_start_extended_regex
       )
 
@@ -3676,10 +3669,10 @@ module MarkdownExec
         shell: fcb_title_groups.fetch(:shell, ''),
         start_line: line,
         stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
-                 NamedCaptureExtractor::extract_named_group2(tn)
+                 NamedCaptureExtractor.extract_named_group2(tn)
                end,
         stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[\w.\-]+)/))
-                  NamedCaptureExtractor::extract_named_group2(tn)
+                  NamedCaptureExtractor.extract_named_group2(tn)
                 end,
         title: title,
         type: fcb_title_groups.fetch(:type, ''),
@@ -4053,7 +4046,7 @@ module MarkdownExec
         when :parse_document # once for each menu
           vux_parse_document(id: 'vux_parse_document')
           vux_menu_append_history_files(formatted_choice_ostructs,
-                                        id: "vux_menu_append_history_files",)
+                                        id: 'vux_menu_append_history_files')
           vux_publish_document_file_name_for_external_automation
 
         when :display_menu
