@@ -428,7 +428,9 @@ RSpec.describe 'MarkdownExec' do
   end
 
   it 'test_get_blocks_struct' do
-    expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
+    expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files(
+      link_state: MarkdownExec::LinkState.new
+    ).map do |block|
              [block.body, block.oname]
            end).to eq [
              [['a'], 'one'],
