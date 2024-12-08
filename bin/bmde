@@ -2,10 +2,54 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
-
 require 'bundler/setup'
 Bundler.require(:default)
 
 require_relative '../lib/markdown_exec'
 
-MarkdownExec::MarkParse.new.run
+trace_enabled = false
+
+if ENV['MDE_TRACE_POINT']
+  trace_output = if ENV['MDE_TRACE_POINT_FILE']
+                   File.open(ENV['MDE_TRACE_POINT_FILE'], 'a')
+                 else
+                   $stderr
+                 end
+
+  trace = TracePoint.new(:line) do |tp|
+    next unless trace_enabled
+
+    method_name = tp.method_id || 'unknown_method'
+    next if method_name == :method_missing
+
+    next if tp.path.match?(%r{(/\.bundle/|/\.rbenv/|internal:|lib/colorize|lib/object_present|lib/resize_terminal)})
+
+    message = "#{'.' * Thread.current.backtrace_locations.size} #{tp.path.sub(Dir.pwd, '')} [#{method_name}] #{tp.lineno + 1}"
+
+    if trace_output.is_a?(File)
+      trace_output.puts(message)
+    else
+      warn message
+      $stderr.flush
+    end
+  end
+
+  def tpbreak
+    trace_enabled = false
+    binding.irb
+  end
+
+  def tpgo
+    trace_enabled = true
+  end
+
+  trace.enable
+  trace_enabled = true
+end
+
+begin
+  MarkdownExec::MarkParse.new.run
+ensure
+  trace&.disable
+  trace_output&.close if trace_output.is_a?(File)
+end
