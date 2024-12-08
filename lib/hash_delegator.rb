@@ -2606,7 +2606,7 @@ module MarkdownExec
     end
 
     def load_cli_or_user_selected_block(all_blocks: [], menu_blocks: [],
-                                        default: nil)
+                                        prior_answer: nil)
       if @delegate_object[:block_name].present?
         block = all_blocks.find do |item|
           item.pub_name == @delegate_object[:block_name]
@@ -2614,7 +2614,7 @@ module MarkdownExec
         source = OpenStruct.new(block_name_from_ui: false)
       else
         block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
-                                                   default)
+                                                   prior_answer)
         return if block_state.nil?
 
         block = block_state.block
@@ -3778,7 +3778,7 @@ module MarkdownExec
       @dml_block_state = load_cli_or_user_selected_block(
         all_blocks: @dml_blocks_in_file,
         menu_blocks: @dml_menu_blocks,
-        default: @dml_menu_default_dname
+        prior_answer: @dml_menu_default_dname
       )
       if !@dml_block_state
         # HashDelegator.error_handler('block_state missing', { abort: true })
@@ -4198,7 +4198,6 @@ module MarkdownExec
 
       # update @delegate_object and @menu_base_options in auto_load
       #
-      # @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc, @dml_link_state =
       @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc =
         mdoc_menu_and_blocks_from_nested_files(@dml_link_state, id: id)
       dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
@@ -4262,13 +4261,14 @@ module MarkdownExec
       # user interrupts process
     end
 
-    def wait_for_user_selected_block(all_blocks, menu_blocks, default)
-      block_state = wait_for_user_selection(all_blocks, menu_blocks, default)
+    def wait_for_user_selected_block(all_blocks, menu_blocks, prior_answer)
+      block_state = wait_for_user_selection(all_blocks, menu_blocks,
+                                            prior_answer)
       handle_back_or_continue(block_state)
       block_state
     end
 
-    def wait_for_user_selection(_all_blocks, menu_blocks, default)
+    def wait_for_user_selection(_all_blocks, menu_blocks, prior_answer)
       if @delegate_object[:clear_screen_for_select_block]
         printf("\e[1;1H\e[2J")
       end
@@ -4284,10 +4284,20 @@ module MarkdownExec
                                           MenuState::EXIT)
       end
 
-      # default value may not match if color is different from
+      selected_answer = case prior_answer
+                        when nil
+                          nil
+                        when String
+                          menu_blocks.find { |block|
+                            block.dname.include?(prior_answer)
+                          }&.name
+                        when Struct
+                          prior_answer.index || prior_answer.name
+                        end
+      # prior_answer value may not match if color is different from
       # originating menu (opts changed while processing)
-      selection_opts = if default && menu_blocks.map(&:dname).include?(default)
-                         @delegate_object.merge(default: default)
+      selection_opts = if selected_answer
+                         @delegate_object.merge(default: selected_answer)
                        else
                          @delegate_object
                        end
