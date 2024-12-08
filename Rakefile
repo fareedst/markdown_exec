@@ -85,11 +85,17 @@ task :bats do
   end
 end
 
+desc 'list Ruby files with tests'
+task :listtests do
+  puts `find lib -name '*.rb' -type f | xargs grep '< Minitest::Test' -l | sort`
+end
+
 desc 'minitest'
 task :minitest do
   commands = [
     './lib/argument_processor.rb',
     './lib/cached_nested_file_reader.rb',
+    './lib/collapser.rb',
     './lib/directory_searcher.rb',
     './lib/evaluate_shell_expressions.rb',
     './lib/fcb.rb',
