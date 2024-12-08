@@ -405,6 +405,7 @@ module MarkdownExec
     #
     def execute_block_with_error_handling
       finalize_cli_argument_processing
+      @options.register_console_attributes(@options)    
       execute_initial_commands_and_main_loop(@options, @options.run_state)
     rescue FileMissingError
       warn "File missing: #{$!}"
