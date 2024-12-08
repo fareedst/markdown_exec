@@ -1,3 +1,8 @@
+#!/usr/bin/env bundle exec ruby
+# frozen_string_literal: true
+
+# encoding=utf-8
+# v2024-12-02
 require_relative 'constants'
 
 class Collapser
@@ -12,11 +17,11 @@ class Collapser
     @collapsed_level = collapsed_level
     @collapsible_types = collapsible_types.dup
     @options = options.dup
-    @state = state.dup # do not dup
+    @state = state # do not dup
   end
 
   def collapse_per_options?(fcb, options: @options)
-    criteria = options["#{fcb.type}#{fcb.level}_collapse".to_sym]
+    criteria = options[:"#{fcb.type}#{fcb.level}_collapse"]
     return false if criteria.nil?
 
     criteria
@@ -36,7 +41,7 @@ class Collapser
   end
 
   def collapsible_per_options?(fcb, options: @options)
-    criteria = options["#{fcb.type}#{fcb.level}_collapsible".to_sym]
+    criteria = options[:"#{fcb.type}#{fcb.level}_collapsible"]
     return false if criteria.nil?
 
     criteria
@@ -83,19 +88,17 @@ class Collapser
       collapsed_level = fcb.level if fcb.collapse
       fcb.hide = true # block is at a deeper level thus hidden
 
-    else
+    elsif fcb.collapsible
       # Currently expanded; evaluate for the current block
-      if fcb.collapsible
-        fcb.collapse = collapse?(fcb, initialize: initialize)
-        collapsed_level = fcb.collapse ? fcb.level : nil
-        fcb.hide = false
-      elsif collapsible_per_type?(fcb)
-        fcb.collapsible = false
-        fcb.collapse = false
-        fcb.hide = false
-      else
-        fcb.hide = true
-      end
+      fcb.collapse = collapse?(fcb, initialize: initialize)
+      collapsed_level = fcb.collapse ? fcb.level : nil
+      fcb.hide = false
+    elsif collapsible_per_type?(fcb)
+      fcb.collapsible = false
+      fcb.collapse = false
+      fcb.hide = false
+    else
+      fcb.hide = true
     end
     @state[fcb.id] = fcb.level if fcb.collapse
 
@@ -147,7 +150,7 @@ class CollapserTest < Minitest::Test
   def test_analyze
     # Define test scenarios as arrays of FCB objects and expected filtered results
 
-    # :id, :type, :level, :token
+    # :id, :type, :level, :token (in order for FCB.new)
     ff_h1a = ['h1a', 'heading', 1, '']
     ff_h1b = ['h1b', 'heading', 1, '']
     ff_h2a = ['h2a', 'heading', 2, '']
@@ -159,8 +162,10 @@ class CollapserTest < Minitest::Test
     ff_h1a_collapse = ['h1a', 'heading', 1, COLLAPSIBLE_TOKEN_COLLAPSE]
     ff_h1a_expand = ['h1a', 'heading', 1, COLLAPSIBLE_TOKEN_EXPAND]
     ff_h1b_expand = ['h1b', 'heading', 1, COLLAPSIBLE_TOKEN_EXPAND]
+    ff_h2a_collapse = ['h2a', 'heading', 2, COLLAPSIBLE_TOKEN_COLLAPSE]
+    ff_h2b_collapse = ['h2b', 'heading', 2, COLLAPSIBLE_TOKEN_COLLAPSE]
 
-    # :collapse, :collapsible, :hide
+    # :collapse, :collapsible, :hide (in order for FCB.new)
     cc_init = [false, false, false]
     cc_collapse = [true, false, false]
     cc_collapse_collapsible = [true, true, false]
@@ -169,52 +174,81 @@ class CollapserTest < Minitest::Test
     cc_hide = [false, false, true]
     cc_undefined_hide = [nil, nil, false]
 
-    fc_h1a__init = FCB.new(*ff_h1a, *cc_init)
-    fc_h1b__init = FCB.new(*ff_h1b, *cc_init)
-    fc_h2a__init = FCB.new(*ff_h2a, *cc_init)
-    fc_h2b__init = FCB.new(*ff_h2b, *cc_init)
-    fc_t1__init = FCB.new(*ff_t1, *cc_init)
-    fc_t2__init = FCB.new(*ff_t2, *cc_init)
-    fc_t3__init = FCB.new(*ff_t3, *cc_init)
-    fc_t4__init = FCB.new(*ff_t4, *cc_init)
-
     fc_h1a__collapse = FCB.new(*ff_h1a, *cc_collapse)
-
     fc_h1a__collapse_collapsible = FCB.new(*ff_h1a, *cc_collapse_collapsible)
-    fc_h2a__collapse_collapsible = FCB.new(*ff_h2a, *cc_collapse_collapsible)
-
+    fc_h1a__collapsed_init = FCB.new(*ff_h1a_collapse, *cc_init)
     fc_h1a__collapsible = FCB.new(*ff_h1a, *cc_collapsible)
-    fc_h2a__collapsible = FCB.new(*ff_h2a, *cc_collapsible)
-
     fc_h1a__collapsible_hide = FCB.new(*ff_h1a, *cc_collapsible_hide)
+    fc_h1a__expanded_init = FCB.new(*ff_h1a_expand, *cc_init)
+    fc_h1a__init = FCB.new(*ff_h1a, *cc_init)
+
+    fc_h1b__init = FCB.new(*ff_h1b, *cc_init)
+
+    fc_h2a__collapse = FCB.new(*ff_h2a, *cc_collapse)
+    fc_h2a__collapse_collapsible = FCB.new(*ff_h2a, *cc_collapse_collapsible)
+    fc_h2a__collapsed_collapsible = FCB.new(*ff_h2a_collapse, *cc_collapsible)
+    fc_h2a__collapsible = FCB.new(*ff_h2a, *cc_collapsible)
+    fc_h2a__hide = FCB.new(*ff_h2a, *cc_hide)
+    fc_h2a__init = FCB.new(*ff_h2a, *cc_init)
+
+    fc_h2b__init = FCB.new(*ff_h2b, *cc_init)
 
     fc_t1__hide = FCB.new(*ff_t1, *cc_hide)
+    fc_t1__init = FCB.new(*ff_t1, *cc_init)
     fc_t2__hide = FCB.new(*ff_t2, *cc_hide)
-    fc_h2a__hide = FCB.new(*ff_h2a, *cc_hide)
+    fc_t2__init = FCB.new(*ff_t2, *cc_init)
+    fc_t3__init = FCB.new(*ff_t3, *cc_init)
+    fc_t4__hide = FCB.new(*ff_t4, *cc_hide)
+    fc_t4__init = FCB.new(*ff_t4, *cc_init)
 
     analyze_cases = {
       with_token: [
         { name: 'collapse',
-          fcbs: [FCB.new(*ff_h1a_collapse, *cc_init)],
+          fcbs: [fc_h1a__collapsed_init],
           expected: [FCB.new(*ff_h1a_collapse, *cc_collapse)] },
         { name: 'expand',
-          fcbs: [FCB.new(*ff_h1a_expand, *cc_init)],
-          expected: [FCB.new(*ff_h1a_expand, *cc_init)] },
+          fcbs: [fc_h1a__expanded_init],
+          expected: [fc_h1a__expanded_init] },
         { name: 'collapse, against options',
-          fcbs: [FCB.new(*ff_h1a_collapse, *cc_init)],
+          fcbs: [fc_h1a__collapsed_init],
           options: { heading1_collapse: false },
           expected: [FCB.new(*ff_h1a_collapse, *cc_collapse)] },
         { name: 'expand, against options',
-          fcbs: [FCB.new(*ff_h1a_expand, *cc_init)],
+          fcbs: [fc_h1a__expanded_init],
           options: { heading1_collapse: true },
-          expected: [FCB.new(*ff_h1a_expand, *cc_init)] },
+          expected: [fc_h1a__expanded_init] }
       ],
 
       with_no_state: [
-        { name: ' ',
-          fcbs: [FCB.new(*ff_h1a_expand, *cc_init), fc_t1__init, fc_h2a__init, fc_t2__init, FCB.new(*ff_h1b_expand, *cc_init), fc_t3__init, fc_h2b__init, fc_t4__init],
+        { name: 'heading2_collapse',
+          fcbs: [
+            fc_h1a__init,
+            fc_h2a__init,
+            fc_h1b__init,
+            fc_h2b__init
+          ],
           options: { heading2_collapse: true },
-          expected: [FCB.new(*ff_h1a_expand, *cc_init), fc_t1__init, FCB.new(*ff_h2a, *cc_collapse), FCB.new(*ff_h1b_expand, *cc_init), fc_t3__init, FCB.new(*ff_h2b, *cc_collapse)] },
+          expected: [
+            fc_h1a__init,
+            fc_h2a__collapse, # s/b fc_h2a__collapse_collapsible, ok for test
+            fc_h1b__init,
+            fc_h2b__init # s/b fc_h2b__collapse_collapsible, ok for test
+          ] },
+
+        { name: 'hide subsections',
+          fcbs: [
+            fc_h1a__init, fc_t1__init,
+            fc_h2a__init, fc_t2__init,
+            fc_h1b__init, fc_t3__init,
+            fc_h2b__init, fc_t4__init
+          ],
+          options: { heading2_collapse: true },
+          expected: [
+            fc_h1a__init, fc_t1__init,
+            fc_h2a__collapse, fc_t2__hide,
+            fc_h1b__init, fc_t3__init,
+            fc_h2b__init, fc_t4__hide
+          ] },
 
         { name: 'not collapsible',
           fcbs: [fc_h1a__init],
@@ -263,7 +297,7 @@ class CollapserTest < Minitest::Test
                      heading2_collapsible: true },
           expected: [fc_h1a__init,
                      fc_h2a__collapse_collapsible,
-                     fc_t1__hide] },
+                     fc_t1__hide] }
       ],
 
       with_empty_state: [
@@ -271,25 +305,27 @@ class CollapserTest < Minitest::Test
           fcbs: [fc_h1a__init],
           options: { heading1_collapsible: true },
           initialize: false,
-          expected: [fc_h1a__collapsible] },
+          expected: [fc_h1a__collapsible] }
       ],
 
       with_collapsed_state: [
         { name: 'collapsed remains collapsed',
           fcbs: [fc_h1a__collapse_collapsible],
           options: { heading1_collapsible: true },
-          state: { "h1a" => 1 },
+          state: { 'h1a' => 1 },
           initialize: false,
-          expected: [fc_h1a__collapse_collapsible] },
+          expected: [fc_h1a__collapse_collapsible] }
       ]
     }
 
     analyze_cases.each do |name, test_cases|
       test_cases.each_with_index do |test_case, index|
-        @collapser = Collapser.new(collapsed_level: test_case[:collapsed_level],
-                                   collapsible_types: test_case[:collapsible_types] || COLLAPSIBLE_TYPES,
-                                   options: (test_case[:options] || OPTIONS).dup,
-                                   state: (test_case[:state] || STATE).dup)
+        @collapser = Collapser.new(
+          collapsed_level: test_case[:collapsed_level],
+          collapsible_types: test_case[:collapsible_types] || COLLAPSIBLE_TYPES,
+          options: (test_case[:options] || OPTIONS).dup,
+          state: (test_case[:state] || STATE).dup
+        )
         analysis = @collapser.analyze(
           test_case[:fcbs],
           initialize: test_case[:initialize].nil? ? true : test_case[:initialize]
