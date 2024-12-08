@@ -6,7 +6,7 @@ PATH
       open3 (~> 0.1.1)
       optparse (~> 0.1.1)
       tty-prompt (~> 0.23.1)
-      yaml (>= 0.2.0)
+      yaml (~> 0.2)
 
 GEM
   remote: https://rubygems.org/
