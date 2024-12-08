@@ -1064,6 +1064,11 @@
   :description: User wants a custom file name
   :default: Other
   :procname: val_as_str
+- :opt_name: prompt_margin_left_text
+  :env_var: MDE_PROMPT_MARGIN_LEFT_TEXT
+  :description: prompt_margin_left_text
+  :default: "» "
+  :procname: val_as_str
 - :opt_name: prompt_no
   :env_var: MDE_PROMPT_NO
   :description: Prompt for no

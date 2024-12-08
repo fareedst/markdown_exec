@@ -264,10 +264,9 @@ module HashDelegatorSelf
   end
 
   # find tables in multiple lines and format horizontally
-  def tables_into_columns!(blocks_menu, delegate_object)
+  def tables_into_columns!(blocks_menu, delegate_object, screen_width_for_table)
     return unless delegate_object[:tables_into_columns]
 
-    screenwidth = delegate_object[:console_width]
     lines = blocks_menu.map(&:oname)
     text_tables = TableExtractor.extract_tables(
       lines,
@@ -304,7 +303,7 @@ module HashDelegatorSelf
         fcb.s3formatted_table_row = fcb.padded = table__hs[ind]
         fcb.padded_width = table__hs[ind].padded_width
         if fcb.center
-          cw = (screenwidth - table__hs[ind].padded_width) / 2
+          cw = (screen_width_for_table - table__hs[ind].padded_width) / 2
           if cw.positive?
             indent = ' ' * cw
             fcb.s3indent = fcb.indent = indent
@@ -641,8 +640,6 @@ module MarkdownExec
       append_divider(id: "#{id}.final", menu_blocks: menu_blocks,
                      position: :final)
     end
-
-    public
 
     # Appends a chrome block, which is a menu option for Back or Exit
     #
@@ -1218,11 +1215,9 @@ module MarkdownExec
       line_cap[:collapse] ||= ''
       line_cap[:line] ||= ''
 
-      accepted_width = @delegate_object[:console_width] - 2
-
       line_caps = [line_cap]
-      if wrap && line_cap[:text].length > accepted_width
-        wrapper = StringWrapper.new(width: accepted_width - line_cap[:indent].length)
+      if wrap && line_cap[:text].length > screen_width_for_wrapping
+        wrapper = StringWrapper.new(width: screen_width_for_wrapping - line_cap[:indent].length)
         line_caps = wrapper.wrap(line_cap[:text]).map do |wrapped_line|
           line_cap.dup.merge(text: wrapped_line)
         end
@@ -1231,8 +1226,8 @@ module MarkdownExec
       if center
         line_caps.each do |line_obj|
           line_obj[:indent] =
-            if line_obj[:text].length < accepted_width
-              ' ' * ((accepted_width - line_obj[:text].length) / 2)
+            if line_obj[:text].length < screen_width_for_wrapping
+              ' ' * ((screen_width_for_wrapping - line_obj[:text].length) / 2)
             else
               ''
             end
@@ -2726,7 +2721,8 @@ module MarkdownExec
 
       ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
-      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object)
+      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
+                                         screen_width_for_table)
 
       [all_blocks, menu_blocks, mdoc]
     end
@@ -2961,10 +2957,24 @@ module MarkdownExec
     # @param opts [Hash] The options hash.
     # @return [Array<Hash>] The updated blocks menu.
     def blocks_as_menu_items(menu_blocks)
+      # prefix first active line, inactive for rest
+      active = @delegate_object[:prompt_margin_left_text]
+      inactive = ' ' * active.length
+
       select_blocks(menu_blocks).map do |fcb|
-        fcb.name = fcb.indented_decorated ||
-                   (fcb.indent + (fcb.s1decorated || fcb.dname))
-        fcb.value = fcb.id || fcb.name
+        multiline = fcb.indented_decorated ||
+                    (fcb.indent + (fcb.s1decorated || fcb.dname))
+
+        fcb.name = multiline.each_line.with_index.map do |line, index|
+          if fcb.fetch(:disabled, nil).nil?
+            index.zero? ? active : inactive
+          else
+            inactive
+          end + line.chomp
+        end.join("\n")
+
+        fcb.value = fcb.id || fcb.name.split("\n").first
+
         fcb.to_h
       end
     end
@@ -3111,6 +3121,18 @@ module MarkdownExec
       end
 
       sel == MenuOptions::YES
+    end
+
+    def prompt_margin_left_text
+      @delegate_object[:prompt_margin_left_text]
+    end
+
+    def prompt_margin_left_width
+      prompt_margin_left_text.length
+    end
+
+    def prompt_margin_right_width
+      0
     end
 
     # public
@@ -3464,6 +3486,14 @@ module MarkdownExec
             shell: shell
           )
       ).generate_name
+    end
+
+    def screen_width_for_table
+      @delegate_object[:console_width] - prompt_margin_left_width - prompt_margin_right_width
+    end
+
+    def screen_width_for_wrapping
+      @delegate_object[:console_width] - prompt_margin_left_width - prompt_margin_right_width - 1
     end
 
     def select_document_if_multiple(options, files, prompt:)
