@@ -1462,6 +1462,12 @@
   :default: mde_*.out.txt
   :procname: val_as_str
 
+- :opt_name: screen_width
+  :env_var: MDE_SCREEN_WIDTH
+  :description: Screen width for document and interface. 0 to use the actual dimension.
+  :default: 0
+  :procname: val_as_int
+
 - :opt_name: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
   :description: script_execution_frame_color

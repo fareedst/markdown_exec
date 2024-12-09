@@ -6,6 +6,7 @@
 require 'English'
 require 'clipboard'
 require 'fileutils'
+require 'io/console'
 require 'open3'
 require 'optparse'
 require 'shellwords'

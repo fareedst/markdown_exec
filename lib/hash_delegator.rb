@@ -3341,6 +3341,8 @@ module MarkdownExec
     #   # opts will be updated with the current console dimensions
     #   #  and pagination settings.
     def register_console_attributes(opts)
+      return unless IO.console
+
       if (resized = @delegate_object[:menu_resize_terminal])
         resize_terminal
       end
@@ -3488,12 +3490,20 @@ module MarkdownExec
       ).generate_name
     end
 
+    def screen_width
+      if @delegate_object[:screen_width] && @delegate_object[:screen_width].positive?
+        @delegate_object[:screen_width]
+      else
+        @delegate_object[:console_width]
+      end
+    end
+
     def screen_width_for_table
-      @delegate_object[:console_width] - prompt_margin_left_width - prompt_margin_right_width
+      screen_width - prompt_margin_left_width - prompt_margin_right_width - 2 # prompt is symbol + space (width: 2)
     end
 
     def screen_width_for_wrapping
-      @delegate_object[:console_width] - prompt_margin_left_width - prompt_margin_right_width - 1
+      screen_width_for_table
     end
 
     def select_document_if_multiple(options, files, prompt:)
