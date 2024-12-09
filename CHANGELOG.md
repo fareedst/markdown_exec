@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.7.0] - 2024-12-09
+
+### Added
+
+- Collapse or expand sections defined by heading and dividers per options, section definitions, and user interaction.
+- Command substitution to displayed menu items.
+- Margin on menu to highlight selections.
+- Cycling to file selection menu.
+- Print entire document if there are no active elements.
+- Option to set a screen width. The document and interface are formatted to fit this dimension. The default is 0, which causes to read and use the console width.
+
+### Changed
+
+- Highlight prior selection in menu.
+- Display live environment variable values in examples.
+
 ## [2.6.0] - 2024-11-27
 
 ### Added
@@ -7,7 +23,7 @@
 - Ability to collapse and expand sections.
 - Collapsible state configurable per document and per section.
 - User can collapse and expand sections in the UI.
-- Live shell variable expansion in document text and block content.
+- Live shell variable expansion in text and various non-shell blocks.
 - Option for name of function to manage executed scripts.
 
 ### Changed
@@ -156,7 +172,7 @@
 ### Changed
 
 - Fix block name processing for blocks with no name.
-  Demo in examples/block_names.md loads content of examples/load1.sh.
+  Demo in examples/block_names.md loads content of docs/dev/load1.sh.
 
 ## [2.0.5] - 2024-04-24
 
