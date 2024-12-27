@@ -136,14 +136,14 @@ module MarkdownExec
       if options[:hide_blocks_by_name]
         filters[:hidden_name] =
           !!(options[:block_name_hidden_match].present? &&
-                    name =~ Regexp.new(options[:block_name_hidden_match]))
+                    fcb.code_name_exp?(options[:block_name_hidden_match]))
       end
       filters[:include_name] =
         !!(options[:block_name_include_match].present? &&
-                  name =~ Regexp.new(options[:block_name_include_match]))
+                  fcb.code_name_exp?(options[:block_name_include_match]))
       filters[:wrap_name] =
         !!(options[:block_name_wrapper_match].present? &&
-                  name =~ Regexp.new(options[:block_name_wrapper_match]))
+                  fcb.code_name_exp?(options[:block_name_wrapper_match]))
     end
 
     # Evaluates the filter settings to make a final decision on
@@ -227,27 +227,6 @@ if $PROGRAM_NAME == __FILE__
   require_relative 'constants'
 
   module MarkdownExec
-    # Define a mock fenced code block class for testing purposes
-    class FCB
-      attr_accessor :chrome, :disabled, :oname, :shell, :start_line, :type
-
-      def initialize(
-        chrome: false, dname: nil, oname: nil,
-        shell: '', start_line: nil, type: nil
-      )
-        @chrome = chrome
-        @dname = dname
-        @oname = oname
-        @shell = shell
-        @type = type
-        @start_line = start_line
-      end
-
-      def fetch(key, default)
-        instance_variable_get("@#{key}") || default
-      end
-    end
-
     class FilterTest < Minitest::Test
       def setup
         @options = {}

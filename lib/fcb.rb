@@ -35,6 +35,14 @@ module MarkdownExec
       }.merge(options)
     end
 
+    def code_name_included?(*names)
+      names.include?(@attrs[:oname])
+    end
+
+    def code_name_exp?(regexp)
+      Regexp.new(regexp) =~ @attrs[:oname]
+    end
+
     # Derives a title from the body of an FCB object.
     # @param fcb [Object] The FCB object whose title is to be derived.
     # @return [String] The derived title.
@@ -152,23 +160,27 @@ module MarkdownExec
       @attrs.to_yaml
     end
 
-    # Expand variables in `dname` and `body` attributes
+    # Expand variables in attributes
+    ####
     def expand_variables_in_attributes!(pattern, replacements)
-      ### update name, nickname, title, label ???
-
-      # Replace variables in `dname` using the replacements dictionary
+      @attrs[:raw_dname] ||= @attrs[:dname]
       @attrs[:dname] = @attrs[:dname]&.gsub(pattern) do |match|
         replacements[match]
       end
+
+      @attrs[:raw_s0printable] ||= @attrs[:s0printable]
       @attrs[:s0printable] = @attrs[:s0printable]&.gsub(pattern) do |match|
         replacements[match]
       end
+
+      @attrs[:raw_s1decorated] ||= @attrs[:s1decorated]
       @attrs[:s1decorated] = @attrs[:s1decorated]&.gsub(pattern) do |match|
         replacements[match]
       end
 
       # Replace variables in each line of `body` if `body` is present
       if @attrs[:body]
+        @attrs[:raw_body] ||= @attrs[:body]
         @attrs[:body] = @attrs[:body]&.map do |line|
           if line.empty?
             line

@@ -177,12 +177,12 @@ module MarkdownExec
       blocks.map do |block|
         (block[:wraps] || []).map do |wrap|
           wrap_before = wrap.sub('}', '-before}') ### hardcoded wrap name
-          @table.select { |fcb| [wrap_before, wrap].include? fcb.oname }
+          @table.select { |fcb| fcb.code_name_included?(wrap_before, wrap) }
         end.flatten(1) +
           [block] +
           (block[:wraps] || []).reverse.map do |wrap|
             wrap_after = wrap.sub('}', '-after}') ### hardcoded wrap name
-            @table.select { |fcb| fcb.oname == wrap_after }
+            @table.select { |fcb| fcb.code_name_included?(wrap_after) }
           end.flatten(1)
       end.flatten(1).compact
     end
@@ -623,25 +623,22 @@ if $PROGRAM_NAME == __FILE__
       # Mocking the @table object for testing
       def setup
         @table = [
-          OpenStruct.new(oname: '{wrap1}'),
-          OpenStruct.new(oname: '{wrap2-before}'),
-          OpenStruct.new(oname: '{wrap2}'),
-          OpenStruct.new(oname: '{wrap2-after}'),
-          OpenStruct.new(oname: '{wrap3-before}'),
-          OpenStruct.new(oname: '{wrap3}'),
-          OpenStruct.new(oname: '{wrap3-after}')
+          FCB.new(oname: '{wrap1}'),
+          FCB.new(oname: '{wrap2-before}'),
+          FCB.new(oname: '{wrap2}'),
+          FCB.new(oname: '{wrap2-after}'),
+          FCB.new(oname: '{wrap3-before}'),
+          FCB.new(oname: '{wrap3}'),
+          FCB.new(oname: '{wrap3-after}')
         ]
         @mdoc = MDoc.new(@table)
       end
 
       def test_collect_wrapped_blocks
         # Test case 1: blocks with wraps
-        OpenStruct.new(oname: 'block1')
-
         assert_equal(%w[{wrap2-before} {wrap2} b {wrap2-after}],
                      @mdoc.collect_wrapped_blocks(
-                       [OpenStruct.new(oname: 'b',
-                                       wraps: ['{wrap2}'])]
+                       [FCB.new(oname: 'b', wraps: ['{wrap2}'])]
                      ).map(&:oname))
 
         assert_equal(%w[{wrap2-before} {wrap2} {wrap3-before} {wrap3} c {wrap3-after} {wrap2-after}],
