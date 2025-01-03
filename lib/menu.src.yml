@@ -200,6 +200,12 @@
   :default: "(document_opts)"
   :procname: val_as_str
 
+- :opt_name: document_load_shell_block_name
+  :env_var: MDE_DOCUMENT_LOAD_SHELL_BLOCK_NAME
+  :description: Name of shell block to load with the document
+  :default: "(document_shell)"
+  :procname: val_as_str
+
 - :opt_name: document_load_vars_block_name
   :env_var: MDE_DOCUMENT_LOAD_VARS_BLOCK_NAME
   :description: Name of Vars block to load with the document

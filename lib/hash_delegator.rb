@@ -783,6 +783,23 @@ module MarkdownExec
 
     # private
 
+    def expand_references!(fcb, link_state)
+      expand_variable_references!(
+        blocks: [fcb],
+        initial_code_required: false,
+        link_state: link_state
+      )
+      expand_variable_references!(
+        blocks: [fcb],
+        echo_format: '%s',
+        group_name: :command,
+        initial_code_required: false,
+        key_format: '$(%s)',
+        link_state: link_state,
+        pattern: options_command_substitution_regexp
+      )
+    end
+
     # Iterates through nested files to collect various types
     #  of blocks, including dividers, tasks, and others.
     # The method categorizes blocks based on their type and processes them accordingly.
@@ -799,22 +816,6 @@ module MarkdownExec
       iter_blocks_from_nested_files do |btype, fcb|
         count += 1
 
-        # text substitution in menu
-        #
-        expand_references = lambda do |fcb|
-          expand_variable_references!(blocks: [fcb], link_state: link_state,
-                                      initial_code_required: false)
-          expand_variable_references!(
-            blocks: [fcb],
-            echo_format: '%s',
-            initial_code_required: false,
-            key_format: '$(%s)',
-            link_state: link_state,
-            group_name: :command,
-            pattern: options_command_substitution_regexp
-          )
-        end
-
         case btype
         when :blocks
           if @delegate_object[:bash]
@@ -826,16 +827,19 @@ module MarkdownExec
             ) do |oname, color|
               apply_block_type_color_option(oname, color)
             end
+          else
+            expand_references!(fcb, link_state)
           end
-          expand_references.call(fcb)
           blocks << fcb
         when :filter # types accepted
           %i[blocks line]
         when :line
           unless @delegate_object[:no_chrome]
-            expand_references.call(fcb)
             create_and_add_chrome_blocks(blocks, fcb, id: "*#{count}",
-                                                      init_ids: init_ids)
+                                                      init_ids: init_ids) do
+              # expand references only if block is recognized (not a comment)
+              expand_references!(fcb, link_state)
+            end
           end
         end
       end
@@ -1200,7 +1204,8 @@ module MarkdownExec
       collapse: nil, color_method:, decor_patterns: [],
       disabled: true, format_option:, id: '',
       level: 0, match_data:, type: '',
-      wrap: nil
+      wrap: nil,
+      fcb: nil
     )
       line_cap = NamedCaptureExtractor.extract_named_group2(match_data)
       # replace tabs in indent
@@ -1256,23 +1261,44 @@ module MarkdownExec
         )
 
         line_obj[:line] = line_obj[:indent] + line_obj[:text]
-        blocks.push FCB.new(
-          center: center,
-          chrome: true,
-          collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
-          token: line_obj[:collapse],
-          disabled: disabled ? TtyMenu::DISABLE : nil,
-          id: "#{id}.#{index}",
-          level: level,
-          s0indent: indent,
-          s0printable: line_obj[:text],
-          s1decorated: decorated,
-          dname: line_obj[:indent] + decorated,
-          indent: line_obj[:indent],
-          oname: line_obj[:text],
-          text: line_obj[:text],
-          type: type
-        )
+
+        if fcb.nil?
+          fcb = FCB.new(
+            center: center,
+            chrome: true,
+            collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
+            token: line_obj[:collapse],
+            disabled: disabled ? TtyMenu::DISABLE : nil,
+            id: "#{id}.#{index}",
+            level: level,
+            s0indent: indent,
+            s0printable: line_obj[:text],
+            s1decorated: decorated,
+            dname: line_obj[:indent] + decorated,
+            indent: line_obj[:indent],
+            oname: line_obj[:text],
+            text: line_obj[:text],
+            type: type
+          )
+        else
+            fcb.center = center
+            fcb.chrome = true
+            fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
+            fcb.token = line_obj[:collapse]
+            fcb.disabled = disabled ? TtyMenu::DISABLE : nil
+            fcb.id = "#{id}.#{index}"
+            fcb.level = level
+            fcb.s0indent = indent
+            fcb.s0printable = line_obj[:text]
+            fcb.s1decorated = decorated
+            fcb.dname = line_obj[:indent] + decorated
+            fcb.indent = line_obj[:indent]
+            fcb.oname = line_obj[:text]
+            fcb.text = line_obj[:text]
+            fcb.type = type
+        end
+
+        blocks.push fcb
       end
       line_caps.count
     end
@@ -1290,6 +1316,12 @@ module MarkdownExec
         unless @delegate_object[criteria[:match]].present? &&
                (mbody = fcb.body[0].match @delegate_object[criteria[:match]])
           next
+        end
+
+        if block_given?
+          # expand references only if block is recognized (not a comment)
+          yield if block_given?
+          mbody = fcb.body[0].match @delegate_object[criteria[:match]]
         end
 
         create_and_add_chrome_block(
@@ -1312,6 +1344,7 @@ module MarkdownExec
           decor_patterns:
             @decor_patterns_from_delegate_object_for_block_create,
           disabled: !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
+          fcb: fcb,
           id: "#{id}.#{index}",
           format_option: criteria[:format] &&
                          @delegate_object[criteria[:format]],
@@ -2586,6 +2619,30 @@ module MarkdownExec
       true
     end
 
+    def load_document_shell_block(all_blocks, mdoc: nil)
+      block_name = @delegate_object[:document_load_shell_block_name]
+      unless block_name.present? &&
+             @shell_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      fcb = HashDelegator.block_find(all_blocks, :oname, block_name)
+      return unless fcb
+
+      @shell_most_recent_filename = @delegate_object[:filename]
+
+      if mdoc
+        mdoc.collect_recursively_required_code(
+          anyname: fcb.pub_name,
+          label_format_above: @delegate_object[:shell_code_label_format_above],
+          label_format_below: @delegate_object[:shell_code_label_format_below],
+          block_source: block_source
+        )[:code]
+      else
+        fcb.body
+      end
+    end
+
     def load_auto_vars_block(all_blocks,
                              block_name: @delegate_object[:document_load_vars_block_name])
       unless block_name.present? &&
@@ -2695,16 +2752,19 @@ module MarkdownExec
         all_blocks, mdoc = mdoc_and_blocks_from_nested_files
       end
 
+      # load document shell block
+      #
+      if code_lines = load_document_shell_block(all_blocks, mdoc: mdoc)
+        next_state_set_code(nil, link_state, code_lines)
+        link_state.inherited_lines = code_lines
+      end
+
       # load document vars block
       #
       if code_lines = load_auto_vars_block(all_blocks)
         new_code = HashDelegator.code_merge(link_state.inherited_lines,
                                             code_lines)
-        next_state_set_code(
-          nil,
-          link_state,
-          new_code
-        )
+        next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
       end
 
@@ -2713,6 +2773,15 @@ module MarkdownExec
       menu_blocks, @compressed_ids = mdoc.fcbs_per_options(
         @delegate_object.merge!(compressed_ids: @compressed_ids)
       )
+
+      # re-expand blocks
+      menu_blocks.each do |fcb|
+        fcb.body = fcb.raw_body || fcb.body || []
+        fcb.dname = fcb.raw_dname || fcb.dname
+        fcb.s0printable = fcb.raw_s0printable || fcb.s0printable
+        fcb.s1decorated = fcb.raw_s1decorated || fcb.s1decorated
+        expand_references!(fcb, link_state)
+      end
 
       # chrome for menu
       #

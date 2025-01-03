@@ -5,6 +5,10 @@ VAULT: 1
 echo "Species: $Species"
 echo "VAULT: $VAULT"
 ```
+| Variable| Value
+| -| -
+| Species| ${Species}
+| VAULT| ${VAULT}
 @import bats-document-configuration.md
 ```vars :(document_vars)
 Species: Not specified
