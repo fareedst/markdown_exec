@@ -361,10 +361,10 @@ module HashDelegatorSelf
   # @param [String] line The line to be processed.
   # @param [Array<Symbol>] selected_types A list of message types to check.
   # @param [Proc] block The block to be called with the line data.
-  def yield_line_if_selected(line, selected_types, id: '', &block)
+  def yield_line_if_selected(line, selected_types, source_id: '', &block)
     return unless block && block_type_selected?(selected_types, :line)
 
-    block.call(:line, MarkdownExec::FCB.new(body: [line], id: id))
+    block.call(:line, MarkdownExec::FCB.new(body: [line], id: source_id))
   end
 end
 
@@ -600,52 +600,72 @@ module MarkdownExec
       end
     end
 
-    def add_back_option(id: '', menu_blocks:)
-      append_chrome_block(id: id, menu_blocks: menu_blocks,
-                          menu_state: MenuState::BACK)
+    def add_back_option(menu_blocks:, source_id: '')
+      append_chrome_block(
+        menu_blocks: menu_blocks,
+        menu_state: MenuState::BACK,
+        source_id: source_id
+      )
     end
 
-    def add_exit_option(id: '', menu_blocks:)
-      append_chrome_block(id: id, menu_blocks: menu_blocks,
-                          menu_state: MenuState::EXIT)
+    def add_exit_option(menu_blocks:, source_id: '')
+      append_chrome_block(
+        menu_blocks: menu_blocks,
+        menu_state: MenuState::EXIT,
+        source_id: source_id
+      )
     end
 
-    def add_inherited_lines(menu_blocks:, link_state:)
-      append_inherited_lines(menu_blocks: menu_blocks, link_state: link_state)
+    def add_inherited_lines(link_state:, menu_blocks:)
+      append_inherited_lines(
+        link_state: link_state,
+        menu_blocks: menu_blocks
+      )
     end
 
     # Modifies the provided menu blocks array by adding 'Back' and 'Exit' options,
     # along with initial and final dividers, based on the delegate object's configuration.
     #
     # @param menu_blocks [Array] The array of menu block elements to be modified.
-    def add_menu_chrome_blocks!(id: '', menu_blocks:, link_state:)
+    def add_menu_chrome_blocks!(link_state:, menu_blocks:, source_id: '')
       return unless @delegate_object[:menu_link_format].present?
 
-      if @delegate_object[:menu_with_inherited_lines]
-        add_inherited_lines(menu_blocks: menu_blocks,
-                            link_state: link_state)
-      end
+      add_inherited_lines(
+        link_state: link_state,
+        menu_blocks: menu_blocks
+      ) if @delegate_object[:menu_with_inherited_lines]
 
       # back before exit
-      add_back_option(id: "#{id}.back",
-                      menu_blocks: menu_blocks) if should_add_back_option?
+      add_back_option(
+        menu_blocks: menu_blocks,
+        source_id: "#{source_id}.back"
+      ) if should_add_back_option?
 
       # exit after other options
-      if @delegate_object[:menu_with_exit]
-        add_exit_option(id: "#{id}.exit", menu_blocks: menu_blocks)
-      end
 
-      append_divider(id: "#{id}.init", menu_blocks: menu_blocks,
-                     position: :initial)
-      append_divider(id: "#{id}.final", menu_blocks: menu_blocks,
-                     position: :final)
+      add_exit_option(
+        menu_blocks: menu_blocks,
+        source_id: "#{source_id}.exit"
+      ) if @delegate_object[:menu_with_exit]
+
+      append_divider(
+        menu_blocks: menu_blocks,
+        position: :initial,
+        source_id: "#{source_id}.init"
+      )
+
+      append_divider(
+        menu_blocks: menu_blocks,
+        position: :final,
+        source_id: "#{source_id}.final"
+      )
     end
 
     # Appends a chrome block, which is a menu option for Back or Exit
     #
     # @param all_blocks [Array] The current blocks in the menu
     # @param type [Symbol] The type of chrome block to add (:back or :exit)
-    def append_chrome_block(menu_blocks:, menu_state:, id: '')
+    def append_chrome_block(menu_blocks:, menu_state:, source_id: '')
       case menu_state
       when MenuState::BACK
         history_state_partition
@@ -683,7 +703,7 @@ module MarkdownExec
         dname: HashDelegator.new(@delegate_object).string_send_color(
           formatted_name, :menu_chrome_color
         ),
-        id: id,
+        id: source_id.to_s,
         type: BlockType::CHROME,
         nickname: formatted_name,
         oname: formatted_name
@@ -703,10 +723,10 @@ module MarkdownExec
     #
     # @param menu_blocks [Array] The array of menu block elements.
     # @param position [Symbol] The position to insert the divider (:initial or :final).
-    def append_divider(id: '', menu_blocks:, position:)
+    def append_divider(menu_blocks:, position:, source_id: '')
       return unless divider_formatting_present?(position)
 
-      divider = create_divider(position, id: id)
+      divider = create_divider(position, source_id: source_id)
       position == :initial ? menu_blocks.unshift(divider) : menu_blocks.push(divider)
     end
 
@@ -715,7 +735,7 @@ module MarkdownExec
     #
     # @param menu_blocks [Array] The array of menu block elements.
     # @param position [Symbol] The position to insert the divider (:initial or :final).
-    def append_inherited_lines(menu_blocks:, link_state:, position: top)
+    def append_inherited_lines(link_state:, menu_blocks:, position: top)
       return unless link_state.inherited_lines_present?
 
       insert_at_top = @delegate_object[:menu_inherited_lines_at_top]
@@ -806,7 +826,8 @@ module MarkdownExec
     #
     # @return [Array<FCB>] An array of FCB objects representing the blocks.
     def blocks_from_nested_files(
-      link_state: @dml_link_state || LinkState.new
+      link_state: @dml_link_state || LinkState.new,
+      source_id: nil
     )
       register_console_attributes(@delegate_object)
       @decor_patterns_from_delegate_object_for_block_create = collect_line_decor_patterns(@delegate_object)
@@ -823,7 +844,7 @@ module MarkdownExec
               block_calls_scan: @delegate_object[:block_calls_scan],
               block_name_match: @delegate_object[:block_name_match],
               block_name_nick_match: @delegate_object[:block_name_nick_match],
-              id: "*#{count}"
+              id: "#{source_id}_bfnf_b_#{count}"
             ) do |oname, color|
               apply_block_type_color_option(oname, color)
             end
@@ -835,8 +856,10 @@ module MarkdownExec
           %i[blocks line]
         when :line
           unless @delegate_object[:no_chrome]
-            create_and_add_chrome_blocks(blocks, fcb, id: "*#{count}",
-                                                      init_ids: init_ids) do
+            # expand references only if block is recognized (not a comment)
+            create_and_add_chrome_blocks(
+              blocks, fcb, id: "#{source_id}_bfnf_l_#{count}", init_ids: init_ids
+            ) do
               # expand references only if block is recognized (not a comment)
               expand_references!(fcb, link_state)
             end
@@ -1357,7 +1380,7 @@ module MarkdownExec
       end
     end
 
-    def create_divider(position, id: '')
+    def create_divider(position, source_id: '')
       divider_key = if position == :initial
                       :menu_initial_divider
                     else
@@ -1370,7 +1393,7 @@ module MarkdownExec
         chrome: true,
         disabled: TtyMenu::DISABLE,
         dname: string_send_color(oname, :menu_divider_color),
-        id: id,
+        id: source_id,
         oname: oname
       )
     end
@@ -1453,9 +1476,10 @@ module MarkdownExec
 
     def dml_menu_append_chrome_item(
       name, count, type,
-      id: '',
+      always_create: true,
+      always_enable: true,
       menu_state: MenuState::LOAD,
-      always_create: true, always_enable: true
+      source_id: ''
     )
       raise unless name.present?
       raise if @dml_menu_blocks.nil?
@@ -1465,7 +1489,7 @@ module MarkdownExec
       # create menu item when it is needed (count > 0)
       #
       if item.nil? && (always_create || count.positive?)
-        item = append_chrome_block(id: id,
+        item = append_chrome_block(source_id: source_id,
                                    menu_blocks: @dml_menu_blocks,
                                    menu_state: menu_state)
       end
@@ -1721,11 +1745,7 @@ module MarkdownExec
 
       elsif COLLAPSIBLE_TYPES.include?(selected.type)
         debounce_reset
-        if @compressed_ids.keys.include?(selected.id)
-          @compressed_ids.delete(selected.id)
-        else
-          @compressed_ids.merge!(selected.id => selected.level)
-        end
+        menu_toggle_collapsible_block(selected)
         LoadFileLinkState.new(LoadFile::REUSE, link_state)
 
       elsif debounce_allows
@@ -2430,7 +2450,7 @@ module MarkdownExec
          Regexp.new(@delegate_object.fetch(
                       :fenced_start_and_end_regex, '^(?<indent> *)`{3,}'
                     )),
-        fcb: MarkdownExec::FCB.new,
+        fcb: MarkdownExec::FCB.new(id: 'INIT'),
         in_fenced_block: false,
         headings: []
       }
@@ -2452,16 +2472,16 @@ module MarkdownExec
 
         update_line_and_block_state(
           nested_line, state, selected_types,
-          id: "#{@delegate_object[:filename]}:#{index}",
+          source_id: "#{@delegate_object[:filename]}_ibfnf_#{index}",
           &block
         )
       end
     end
 
-    def iter_source_blocks(source, &block)
+    def iter_source_blocks(source, source_id: nil, &block)
       case source
       when 1
-        blocks_from_nested_files.each(&block)
+        blocks_from_nested_files(source_id: source_id).each(&block)
       when 2
         @dml_blocks_in_file.each(&block)
       when 3
@@ -2581,12 +2601,14 @@ module MarkdownExec
       }
     end
 
-    def list_blocks
+    def list_blocks(source_id: nil)
       message = @delegate_object[:list_blocks_message]
       block_eval = @delegate_object[:list_blocks_eval]
 
       list = []
-      iter_source_blocks(@delegate_object[:list_blocks_type]) do |block|
+      iter_source_blocks(
+        @delegate_object[:list_blocks_type], source_id: source_id
+      ) do |block|
         list << (block_eval.present? ? eval(block_eval) : block.send(message))
       end
       list.compact!
@@ -2599,7 +2621,7 @@ module MarkdownExec
     # Executes a specified block once per filename.
     # @param all_blocks [Array] Array of all block elements.
     # @return [Boolean, nil] True if values were modified, nil otherwise.
-    def load_auto_opts_block(all_blocks, id: '', mdoc:)
+    def load_auto_opts_block(all_blocks, mdoc:)
       block_name = @delegate_object[:document_load_opts_block_name]
       unless block_name.present? &&
              @opts_most_recent_filename != @delegate_object[:filename]
@@ -2733,8 +2755,8 @@ module MarkdownExec
       [block_name_from_cli, now_using_cli]
     end
 
-    def mdoc_and_blocks_from_nested_files
-      menu_blocks = blocks_from_nested_files
+    def mdoc_and_blocks_from_nested_files(source_id: nil)
+      menu_blocks = blocks_from_nested_files(source_id: source_id)
       mdoc = MDoc.new(menu_blocks) do |nopts|
         @delegate_object.merge!(nopts)
       end
@@ -2744,12 +2766,12 @@ module MarkdownExec
     ## Handles the file loading and returns the blocks
     #  in the file and MDoc instance
     #
-    def mdoc_menu_and_blocks_from_nested_files(link_state, id: '')
+    def mdoc_menu_and_blocks_from_nested_files(link_state, source_id: '')
       # read blocks, load document opts block, and re-process blocks
       #
-      all_blocks, mdoc = mdoc_and_blocks_from_nested_files
-      if load_auto_opts_block(all_blocks, id: id, mdoc: mdoc)
-        all_blocks, mdoc = mdoc_and_blocks_from_nested_files
+      all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
+      if load_auto_opts_block(all_blocks, mdoc: mdoc)
+        all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
       end
 
       # load document shell block
@@ -2785,8 +2807,11 @@ module MarkdownExec
 
       # chrome for menu
       #
-      add_menu_chrome_blocks!(id: id, menu_blocks: menu_blocks,
-                              link_state: link_state)
+      add_menu_chrome_blocks!(
+        link_state: link_state,
+        menu_blocks: menu_blocks,
+        source_id: source_id
+      )
 
       ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
@@ -2812,6 +2837,7 @@ module MarkdownExec
         dname: HashDelegator.new(@delegate_object).string_send_color(
           document_glob, :menu_inherited_lines_color
         ),
+        # 2025-01-03 menu item is disabled ∴ does not need a recall id
         oname: formatted_name
       )
 
@@ -2849,6 +2875,22 @@ module MarkdownExec
         format(@delegate_object[:menu_chrome_format], option_value)
       else
         option_value
+      end
+    end
+
+    def menu_compress_collapsible_block(selected)
+      @compressed_ids.merge!(selected.id => selected.level)
+    end
+
+    def menu_expand_collapsible_block(selected)
+      @compressed_ids.delete(selected.id)
+    end
+
+    def menu_toggle_collapsible_block(selected)
+      if @compressed_ids.keys.include?(selected.id)
+        menu_expand_collapsible_block(selected)
+      else
+        menu_compress_collapsible_block(selected)
       end
     end
 
@@ -3648,11 +3690,14 @@ module MarkdownExec
           item == selection
         end
       end
+
+      # new FCB if selected is not an object
       if selected.instance_of?(String)
         selected = FCB.new(dname: selected)
       elsif selected.instance_of?(Hash)
         selected = FCB.new(selected)
       end
+
       unless selected
         HashDelegator.error_handler('select_option_with_metadata',
                                     error: 'menu item not found')
@@ -3720,7 +3765,9 @@ module MarkdownExec
     # @param fenced_start_extended_regex [Regexp]
     #  Regular expression to identify fenced block start.
     # @return [MarkdownExec::FCB] A new FCB instance with the parsed attributes.
-    def start_fenced_block(line, headings, fenced_start_extended_regex)
+    def start_fenced_block(
+      line, headings, fenced_start_extended_regex, source_id: nil
+    )
       fcb_title_groups = NamedCaptureExtractor.extract_named_groups(
         line, fenced_start_extended_regex
       )
@@ -3771,6 +3818,7 @@ module MarkdownExec
         disabled: disabled,
         dname: dname,
         headings: headings,
+        id: source_id.to_s,
         indent: fcb_title_groups.fetch(:indent, ''),
         nickname: nickname,
         oname: oname,
@@ -3833,7 +3881,7 @@ module MarkdownExec
     ##
     def update_line_and_block_state(
       nested_line, state, selected_types,
-      id:,
+      source_id:,
       &block
     )
       line = nested_line.to_s
@@ -3853,7 +3901,8 @@ module MarkdownExec
           #
           state[:fcb] = start_fenced_block(
             line, state[:headings],
-            @delegate_object[:fenced_start_extended_regex]
+            @delegate_object[:fenced_start_extended_regex],
+            source_id: source_id
           )
           state[:fcb][:depth] = nested_line[:depth]
           state[:fcb][:indention] = nested_line[:indention]
@@ -3870,8 +3919,9 @@ module MarkdownExec
             @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it
         #
-        HashDelegator.yield_line_if_selected(line, selected_types, id: id,
-                                             &block)
+        HashDelegator.yield_line_if_selected(
+          line, selected_types, source_id: source_id, &block
+        )
       end
     end
 
@@ -4147,15 +4197,20 @@ module MarkdownExec
         end
       end
 
+      count = 0
       InputSequencer.new(
         @delegate_object[:filename],
         block_list
       ).run do |msg, data|
+        count += 1
         case msg
         when :parse_document # once for each menu
-          vux_parse_document(id: 'vux_parse_document')
-          vux_menu_append_history_files(formatted_choice_ostructs,
-                                        id: 'vux_menu_append_history_files')
+          count = 0
+          vux_parse_document(source_id: "#{@delegate_object[:filename]}_vmlpd")
+          vux_menu_append_history_files(
+            formatted_choice_ostructs,
+            source_id: "#{@delegate_object[:filename]}_vmlhf"
+          )
           vux_publish_document_file_name_for_external_automation
 
         when :display_menu
@@ -4166,7 +4221,7 @@ module MarkdownExec
           # yield :end_of_cli, @delegate_object
 
           if @delegate_object[:list_blocks]
-            list_blocks
+            list_blocks(source_id: "#{@delegate_object[:filename]}_vmleoc")
             :exit
           end
 
@@ -4201,8 +4256,9 @@ module MarkdownExec
       end
     end
 
-    def vux_menu_append_history_files(formatted_choice_ostructs,
-                                      id: '')
+    def vux_menu_append_history_files(
+      formatted_choice_ostructs, source_id: ''
+    )
       if @delegate_object[:menu_for_history]
         history_files(
           @dml_link_state,
@@ -4214,8 +4270,8 @@ module MarkdownExec
             dml_menu_append_chrome_item(
               formatted_choice_ostructs[:history].oname, files.count,
               'files',
-              id: id,
-              menu_state: MenuState::HISTORY
+              menu_state: MenuState::HISTORY,
+              source_id: source_id
             )
           end
         end
@@ -4237,38 +4293,38 @@ module MarkdownExec
       if files.count.positive?
         dml_menu_append_chrome_item(
           formatted_choice_ostructs[:load].dname, files.count, 'files',
-          id: "#{id}.load",
-          menu_state: MenuState::LOAD
+          menu_state: MenuState::LOAD,
+          source_id: "#{source_id}_vmahf_load"
         )
       end
       if @delegate_object[:menu_inherited_lines_edit_always] ||
          lines_count.positive?
         dml_menu_append_chrome_item(
           formatted_choice_ostructs[:edit].dname, lines_count, 'lines',
-          id: "#{id}.edit",
-          menu_state: MenuState::EDIT
+          menu_state: MenuState::EDIT,
+          source_id: "#{source_id}_vmahf_edit"
         )
       end
       if lines_count.positive?
         dml_menu_append_chrome_item(
           formatted_choice_ostructs[:save].dname, 1, '',
-          id: "#{id}.save",
-          menu_state: MenuState::SAVE
+          menu_state: MenuState::SAVE,
+          source_id: "#{source_id}_vmahf_save"
         )
       end
       if lines_count.positive?
         dml_menu_append_chrome_item(
           formatted_choice_ostructs[:view].dname, 1, '',
-          id: "#{id}.view",
-          menu_state: MenuState::VIEW
+          menu_state: MenuState::VIEW,
+          source_id: "#{source_id}_vmahf_view"
         )
       end
       # rubocop:disable Style/GuardClause
       if @delegate_object[:menu_with_shell]
         dml_menu_append_chrome_item(
           formatted_choice_ostructs[:shell].dname, 1, '',
-          id: "#{id}.shell",
-          menu_state: MenuState::SHELL
+          menu_state: MenuState::SHELL,
+          source_id: "#{source_id}_vmahf_shell"
         )
       end
       # rubocop:enable Style/GuardClause
@@ -4286,7 +4342,7 @@ module MarkdownExec
       )
     end
 
-    def vux_parse_document(id: '')
+    def vux_parse_document(source_id: '')
       @run_state.batch_index += 1
       @run_state.in_own_window = false
 
@@ -4308,7 +4364,9 @@ module MarkdownExec
       # update @delegate_object and @menu_base_options in auto_load
       #
       @dml_blocks_in_file, @dml_menu_blocks, @dml_mdoc =
-        mdoc_menu_and_blocks_from_nested_files(@dml_link_state, id: id)
+        mdoc_menu_and_blocks_from_nested_files(
+          @dml_link_state, source_id: source_id
+        )
       dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
     end
 
