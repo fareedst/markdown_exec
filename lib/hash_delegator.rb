@@ -1161,8 +1161,10 @@ module MarkdownExec
     end
 
     # Check if the expression contains wildcard characters
-    def contains_wildcards?(expr)
-      expr.match(%r{\*|\?|\[})
+    def contains_glob?(str)
+      return false if str.nil?
+
+      str.match?(/[\*\?\[\{\}]/)
     end
 
     def copy_to_clipboard(required_lines)
@@ -1304,21 +1306,21 @@ module MarkdownExec
             type: type
           )
         else
-            fcb.center = center
-            fcb.chrome = true
-            fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
-            fcb.token = line_obj[:collapse]
-            fcb.disabled = disabled ? TtyMenu::DISABLE : nil
-            fcb.id = "#{id}.#{index}"
-            fcb.level = level
-            fcb.s0indent = indent
-            fcb.s0printable = line_obj[:text]
-            fcb.s1decorated = decorated
-            fcb.dname = line_obj[:indent] + decorated
-            fcb.indent = line_obj[:indent]
-            fcb.oname = line_obj[:text]
-            fcb.text = line_obj[:text]
-            fcb.type = type
+          fcb.center = center
+          fcb.chrome = true
+          fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
+          fcb.token = line_obj[:collapse]
+          fcb.disabled = disabled ? TtyMenu::DISABLE : nil
+          fcb.id = "#{id}.#{index}"
+          fcb.level = level
+          fcb.s0indent = indent
+          fcb.s0printable = line_obj[:text]
+          fcb.s1decorated = decorated
+          fcb.dname = line_obj[:indent] + decorated
+          fcb.indent = line_obj[:indent]
+          fcb.oname = line_obj[:text]
+          fcb.text = line_obj[:text]
+          fcb.type = type
         end
 
         blocks.push fcb
@@ -1933,15 +1935,25 @@ module MarkdownExec
       view: @delegate_object[:vars_block_filename_view]
     )
       block_data = HashDelegator.parse_yaml_data_from_body(selected.body)
-      if selected_option = select_option_with_metadata(
+
+      dirs = Dir.glob(
+        File.join(
+          Dir.pwd,
+          block_data['directory'] || directory,
+          block_data['glob'] || glob
+        )
+      )
+
+      if !contains_glob?(block_data['directory']) &&
+         !contains_glob?(block_data['glob'])
+        if dirs[0]
+          File.readlines(dirs[0], chomp: true)
+        else
+          warn 'No matching file found.'
+        end
+      elsif selected_option = select_option_with_metadata(
         prompt_title,
-        [exit_prompt] + Dir.glob(
-          File.join(
-            Dir.pwd,
-            block_data['directory'] || directory,
-            block_data['glob'] || glob
-          )
-        ).sort.map do |file|
+        [exit_prompt] + dirs.sort.map do |file|
           { name: format(
             block_data['view'] || view,
             NamedCaptureExtractor.extract_named_group2(
@@ -1961,7 +1973,7 @@ module MarkdownExec
           File.readlines(selected_option.oname, chomp: true)
         end
       else
-        warn 'No matching files found'
+        warn 'No matching files found.'
       end
     end
 
@@ -2707,7 +2719,7 @@ module MarkdownExec
       expanded_expression = formatted_expression(expression)
 
       # Handle wildcards or direct file specification
-      if contains_wildcards?(expanded_expression)
+      if contains_glob?(expanded_expression)
         load_filespec_wildcard_expansion(expanded_expression)
       else
         expanded_expression
@@ -3546,7 +3558,7 @@ module MarkdownExec
       formatted = formatted_expression(expression)
 
       # Handle wildcards or direct file specification
-      if contains_wildcards?(formatted)
+      if contains_glob?(formatted)
         save_filespec_wildcard_expansion(formatted)
       else
         formatted

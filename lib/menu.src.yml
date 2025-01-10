@@ -682,8 +682,7 @@
   :env_var: MDE_MENU_ACTIVE_COLOR_PASTEL_MESSAGES
   :description: menu_active_color_pastel_messages
   :default:
-  - bright_magenta
-  - on_black
+  - inverse
 
 - :opt_name: menu_back_at_top
   :env_var: MDE_MENU_BACK_AT_TOP
