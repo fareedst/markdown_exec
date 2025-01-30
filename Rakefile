@@ -74,14 +74,38 @@ task :clean do
   system 'rm *.gem'
 end
 
+def execute_with_error_handling(iterator)
+  all_error_level = 0
+  all_failed_files = []
+  
+  iterator.each do |item|
+    command = yield(item)
+    next unless command # Skip if command is nil
+    
+    result = system(command)
+    error_level = $?.exitstatus
+
+    if error_level != 0
+      puts "Error: Command '#{command}' failed with exit status #{error_level}."
+      all_error_level = error_level
+      all_failed_files << command
+    end
+  end
+
+  if all_error_level != 0
+    puts "Error: #{all_failed_files.join(', ')} failed."
+    exit all_error_level
+  end
+end
+
 desc 'bats'
 task :bats do
-  FileList['bats/**/*.bats'].each do |file|
-    next if %w[bats/bats.bats bats/fail.bats].include?(file)
+  execute_with_error_handling(FileList['bats/**/*.bats']) do |file|
+    next nil if %w[bats/bats.bats bats/fail.bats].include?(file)
 
     # temporary clear WW to disable debugging
     # WW pollutes output expected by BATS tests
-    system "unset WW; bats #{file}"
+    "unset WW; bats #{file}"
   end
 end
 
@@ -118,14 +142,8 @@ task :minitest do
     './lib/dev/process_template.rb --test'
   ]
 
-  commands.each do |command|
-    result = system("bundle exec ruby #{command}")
-    error_level = $?.exitstatus
-
-    if error_level != 0
-      puts "Error: Command '#{command}' failed with exit status #{error_level}."
-      exit error_level
-    end
+  execute_with_error_handling(commands) do |command|
+    "bundle exec ruby #{command}"
   end
 end
 task mini: %i[minitest]

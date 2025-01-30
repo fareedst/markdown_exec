@@ -188,7 +188,6 @@ end
 return if $PROGRAM_NAME != __FILE__
 
 require 'minitest/autorun'
-require_relative 'colorize'
 
 class TestMarkdownTableFormatter < Minitest::Test
   def setup

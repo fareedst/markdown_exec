@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.7.3] - 2025-01-29
+
+### Added
+
+- Automatic loading of multiple Opts and Vars blocks when opening a document.
+
+### Changed
+
+- Fix text displayed when text is wrapped to the next line.
+- Handle and report failure of single tests.
+
+## [2.7.2] - 2025-01-03
+
+### Added
+
+- Block name comparison in FCB class.
+- Option for automatic shell block per document.
+
+### Changed
+
+- Disable command substitution in comments.
+- Fix the source reported by debug function ww0.
+- Inverse the entire line to highlight the active menu line.
+- Return single file if no globs in load block.
+- Update the calculation and use of IDs for blocks used to retrieve the block selected from the menu.
+
+## [2.7.1] - 2024-12-10
+
+### Changed
+
+- Register console dimensions prior to arguments.
+
 ## [2.7.0] - 2024-12-09
 
 ### Added
@@ -399,7 +431,7 @@ Rename options to match use.
   These blocks can be hidden blocks and required in a script.
 
 - Add a "wrap" fenced code block type to facilitate script generation.
-  See document `examples/wrap.md`.
+  See document `examples/wrapped-blocks.md`.
   These blocks are hidden and can be required by one or more blocks.
 
 ### Changed

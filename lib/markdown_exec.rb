@@ -19,7 +19,6 @@ require_relative 'ansi_formatter'
 require_relative 'cached_nested_file_reader'
 require_relative 'cli'
 require_relative 'color_scheme'
-require_relative 'colorize'
 require_relative 'directory_searcher'
 require_relative 'env'
 require_relative 'exceptions'
@@ -95,7 +94,7 @@ class NamedCaptureExtractor
     str&.match(regexp)&.named_captures&.transform_keys(&:to_sym)
   end
 
-  def self.extract_named_group2(match_data)
+  def self.extract_named_group_match_data(match_data)
     match_data&.named_captures&.transform_keys(&:to_sym)
   end
 end

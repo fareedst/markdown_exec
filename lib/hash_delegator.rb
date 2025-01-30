@@ -91,6 +91,10 @@ module HashDelegatorSelf
     blocks.find { |item| item.send(msg) == value } || default
   end
 
+  def block_select(blocks, msg, value, default = nil)
+    blocks.select { |item| item.send(msg) == value }
+  end
+
   def code_merge(*bodies)
     merge_lists(*bodies)
   end
@@ -979,16 +983,19 @@ module MarkdownExec
 
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
-      code_lines = []
-      YAML.load(selected.body.join("\n"))&.each do |key, value|
-        ENV[key] = value.to_s
-        code_lines.push "#{key}=#{Shellwords.escape(value)}"
+      code_lines = []      
+      case data = YAML.load(selected.body.join("\n"))
+      when Hash
+        data.each do |key, value|
+          ENV[key] = value.to_s
+          code_lines.push "#{key}=#{Shellwords.escape(value)}"
 
-        next unless @delegate_object[:menu_vars_set_format].present?
+          next unless @delegate_object[:menu_vars_set_format].present?
 
-        formatted_string = format(@delegate_object[:menu_vars_set_format],
-                                  { key: key, value: value })
-        print string_send_color(formatted_string, :menu_vars_set_color)
+          formatted_string = format(@delegate_object[:menu_vars_set_format],
+                                    { key: key, value: value })
+          print string_send_color(formatted_string, :menu_vars_set_color)
+        end
       end
       code_lines
     end
@@ -1232,11 +1239,11 @@ module MarkdownExec
       wrap: nil,
       fcb: nil
     )
-      line_cap = NamedCaptureExtractor.extract_named_group2(match_data)
+      line_cap = NamedCaptureExtractor.extract_named_group_match_data(match_data)
       # replace tabs in indent
       line_cap[:indent] ||= ''
       line_cap[:indent] = line_cap[:indent].dup if line_cap[:indent].frozen?
-      line_cap[:indent].gsub!("\t", '    ')
+      line_cap[:indent].gsub!("\t", '    ') # TAB_SIZE = 4
       # replace tabs in text
       line_cap[:text] ||= ''
       line_cap[:text] = line_cap[:text].dup if line_cap[:text].frozen?
@@ -1264,6 +1271,7 @@ module MarkdownExec
         end
       end
 
+      use_fcb = !fcb.nil? # fcb only for the first record if any
       line_caps.each_with_index do |line_obj, index|
         next if line_obj[:text].nil?
 
@@ -1287,7 +1295,7 @@ module MarkdownExec
 
         line_obj[:line] = line_obj[:indent] + line_obj[:text]
 
-        if fcb.nil?
+        if !use_fcb
           fcb = FCB.new(
             center: center,
             chrome: true,
@@ -1321,6 +1329,7 @@ module MarkdownExec
           fcb.oname = line_obj[:text]
           fcb.text = line_obj[:text]
           fcb.type = type
+          use_fcb = false # next line is new record
         end
 
         blocks.push fcb
@@ -1956,7 +1965,7 @@ module MarkdownExec
         [exit_prompt] + dirs.sort.map do |file|
           { name: format(
             block_data['view'] || view,
-            NamedCaptureExtractor.extract_named_group2(
+            NamedCaptureExtractor.extract_named_group_match_data(
               file.match(
                 Regexp.new(block_data['filename_pattern'] ||
                            filename_pattern)
@@ -2552,20 +2561,29 @@ module MarkdownExec
       label_format_above = @delegate_object[:shell_code_label_format_above]
       label_format_below = @delegate_object[:shell_code_label_format_below]
 
-      [label_format_above.present? &&
-        format(label_format_above,
-               block_source.merge({ block_name: selected.pub_name }))] +
-        output_lines.map do |line|
-          re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
-          next unless re =~ line
+      ([
+        label_format_above.present? ?
+          format(
+            label_format_above,
+            block_source.merge({ block_name: selected.pub_name })
+          ) : nil
+      ] +
+      output_lines.map do |line|
+        re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
+        next unless re =~ line
 
-          re.gsub_format(line,
-                         link_block_data.fetch('format',
-                                               '%{line}'))
-        end.compact +
-        [label_format_below.present? &&
-         format(label_format_below,
-                block_source.merge({ block_name: selected.pub_name }))]
+        re.gsub_format(
+          line,
+          link_block_data.fetch('format', '%{line}')
+        )
+      end +
+      [
+        label_format_below.present? ?
+          format(
+            label_format_below,
+            block_source.merge({ block_name: selected.pub_name })
+          ) : nil
+      ]).compact
     end
 
     def link_history_push_and_next(
@@ -2640,17 +2658,60 @@ module MarkdownExec
         return
       end
 
-      block = HashDelegator.block_find(all_blocks, :oname, block_name)
-      return unless block
+      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
+      return if blocks.empty?
 
-      options_state = read_show_options_and_trigger_reuse(
-        mdoc: mdoc,
-        selected: block
+      update_menu_base(
+        blocks.each.with_object({}) do |block, merged_options|
+          options_state = read_show_options_and_trigger_reuse(
+            mdoc: mdoc,
+            selected: block
+          )
+          merged_options.merge!(options_state.options)
+        end
       )
-      update_menu_base(options_state.options)
 
       @opts_most_recent_filename = @delegate_object[:filename]
       true
+    end
+
+    def load_auto_vars_block(all_blocks,
+                             block_name: @delegate_object[:document_load_vars_block_name])
+      unless block_name.present? &&
+             @vars_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
+      return if blocks.empty?
+
+      @vars_most_recent_filename = @delegate_object[:filename]
+
+      (blocks.each.with_object([]) do |block, merged_options|
+        merged_options.push(
+          code_from_vars_block_to_set_environment_variables(block)
+        )
+      end).to_a
+    end
+
+    def load_cli_or_user_selected_block(all_blocks: [], menu_blocks: [],
+                                        prior_answer: nil)
+      if @delegate_object[:block_name].present?
+        block = all_blocks.find do |item|
+          item.pub_name == @delegate_object[:block_name]
+        end
+        source = OpenStruct.new(block_name_from_ui: false)
+      else
+        block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
+                                                   prior_answer)
+        return if block_state.nil?
+
+        block = block_state.block
+        source = OpenStruct.new(block_name_from_ui: true)
+        state = block_state.state
+      end
+
+      SelectedBlockMenuState.new(block, source, state)
     end
 
     def load_document_shell_block(all_blocks, mdoc: nil)
@@ -2675,40 +2736,6 @@ module MarkdownExec
       else
         fcb.body
       end
-    end
-
-    def load_auto_vars_block(all_blocks,
-                             block_name: @delegate_object[:document_load_vars_block_name])
-      unless block_name.present? &&
-             @vars_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      block = HashDelegator.block_find(all_blocks, :oname, block_name)
-      return unless block
-
-      @vars_most_recent_filename = @delegate_object[:filename]
-      code_from_vars_block_to_set_environment_variables(block)
-    end
-
-    def load_cli_or_user_selected_block(all_blocks: [], menu_blocks: [],
-                                        prior_answer: nil)
-      if @delegate_object[:block_name].present?
-        block = all_blocks.find do |item|
-          item.pub_name == @delegate_object[:block_name]
-        end
-        source = OpenStruct.new(block_name_from_ui: false)
-      else
-        block_state = wait_for_user_selected_block(all_blocks, menu_blocks,
-                                                   prior_answer)
-        return if block_state.nil?
-
-        block = block_state.block
-        source = OpenStruct.new(block_name_from_ui: true)
-        state = block_state.state
-      end
-
-      SelectedBlockMenuState.new(block, source, state)
     end
 
     # format + glob + select for file in load block
@@ -3838,10 +3865,10 @@ module MarkdownExec
         shell: fcb_title_groups.fetch(:shell, ''),
         start_line: line,
         stdin: if (tn = rest.match(/<(?<type>\$)?(?<name>[A-Za-z_-]\S+)/))
-                 NamedCaptureExtractor.extract_named_group2(tn)
+                 NamedCaptureExtractor.extract_named_group_match_data(tn)
                end,
         stdout: if (tn = rest.match(/>(?<type>\$)?(?<name>[\w.\-]+)/))
-                  NamedCaptureExtractor.extract_named_group2(tn)
+                  NamedCaptureExtractor.extract_named_group_match_data(tn)
                 end,
         title: title,
         type: fcb_title_groups.fetch(:type, ''),

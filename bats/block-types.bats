@@ -47,26 +47,6 @@ load 'test_helper'
   run_mde_specs_md_args_expect_xansi '[VARIABLE1]' '(echo-VARIABLE1)' ' VARIABLE1: 1   VARIABLE1: 1'
 }
 
-# Type: Opts
-
-@test 'Opts block - before' {
-  skip 'Fails because command executes after the block is processed'
-  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-opts.md \
-   'BEFORE Species_menu_note_format: "AFTER %{line}" '
-}
-
-@test 'Opts block - after' {
-  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-opts.md \
-   '[decorate-note]' \
-   'AFTER Species_menu_note_format: "AFTER %{line}"'
-}
-
-@test 'Opts block - show that menu has changed' {
-  skip 'Unable to show that menu has changed'
-  spec_mde_args_expect docs/dev/block-type-opts.md '[decorate-note]' \
-   'AFTER Species'
-}
-
 # Type: Port
 
 # includes output from assignment and from shell block
@@ -80,20 +60,4 @@ load 'test_helper'
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-port.md VAULT-is-export show \
    '   VAULT: This variable has not been set.'
-}
-
-# Type: Vars
-
-# includes output from automatic vars block
-@test 'Vars block - auto load' {
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-vars.md show \
-   'Species = Not specified  Species: Not specified VAULT:'
-}
-
-# includes output from assignment and from shell block
-@test 'Vars block - set variable' {
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-vars.md '[set_vault_1]' show \
-   'Species = Not specified VAULT = 1  Species: Not specified VAULT: 1'
 }

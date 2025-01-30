@@ -15,7 +15,7 @@ if $debug && ENV['WW_MINIMUM'].nil?
 end
 
 def ww(*objs, **kwargs)
-  return unless $debug
+  return objs.size == 1 ? objs.first : objs unless $debug
 
   ww0(*objs, **kwargs.merge(locations: caller_locations))
 end
@@ -24,7 +24,7 @@ def ww0(*objs,
         category: nil,
         full_backtrace: false,
         level: :debug,
-        locations: caller_locations[1..-1],
+        locations: caller_locations,
         log_file: nil,
         output: $stderr,
         single_line: false,
@@ -70,11 +70,13 @@ def ww0(*objs,
   output.flush
 
   # Optionally log to a file
-  return unless log_file
+  return objs.size == 1 ? objs.first : objs unless log_file
 
   File.open(log_file, 'a') do |file|
     file.puts(formatted_message)
   end
+
+  objs.size == 1 ? objs.first : objs
 end
 
 class Array
