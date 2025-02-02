@@ -33,7 +33,7 @@ divider4_collapse: false
 divider4_collapsible: true
 heading1_center: false
 heading1_collapse: false
-heading1_collapsible: false
+heading1_collapsible: true
 heading2_center: false
 heading2_collapse: true
 heading2_collapsible: true

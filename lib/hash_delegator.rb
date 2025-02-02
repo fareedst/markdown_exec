@@ -43,6 +43,7 @@ require_relative 'table_extractor'
 require_relative 'text_analyzer'
 
 $pd = false unless defined?($pd)
+$table_cell_truncate = true
 
 class String
   # Checks if the string is not empty.
@@ -291,8 +292,24 @@ module HashDelegatorSelf
           row: delegate_object[:table_row_color],
           separator_line: delegate_object[:table_separator_line_color]
         },
-        lines: lines
+        lines: lines,
+        table_width: screen_width_for_table,
+        truncate: $table_cell_truncate
       )
+
+      truncated_table_cell = false
+      table__hs.each do |table_hs|
+        table_hs.substrings.each do |substrings|
+          substrings.each do |node|
+            if node[:text].class == TrackedString
+              truncated_table_cell = node[:text].truncated
+              break if truncated_table_cell
+            end
+          end
+          break if truncated_table_cell
+        end
+        break if truncated_table_cell
+      end
 
       unless table__hs.count == range.size
         raise 'Invalid result from MarkdownTableFormatter.format_table()'
@@ -317,6 +334,13 @@ module HashDelegatorSelf
         end
         fcb.s3indent ||= ''
         fcb.dname = fcb.indented_decorated = fcb.s3indent + fcb.s3formatted_table_row.decorate
+
+        if ind.zero?
+          fcb.truncated_table_cell = truncated_table_cell
+          # if truncated_table_cell
+          fcb.delete_key(:disabled)
+          # end
+        end
       end
     end
   end
@@ -581,7 +605,8 @@ module MarkdownExec
       @p_params = {}
       @p_rest = []
 
-      @compressed_ids = nil
+      @compressed_ids = {}
+      @expanded_ids = {}
     end
 
     ##
@@ -902,8 +927,10 @@ module MarkdownExec
 
     # private
 
-    def build_replacement_dictionary(commands, link_state,
-                                     initial_code_required: false, key_format:)
+    def build_replacement_dictionary(
+      commands, link_state,
+      initial_code_required: false, key_format:
+    )
       evaluate_shell_expressions(
         (link_state&.inherited_lines_block || ''), commands,
         initial_code_required: initial_code_required,
@@ -983,7 +1010,7 @@ module MarkdownExec
 
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
-      code_lines = []      
+      code_lines = []
       case data = YAML.load(selected.body.join("\n"))
       when Hash
         data.each do |key, value|
@@ -1232,12 +1259,20 @@ module MarkdownExec
     #  to the block's display name.
     # return number of lines added
     def create_and_add_chrome_block(
-      blocks:, case_conversion: nil, center: nil,
-      collapse: nil, color_method:, decor_patterns: [],
-      disabled: true, format_option:, id: '',
-      level: 0, match_data:, type: '',
-      wrap: nil,
-      fcb: nil
+      blocks:,
+      case_conversion: nil,
+      center: nil,
+      collapse: nil,
+      color_method:,
+      decor_patterns: [],
+      disabled: true,
+      fcb: nil,
+      format_option:,
+      id: '',
+      level: 0,
+      match_data:,
+      type: '',
+      wrap: nil
     )
       line_cap = NamedCaptureExtractor.extract_named_group_match_data(match_data)
       # replace tabs in indent
@@ -1295,7 +1330,24 @@ module MarkdownExec
 
         line_obj[:line] = line_obj[:indent] + line_obj[:text]
 
-        if !use_fcb
+        if use_fcb
+          fcb.center = center
+          fcb.chrome = true
+          fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
+          fcb.token = line_obj[:collapse]
+          fcb.disabled = disabled ? TtyMenu::DISABLE : nil
+          fcb.id = "#{id}.#{index}"
+          fcb.level = level
+          fcb.s0indent = indent
+          fcb.s0printable = line_obj[:text]
+          fcb.s1decorated = decorated
+          fcb.dname = line_obj[:indent] + decorated
+          fcb.indent = line_obj[:indent]
+          fcb.oname = line_obj[:text]
+          fcb.text = line_obj[:text]
+          fcb.type = type
+          use_fcb = false # next line is new record
+        else
           fcb = FCB.new(
             center: center,
             chrome: true,
@@ -1313,23 +1365,6 @@ module MarkdownExec
             text: line_obj[:text],
             type: type
           )
-        else
-          fcb.center = center
-          fcb.chrome = true
-          fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
-          fcb.token = line_obj[:collapse]
-          fcb.disabled = disabled ? TtyMenu::DISABLE : nil
-          fcb.id = "#{id}.#{index}"
-          fcb.level = level
-          fcb.s0indent = indent
-          fcb.s0printable = line_obj[:text]
-          fcb.s1decorated = decorated
-          fcb.dname = line_obj[:indent] + decorated
-          fcb.indent = line_obj[:indent]
-          fcb.oname = line_obj[:text]
-          fcb.text = line_obj[:text]
-          fcb.type = type
-          use_fcb = false # next line is new record
         end
 
         blocks.push fcb
@@ -1377,7 +1412,7 @@ module MarkdownExec
                         @delegate_object[criteria[:color]].to_sym,
           decor_patterns:
             @decor_patterns_from_delegate_object_for_block_create,
-          disabled: !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
+          disabled: fcb.truncated_table_cell.nil? && !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
           fcb: fcb,
           id: "#{id}.#{index}",
           format_option: criteria[:format] &&
@@ -1668,7 +1703,13 @@ module MarkdownExec
       selected:, mdoc:, block_source:, link_state: LinkState.new
     )
       # order should not be important other than else clause
-      if selected.type == BlockType::EDIT
+      if selected.type == BlockType::TEXT && !selected.truncated_table_cell.nil?
+        debounce_reset
+        $table_cell_truncate = !$table_cell_truncate
+
+        LoadFileLinkState.new(LoadFile::REUSE, link_state)
+
+      elsif selected.type == BlockType::EDIT
         debounce_reset
         vux_edit_inherited
         return :break if pause_user_exit
@@ -1813,7 +1854,7 @@ module MarkdownExec
       filename: '*',
       form: '%{line}',
       link_state:,
-      regexp: "^(?<line>.*)$",
+      regexp: '^(?<line>.*)$',
       selected:
     )
       block_data = HashDelegator.parse_yaml_data_from_body(selected.body)
@@ -2206,7 +2247,8 @@ module MarkdownExec
     def execute_required_lines(
       blockname: '',
       erls: {},
-      required_lines: [], shell:
+      required_lines: [],
+      shell:
     )
       if @delegate_object[:save_executed_script]
         write_command_file(blockname: blockname,
@@ -2241,12 +2283,12 @@ module MarkdownExec
     end
 
     def expand_variable_references!(
-      echo_format: 'echo $%s',
-      link_state:,
       blocks:,
+      echo_format: 'echo $%s',
       group_name: :variable,
       initial_code_required: false,
       key_format: '${%s}',
+      link_state:,
       pattern: nil
     )
       pattern ||= options_variable_expression_regexp
@@ -2562,11 +2604,14 @@ module MarkdownExec
       label_format_below = @delegate_object[:shell_code_label_format_below]
 
       ([
-        label_format_above.present? ?
+        if label_format_above.present?
           format(
             label_format_above,
             block_source.merge({ block_name: selected.pub_name })
-          ) : nil
+          )
+        else
+          nil
+        end
       ] +
       output_lines.map do |line|
         re = Regexp.new(link_block_data.fetch('pattern', '(?<line>.*)'))
@@ -2578,11 +2623,14 @@ module MarkdownExec
         )
       end +
       [
-        label_format_below.present? ?
+        if label_format_below.present?
           format(
             label_format_below,
             block_source.merge({ block_name: selected.pub_name })
-          ) : nil
+          )
+        else
+          nil
+        end
       ]).compact
     end
 
@@ -2808,9 +2856,11 @@ module MarkdownExec
     def mdoc_menu_and_blocks_from_nested_files(link_state, source_id: '')
       # read blocks, load document opts block, and re-process blocks
       #
+      reload_blocks = false
+
       all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
       if load_auto_opts_block(all_blocks, mdoc: mdoc)
-        all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
+        reload_blocks = true
       end
 
       # load document shell block
@@ -2818,6 +2868,7 @@ module MarkdownExec
       if code_lines = load_document_shell_block(all_blocks, mdoc: mdoc)
         next_state_set_code(nil, link_state, code_lines)
         link_state.inherited_lines = code_lines
+        reload_blocks = true
       end
 
       # load document vars block
@@ -2827,15 +2878,31 @@ module MarkdownExec
                                             code_lines)
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
+        reload_blocks = true
+      end
+
+      if reload_blocks
+        all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
       end
 
       # filter by name, collapsed
       #
-      menu_blocks, @compressed_ids = mdoc.fcbs_per_options(
-        @delegate_object.merge!(compressed_ids: @compressed_ids)
+      menu_blocks = mdoc.fcbs_per_options(
+        @delegate_object.merge!(compressed_ids: @compressed_ids,
+                                expanded_ids: @expanded_ids)
       )
 
+      # restore pre-expansion (raw) values
+      #
+      menu_blocks.each do |fcb|
+        fcb.dname = fcb.raw_dname unless fcb.raw_dname.nil?
+        fcb.s0printable = fcb.raw_s0printable unless fcb.raw_s0printable.nil?
+        fcb.s1decorated = fcb.raw_s1decorated unless fcb.raw_s1decorated.nil?
+        fcb.body = fcb.raw_body unless fcb.raw_body.nil?
+      end
+
       # re-expand blocks
+      #
       menu_blocks.each do |fcb|
         fcb.body = fcb.raw_body || fcb.body || []
         fcb.dname = fcb.raw_dname || fcb.dname
@@ -2856,6 +2923,7 @@ module MarkdownExec
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
       HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
                                          screen_width_for_table)
+
 
       [all_blocks, menu_blocks, mdoc]
     end
@@ -2917,19 +2985,16 @@ module MarkdownExec
       end
     end
 
-    def menu_compress_collapsible_block(selected)
-      @compressed_ids.merge!(selected.id => selected.level)
-    end
-
-    def menu_expand_collapsible_block(selected)
-      @compressed_ids.delete(selected.id)
-    end
-
     def menu_toggle_collapsible_block(selected)
-      if @compressed_ids.keys.include?(selected.id)
-        menu_expand_collapsible_block(selected)
-      else
-        menu_compress_collapsible_block(selected)
+      # return true if @compress_ids.key?(fcb.id) && !!@compress_ids[fcb.id]
+      # return false if @expand_ids.key?(fcb.id) && !!@expand_ids[fcb.id]
+      # binding.irb
+      if @compressed_ids.key?(selected.id) && !!@compressed_ids[selected.id]
+        @compressed_ids.delete(selected.id)
+        @expanded_ids[selected.id] = selected.level
+      else # @expand_ids.key?(fcb.id) && !!@expand_ids[fcb.id]
+        @compressed_ids[selected.id] = selected.level
+        @expanded_ids.delete(selected.id)
       end
     end
 
@@ -3402,7 +3467,6 @@ module MarkdownExec
     def saved_asset_for_history(
       file:, form:, match_info:
     )
-
       OpenStruct.new(
         file: file[(Dir.pwd.length + 1)..-1],
         full: file,
@@ -4494,9 +4558,9 @@ module MarkdownExec
                         when nil
                           nil
                         when String
-                          menu_blocks.find { |block|
+                          menu_blocks.find do |block|
                             block.dname.include?(prior_answer)
-                          }&.name
+                          end&.name
                         when Struct
                           prior_answer.index || prior_answer.name
                         end

@@ -6,18 +6,20 @@
 require_relative 'constants'
 
 class Collapser
-  attr_accessor :options, :state
+  attr_accessor :compress_ids, :expand_ids, :options
 
   def initialize(
     collapsed_level: nil,
     collapsible_types: COLLAPSIBLE_TYPES,
-    options: {},
-    state: Hash.new(nil)
+    compress_ids:,
+    expand_ids:,
+    options: {}
   )
     @collapsed_level = collapsed_level
     @collapsible_types = collapsible_types.dup
     @options = options.dup
-    @state = state # do not dup
+    @compress_ids = compress_ids # by ref, user action
+    @expand_ids = expand_ids # by ref, user action
   end
 
   def collapse_per_options?(fcb, options: @options)
@@ -27,13 +29,15 @@ class Collapser
     criteria
   end
 
-  def collapse_per_state?(fcb, default: false, state: @state)
-    return false if state.nil?
-
-    criteria = state[fcb.id]
-    return default if criteria.nil?
-
-    !!criteria
+  # collapse per user action
+  def collapse_per_state?(fcb, default: false)
+    if @compress_ids.key?(fcb.id) && !!@compress_ids[fcb.id]
+      true
+    elsif @expand_ids.key?(fcb.id) && !!@expand_ids[fcb.id]
+      false
+    else
+      default
+    end
   end
 
   def collapse_per_token?(fcb)
@@ -52,10 +56,11 @@ class Collapser
   end
 
   def collapse?(fcb, initialize: false)
+    per_options_and_token = (collapse_per_options?(fcb) || collapse_per_token?(fcb)) && !expand_per_token?(fcb)
     if initialize
-      (collapse_per_options?(fcb) || collapse_per_token?(fcb)) && !expand_per_token?(fcb)
+      per_options_and_token
     else
-      collapse_per_state?(fcb, default: false)
+      collapse_per_state?(fcb, default: per_options_and_token)
     end
   end
 
@@ -100,8 +105,13 @@ class Collapser
     else
       fcb.hide = true
     end
-    @state[fcb.id] = fcb.level if fcb.collapse
-
+    if fcb.collapse
+      @compress_ids[fcb.id] = fcb.level
+      @expand_ids.delete(fcb.id)
+    else
+      @compress_ids.delete(fcb.id)
+      @expand_ids[fcb.id] = fcb.level
+    end
     collapsed_level
   end
 
@@ -138,13 +148,15 @@ OPTIONS = {
   heading3_collapse: false,
   heading3_collapsible: true
 }.freeze
-STATE = {}.freeze
 
 class CollapserTest < Minitest::Test
   def setup
-    @collapser = Collapser.new(collapsible_types: COLLAPSIBLE_TYPES.dup,
-                               options: OPTIONS.dup,
-                               state: STATE).dup
+    @collapser = Collapser.new(
+      collapsible_types: COLLAPSIBLE_TYPES.dup,
+      options: OPTIONS.dup,
+      compress_ids: {},
+      expand_ids: {}
+    ).dup
   end
 
   def test_analyze
@@ -312,7 +324,8 @@ class CollapserTest < Minitest::Test
         { name: 'collapsed remains collapsed',
           fcbs: [fc_h1a__collapse_collapsible],
           options: { heading1_collapsible: true },
-          state: { 'h1a' => 1 },
+          compress_ids: { 'h1a' => 1 },
+          expand_ids: {},
           initialize: false,
           expected: [fc_h1a__collapse_collapsible] }
       ]
@@ -324,7 +337,8 @@ class CollapserTest < Minitest::Test
           collapsed_level: test_case[:collapsed_level],
           collapsible_types: test_case[:collapsible_types] || COLLAPSIBLE_TYPES,
           options: (test_case[:options] || OPTIONS).dup,
-          state: (test_case[:state] || STATE).dup
+          compress_ids: test_case[:compress_ids] || {},
+          expand_ids: {}
         )
         analysis = @collapser.analyze(
           test_case[:fcbs],

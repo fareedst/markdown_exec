@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.4] - 2025-02-02
+
+### Added
+
+- Option to control initial truncation of table cell text to fit screen width.
+- Truncate text to fit table cell fit to screen width. Click on first row of any table to toggle.
+
+### Changed
+
+- Fix the display of collapsible sections.
+- Fix the display of shell expansion and command substitution output.
+- Hide gem sources in caller.deref.
+
 ## [2.7.3] - 2025-01-29
 
 ### Added

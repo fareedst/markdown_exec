@@ -63,20 +63,31 @@ module MarkdownTableFormatter
     end
   end
 
-  def format_cell(cell, align, width)
-    case align
-    when :center
-      cell.center(width)
-    when :right
-      cell.rjust(width)
-    else
-      cell.ljust(width)
-    end
+  def format_cell(cell, align, width, truncate: true)
+    plain_string = cell.gsub(/\033\[[\d;]+m|\033\[0m/, '')
+    truncated = false
+    ret = TrackedString.new(
+      case
+      when truncate && plain_string.length > width
+        truncated = true
+        plain_string[0, width]
+      when align == :center
+        cell.center(width)
+      when align == :right
+        cell.rjust(width)
+      else
+        cell.ljust(width)
+      end
+    )
+    ret.truncated = truncated
+    ret
   end
 
   def format_row_line__hs(
     row, alignment_indicators, column_widths, decorate,
-    text_sym: :text, style_sym: :color
+    style_sym: :color,
+    text_sym: :text,
+    truncate: true
   )
     return HierarchyString.new if row.cells.nil?
 
@@ -92,8 +103,10 @@ module MarkdownTableFormatter
                style_sym => decorate && decorate[row.role] }
            else
              {
-               text_sym => format_cell(cell, alignment_indicators[i],
-                                       column_widths[i]),
+               text_sym => format_cell(
+                 cell, alignment_indicators[i], column_widths[i],
+                 truncate: truncate
+               ),
                style_sym => decoration_style(row.role, row.counter, decorate)
              }
            end
@@ -106,9 +119,15 @@ module MarkdownTableFormatter
     )
   end
 
-  def format_rows__hs(rows, alignment_indicators, column_widths, decorate)
+  def format_rows__hs(
+    rows, alignment_indicators, column_widths, decorate,
+    truncate: true
+  )
     rows.map do |row|
-      format_row_line__hs(row, alignment_indicators, column_widths, decorate)
+      format_row_line__hs(
+        row, alignment_indicators, column_widths, decorate,
+        truncate: truncate
+      )
     end
   end
 
@@ -116,7 +135,11 @@ module MarkdownTableFormatter
     format_table__hs(**kwargs).map(&:decorate)
   end
 
-  def format_table__hs(lines:, column_count:, decorate: nil)
+  def format_table__hs(
+    lines:, column_count:, decorate: nil,
+    table_width: nil,
+    truncate: true
+  )
     unless column_count.positive?
       return lines.map do |line|
         HierarchyString.new([{ text: line }])
@@ -129,7 +152,20 @@ module MarkdownTableFormatter
     alignment_indicators, column_widths =
       calculate_column_alignment_and_widths(rows, column_count)
 
-    format_rows__hs(rows, alignment_indicators, column_widths, decorate)
+    unless table_width.nil?
+      sum_column_widths = column_widths.sum
+      if sum_column_widths > table_width
+        ratio = table_width.to_f / sum_column_widths
+        column_widths.each_with_index do |width, i|
+          column_widths[i] = (width * ratio).to_i
+        end
+      end
+    end
+
+    format_rows__hs(
+      rows, alignment_indicators, column_widths, decorate,
+      truncate: truncate
+    ).tap { |ret| binding.irb if ret.class == TrackedString }
   end
 
   def insert_every_other(array, obj)

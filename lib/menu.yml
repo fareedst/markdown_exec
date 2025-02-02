@@ -1355,6 +1355,11 @@
   :env_var: MDE_TABLE_BORDER_COLOR
   :description: Color for table border
   :default: fg_bg_rgbh_00_00_df_14_18_1c
+- :opt_name: table_cell_text_truncate
+  :env_var: MDE_TABLE_CELL_TEXT_TRUNCATE
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
 - :opt_name: table_center
   :env_var: MDE_TABLE_CENTER
   :arg_name: BOOL

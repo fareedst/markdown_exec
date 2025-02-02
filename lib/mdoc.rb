@@ -220,101 +220,31 @@ module MarkdownExec
       end
 
       collapser = Collapser.new(
-        options: opts, state: opts[:compressed_ids] || {}
+        options: opts,
+        compress_ids: opts[:compressed_ids] || {},
+        expand_ids: opts[:expanded_ids] || {}
       )
-      selrows = collapser.reject(selrows, initialize: opts[:compressed_ids].nil?) do |fcb, hide, collapsed_level|
+      selrows = collapser.reject(
+        selrows,
+        initialize: opts[:compressed_ids].nil?
+      ) do |fcb, _hide, _collapsed_level|
         # update fcb per state
         if fcb.collapsible
           fcb.s1decorated = fcb.s1decorated + ' ' + (fcb.collapse ? opts[:menu_collapsible_symbol_collapsed] : opts[:menu_collapsible_symbol_expanded])
         end
       end
-      opts[:compressed_ids] = collapser.state
+      opts[:compressed_ids] = collapser.compress_ids
+      opts[:expanded_ids] = collapser.expand_ids
 
       # remove
       # . empty chrome between code; edges are same as blanks
       #
-      [
-        select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
-          !(current[:chrome] && !current.oname.present?) ||
-            !(!prev_element.nil? &&
-              prev_element.shell.present? &&
-              !next_element.nil? &&
-              next_element.shell.present?)
-        end,
-        opts[:compressed_ids]
-      ]
-    end
-
-    # Filters out blocks that are nested within a hierarchy of "hidden" blocks.
-    #
-    # The method iterates over selected rows and uses a callback block to determine if a given block
-    # should trigger hiding for subsequent blocks in the hierarchy. Once hiding is triggered, all
-    # blocks with a level greater than the triggering block's level are excluded until the next
-    # visible collapsible block.
-    #
-    # @param selrows [Array] The array of selected rows to filter based on the callback's results.
-    # @param callback [Lambda/Proc] Alternate to yield block.
-    # @param collapsible_types [Array] Types to select, nil for all.
-    # @yield [block] A callback to evaluate each block; should return true to initiate hiding.
-    # @return [Array] Filtered list of rows, excluding those hidden by hierarchical hiding rules.
-    #
-    # Example:
-    #   proc_condition = Proc.new { |fcb| fcb.type == BlockType::HEADING && fcb.level == 1 }
-    #   reject_collapsed_blocks(selrows, callback: proc_condition)
-    #
-    #   lambda_condition = ->(fcb) { fcb.type == BlockType::HEADING && fcb.level == 1 }
-    #   reject_collapsed_blocks(selrows, callback: lambda_condition)
-    #
-    # Block: Exits the enclosing method (test_with_block) if return is used.
-    #        Flexible with arguments
-    # Proc: Exits the enclosing method (test_with_proc) when return is encountered, similar to a block.
-    # Lambda: Only exits the lambda itself, allowing reject_collapsed_blocks to continue execution.
-    #         Stricter argument checking.
-    #
-    # **`lambda` provides more control** and avoids the early exit behavior caused by `return` in blocks or `Proc` objects, making it a safer choice when you want `reject_collapsed_blocks` to complete its execution regardless of the callback’s behavior.
-    def reject_collapsed_blocks(
-      selrows,
-      callback: nil,
-      reject_callback: nil,
-      collapsible_types: nil,
-      &block
-    )
-      block ||= callback           # Use callback if no block is provided
-      hiding = false               # State to indicate if hiding is active
-      hidden_level = nil           # Level at which hiding was triggered
-
-      selrows.reject do |fcb|      # Reject rows that should be hidden based on the hierarchy
-        if hiding
-          # Currently in hiding mode; evaluate if the current block should remain hidden
-          if collapsible_types.nil? || collapsible_types.include?(fcb.type)
-            if hidden_level.nil?
-              # No specific hidden level yet, allow the item to show
-              false
-            elsif fcb.level > hidden_level
-              reject_callback.call(fcb, ) if reject_callback
-              # The current block is at a deeper level and thus remains hidden
-              true
-            else
-              # At the same or higher level than hidden_level, check if the callback initiates hiding again
-              hiding = block.call(fcb)
-              hidden_level = fcb.level if hiding # Update hidden level if hiding continues
-              false                              # Do not hide the initiating block itself
-            end
-          else
-            reject_callback.call(fcb) if reject_callback
-            # Non-collapsible block types (e.g., text or note) continue hiding by default
-            true
-          end
-
-        elsif block.call(fcb)
-          # If callback triggers hiding, initialize hiding state and hidden_level
-          hiding = fcb.type        # Start hiding subsequent blocks
-          hidden_level = fcb.level # Define the hierarchical level for hiding
-          false                    # Do not hide the initiating block itself
-
-        else
-          false                    # Default: do not hide if no hiding state
-        end
+      select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
+        !(current[:chrome] && !current.oname.present?) ||
+          !(!prev_element.nil? &&
+            prev_element.shell.present? &&
+            !next_element.nil? &&
+            next_element.shell.present?)
       end
     end
 
@@ -605,7 +535,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_fcbs_per_options
         opts = { hide_blocks_by_name: true, block_name_hidden_match: 'block1' }
-        result, _ = @doc.fcbs_per_options(opts)
+        result = @doc.fcbs_per_options(opts)
         assert_equal [@table[1], @table[2]], result
       end if false ### broken test
 

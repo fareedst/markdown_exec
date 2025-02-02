@@ -83,7 +83,7 @@ class Array
   unless defined?(deref)
     def deref
       map(&:deref).select do |line|
-        !%r{^/vendor/}.match(line)
+        !%r{^/(vendor|\.bundle)/}.match(line)
       end
     end
   end

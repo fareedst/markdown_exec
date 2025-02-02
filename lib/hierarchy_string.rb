@@ -2,6 +2,15 @@
 
 require_relative 'ansi_string'
 
+class TrackedString < String
+  attr_accessor :truncated
+
+  def initialize(str)
+    super(str)
+    @truncated = false
+  end
+end
+
 # Class representing a hierarchy of substrings stored as Hash nodes
 # HierarchyString is a class that represents and manipulates strings based on a hierarchical structure.
 # The input to the class can be a single hash or an array of nested hashes, where each hash contains a

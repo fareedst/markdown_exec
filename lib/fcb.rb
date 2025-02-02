@@ -43,6 +43,10 @@ module MarkdownExec
       Regexp.new(regexp) =~ @attrs[:oname]
     end
 
+    def delete_key(key)
+      @attrs.delete(key)
+    end
+
     # Derives a title from the body of an FCB object.
     # @param fcb [Object] The FCB object whose title is to be derived.
     # @return [String] The derived title.
@@ -57,7 +61,7 @@ module MarkdownExec
       @attrs[:title] = if body_content.count == 1
                          body_content.first
                        else
-                         FCB::format_multiline_body_as_title(body_content)
+                         FCB.format_multiline_body_as_title(body_content)
                        end
     end
 
@@ -85,7 +89,7 @@ module MarkdownExec
                 @attrs[:nickname] = $~[0]
                 derive_title_from_body
               else
-                bm = NamedCaptureExtractor::extract_named_groups(
+                bm = NamedCaptureExtractor.extract_named_groups(
                   titlexcall,
                   block_name_match
                 )
@@ -161,7 +165,6 @@ module MarkdownExec
     end
 
     # Expand variables in attributes
-    ####
     def expand_variables_in_attributes!(pattern, replacements)
       @attrs[:raw_dname] ||= @attrs[:dname]
       @attrs[:dname] = @attrs[:dname]&.gsub(pattern) do |match|
@@ -179,14 +182,14 @@ module MarkdownExec
       end
 
       # Replace variables in each line of `body` if `body` is present
-      if @attrs[:body]
-        @attrs[:raw_body] ||= @attrs[:body]
-        @attrs[:body] = @attrs[:body]&.map do |line|
-          if line.empty?
-            line
-          else
-            line.gsub(pattern) { |match| replacements[match] }
-          end
+      return unless @attrs[:body]
+
+      @attrs[:raw_body] ||= @attrs[:body]
+      @attrs[:body] = @attrs[:body]&.map do |line|
+        if line.empty?
+          line
+        else
+          line.gsub(pattern) { |match| replacements[match] }
         end
       end
     end

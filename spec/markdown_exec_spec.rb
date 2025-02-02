@@ -558,7 +558,7 @@ RSpec.describe 'MarkdownExec' do
 
   it 'fcbs_per_options' do
     mdoc = MarkdownExec::MDoc.new(list_blocks_bash1)
-    expect(mdoc.fcbs_per_options(options)[0]
+    expect(mdoc.fcbs_per_options(options)
                .map(&:oname)).to eq %w[one two three four]
   end
 
