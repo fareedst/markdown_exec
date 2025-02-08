@@ -22,5 +22,6 @@ Centered columns.
 @import bats-document-configuration.md
 ```opts :(document_opts)
 heading1_center: false
+screen_width: 100
 table_center: false
 ```

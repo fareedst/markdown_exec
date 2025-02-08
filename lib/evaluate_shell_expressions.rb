@@ -5,6 +5,10 @@
 
 require 'open3'
 
+class EvaluateShellExpression
+  StatusFail = :script_execution_failed unless const_defined?(:StatusFail)
+end
+
 def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
                                key_format: "%%<%s>",
                                initial_code_required: false)
@@ -27,7 +31,7 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
   stdout_str, stderr_str, status = Open3.capture3(shell, "-c", script)
 
   unless status.success?
-    raise "Shell script execution failed: #{stderr_str}"
+    return EvaluateShellExpression::StatusFail
   end
 
   # Extract output for expressions
@@ -86,12 +90,10 @@ class TestShellExpressionEvaluator < Minitest::Test
 
   def test_invalid_expression
     expressions = { "invalid" => "invalid_command" }
-
-    error = assert_raises(RuntimeError) do
-      evaluate_shell_expressions(@initial_code, expressions)
-    end
-
-    assert_match /Shell script execution failed/, error.message
+    
+    result = evaluate_shell_expressions(@initial_code, expressions)
+    
+    assert_equal EvaluateShellExpression::StatusFail, result
   end
 
   def test_initial_code_execution

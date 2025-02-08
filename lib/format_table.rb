@@ -153,7 +153,7 @@ module MarkdownTableFormatter
       calculate_column_alignment_and_widths(rows, column_count)
 
     unless table_width.nil?
-      sum_column_widths = column_widths.sum
+      sum_column_widths = column_widths.sum + (column_count * 3 + 5)
       if sum_column_widths > table_width
         ratio = table_width.to_f / sum_column_widths
         column_widths.each_with_index do |width, i|
@@ -165,7 +165,7 @@ module MarkdownTableFormatter
     format_rows__hs(
       rows, alignment_indicators, column_widths, decorate,
       truncate: truncate
-    ).tap { |ret| binding.irb if ret.class == TrackedString }
+    )
   end
 
   def insert_every_other(array, obj)

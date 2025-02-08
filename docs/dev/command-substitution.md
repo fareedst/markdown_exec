@@ -11,6 +11,7 @@ echo "current base name is now $(basename `pwd`)"
 ```link
 load: file_$(basename `pwd`).sh
 ```
+Status not zero: $(err)
 / This should not be evaluated $(err). It errs with "Error: HashDelegator.blocks_from_nested_files -- Shell script execution failed: /bin/bash: line 2: err: command not found"
 @import bats-document-configuration.md
 ```opts :(document_opts)

@@ -935,7 +935,7 @@ module MarkdownExec
         (link_state&.inherited_lines_block || ''), commands,
         initial_code_required: initial_code_required,
         key_format: key_format
-      ) # !!t
+      )
     end
 
     def calc_logged_stdout_filename(block_name:)
@@ -2307,6 +2307,7 @@ module MarkdownExec
       )
 
       return if replacements.nil?
+      return if replacements == EvaluateShellExpression::StatusFail
 
       expand_blocks_with_replacements(blocks, replacements)
     end
@@ -3705,15 +3706,17 @@ module MarkdownExec
     end
 
     def screen_width
-      if @delegate_object[:screen_width] && @delegate_object[:screen_width].positive?
-        @delegate_object[:screen_width]
+      width = @delegate_object[:screen_width]
+      if width && width.positive?
+        width
       else
         @delegate_object[:console_width]
       end
     end
 
     def screen_width_for_table
-      screen_width - prompt_margin_left_width - prompt_margin_right_width - 2 # prompt is symbol + space (width: 2)
+      # menu adds newline after some lines if sized to the edge
+      screen_width - prompt_margin_left_width - prompt_margin_right_width - 3 # menu prompt symbol (1) + space (1) + gap (1)
     end
 
     def screen_width_for_wrapping
