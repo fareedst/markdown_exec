@@ -297,11 +297,13 @@ module HashDelegatorSelf
         truncate: $table_cell_truncate
       )
 
-      truncated_table_cell = false
+      exceeded_table_cell = false # any cell in table is exceeded
+      truncated_table_cell = false # any cell in table is truncated
       table__hs.each do |table_hs|
         table_hs.substrings.each do |substrings|
           substrings.each do |node|
             if node[:text].class == TrackedString
+              exceeded_table_cell ||= node[:text].exceeded
               truncated_table_cell = node[:text].truncated
               break if truncated_table_cell
             end
@@ -337,9 +339,9 @@ module HashDelegatorSelf
 
         if ind.zero?
           fcb.truncated_table_cell = truncated_table_cell
-          # if truncated_table_cell
-          fcb.delete_key(:disabled)
-          # end
+          if exceeded_table_cell
+            fcb.delete_key(:disabled)
+          end
         end
       end
     end
@@ -1412,7 +1414,7 @@ module MarkdownExec
                         @delegate_object[criteria[:color]].to_sym,
           decor_patterns:
             @decor_patterns_from_delegate_object_for_block_create,
-          disabled: fcb.truncated_table_cell.nil? && !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
+          disabled: !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
           fcb: fcb,
           id: "#{id}.#{index}",
           format_option: criteria[:format] &&

@@ -65,12 +65,15 @@ module MarkdownTableFormatter
 
   def format_cell(cell, align, width, truncate: true)
     plain_string = cell.gsub(/\033\[[\d;]+m|\033\[0m/, '')
+    exceeded = plain_string.length > width
     truncated = false
     ret = TrackedString.new(
       case
-      when truncate && plain_string.length > width
+      when truncate && exceeded
         truncated = true
-        plain_string[0, width]
+        plain_string[0, width] ### s/trim decorated text
+      when exceeded
+        cell
       when align == :center
         cell.center(width)
       when align == :right
@@ -79,6 +82,7 @@ module MarkdownTableFormatter
         cell.ljust(width)
       end
     )
+    ret.exceeded = exceeded
     ret.truncated = truncated
     ret
   end

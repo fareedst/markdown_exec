@@ -3,10 +3,11 @@
 require_relative 'ansi_string'
 
 class TrackedString < String
-  attr_accessor :truncated
+  attr_accessor :exceeded, :truncated
 
   def initialize(str)
     super(str)
+    @exceeded = false
     @truncated = false
   end
 end
