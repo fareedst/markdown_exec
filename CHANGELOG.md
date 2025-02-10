@@ -26,6 +26,7 @@
   The default `menu_ux_row_format` looks like a shell variable assignment.
   If the output of `menu_ux_row_format` matches an immediately preceding table, the row is merged into that table.
   Else the output is decorated with `menu_ux_color`.
+- Improve final output of `test` Rake task so failures are visible.
 
 ## [2.7.5] - 2025-02-02
 
