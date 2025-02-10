@@ -10,7 +10,7 @@ class EvaluateShellExpression
 end
 
 def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
-                               key_format: "%%<%s>",
+                               key_format: '%%<%s>',
                                initial_code_required: false)
   # !!p initial_code expressions key_format shell
   return if (initial_code_required && (initial_code.nil? || initial_code.empty?)) ||
@@ -22,13 +22,13 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
 
   # Construct a single shell script
   script = initial_code.dup
-  expressions.each_with_index do |(key, expression), index|
+  expressions.each_with_index do |(_key, expression), index|
     script << "\necho #{token}#{index}\n"
     script << expression << "\n"
   end
 
   # Execute
-  stdout_str, stderr_str, status = Open3.capture3(shell, "-c", script)
+  stdout_str, stderr_str, status = Open3.capture3(shell, '-c', script)
 
   unless status.success?
     return EvaluateShellExpression::StatusFail
@@ -36,9 +36,12 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
 
   # Extract output for expressions
   result_hash = {}
-  stdout_str.split(/\n?#{token}\d+\n/)[1..-1].tap do |output_parts|
-    expressions.each_with_index do |(key, _expression), index|
-      result_hash[sprintf(key_format, key)] = output_parts[index].chomp
+  part = stdout_str.split(/\n?#{token}\d+\n/)
+  unless part.empty?
+    part[1..-1].tap do |output_parts|
+      expressions.each_with_index do |(key, _expression), index|
+        result_hash[format(key_format, key)] = output_parts[index].chomp
+      end
     end
   end
 
@@ -62,23 +65,23 @@ class TestShellExpressionEvaluator < Minitest::Test
   end
 
   def test_single_expression
-    expressions = { "greeting" => "echo 'Hello, World!'" }
+    expressions = { 'greeting' => "echo 'Hello, World!'" }
     result = evaluate_shell_expressions(@initial_code, expressions)
 
-    assert_equal "Hello, World!", result["%<greeting>"]
+    assert_equal 'Hello, World!', result['%<greeting>']
   end
 
   def test_multiple_expressions
     expressions = {
-      "greeting" => "echo 'Hello, World!'",
-      "date" => "date +%Y-%m-%d",
-      "kernel" => "uname -r"
+      'greeting' => "echo 'Hello, World!'",
+      'date' => 'date +%Y-%m-%d',
+      'kernel' => 'uname -r'
     }
     result = evaluate_shell_expressions(@initial_code, expressions)
 
-    assert_equal "Hello, World!", result["%<greeting>"]
-    assert_match /\d{4}-\d{2}-\d{2}/, result["%<date>"]
-    assert_match /\d+\.\d+\.\d+/, result["%<kernel>"]
+    assert_equal 'Hello, World!', result['%<greeting>']
+    assert_match(/\d{4}-\d{2}-\d{2}/, result['%<date>'])
+    assert_match(/\d+\.\d+\.\d+/, result['%<kernel>'])
   end
 
   def test_empty_expressions_list
@@ -89,10 +92,10 @@ class TestShellExpressionEvaluator < Minitest::Test
   end
 
   def test_invalid_expression
-    expressions = { "invalid" => "invalid_command" }
-    
+    expressions = { 'invalid' => 'invalid_command' }
+
     result = evaluate_shell_expressions(@initial_code, expressions)
-    
+
     assert_equal EvaluateShellExpression::StatusFail, result
   end
 
@@ -101,17 +104,17 @@ class TestShellExpressionEvaluator < Minitest::Test
       #!/bin/sh
       echo "Custom setup message"
     BASH
-    expressions = { "test" => "echo Test after initial setup" }
+    expressions = { 'test' => 'echo Test after initial setup' }
 
     result = evaluate_shell_expressions(initial_code, expressions)
 
-    assert_equal "Test after initial setup", result["%<test>"]
+    assert_equal 'Test after initial setup', result['%<test>']
   end
 
   def test_large_number_of_expressions
-    expressions = (1..100).map { |i|
+    expressions = (1..100).map do |i|
       ["expr_#{i}", "echo Expression #{i}"]
-    }.to_h
+    end.to_h
 
     result = evaluate_shell_expressions(@initial_code, expressions)
 

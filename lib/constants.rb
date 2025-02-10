@@ -27,12 +27,12 @@ BLOCK_TYPE_COLOR_OPTIONS = {
   BlockType::OPTS => :menu_opts_color,
   BlockType::SAVE => :menu_save_color,
   BlockType::SHELL => :menu_bash_color,
+  BlockType::UX => :menu_ux_color,
   BlockType::VARS => :menu_vars_color
 }.freeze
 
-
 COLLAPSIBLE_SYMBOL_COLLAPSED = '⬢' # '<+>' # '∆'
-COLLAPSIBLE_SYMBOL_EXPANDED = '⬡' # '< >' # '…' 
+COLLAPSIBLE_SYMBOL_EXPANDED = '⬡' # '< >' # '…'
 
 # in regexp (?<collapse>[+-~]?)
 COLLAPSIBLE_TOKEN_COLLAPSE = '+'

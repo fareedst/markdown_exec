@@ -142,6 +142,7 @@ module MarkdownExec
                 fcb.body # entire body is returned to requesing block
               elsif [BlockType::LINK,
                      BlockType::LOAD,
+                     BlockType::UX,
                      BlockType::VARS].include? fcb.type
                 nil
               elsif fcb[:chrome] # for Link blocks like History

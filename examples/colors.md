@@ -33,6 +33,7 @@ menu_opts_color: fg_rgbh_1f_00_1f
 menu_opts_set_color: fg_rgbh_7f_00_1f
 menu_save_color: fg_rgbh_e0_e0_20
 menu_task_color: fg_rgbh_1f_1f_1f
+menu_ux_color: fg_rgbh_2f_c0_2f
 menu_vars_color: fg_rgbh_1f_a0_1f
 menu_vars_set_color: fg_rgbh_00_1f_1f
 output_execution_label_name_color: fg_rgbh_00_1f_00
@@ -60,6 +61,7 @@ menu_opts_set_color: fg_rgbh_7f_00_ff
 # menu_save_color: fg_rgbh_ea_ea_20
 menu_save_color: fg_rgbh_ff_ff_20
 menu_task_color: fg_rgbh_ff_ff_ff
+menu_ux_color: fg_rgbh_df_c0_df
 menu_vars_color: fg_rgbh_ff_a0_ff
 menu_vars_set_color: fg_rgbh_00_ff_ff
 output_execution_label_name_color: fg_rgbh_00_ff_00

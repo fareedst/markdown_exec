@@ -256,7 +256,7 @@ module MarkdownExec
                         block_name_nick_match)
       return unless line.match(fenced_start_and_end_regex)
 
-      bm = NamedCaptureExtractor::extract_named_groups(line, block_name_match)
+      bm = NamedCaptureExtractor.extract_named_groups(line, block_name_match)
       return if bm.nil?
 
       name = bm[:title]
@@ -404,7 +404,7 @@ module MarkdownExec
     ## Executes the block specified in the options
     #
     def execute_block_with_error_handling
-      @options.register_console_attributes(@options)    
+      @options.register_console_attributes(@options)
       finalize_cli_argument_processing
       execute_initial_commands_and_main_loop(@options, @options.run_state)
     rescue FileMissingError
@@ -429,11 +429,9 @@ module MarkdownExec
     def execute_simple_commands(options, stage: nil)
       # !!p stage
       simple_commands(options).each do |key, (cstage, proc)|
-        if @options[key].is_a?(TrueClass) || @options[key].present?
-          if stage && stage == cstage
-            proc.call
-            return true
-          end
+        if (@options[key].is_a?(TrueClass) || @options[key].present?) && (stage && stage == cstage)
+          proc.call
+          return true
         end
       end
       false

@@ -5,6 +5,29 @@
 require 'digest'
 require_relative 'namer'
 
+def parse_yaml_of_ux_block(
+  data,
+  menu_format: nil,
+  prompt: nil,
+  validate: nil
+)
+  export = data['export']
+  export = data if export.nil?
+  name = export['name']
+  raise "Invalid data: #{data.inspect}" unless name.present?
+
+  OpenStruct.new(
+    allowed: export['allowed'],
+    default: export['default'],
+    exec: export['exec'],
+    menu_format: export['menu_format'] || menu_format,
+    name: name,
+    prompt: export['prompt'] || prompt,
+    transform: export['transform'],
+    validate: export['validate'] || validate
+  )
+end
+
 module MarkdownExec
   class Error < StandardError; end
 
@@ -74,10 +97,13 @@ module MarkdownExec
     # @return [Object] The modified functional code block with updated
     #  summary attributes.
     def for_menu!(
-      block_calls_scan: @delegate_object[:block_calls_scan],
-      block_name_match: @delegate_object[:block_name_match],
-      block_name_nick_match: @delegate_object[:block_name_nick_match],
-      id: ''
+      block_calls_scan:,
+      block_name_match:,
+      block_name_nick_match:,
+      id: '',
+      menu_format:,
+      prompt:,
+      table_center:
     )
       call = @attrs[:call] = @attrs[:start_line]&.match(
         Regexp.new(block_calls_scan)
@@ -97,6 +123,23 @@ module MarkdownExec
               end
       @attrs[:title] = @attrs[:oname] = oname
       @attrs[:id] = id
+
+      if @attrs[:type] == BlockType::UX
+        case data = YAML.load(@attrs[:body].join("\n"))
+        when Hash
+          export = parse_yaml_of_ux_block(
+            data,
+            menu_format: menu_format,
+            prompt: prompt
+          )
+
+          @attrs[:center] = table_center
+          oname = @attrs[:oname] = format(export.menu_format, export.to_h)
+        else
+          raise "Invalid data type: #{data.inspect}"
+        end
+      end
+
       @attrs[:dname] = HashDelegator.indent_all_lines(
         (yield oname, BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]),
         @attrs[:indent]

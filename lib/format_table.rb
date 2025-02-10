@@ -157,7 +157,7 @@ module MarkdownTableFormatter
       calculate_column_alignment_and_widths(rows, column_count)
 
     unless table_width.nil?
-      sum_column_widths = column_widths.sum + (column_count * 3 + 5)
+      sum_column_widths = column_widths.sum + ((column_count * 3) + 5)
       if sum_column_widths > table_width
         ratio = table_width.to_f / sum_column_widths
         column_widths.each_with_index do |width, i|

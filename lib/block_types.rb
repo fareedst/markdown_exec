@@ -14,6 +14,7 @@ class BlockType
     SAVE = 'save',
     SHELL = 'shell',
     TEXT = 'text',
+    UX = 'ux',
     VARS = 'vars',
     VIEW = 'view',
     YAML = 'yaml'

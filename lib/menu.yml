@@ -171,6 +171,11 @@
   :description: Name of shell block to load with the document
   :default: "(document_shell)"
   :procname: val_as_str
+- :opt_name: document_load_ux_block_name
+  :env_var: MDE_DOCUMENT_LOAD_UX_BLOCK_NAME
+  :description: Name of UX block to load with the document
+  :default: "\\[.*document_ux.*\\]"
+  :procname: val_as_str
 - :opt_name: document_load_vars_block_name
   :env_var: MDE_DOCUMENT_LOAD_VARS_BLOCK_NAME
   :description: Name of Vars block to load with the document
@@ -864,6 +869,16 @@
   :description: Symbol before each task
   :default: ">"
   :procname: val_as_str
+- :opt_name: menu_ux_color
+  :env_var: MDE_MENU_UX_COLOR
+  :description: Color of menu ux
+  :default: fg_rgbh_df_c0_df
+  :procname: val_as_str
+- :opt_name: menu_ux_row_format
+  :env_var: MDE_MENU_UX_ROW_FORMAT
+  :description: Format for UX row
+  :default: "%{name}=${%{name}}"
+  :procname: val_as_str
 - :opt_name: menu_vars_color
   :env_var: MDE_MENU_VARS_COLOR
   :description: Color of menu vars
@@ -1122,6 +1137,13 @@
 
     Choose a file:
   :description: Prompt to select a saved file
+  :procname: val_as_str
+- :opt_name: prompt_ux_enter_a_value
+  :env_var: MDE_PROMPT_UX_ENTER_A_VALUE
+  :description: Prompt to enter a value for UX blocks
+  :default: |2-
+
+    Enter a value:
   :procname: val_as_str
 - :opt_name: prompt_show_expr_format
   :env_var: MDE_PROMPT_SHOW_EXPR_FORMAT
@@ -1390,6 +1412,11 @@
   :description: Requires user approval before executing a script
   :arg_name: BOOL
   :default: false
+  :procname: val_as_bool
+- :opt_name: ux_auto_load_force_default
+  :env_var: MDE_UX_AUTO_LOAD_FORCE_DEFAULT
+  :arg_name: BOOL
+  :default: true
   :procname: val_as_bool
 - :opt_name: variable_expression_regexp
   :env_var: MDE_VARIABLE_EXPRESSION_REGEXP

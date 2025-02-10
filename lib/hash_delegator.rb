@@ -92,6 +92,10 @@ module HashDelegatorSelf
     blocks.find { |item| item.send(msg) == value } || default
   end
 
+  def block_match(blocks, msg, value, default = nil)
+    blocks.select { |item| value =~ item.send(msg) }
+  end
+
   def block_select(blocks, msg, value, default = nil)
     blocks.select { |item| item.send(msg) == value }
   end
@@ -302,11 +306,11 @@ module HashDelegatorSelf
       table__hs.each do |table_hs|
         table_hs.substrings.each do |substrings|
           substrings.each do |node|
-            if node[:text].class == TrackedString
-              exceeded_table_cell ||= node[:text].exceeded
-              truncated_table_cell = node[:text].truncated
-              break if truncated_table_cell
-            end
+            next unless node[:text].class == TrackedString
+
+            exceeded_table_cell ||= node[:text].exceeded
+            truncated_table_cell = node[:text].truncated
+            break if truncated_table_cell
           end
           break if truncated_table_cell
         end
@@ -590,6 +594,7 @@ module MarkdownExec
       @prompt = HashDelegator.tty_prompt_without_disabled_symbol
 
       @opts_most_recent_filename = nil
+      @ux_most_recent_filename = nil
       @vars_most_recent_filename = nil
       @pass_args = []
       @run_state = OpenStruct.new(
@@ -867,7 +872,6 @@ module MarkdownExec
       blocks = []
       iter_blocks_from_nested_files do |btype, fcb|
         count += 1
-
         case btype
         when :blocks
           if @delegate_object[:bash]
@@ -875,7 +879,10 @@ module MarkdownExec
               block_calls_scan: @delegate_object[:block_calls_scan],
               block_name_match: @delegate_object[:block_name_match],
               block_name_nick_match: @delegate_object[:block_name_nick_match],
-              id: "#{source_id}_bfnf_b_#{count}"
+              id: "#{source_id}_bfnf_b_#{count}",
+              menu_format: @delegate_object[:menu_ux_row_format],
+              prompt: @delegate_object[:prompt_ux_enter_a_value],
+              table_center: @delegate_object[:table_center]
             ) do |oname, color|
               apply_block_type_color_option(oname, color)
             end
@@ -1010,6 +1017,135 @@ module MarkdownExec
       ]
     end
 
+    def neval(export_exec, inherited_code)
+      # ww0 export_exec
+      # ww0 inherited_code
+      code = (inherited_code || []) + [export_exec]
+      filespec = generate_temp_filename
+      File.write filespec, HashDelegator.join_code_lines(code)
+      File.chmod 0o755, filespec
+      # ww0 File.read(filespec)
+      ret = `#{filespec}`
+      File.delete filespec
+      ret
+    end
+
+    # sets ENV
+    def code_from_ux_block_to_set_environment_variables(
+      selected, mdoc, inherited_code: nil, force: true, only_default: false
+    )
+      # ww0 inherited_code
+      # ww0 mdoc
+      exit_prompt = @delegate_object[:prompt_filespec_back]
+
+      required = mdoc.collect_recursively_required_code(
+        anyname: selected.pub_name,
+        label_format_above: @delegate_object[:shell_code_label_format_above],
+        label_format_below: @delegate_object[:shell_code_label_format_below],
+        block_source: block_source
+      )
+
+      code_lines = []
+      case data = YAML.load(selected.body.join("\n"))
+      when Hash
+        export = parse_yaml_of_ux_block(
+          data,
+          prompt: @delegate_object[:prompt_ux_enter_a_value],
+          validate: '^(?<name>[^ ].*)$'
+        )
+
+        exportable = true
+        if only_default
+          value = case export.default
+                  # exec > default
+                  when :exec
+                    raise unless export.exec.present?
+
+                    n1 = neval(export.exec, (inherited_code || []) + required[:code])
+
+                    if export.transform.present?
+                      if export.transform.is_a? Symbol
+                        n1.send(export.transform)
+                      else
+                        format(
+                          export.transform,
+                          NamedCaptureExtractor.extract_named_groups(
+                            n1, export.validate
+                          )
+                        )
+                      end
+                    else
+                      n1
+                    end
+
+                  # default
+                  else
+                    export.default.to_s
+                  end
+        else
+          caps = nil
+          value = nil
+
+          # exec > allowed
+          if export.exec
+            value = neval(export.exec, (inherited_code || []) + required[:code])
+            caps = NamedCaptureExtractor.extract_named_groups(value,
+                                                              export.validate)
+
+          # allowed > prompt
+          elsif export.allowed && export.allowed.count.positive?
+            case (choice = prompt_select_code_filename(
+              [exit_prompt] + export.allowed,
+              string: export.prompt,
+              color_sym: :prompt_color_after_script_execution
+            ))
+            when exit_prompt
+              exportable = false
+            else
+              value = choice
+              caps = NamedCaptureExtractor.extract_named_groups(value,
+                                                                export.validate)
+            end
+
+          # prompt > default
+          elsif export.prompt.present?
+            begin
+              while true
+                print "#{export.prompt} [#{export.default}]: "
+                value = gets.chomp
+                value = export.default.to_s if value.empty?
+                caps = NamedCaptureExtractor.extract_named_groups(value,
+                                                                  export.validate)
+                break if caps
+
+                # invalid input, retry
+
+              end
+            rescue Interrupt
+              exportable = false
+            end
+
+          # default
+          else
+            value = export.default
+          end
+
+          if exportable && export.transform.present?
+            value = format(export.transform, caps)
+          end
+        end
+
+        if exportable
+          ENV[export.name] = value.to_s
+          code_lines.push code_line_safe_assign(export.name, value,
+                                                force: force)
+        end
+      else
+        raise "Invalid data type: #{data.inspect}"
+      end
+      code_lines
+    end
+
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
       code_lines = []
@@ -1027,6 +1163,14 @@ module MarkdownExec
         end
       end
       code_lines
+    end
+
+    def code_line_safe_assign(name, value, force:)
+      if force
+        "#{name}=#{Shellwords.escape(value)}"
+      else
+        "[[ -z $#{name} ]] && #{name}=#{Shellwords.escape(value)}"
+      end
     end
 
     def collect_line_decor_patterns(delegate_object)
@@ -1792,6 +1936,18 @@ module MarkdownExec
         )
         next_state_set_code(selected, link_state, required_lines)
 
+      elsif selected.type == BlockType::UX
+        debounce_reset
+        next_state_append_code(
+          selected,
+          link_state,
+          code_from_ux_block_to_set_environment_variables(
+            selected,
+            @dml_mdoc,
+            inherited_code: @dml_link_state.inherited_lines
+          )
+        )
+
       elsif selected.type == BlockType::VARS
         debounce_reset
         next_state_append_code(selected, link_state,
@@ -2298,7 +2454,7 @@ module MarkdownExec
 
       variable_counts = count_named_group_occurrences(blocks, pattern,
                                                       group_name: group_name)
-      return if variable_counts.nil?
+      return if variable_counts.nil? || variable_counts == {}
 
       echo_commands = generate_echo_commands(variable_counts, echo_format)
 
@@ -2726,6 +2882,37 @@ module MarkdownExec
       true
     end
 
+    def load_auto_ux_block(
+      all_blocks,
+      mdoc,
+      block_name: @delegate_object[:document_load_ux_block_name]
+    )
+      unless block_name.present? &&
+             @ux_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
+      if blocks.empty?
+        blocks = HashDelegator.block_match(all_blocks, :nickname,
+                                           Regexp.new(block_name))
+      end
+      return if blocks.empty?
+
+      @ux_most_recent_filename = @delegate_object[:filename]
+
+      (blocks.each.with_object([]) do |block, merged_options|
+        merged_options.push(
+          code_from_ux_block_to_set_environment_variables(
+            block,
+            mdoc,
+            force: @delegate_object[:ux_auto_load_force_default],
+            only_default: true
+          )
+        )
+      end).to_a
+    end
+
     def load_auto_vars_block(all_blocks,
                              block_name: @delegate_object[:document_load_vars_block_name])
       unless block_name.present? &&
@@ -2874,6 +3061,16 @@ module MarkdownExec
         reload_blocks = true
       end
 
+      # load document ux block
+      #
+      if code_lines = load_auto_ux_block(all_blocks, mdoc)
+        new_code = HashDelegator.code_merge(link_state.inherited_lines,
+                                            code_lines)
+        next_state_set_code(nil, link_state, new_code)
+        link_state.inherited_lines = new_code
+        reload_blocks = true
+      end
+
       # load document vars block
       #
       if code_lines = load_auto_vars_block(all_blocks)
@@ -2926,7 +3123,6 @@ module MarkdownExec
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
       HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
                                          screen_width_for_table)
-
 
       [all_blocks, menu_blocks, mdoc]
     end
@@ -2991,7 +3187,6 @@ module MarkdownExec
     def menu_toggle_collapsible_block(selected)
       # return true if @compress_ids.key?(fcb.id) && !!@compress_ids[fcb.id]
       # return false if @expand_ids.key?(fcb.id) && !!@expand_ids[fcb.id]
-      # binding.irb
       if @compressed_ids.key?(selected.id) && !!@compressed_ids[selected.id]
         @compressed_ids.delete(selected.id)
         @expanded_ids[selected.id] = selected.level

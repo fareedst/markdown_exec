@@ -6,7 +6,7 @@ class TrackedString < String
   attr_accessor :exceeded, :truncated
 
   def initialize(str)
-    super(str)
+    super
     @exceeded = false
     @truncated = false
   end

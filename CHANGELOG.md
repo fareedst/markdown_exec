@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.8.0] - 2025-02-10
+
+### Added
+
+- Block type `ux` to facilitate the evaluation, display, and editing of shell variables.
+  The body of the `ux` block is in YAML.
+
+  A valid shell variable name is required as block key `name`. The remaining block keys are optional.
+
+  When the block is executed, its value is computed from the `default`, `exec`, `prompt`, `transform`, and `validate` keys and its output is assigned to the shell variable.
+
+  When a document is loaded, if one or more block names match `document_load_ux_block_name`, they are executed.
+  `ux_auto_load_force_default` limits the setting of the shell variable resulting from the execution of blocks executed at this time.
+
+  When an `ux` block is executed (after initial document load):
+  If the `default` value is the `exec` symbol, the command in the `exec` key is executed and its output is processed.
+  Else if the `allowed` value has one or more items, the user must pick from one of the items.
+  Else if the `prompt` value exists, the user must enter a value or nothing for the `default` value. The user is prompted with `prompt_ux_enter_a_value`.
+  Else the `default` value, as a string, is processed.
+
+  The output is validated/parsed by the regular expression in `validate`.
+  If the string matches, named groups are formatted with `menu_ux_row_format` and assigned to the shell variable.
+
+  The default `menu_ux_row_format` looks like a shell variable assignment.
+  If the output of `menu_ux_row_format` matches an immediately preceding table, the row is merged into that table.
+  Else the output is decorated with `menu_ux_color`.
+
 ## [2.7.5] - 2025-02-02
 
 ### Added

@@ -155,9 +155,30 @@ end
 
 desc 'test'
 task :test do
-  system 'bundle exec rspec'
+  success = true
+  
+  # Run all tests and track failures
+  rspec_success = system('bundle exec rspec')
+  success = false unless rspec_success
+  
   Rake::Task['minitest'].invoke
+  minitest_success = $?.success?
+  success = false unless minitest_success
+  
   Rake::Task['bats'].invoke
+  bats_success = $?.success?
+  success = false unless bats_success
+  
+  # Report failures and exit with non-zero status if any test failed
+  unless success
+    failed_tests = []
+    failed_tests << 'RSpec' unless rspec_success
+    failed_tests << 'Minitest' unless minitest_success
+    failed_tests << 'Bats' unless bats_success
+    
+    puts "\nThe following test suites failed: #{failed_tests.join(', ')}"
+    exit 1
+  end
 end
 
 private

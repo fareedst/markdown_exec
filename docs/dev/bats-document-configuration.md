@@ -10,6 +10,9 @@ dump_selected_block: false     # Dump selected block
 execute_in_own_window: false
 
 menu_divider_format:
+
+menu_for_saved_lines: false
+
 menu_with_back: false
 menu_with_exit: false
 menu_with_shell: false
