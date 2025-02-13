@@ -85,14 +85,17 @@ module MarkdownExec
 
       dependencies = collect_dependencies(nickname)
       # !!t dependencies.count
-      all_dependency_names = collect_unique_names(dependencies).push(nickname).uniq
+      all_dependency_names =
+        collect_unique_names(dependencies).push(nickname).uniq
       # !!t all_dependency_names.count
 
       # select blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
         # 2024-08-04 match nickname
-        all_dependency_names.include?(fcb.pub_name) || all_dependency_names.include?(fcb.nickname) || all_dependency_names.include?(fcb.oname)
+        all_dependency_names.include?(fcb.pub_name) ||
+          all_dependency_names.include?(fcb.nickname) ||
+          all_dependency_names.include?(fcb.oname)
       end
       # !!t blocks.count
 
@@ -102,7 +105,10 @@ module MarkdownExec
       blocks = blocks.map do |fcb|
         # 2024-08-04 match oname for long block names
         # 2024-08-04 match nickname
-        unmet_dependencies.delete(fcb.pub_name) || unmet_dependencies.delete(fcb.nickname) || unmet_dependencies.delete(fcb.oname) # may not exist if block name is duplicated
+        # may not exist if block name is duplicated
+        unmet_dependencies.delete(fcb.pub_name) ||
+          unmet_dependencies.delete(fcb.nickname) ||
+          unmet_dependencies.delete(fcb.oname)
         if (call = fcb.call)
           fcb1 = get_block_by_anyname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
           fcb1.cann = call
@@ -124,8 +130,10 @@ module MarkdownExec
     # @param name [String] The name of the code block to start the collection from.
     # @return [Array<String>] An array of strings containing the collected code blocks.
     #
-    def collect_recursively_required_code(anyname:, block_source:, label_body: true, label_format_above: nil,
-                                          label_format_below: nil)
+    def collect_recursively_required_code(
+      anyname:, block_source:,
+      label_body: true, label_format_above: nil, label_format_below: nil
+    )
       block_search = collect_block_dependencies(anyname: anyname)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
@@ -150,8 +158,10 @@ module MarkdownExec
               elsif fcb.type == BlockType::PORT
                 generate_env_variable_shell_commands(fcb)
               elsif label_body
-                generate_label_body_code(fcb, block_source, label_format_above,
-                                         label_format_below)
+                generate_label_body_code(
+                  fcb, block_source,
+                  label_format_above, label_format_below
+                )
               else # raw body
                 fcb.body
               end
@@ -230,9 +240,14 @@ module MarkdownExec
         initialize: opts[:compressed_ids].nil?
       ) do |fcb, _hide, _collapsed_level|
         # update fcb per state
-        if fcb.collapsible
-          fcb.s1decorated = fcb.s1decorated + ' ' + (fcb.collapse ? opts[:menu_collapsible_symbol_collapsed] : opts[:menu_collapsible_symbol_expanded])
-        end
+        next unless fcb.collapsible
+
+        fcb.s1decorated = fcb.s1decorated + ' ' +
+                          (if fcb.collapse
+                             opts[:menu_collapsible_symbol_collapsed]
+                           else
+                             opts[:menu_collapsible_symbol_expanded]
+                           end)
       end
       opts[:compressed_ids] = collapser.compress_ids
       opts[:expanded_ids] = collapser.expand_ids
@@ -240,7 +255,9 @@ module MarkdownExec
       # remove
       # . empty chrome between code; edges are same as blanks
       #
-      select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
+      select_elements_with_neighbor_conditions(selrows) do |prev_element,
+                                                            current,
+                                                            next_element|
         !(current[:chrome] && !current.oname.present?) ||
           !(!prev_element.nil? &&
             prev_element.shell.present? &&
@@ -291,13 +308,17 @@ module MarkdownExec
 
       label_above = if label_format_above.present?
                       format(label_format_above,
-                             block_source.merge({ block_name: block_name_for_bash_comment }))
+                             block_source.merge(
+                               { block_name: block_name_for_bash_comment }
+                             ))
                     else
                       nil
                     end
       label_below = if label_format_below.present?
                       format(label_format_below,
-                             block_source.merge({ block_name: block_name_for_bash_comment }))
+                             block_source.merge(
+                               { block_name: block_name_for_bash_comment }
+                             ))
                     else
                       nil
                     end
@@ -415,8 +436,11 @@ module MarkdownExec
       memo
     end
 
-    def select_elements_with_neighbor_conditions(array,
-                                                 last_selected_placeholder = nil, next_selected_placeholder = nil)
+    def select_elements_with_neighbor_conditions(
+      array,
+      last_selected_placeholder = nil,
+      next_selected_placeholder = nil
+    )
       selected_elements = []
       last_selected = last_selected_placeholder
 
@@ -463,8 +487,10 @@ if $PROGRAM_NAME == __FILE__
       end if false
 
       def test_collect_dependencies_with_valid_source
-        @mdoc.stubs(:get_block_by_anyname).with('source1').returns(OpenStruct.new(reqs: ['source2']))
-        @mdoc.stubs(:get_block_by_anyname).with('source2').returns(OpenStruct.new(reqs: []))
+        @mdoc.stubs(:get_block_by_anyname)
+             .with('source1').returns(OpenStruct.new(reqs: ['source2']))
+        @mdoc.stubs(:get_block_by_anyname)
+             .with('source2').returns(OpenStruct.new(reqs: []))
 
         expected = { 'source1' => ['source2'], 'source2' => [] }
         assert_equal expected, @mdoc.collect_dependencies('source1')
@@ -535,14 +561,17 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_fcbs_per_options
-        opts = { hide_blocks_by_name: true, block_name_hidden_match: 'block1' }
+        opts = { hide_blocks_by_name: true,
+                 block_name_hidden_match: 'block1' }
         result = @doc.fcbs_per_options(opts)
         assert_equal [@table[1], @table[2]], result
       end if false ### broken test
 
       def test_recursively_required
         result = @doc.recursively_required_hash('block3')
-        assert_equal ({ 'block3' => ['block1'], 'block1' => ['block2'], 'block2' => nil }),
+        assert_equal ({ 'block3' => ['block1'],
+                        'block1' => ['block2'],
+                        'block2' => nil }),
                      result
 
         result_no_reqs = @doc.recursively_required_hash(nil)
@@ -585,8 +614,9 @@ if $PROGRAM_NAME == __FILE__
         # Test case 3: blocks with missing wraps
         assert_equal(
           %w[block4],
-          @mdoc.collect_wrapped_blocks([OpenStruct.new(oname: 'block4',
-                                                       wraps: ['wrap4'])]).map(&:oname)
+          @mdoc.collect_wrapped_blocks(
+            [OpenStruct.new(oname: 'block4', wraps: ['wrap4'])]
+          ).map(&:oname)
         )
       end
     end

@@ -934,7 +934,12 @@ module MarkdownExec
       end
     end
 
-    # private
+    def build_menu_options(exit_option, display_mode_option,
+                           menu_entries, display_format)
+      [exit_option,
+       display_mode_option,
+       *menu_entries.map(&display_format)].compact
+    end
 
     def build_replacement_dictionary(
       commands, link_state,
@@ -1061,7 +1066,8 @@ module MarkdownExec
                   when :exec
                     raise unless export.exec.present?
 
-                    n1 = neval(export.exec, (inherited_code || []) + required[:code])
+                    n1 = neval(export.exec,
+                               (inherited_code || []) + required[:code])
 
                     if export.transform.present?
                       if export.transform.is_a? Symbol
@@ -1980,19 +1986,23 @@ module MarkdownExec
         block_source: block_source
       )
 
-      # if the same menu is being displayed, collect the display name
-      #  of the selected menu item for use as the default item
-      [lfls.link_state,
-       lfls.load_file == LoadFile::LOAD ? nil : selected.dname,
-       # 2024-08-22 true to quit
-       lfls.load_file == LoadFile::EXIT]
+      # dname is not fixed for some block types, use block id
+      if lfls.load_file != LoadFile::LOAD &&
+         [BlockType::HEADING, BlockType::TEXT,
+          BlockType::UX].include?(selected.type)
+        block_selection = BlockSelection.new(selected.id)
+      end
+
+      { link_state: lfls.link_state,
+        block_selection: block_selection,
+        quit: lfls.load_file == LoadFile::EXIT }
     end
 
     def execute_block_in_state(block_name)
       @dml_block_state = block_state_for_name_from_cli(block_name)
       dump_and_warn_block_state(name: block_name,
                                 selected: @dml_block_state.block)
-      @dml_link_state, @dml_menu_default_dname, quit =
+      next_block_state =
         execute_block_for_state_and_name(
           selected: @dml_block_state.block,
           mdoc: @dml_mdoc,
@@ -2004,7 +2014,10 @@ module MarkdownExec
             )
           }
         )
-      :break if quit
+
+      @dml_link_state = next_block_state[:link_state]
+      @dml_block_selection = next_block_state[:block_selection]
+      :break if next_block_state[:quit]
     end
 
     def execute_block_type_history_ux(
@@ -2151,6 +2164,7 @@ module MarkdownExec
           block_data['glob'] || glob
         )
       )
+      dirs.sort_by! { |f| File.mtime(f) }.reverse!
 
       if !contains_glob?(block_data['directory']) &&
          !contains_glob?(block_data['glob'])
@@ -2161,7 +2175,7 @@ module MarkdownExec
         end
       elsif selected_option = select_option_with_metadata(
         prompt_title,
-        [exit_prompt] + dirs.sort.map do |file|
+        [exit_prompt] + dirs.map do |file|
           { name: format(
             block_data['view'] || view,
             NamedCaptureExtractor.extract_named_group_match_data(
@@ -2325,41 +2339,25 @@ module MarkdownExec
     )
       # repeat select+display until user exits
 
-      pause_now = false
-      row_attrib = :row
-      loop do
-        if pause_now && (prompt_select_continue == MenuState::EXIT)
-          break
-        end
-
-        # menu with Back and Facet options at top
-        case (name = prompt_select_code_filename(
-          [exit_prompt,
-           @delegate_object[:prompt_filespec_facet]] +
-           files_table_rows.map(&row_attrib),
-          string: @delegate_object[:prompt_select_history_file],
-          color_sym: :prompt_color_after_script_execution
-        ))
-        when exit_prompt
-          break
-        when @delegate_object[:prompt_filespec_facet]
-          row_attrib = row_attrib == :row ? :file : :row
-          pause_now = false
-        else
-          file = files_table_rows.select { |ftr| ftr.row == name }&.first
-          info = file_info(file.file)
-          stream.puts "#{file.file} - #{info[:lines]} lines / " \
-                      "#{info[:size]} bytes"
-          stream.puts(
-            File.readlines(file.file,
-                           chomp: false).map.with_index do |line, ind|
-              format(' %s.  %s',
-                     AnsiString.new(format('% 4d', ind + 1)).send(:violet),
-                     line)
-            end
-          )
-          pause_now = pause_refresh
-        end
+      interactive_menu_with_display_modes(
+        files_table_rows,
+        display_formats: [:row, :file],
+        display_mode_option: @delegate_object[:prompt_filespec_facet],
+        exit_option: exit_prompt,
+        menu_title: @delegate_object[:prompt_select_history_file],
+        pause_after_selection: pause_refresh
+      ) do |file|
+        info = file_info(file.file)
+        stream.puts "#{file.file} - #{info[:lines]} lines / " \
+                    "#{info[:size]} bytes"
+        stream.puts(
+          File.readlines(file.file,
+                         chomp: false).map.with_index do |line, ind|
+            format(' %s.  %s',
+                   AnsiString.new(format('% 4d', ind + 1)).send(:violet),
+                   line)
+          end
+        )
       end
     end
 
@@ -2676,6 +2674,56 @@ module MarkdownExec
         in_fenced_block: false,
         headings: []
       }
+    end
+
+    def interactive_menu_with_display_modes(
+      menu_entries,
+      display_formats:,
+      display_mode_option:,
+      exit_option:,
+      menu_title:,
+      pause_after_selection:
+    )
+      pause_menu = false
+      current_display_format = display_formats.first
+
+      loop do
+        break if pause_menu && (prompt_select_continue == MenuState::EXIT)
+
+        menu_options = build_menu_options(
+          exit_option, display_mode_option,
+          menu_entries, current_display_format
+        )
+
+        selection = prompt_select_code_filename(
+          menu_options,
+          string: menu_title,
+          color_sym: :prompt_color_after_script_execution
+        )
+
+        case selection
+        when exit_option
+          break
+        when display_mode_option
+          current_display_format = next_item(
+            display_formats, current_display_format
+          )
+          pause_menu = false
+        else
+          handle_selection(menu_entries, selection,
+                           current_display_format) do |item|
+            yield item if block_given?
+          end
+          pause_menu = pause_after_selection
+        end
+      end
+    end
+
+    def handle_selection(menu_entries, selection, current_display_format)
+      selected_item = menu_entries.find do |entry|
+        entry.send(current_display_format) == selection
+      end
+      yield selected_item if selected_item
     end
 
     # Iterates through blocks in a file, applying the provided block to each line.
@@ -3206,6 +3254,13 @@ module MarkdownExec
         @delegate_object[method_name]
         # super
       end
+    end
+
+    def next_item(list, current_item)
+      index = list.index(current_item)
+      return nil unless index # Return nil if the item is not in the list
+
+      list[(index + 1) % list.size] # Get the next item, wrap around if at the end
     end
 
     def next_state_append_code(selected, link_state, code_lines)
@@ -4110,7 +4165,7 @@ module MarkdownExec
       disabled = if fcb_title_groups.fetch(:type, '') == BlockType::YAML
                    TtyMenu::DISABLE
                  else
-                   nil
+                   TtyMenu::ENABLE
                  end
 
       MarkdownExec::FCB.new(
@@ -4236,11 +4291,11 @@ module MarkdownExec
       @delegate_object.merge!(options)
     end
 
-    def vux_await_user_selection
+    def vux_await_user_selection(prior_answer: @dml_block_selection)
       @dml_block_state = load_cli_or_user_selected_block(
         all_blocks: @dml_blocks_in_file,
         menu_blocks: @dml_menu_blocks,
-        prior_answer: @dml_menu_default_dname
+        prior_answer: prior_answer
       )
       if !@dml_block_state
         # HashDelegator.error_handler('block_state missing', { abort: true })
@@ -4394,7 +4449,7 @@ module MarkdownExec
         @dml_link_state.block_name.present?
       @cli_block_name = @dml_link_state.block_name
       @dml_now_using_cli = @run_state.source.block_name_from_cli
-      @dml_menu_default_dname = nil
+      @dml_block_selection = nil
       @dml_block_state = SelectedBlockMenuState.new
       @doc_saved_lines_files = []
 
@@ -4712,7 +4767,9 @@ module MarkdownExec
       else
         # puts "? - Select a block to execute (or type #{$texit}
         #  to exit):"
-        return :break if vux_await_user_selection == :break
+        return :break if vux_await_user_selection(
+          prior_answer: @dml_block_selection
+        ) == :break
         return :break if @dml_block_state.block.nil? # no block matched
       end
       # puts "! - Executing block: #{data}"
@@ -4762,7 +4819,13 @@ module MarkdownExec
                             block.dname.include?(prior_answer)
                           end&.name
                         when Struct
-                          prior_answer.index || prior_answer.name
+                          if prior_answer.id
+                            menu_items.find_index do |block|
+                              block[:id] == prior_answer.id
+                            end + 1
+                          else
+                            prior_answer.index || prior_answer.name
+                          end
                         end
       # prior_answer value may not match if color is different from
       # originating menu (opts changed while processing)

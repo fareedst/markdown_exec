@@ -100,8 +100,10 @@ end
 
 # selected block and subsequent menu state
 #
+BlockSelection = Struct.new(:id)
 SelectedBlockMenuState = Struct.new(:block, :source, :state)
 
 class TtyMenu
+  ENABLE = nil
   DISABLE = ''
 end
