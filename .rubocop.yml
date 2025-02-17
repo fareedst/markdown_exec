@@ -76,6 +76,9 @@ Security/YAMLLoad:
 Style/ClassVars:
   Enabled: false
 
+Style/CombinableLoops:
+  Enabled: false
+
 Style/CommentedKeyword:
   Enabled: false
 

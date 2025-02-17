@@ -306,7 +306,7 @@ module HashDelegatorSelf
       table__hs.each do |table_hs|
         table_hs.substrings.each do |substrings|
           substrings.each do |node|
-            next unless node[:text].class == TrackedString
+            next unless node[:text].instance_of?(TrackedString)
 
             exceeded_table_cell ||= node[:text].exceeded
             truncated_table_cell = node[:text].truncated
@@ -606,6 +606,8 @@ module MarkdownExec
 
       @process_mutex = Mutex.new
       @process_cv = ConditionVariable.new
+      @dml_link_state = Struct.new(:document_filename, :inherited_lines)
+                              .new(@delegate_object[:filename], [])
 
       @p_all_arguments = []
       @p_options_parsed = []
@@ -1035,7 +1037,8 @@ module MarkdownExec
       ret
     end
 
-    # sets ENV
+    # parse YAML body defining the UX for a single variable
+    # set ENV value for the variable and return code lines for the same
     def code_from_ux_block_to_set_environment_variables(
       selected, mdoc, inherited_code: nil, force: true, only_default: false
     )
@@ -1066,37 +1069,21 @@ module MarkdownExec
                   when :exec
                     raise unless export.exec.present?
 
-                    n1 = neval(export.exec,
-                               (inherited_code || []) + required[:code])
-
-                    if export.transform.present?
-                      if export.transform.is_a? Symbol
-                        n1.send(export.transform)
-                      else
-                        format(
-                          export.transform,
-                          NamedCaptureExtractor.extract_named_groups(
-                            n1, export.validate
-                          )
-                        )
-                      end
-                    else
-                      n1
-                    end
-
+                    transform_export_value(
+                      neval(export.exec,
+                            (inherited_code || []) + required[:code]),
+                      export
+                    )
                   # default
                   else
                     export.default.to_s
                   end
         else
-          caps = nil
           value = nil
 
           # exec > allowed
           if export.exec
             value = neval(export.exec, (inherited_code || []) + required[:code])
-            caps = NamedCaptureExtractor.extract_named_groups(value,
-                                                              export.validate)
 
           # allowed > prompt
           elsif export.allowed && export.allowed.count.positive?
@@ -1109,14 +1096,12 @@ module MarkdownExec
               exportable = false
             else
               value = choice
-              caps = NamedCaptureExtractor.extract_named_groups(value,
-                                                                export.validate)
             end
 
           # prompt > default
           elsif export.prompt.present?
             begin
-              while true
+              loop do
                 print "#{export.prompt} [#{export.default}]: "
                 value = gets.chomp
                 value = export.default.to_s if value.empty?
@@ -1125,7 +1110,6 @@ module MarkdownExec
                 break if caps
 
                 # invalid input, retry
-
               end
             rescue Interrupt
               exportable = false
@@ -1136,8 +1120,8 @@ module MarkdownExec
             value = export.default
           end
 
-          if exportable && export.transform.present?
-            value = format(export.transform, caps)
+          if exportable
+            value = transform_export_value(value, export)
           end
         end
 
@@ -1221,7 +1205,8 @@ module MarkdownExec
         command_execute_in_process(
           args: args, command: command,
           erls: erls,
-          filename: @delegate_object[:filename], shell: shell
+          filename: @delegate_object[:filename],
+          shell: shell
         )
       end
 
@@ -1285,7 +1270,8 @@ module MarkdownExec
     )
       execute_command_with_streams(
         [shell, '-c', command,
-         @delegate_object[:filename], *args]
+         @delegate_object[:filename],
+         *args]
       )
     end
 
@@ -1987,9 +1973,7 @@ module MarkdownExec
       )
 
       # dname is not fixed for some block types, use block id
-      if lfls.load_file != LoadFile::LOAD &&
-         [BlockType::HEADING, BlockType::TEXT,
-          BlockType::UX].include?(selected.type)
+      if lfls.load_file != LoadFile::LOAD
         block_selection = BlockSelection.new(selected.id)
       end
 
@@ -2173,24 +2157,24 @@ module MarkdownExec
         else
           warn 'No matching file found.'
         end
-      elsif selected_option = select_option_with_metadata(
+      elsif (selected_option = select_option_with_metadata(
         prompt_title,
         [exit_prompt] + dirs.map do |file|
-          { name: format(
-            block_data['view'] || view,
-            NamedCaptureExtractor.extract_named_group_match_data(
-              file.match(
-                Regexp.new(block_data['filename_pattern'] ||
-                           filename_pattern)
-              )
-            )
-          ),
+          { name:
+              format(
+                block_data['view'] || view,
+                NamedCaptureExtractor.extract_named_group_match_data(
+                  file.match(
+                    Regexp.new(block_data['filename_pattern'] || filename_pattern)
+                  )
+                )
+              ),
             oname: file }
         end,
         menu_options.merge(
           cycle: true
         )
-      )
+      ))
         if selected_option.dname != exit_prompt
           File.readlines(selected_option.oname, chomp: true)
         end
@@ -2341,7 +2325,7 @@ module MarkdownExec
 
       interactive_menu_with_display_modes(
         files_table_rows,
-        display_formats: [:row, :file],
+        display_formats: %i[row file],
         display_mode_option: @delegate_object[:prompt_filespec_facet],
         exit_option: exit_prompt,
         menu_title: @delegate_object[:prompt_select_history_file],
@@ -2364,9 +2348,9 @@ module MarkdownExec
     def execute_inherited_save(
       code_lines: @dml_link_state.inherited_lines
     )
-      return unless save_filespec = save_filespec_from_expression(
-        document_name_in_glob_as_file_name
-      )
+      return unless (save_filespec = save_filespec_from_expression)
+
+      document_name_in_glob_as_file_name
 
       unless write_file_with_directory_creation(
         content: HashDelegator.join_code_lines(code_lines),
@@ -2580,7 +2564,7 @@ module MarkdownExec
       # commands to echo variables
       #
       commands = {}
-      variable_counts.each do |variable, _count|
+      variable_counts.each_key do |variable|
         command = format(echo_format, variable)
         commands[variable] = command
       end
@@ -2637,7 +2621,6 @@ module MarkdownExec
     end
 
     def history_files(
-      link_state,
       direction: :reverse,
       filename: nil,
       home: Dir.pwd,
@@ -3103,7 +3086,7 @@ module MarkdownExec
 
       # load document shell block
       #
-      if code_lines = load_document_shell_block(all_blocks, mdoc: mdoc)
+      if (code_lines = load_document_shell_block(all_blocks, mdoc: mdoc))
         next_state_set_code(nil, link_state, code_lines)
         link_state.inherited_lines = code_lines
         reload_blocks = true
@@ -3111,7 +3094,7 @@ module MarkdownExec
 
       # load document ux block
       #
-      if code_lines = load_auto_ux_block(all_blocks, mdoc)
+      if (code_lines = load_auto_ux_block(all_blocks, mdoc))
         new_code = HashDelegator.code_merge(link_state.inherited_lines,
                                             code_lines)
         next_state_set_code(nil, link_state, new_code)
@@ -3121,7 +3104,7 @@ module MarkdownExec
 
       # load document vars block
       #
-      if code_lines = load_auto_vars_block(all_blocks)
+      if (code_lines = load_auto_vars_block(all_blocks))
         new_code = HashDelegator.code_merge(link_state.inherited_lines,
                                             code_lines)
         next_state_set_code(nil, link_state, new_code)
@@ -3409,8 +3392,8 @@ module MarkdownExec
     #
     # @param all_blocks [Array<Hash>] The list of blocks from the file.
     def select_blocks(menu_blocks)
-      menu_blocks.select do |fcb|
-        !Filter.prepared_not_in_menu?(
+      menu_blocks.reject do |fcb|
+        Filter.prepared_not_in_menu?(
           @delegate_object,
           fcb,
           %i[block_name_include_match block_name_wrapper_match]
@@ -3659,16 +3642,16 @@ module MarkdownExec
 
       case @delegate_object[:publish_document_file_mode]
       when 'append'
-        File.write(pipe_path, message + "\n", mode: 'a')
+        File.write(pipe_path, "#{message}\n", mode: 'a')
       when 'fifo'
         unless @vux_pipe_open
           unless File.exist?(pipe_path)
-            FileUtils.mkfifo(pipe_path)
+            File.mkfifo(pipe_path)
             @vux_pipe_created = pipe_path
           end
           @vux_pipe_open = File.open(pipe_path, 'w')
         end
-        @vux_pipe_open.puts(message + "\n")
+        @vux_pipe_open.puts("#{message}\n")
         @vux_pipe_open.flush
       when 'write'
         File.write(pipe_path, message)
@@ -3695,7 +3678,6 @@ module MarkdownExec
       regexp: @delegate_object[:saved_asset_match]
     )
       history_files(
-        @dml_link_state,
         filename:
           if asset.present?
             saved_asset_filename(asset, @dml_link_state)
@@ -3710,7 +3692,8 @@ module MarkdownExec
         end
 
         saved_asset = saved_asset_for_history(
-          file: file, form: form,
+          file: file,
+          form: form,
           match_info: $LAST_MATCH_INFO
         )
         saved_asset == :break ? nil : saved_asset
@@ -3959,7 +3942,7 @@ module MarkdownExec
 
     def screen_width
       width = @delegate_object[:screen_width]
-      if width && width.positive?
+      if width&.positive?
         width
       else
         @delegate_object[:console_width]
@@ -3976,7 +3959,7 @@ module MarkdownExec
     end
 
     def select_document_if_multiple(options, files, prompt:)
-      return files if files.class == String
+      return files if files.instance_of?(String)
       return files[0] if (count = files.count) == 1
 
       return unless count >= 2
@@ -4039,21 +4022,14 @@ module MarkdownExec
         return
       end
 
-      selected = menu_items.find do |item|
+      selected = @dml_menu_blocks.find do |item|
         if item.instance_of?(Hash)
           [item[:id], item[:name], item[:dname]].include?(selection)
         elsif item.instance_of?(MarkdownExec::FCB)
-          item.dname == selection || item.id == selection
+          item.id == selection
         else
           item == selection
         end
-      end
-
-      # new FCB if selected is not an object
-      if selected.instance_of?(String)
-        selected = FCB.new(dname: selected)
-      elsif selected.instance_of?(Hash)
-        selected = FCB.new(selected)
       end
 
       unless selected
@@ -4204,6 +4180,21 @@ module MarkdownExec
     # @return [String] The string with the applied color method.
     def string_send_color(string, color_sym)
       HashDelegator.apply_color_from_hash(string, @delegate_object, color_sym)
+    end
+
+    def transform_export_value(value, export)
+      return value unless export.transform.present?
+
+      if export.transform.is_a? Symbol
+        value.send(export.transform)
+      else
+        format(
+          export.transform,
+          NamedCaptureExtractor.extract_named_groups(
+            value, export.validate
+          )
+        )
+      end
     end
 
     ##
@@ -4372,7 +4363,7 @@ module MarkdownExec
 
       when formatted_choice_ostructs[:history].pub_name
         debounce_reset
-        return :break unless files_table_rows = vux_history_files_table_rows
+        return :break unless (files_table_rows = vux_history_files_table_rows)
 
         execute_history_select(files_table_rows, stream: $stderr)
         return :break if pause_user_exit
@@ -4498,9 +4489,9 @@ module MarkdownExec
     end
 
     def vux_load_inherited
-      return unless filespec = load_filespec_from_expression(
+      return unless (filespec = load_filespec_from_expression(
         document_name_in_glob_as_file_name
-      )
+      ))
 
       @dml_link_state.inherited_lines_append(
         File.readlines(filespec, chomp: true)
@@ -4619,7 +4610,6 @@ module MarkdownExec
     )
       if @delegate_object[:menu_for_history]
         history_files(
-          @dml_link_state,
           filename: saved_asset_filename(@delegate_object[:filename],
                                          @dml_link_state),
           path: @delegate_object[:saved_script_folder]
@@ -4818,15 +4808,17 @@ module MarkdownExec
                           menu_blocks.find do |block|
                             block.dname.include?(prior_answer)
                           end&.name
-                        when Struct
+                        when Struct, MarkdownExec::FCB
                           if prior_answer.id
-                            menu_items.find_index do |block|
+                            # when switching documents, the prior answer will not be found
+                            (menu_blocks.find_index do |block|
                               block[:id] == prior_answer.id
-                            end + 1
+                            end || 0) + 1
                           else
                             prior_answer.index || prior_answer.name
                           end
                         end
+
       # prior_answer value may not match if color is different from
       # originating menu (opts changed while processing)
       selection_opts = if selected_answer
@@ -5157,13 +5149,12 @@ module MarkdownExec
 
   class TestHashDelegatorAppendDivider < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {
-                                  menu_divider_format: 'Format',
-                                  menu_initial_divider: 'Initial Divider',
-                                  menu_final_divider: 'Final Divider',
-                                  menu_divider_color: :color
-                                })
+      @hd = HashDelegator.new(
+        menu_divider_color: :color,
+        menu_divider_format: 'Format',
+        menu_final_divider: 'Final Divider',
+        menu_initial_divider: 'Initial Divider'
+      )
       @hd.stubs(:string_send_color).returns('Formatted Divider')
       HashDelegator.stubs(:safeval).returns('Safe Value')
     end
@@ -5185,7 +5176,7 @@ module MarkdownExec
     end
 
     def test_append_divider_without_format
-      @hd.instance_variable_set(:@delegate_object, {})
+      @hd = HashDelegator.new
       menu_blocks = []
       @hd.append_divider(menu_blocks: menu_blocks, position: :initial)
 
@@ -5223,7 +5214,6 @@ module MarkdownExec
       @hd = HashDelegator.new
       @hd.stubs(:iter_blocks_from_nested_files).yields(:blocks, FCB.new)
       @hd.stubs(:create_and_add_chrome_blocks)
-      @hd.instance_variable_set(:@delegate_object, {})
       HashDelegator.stubs(:error_handler)
     end
 
@@ -5234,7 +5224,7 @@ module MarkdownExec
     end
 
     def test_blocks_from_nested_files_with_no_chrome
-      @hd.instance_variable_set(:@delegate_object, { no_chrome: true })
+      @hd = HashDelegator.new(no_chrome: true)
       @hd.expects(:create_and_add_chrome_blocks).never
 
       result = @hd.blocks_from_nested_files
@@ -5246,7 +5236,6 @@ module MarkdownExec
   class TestHashDelegatorCollectRequiredCodeLines < Minitest::Test
     def setup
       @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {})
       @mdoc = mock('YourMDocClass')
       @selected = FCB.new(
         body: ['key: value'],
@@ -5272,15 +5261,13 @@ module MarkdownExec
   class TestHashDelegatorCommandOrUserSelectedBlock < Minitest::Test
     def setup
       @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {})
       HashDelegator.stubs(:error_handler)
       @hd.stubs(:wait_for_user_selected_block)
     end
 
     def test_command_selected_block
       all_blocks = [{ oname: 'block1' }, { oname: 'block2' }]
-      @hd.instance_variable_set(:@delegate_object,
-                                { block_name: 'block1' })
+      @hd = HashDelegator.new(block_name: 'block1')
 
       result = @hd.load_cli_or_user_selected_block(all_blocks: all_blocks)
 
@@ -5309,10 +5296,10 @@ module MarkdownExec
 
   class TestHashDelegatorCountBlockInFilename < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object,
-                                { fenced_start_and_end_regex: '^```',
-                                  filename: '/path/to/file' })
+      @hd = HashDelegator.new(
+        fenced_start_and_end_regex: '^```',
+        filename: '/path/to/file'
+      )
       @hd.stubs(:cfile).returns(mock('cfile'))
     end
 
@@ -5421,7 +5408,6 @@ module MarkdownExec
     def setup
       @hd = HashDelegator.new
       @hd.instance_variable_set(:@fout, mock('fout'))
-      @hd.instance_variable_set(:@delegate_object, {})
       @hd.stubs(:string_send_color)
     end
 
@@ -5443,7 +5429,6 @@ module MarkdownExec
   class TestHashDelegatorFetchColor < Minitest::Test
     def setup
       @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {})
     end
 
     def test_fetch_color_with_valid_data
@@ -5476,7 +5461,6 @@ module MarkdownExec
   class TestHashDelegatorFormatReferencesSendColor < Minitest::Test
     def setup
       @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {})
     end
 
     def test_format_references_send_color_with_valid_data
@@ -5581,7 +5565,6 @@ module MarkdownExec
     # )
 
     # def history_files(
-    #   link_state,
     #   direction: :reverse,
     #   filename: nil,
     #   home: Dir.pwd,
@@ -5590,9 +5573,10 @@ module MarkdownExec
     # )
 
     def test_call
-      @hd.expects(:history_files).with(nil, filename: '*', path: nil).once
-      @hd.execute_block_type_history_ux(filename: '*', link_state: LinkState.new,
-                                        selected: FCB.new(body: []))
+      @hd.expects(:history_files).with(filename: '*', path: nil).once
+      @hd.execute_block_type_history_ux(
+        filename: '*', link_state: LinkState.new, selected: FCB.new(body: [])
+      )
     end
   end
 
@@ -5677,11 +5661,9 @@ module MarkdownExec
 
   class TestHashDelegatorHandleStream < Minitest::Test
     def setup
-      @hd = HashDelegator.new
+      @hd = HashDelegator.new(output_stdout: true)
       @hd.instance_variable_set(:@run_state,
                                 OpenStruct.new(files: StreamsOut.new))
-      @hd.instance_variable_set(:@delegate_object,
-                                { output_stdout: true })
     end
 
     def test_handle_stream
@@ -5713,9 +5695,7 @@ module MarkdownExec
 
   class TestHashDelegatorIterBlocksFromNestedFiles < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object,
-                                { filename: 'test.md' })
+      @hd = HashDelegator.new(filename: 'test.md')
       @hd.stubs(:check_file_existence).with('test.md').returns(true)
       @hd.stubs(:initial_state).returns({})
       @hd.stubs(:cfile).returns(Minitest::Mock.new)
@@ -5744,12 +5724,11 @@ module MarkdownExec
 
   class TestHashDelegatorMenuChromeColoredOption < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {
-                                  menu_option_back_name: 'Back',
-                                  menu_chrome_color: :red,
-                                  menu_chrome_format: '-- %s --'
-                                })
+      @hd = HashDelegator.new(
+        menu_chrome_color: :red,
+        menu_chrome_format: '-- %s --',
+        menu_option_back_name: 'Back'
+      )
       @hd.stubs(:menu_chrome_formatted_option)
          .with(:menu_option_back_name).returns('-- Back --')
       @hd.stubs(:string_send_color)
@@ -5763,8 +5742,9 @@ module MarkdownExec
     end
 
     def test_menu_chrome_colored_option_without_color
-      @hd.instance_variable_set(:@delegate_object,
-                                { menu_option_back_name: 'Back' })
+      @hd = HashDelegator.new(menu_option_back_name: 'Back')
+      @hd.stubs(:menu_chrome_formatted_option)
+         .with(:menu_option_back_name).returns('-- Back --')
       assert_equal '-- Back --',
                    @hd.menu_chrome_colored_option(:menu_option_back_name)
     end
@@ -5772,11 +5752,10 @@ module MarkdownExec
 
   class TestHashDelegatorMenuChromeOption < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object, {
-                                  menu_option_back_name: "'Back'",
-                                  menu_chrome_format: '-- %s --'
-                                })
+      @hd = HashDelegator.new(
+        menu_chrome_format: '-- %s --',
+        menu_option_back_name: "'Back'"
+      )
       HashDelegator.stubs(:safeval).with("'Back'").returns('Back')
     end
 
@@ -5786,8 +5765,7 @@ module MarkdownExec
     end
 
     def test_menu_chrome_formatted_option_without_format
-      @hd.instance_variable_set(:@delegate_object,
-                                { menu_option_back_name: "'Back'" })
+      @hd = HashDelegator.new(menu_option_back_name: "'Back'")
       assert_equal 'Back',
                    @hd.menu_chrome_formatted_option(:menu_option_back_name)
     end
@@ -5795,10 +5773,12 @@ module MarkdownExec
 
   class TestHashDelegatorStartFencedBlock < Minitest::Test
     def setup
-      @hd = HashDelegator.new({
-                                block_name_wrapper_match: 'WRAPPER_REGEX',
-                                block_calls_scan: 'CALLS_REGEX'
-                              })
+      @hd = HashDelegator.new(
+        {
+          block_calls_scan: 'CALLS_REGEX',
+          block_name_wrapper_match: 'WRAPPER_REGEX'
+        }
+      )
     end
 
     def test_start_fenced_block
@@ -5816,9 +5796,7 @@ module MarkdownExec
 
   class TestHashDelegatorStringSendColor < Minitest::Test
     def setup
-      @hd = HashDelegator.new
-      @hd.instance_variable_set(:@delegate_object,
-                                { red: 'red', green: 'green' })
+      @hd = HashDelegator.new(red: 'red', green: 'green')
     end
 
     def test_string_send_color
