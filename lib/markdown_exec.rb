@@ -1013,7 +1013,16 @@ module MarkdownExec
     # Presents a TTY prompt to select an option or exit, returns selected option or nil
     def select_option_or_exit(prompt_text, strings, opts = {})
       @options.select_option_with_metadata(
-        prompt_text, strings, opts
+        prompt_text,
+        strings,
+        opts,
+        menu_blocks: strings.map do |string|
+          FCB.new(
+            chrome: true,
+            dname: string,
+            id: string
+          )
+        end
       )&.fetch(:selected)
     end
 

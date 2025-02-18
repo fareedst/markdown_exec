@@ -608,6 +608,7 @@ module MarkdownExec
       @process_cv = ConditionVariable.new
       @dml_link_state = Struct.new(:document_filename, :inherited_lines)
                               .new(@delegate_object[:filename], [])
+      @dml_menu_blocks = []
 
       @p_all_arguments = []
       @p_options_parsed = []
@@ -1025,13 +1026,10 @@ module MarkdownExec
     end
 
     def neval(export_exec, inherited_code)
-      # ww0 export_exec
-      # ww0 inherited_code
       code = (inherited_code || []) + [export_exec]
       filespec = generate_temp_filename
       File.write filespec, HashDelegator.join_code_lines(code)
       File.chmod 0o755, filespec
-      # ww0 File.read(filespec)
       ret = `#{filespec}`
       File.delete filespec
       ret
@@ -1042,8 +1040,6 @@ module MarkdownExec
     def code_from_ux_block_to_set_environment_variables(
       selected, mdoc, inherited_code: nil, force: true, only_default: false
     )
-      # ww0 inherited_code
-      # ww0 mdoc
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
       required = mdoc.collect_recursively_required_code(
@@ -3977,7 +3973,11 @@ module MarkdownExec
 
     # Presents a TTY prompt to select an option or exit,
     #  returns metadata including option and selected
-    def select_option_with_metadata(prompt_text, menu_items, opts = {})
+    def select_option_with_metadata(
+      prompt_text, menu_items, opts = {}, menu_blocks: nil
+    )
+      @dml_menu_blocks = menu_blocks if menu_blocks
+
       ## configure to environment
       #
       register_console_attributes(opts)
