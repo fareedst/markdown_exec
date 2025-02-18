@@ -355,13 +355,12 @@ module MarkdownExec
       else
         opts[:hide_blocks_by_name] &&
           ((opts[:block_name_hidden_match]&.present? &&
-            block.oname&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
+            block.s2title&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
            (opts[:block_name_include_match]&.present? &&
-            block.oname&.match(Regexp.new(opts[:block_name_include_match]))) ||
+            block.s2title&.match(Regexp.new(opts[:block_name_include_match]))) ||
            (opts[:block_name_wrapper_match]&.present? &&
-            block.oname&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
-          (block.oname&.present? || block[:label]&.present?)
-
+            block.s2title&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
+          (block.s2title&.present? || block[:label]&.present?)
       end
     end
 
@@ -555,7 +554,7 @@ if $PROGRAM_NAME == __FILE__
       def test_hide_menu_block_on_name
         opts = { hide_blocks_by_name: true,
                  block_name_hidden_match: 'block1' }
-        block = FCB.new(oname: 'block1')
+        block = FCB.new(s2title: 'block1')
         result = @doc.hide_menu_block_on_name(opts, block)
         assert result # this should be true based on the given logic
       end

@@ -44,6 +44,7 @@
   :procname: val_as_str
 - :opt_name: block_name_match
   :env_var: MDE_BLOCK_NAME_MATCH
+  :description: Pattern for the block name in the line defining the block
   :default: ":(?<title>\\S+)( |$)"
   :procname: val_as_str
 - :opt_name: block_name_nick_match

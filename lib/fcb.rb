@@ -14,7 +14,8 @@ def parse_yaml_of_ux_block(
   export = data['export']
   export = data if export.nil?
   name = export['name']
-  raise "Invalid data: #{data.inspect}" unless name.present?
+
+  raise "Name is missing in UX block: #{data.inspect}" unless name.present?
 
   OpenStruct.new(
     allowed: export['allowed'],
@@ -136,6 +137,7 @@ module MarkdownExec
           @attrs[:center] = table_center
           oname = @attrs[:oname] = format(export.menu_format, export.to_h)
         else
+          # triggered by an empty block
           raise "Invalid data type: #{data.inspect}"
         end
       end

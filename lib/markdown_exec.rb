@@ -656,32 +656,6 @@ module MarkdownExec
       @options.merge(@options.run_state.to_h)
     end
 
-    def iter_source_blocks(source, &block)
-      case source
-      when 1
-        HashDelegator.new(@options).blocks_from_nested_files.each(&block)
-      when 2
-        blocks_in_file, menu_blocks, mdoc =
-          HashDelegator.new(@options)
-                       .mdoc_menu_and_blocks_from_nested_files(LinkState.new)
-        blocks_in_file.each(&block)
-      when 3
-        blocks_in_file, menu_blocks, mdoc =
-          HashDelegator.new(@options)
-                       .mdoc_menu_and_blocks_from_nested_files(LinkState.new)
-        menu_blocks.each(&block)
-      else
-        @options.iter_blocks_from_nested_files do |btype, fcb|
-          case btype
-          when :blocks
-            yield fcb
-          when :filter
-            %i[blocks]
-          end
-        end
-      end
-    end
-
     ##
     # Returns a lambda expression based on the given procname.
     # @param procname [String] The name of the process to generate a lambda for.
@@ -916,7 +890,7 @@ module MarkdownExec
         # save value to options hash if option is named
         #
         lambda { |value|
-          name = item[:long_name]&.present? ? '--' + item[:long_name].to_s : '-' + item[:short_name].to_s
+          name = item[:long_name]&.present? ? "--#{item[:long_name]}" : "-#{item[:short_name]}"
           options_parsed << item.merge(name: name, value: value)
           (item[:proccode] ? item[:proccode].call(value) : value).tap do |converted|
             options[item[:opt_name]] = converted if item[:opt_name]
