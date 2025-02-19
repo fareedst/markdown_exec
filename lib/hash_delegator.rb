@@ -1025,16 +1025,6 @@ module MarkdownExec
       ]
     end
 
-    def neval(export_exec, inherited_code)
-      code = (inherited_code || []) + [export_exec]
-      filespec = generate_temp_filename
-      File.write filespec, HashDelegator.join_code_lines(code)
-      File.chmod 0o755, filespec
-      ret = `#{filespec}`
-      File.delete filespec
-      ret
-    end
-
     # parse YAML body defining the UX for a single variable
     # set ENV value for the variable and return code lines for the same
     def code_from_ux_block_to_set_environment_variables(
@@ -1062,6 +1052,12 @@ module MarkdownExec
             validate: '^(?<name>[^ ].*)$'
           )
 
+          # preconditions are variable names that must be set before the UX block is executed.
+          # if any precondition is not set, the sequence is aborted.
+          export.preconditions&.each do |precondition|
+            code_lines.push "[[ -z $#{precondition} ]] && exit 1"
+          end
+
           exportable = true
           if only_default
             value = case export.default
@@ -1069,12 +1065,14 @@ module MarkdownExec
                     when :exec
                       raise unless export.exec.present?
 
-                      transform_export_value(
-                        neval(export.exec,
-                              (inherited_code || []) +
-                               code_lines + required[:code]),
-                        export
+                      output = export_exec_with_code(
+                        export, inherited_code, code_lines, required
                       )
+                      if output == :invalidated
+                        return :ux_exec_prohibited
+                      end
+
+                      transform_export_value(output, export)
                     # default
                     else
                       export.default.to_s
@@ -1084,9 +1082,12 @@ module MarkdownExec
 
             # exec > allowed
             if export.exec
-              value = neval(export.exec,
-                            (inherited_code || []) +
-                             code_lines + required[:code])
+              value = export_exec_with_code(
+                export, inherited_code, code_lines, required
+              )
+              if value == :invalidated
+                return :ux_exec_prohibited
+              end
 
             # allowed > prompt
             elsif export.allowed && export.allowed.count.positive?
@@ -2411,6 +2412,27 @@ module MarkdownExec
       post_execution_process
     end
 
+    def execute_temporary_script(script_code, additional_code = [])
+      full_code = (additional_code || []) + [script_code]
+
+      Tempfile.create('script_exec') do |temp_file|
+        temp_file.write(HashDelegator.join_code_lines(full_code))
+        temp_file.flush
+        File.chmod(0o755, temp_file.path)
+
+        output = `#{temp_file.path}`
+
+        if $?.exitstatus != 0
+          return :invalidated
+        end
+
+        output
+      end
+    rescue StandardError => err
+      warn "Error executing script: #{err.message}"
+      nil
+    end
+
     def expand_blocks_with_replacements(
       menu_blocks, replacements, exclude_types: [BlockType::SHELL]
     )
@@ -2455,6 +2477,18 @@ module MarkdownExec
       return if replacements == EvaluateShellExpression::StatusFail
 
       expand_blocks_with_replacements(blocks, replacements)
+    end
+
+    def export_exec_with_code(export, inherited_code, code_lines, required)
+      value = execute_temporary_script(
+        export.exec,
+        (inherited_code || []) +
+         code_lines + required[:code]
+      )
+      if value == :invalidated
+        warn "A value must exist for: #{export.preconditions.join(', ')}"
+      end
+      value
     end
 
     # Retrieves a specific data symbol from the delegate object,
@@ -2938,19 +2972,24 @@ module MarkdownExec
       @ux_most_recent_filename = @delegate_object[:filename]
 
       (blocks.each.with_object([]) do |block, merged_options|
-        merged_options.push(
-          code_from_ux_block_to_set_environment_variables(
-            block,
-            mdoc,
-            force: @delegate_object[:ux_auto_load_force_default],
-            only_default: true
-          )
+        code = code_from_ux_block_to_set_environment_variables(
+          block,
+          mdoc,
+          force: @delegate_object[:ux_auto_load_force_default],
+          only_default: true
         )
+        if code == :ux_exec_prohibited
+          merged_options
+        else
+          merged_options.push(code)
+        end
       end).to_a
     end
 
-    def load_auto_vars_block(all_blocks,
-                             block_name: @delegate_object[:document_load_vars_block_name])
+    def load_auto_vars_block(
+      all_blocks,
+      block_name: @delegate_object[:document_load_vars_block_name]
+    )
       unless block_name.present? &&
              @vars_most_recent_filename != @delegate_object[:filename]
         return
@@ -3255,7 +3294,10 @@ module MarkdownExec
       next_state_set_code(
         selected,
         link_state,
-        HashDelegator.code_merge(link_state&.inherited_lines, code_lines)
+        HashDelegator.code_merge(
+          link_state&.inherited_lines,
+          code_lines.is_a?(Array) ? code_lines : [] # no code for :ux_exec_prohibited
+        )
       )
     end
 

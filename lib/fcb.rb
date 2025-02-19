@@ -23,6 +23,7 @@ def parse_yaml_of_ux_block(
     exec: export['exec'],
     menu_format: export['menu_format'] || menu_format,
     name: name,
+    preconditions: export['preconditions'],
     prompt: export['prompt'] || prompt,
     transform: export['transform'],
     validate: export['validate'] || validate
