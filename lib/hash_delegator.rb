@@ -1049,86 +1049,95 @@ module MarkdownExec
         block_source: block_source
       )
 
+      # process each ux block in sequence, setting ENV and collecting lines
       code_lines = []
-      case data = YAML.load(selected.body.join("\n"))
-      when Hash
-        export = parse_yaml_of_ux_block(
-          data,
-          prompt: @delegate_object[:prompt_ux_enter_a_value],
-          validate: '^(?<name>[^ ].*)$'
-        )
+      required[:blocks].each do |block|
+        next unless block.type == BlockType::UX
 
-        exportable = true
-        if only_default
-          value = case export.default
-                  # exec > default
-                  when :exec
-                    raise unless export.exec.present?
+        case data = YAML.load(block.body.join("\n"))
+        when Hash
+          export = parse_yaml_of_ux_block(
+            data,
+            prompt: @delegate_object[:prompt_ux_enter_a_value],
+            validate: '^(?<name>[^ ].*)$'
+          )
 
-                    transform_export_value(
-                      neval(export.exec,
-                            (inherited_code || []) + required[:code]),
-                      export
-                    )
-                  # default
-                  else
-                    export.default.to_s
-                  end
-        else
-          value = nil
+          exportable = true
+          if only_default
+            value = case export.default
+                    # exec > default
+                    when :exec
+                      raise unless export.exec.present?
 
-          # exec > allowed
-          if export.exec
-            value = neval(export.exec, (inherited_code || []) + required[:code])
-
-          # allowed > prompt
-          elsif export.allowed && export.allowed.count.positive?
-            case (choice = prompt_select_code_filename(
-              [exit_prompt] + export.allowed,
-              string: export.prompt,
-              color_sym: :prompt_color_after_script_execution
-            ))
-            when exit_prompt
-              exportable = false
-            else
-              value = choice
-            end
-
-          # prompt > default
-          elsif export.prompt.present?
-            begin
-              loop do
-                print "#{export.prompt} [#{export.default}]: "
-                value = gets.chomp
-                value = export.default.to_s if value.empty?
-                caps = NamedCaptureExtractor.extract_named_groups(value,
-                                                                  export.validate)
-                break if caps
-
-                # invalid input, retry
-              end
-            rescue Interrupt
-              exportable = false
-            end
-
-          # default
+                      transform_export_value(
+                        neval(export.exec,
+                              (inherited_code || []) +
+                               code_lines + required[:code]),
+                        export
+                      )
+                    # default
+                    else
+                      export.default.to_s
+                    end
           else
-            value = export.default
+            value = nil
+
+            # exec > allowed
+            if export.exec
+              value = neval(export.exec,
+                            (inherited_code || []) +
+                             code_lines + required[:code])
+
+            # allowed > prompt
+            elsif export.allowed && export.allowed.count.positive?
+              case (choice = prompt_select_code_filename(
+                [exit_prompt] + export.allowed,
+                string: export.prompt,
+                color_sym: :prompt_color_after_script_execution
+              ))
+              when exit_prompt
+                exportable = false
+              else
+                value = choice
+              end
+
+            # prompt > default
+            elsif export.prompt.present?
+              begin
+                loop do
+                  print "#{export.prompt} [#{export.default}]: "
+                  value = gets.chomp
+                  value = export.default.to_s if value.empty?
+                  caps = NamedCaptureExtractor.extract_named_groups(value,
+                                                                    export.validate)
+                  break if caps
+
+                  # invalid input, retry
+                end
+              rescue Interrupt
+                exportable = false
+              end
+
+            # default
+            else
+              value = export.default
+            end
+
+            if exportable
+              value = transform_export_value(value, export)
+            end
           end
 
           if exportable
-            value = transform_export_value(value, export)
+            ENV[export.name] = value.to_s
+            code_lines.push code_line_safe_assign(export.name, value,
+                                                  force: force)
           end
+        else
+          raise "Invalid data type: #{data.inspect}"
         end
-
-        if exportable
-          ENV[export.name] = value.to_s
-          code_lines.push code_line_safe_assign(export.name, value,
-                                                force: force)
-        end
-      else
-        raise "Invalid data type: #{data.inspect}"
       end
+
       code_lines
     end
 
