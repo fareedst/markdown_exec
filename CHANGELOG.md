@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.8.2] - 2025-02-19
+
+### Added
+
+- UX blocks can add preconditions. Preconditions are variable names that must be set before the UX block is executed. If any preconditions are not set, a warning is displayed, and the sequence is aborted.
+- UX blocks can require shell an other UX blocks.
+- UX blocks are evaluated in order and calculation can depend on prior variables in the same sequence.
+
+### Changed
+
+- Hide all blocks per their initial title instead of `oname`.
+- Make menu blocks for list of files found to fix crash.
+- Use a block ID to recall the selected block.
+- UX blocks are hidden similar to the rest.
+
+## [2.8.1] - 2025-02-13
+
+### Added
+
+- BATS tests for UX block type.
+
+### Changed
+
+- Improve persistence of position in menu on reload
+- Update block-type-ux-exec BATS test.
+- Refactor menu for selecting items with facets.
+
 ## [2.8.0] - 2025-02-10
 
 ### Added
