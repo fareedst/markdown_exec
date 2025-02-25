@@ -209,6 +209,16 @@ spec_mde_args_grep_filter_expect () {
   [[ -n $status ]]
 }
 
+spec_mde_dname_doc_blocks_expect () {
+  BATS_SAFE=_
+  spec_mde_args_expect "$1" \
+   "${@:2:$(($#-2))}" \
+   --list-blocks-message dname \
+   --list-blocks-type 3 \
+   --list-blocks \
+  "${!#}"
+}
+
 spec_mde_xansi_dname_doc_blocks_expect () {
   BATS_OUTPUT_FILTER=A
   BATS_SAFE=_

@@ -14,6 +14,15 @@ class AnsiString < String
   def method_missing(method_name, *args, &block)
     if dynamic_color_method?(method_name)
       case method_name.to_s
+      when /^ansi_/
+        segments = $'.split('__')
+        codes = ''
+        segments[0..-2].each do |segment|
+          codes += "\033[#{segment.split('_').join(';')}m"
+        end
+        codes += self.to_s
+        codes += "\033[#{segments.last.split('_').join(';')}m"
+        self.class.new(codes)
       when /^fg_bg_rgb_/
         bytes = $'.split('_')
         fg_bg_rgb_color(bytes[0..2].join(';'), bytes[3..5].join(';'))
@@ -148,6 +157,6 @@ class AnsiString < String
   # @param method_name [Symbol] The name of the method being checked.
   # @return [Boolean] True if the method name matches a dynamic color method.
   def dynamic_color_method?(method_name)
-    method_name.to_s =~ /^(fg_bg_rgb_|fg_bg_rgbh_|fg_rgb_|fg_rgbh_)/
+    method_name.to_s =~ /^(ansi_|fg_bg_rgb_|fg_bg_rgbh_|fg_rgb_|fg_rgbh_)/
   end
 end
