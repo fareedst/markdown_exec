@@ -2532,6 +2532,7 @@ module MarkdownExec
       formatted_command = code_lines.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
                              color_sym: :script_execution_frame_color)
+
       command_execute(
         formatted_command,
         args: @pass_args,
@@ -2641,10 +2642,8 @@ module MarkdownExec
       @process_mutex.synchronize do
         Thread.new do
           stream.each_line do |line|
-            line.strip!
             if @run_state.files.streams
-              @run_state.files.append_stream_line(file_type,
-                                                  line)
+              @run_state.files.append_stream_line(file_type, line)
             end
 
             puts line if @delegate_object[:output_stdout]
@@ -5724,7 +5723,7 @@ module MarkdownExec
       Thread.new { @hd.handle_stream(stream: stream, file_type: file_type) }
 
       @hd.wait_for_stream_processing
-      assert_equal ['line 1', 'line 2'],
+      assert_equal ["line 1\n", "line 2\n"],
                    @hd.instance_variable_get(:@run_state)
                       .files.stream_lines(ExecutionStreams::STD_OUT)
     end
