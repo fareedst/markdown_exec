@@ -1050,6 +1050,19 @@ module MarkdownExec
           exportable = true
           if only_default
             value = case export.default
+                    # echo > default
+                    when :echo
+                      raise unless export.echo.present?
+
+                      output = export_echo_with_code(
+                        export, inherited_code, code_lines, required
+                      )
+                      if output == :invalidated
+                        return :ux_exec_prohibited
+                      end
+
+                      transform_export_value(output, export)
+
                     # exec > default
                     when :exec
                       raise unless export.exec.present?
@@ -1062,6 +1075,7 @@ module MarkdownExec
                       end
 
                       transform_export_value(output, export)
+
                     # default
                     else
                       export.default.to_s
@@ -1069,8 +1083,17 @@ module MarkdownExec
           else
             value = nil
 
+            # echo > exec
+            if export.echo
+              value = export_echo_with_code(
+                export, inherited_code, code_lines, required
+              )
+              if value == :invalidated
+                return :ux_exec_prohibited
+              end
+
             # exec > allowed
-            if export.exec
+            elsif export.exec
               value = export_exec_with_code(
                 export, inherited_code, code_lines, required
               )
@@ -2488,6 +2511,18 @@ module MarkdownExec
       return if replacements == EvaluateShellExpression::StatusFail
 
       expand_blocks_with_replacements(blocks, replacements)
+    end
+
+    def export_echo_with_code(export, inherited_code, code_lines, required)
+      value = execute_temporary_script(
+        %Q{eval printf '%s' "#{export.echo}"},
+        (inherited_code || []) +
+         code_lines + required[:code]
+      )
+      if value == :invalidated
+        warn "A value must exist for: #{export.preconditions.join(', ')}"
+      end
+      value
     end
 
     def export_exec_with_code(export, inherited_code, code_lines, required)

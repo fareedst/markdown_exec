@@ -20,6 +20,7 @@ def parse_yaml_of_ux_block(
   OpenStruct.new(
     allowed: export['allowed'],
     default: export['default'],
+    echo: export['echo'],
     exec: export['exec'],
     menu_format: export['menu_format'] || menu_format,
     name: name,
