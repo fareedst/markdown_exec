@@ -149,8 +149,6 @@ module MarkdownExec
       )
     end
 
-    private
-
     # Formats multiline body content as a title string.
     # indents all but first line with two spaces
     # so it displays correctly in menu.

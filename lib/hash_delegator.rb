@@ -395,10 +395,16 @@ module HashDelegatorSelf
   # @param [String] line The line to be processed.
   # @param [Array<Symbol>] selected_types A list of message types to check.
   # @param [Proc] block The block to be called with the line data.
-  def yield_line_if_selected(line, selected_types, source_id: '', &block)
+  def yield_line_if_selected(line, selected_types, all_fcbs: nil, source_id: '', &block)
     return unless block && block_type_selected?(selected_types, :line)
 
-    block.call(:line, MarkdownExec::FCB.new(body: [line], id: source_id))
+    block.call(:line, persist_fcb_self(all_fcbs, body: [line], id: source_id))
+  end
+
+  def persist_fcb_self(all_fcbs, options)
+    fcb = MarkdownExec::FCB.new(options)
+    all_fcbs << fcb if all_fcbs
+    fcb
   end
 end
 
@@ -609,6 +615,7 @@ module MarkdownExec
       @dml_link_state = Struct.new(:document_filename, :inherited_lines)
                               .new(@delegate_object[:filename], [])
       @dml_menu_blocks = []
+      @fcb_store = [] # all fcbs created
 
       @p_all_arguments = []
       @p_options_parsed = []
@@ -737,7 +744,7 @@ module MarkdownExec
 
       formatted_name = format(@delegate_object[:menu_link_format],
                               HashDelegator.safeval(option_name))
-      chrome_block = FCB.new(
+      chrome_block = persist_fcb(
         chrome: true,
         dname: HashDelegator.new(@delegate_object).string_send_color(
           formatted_name, :menu_chrome_color
@@ -781,7 +788,7 @@ module MarkdownExec
       chrome_blocks = link_state.inherited_lines_map do |line|
         formatted = format(@delegate_object[:menu_inherited_lines_format],
                            { line: line })
-        FCB.new(
+        persist_fcb(
           chrome: true,
           disabled: TtyMenu::DISABLE,
           dname: HashDelegator.new(@delegate_object).string_send_color(
@@ -1492,7 +1499,7 @@ module MarkdownExec
           fcb.type = type
           use_fcb = false # next line is new record
         else
-          fcb = FCB.new(
+          fcb = persist_fcb(
             center: center,
             chrome: true,
             collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
@@ -1579,7 +1586,7 @@ module MarkdownExec
       oname = format(@delegate_object[:menu_divider_format],
                      HashDelegator.safeval(@delegate_object[divider_key]))
 
-      FCB.new(
+      persist_fcb(
         chrome: true,
         disabled: TtyMenu::DISABLE,
         dname: string_send_color(oname, :menu_divider_color),
@@ -2691,7 +2698,7 @@ module MarkdownExec
          Regexp.new(@delegate_object.fetch(
                       :fenced_start_and_end_regex, '^(?<indent> *)`{3,}'
                     )),
-        fcb: MarkdownExec::FCB.new(id: 'INIT'),
+        fcb: persist_fcb(id: 'INIT'),
         in_fenced_block: false,
         headings: []
       }
@@ -3211,7 +3218,7 @@ module MarkdownExec
       #
       return unless block.nil?
 
-      chrome_block = FCB.new(
+      chrome_block = persist_fcb(
         chrome: true,
         disabled: TtyMenu::DISABLE,
         dname: HashDelegator.new(@delegate_object).string_send_color(
@@ -3368,6 +3375,12 @@ module MarkdownExec
     def pause_user_exit
       @delegate_object[:pause_after_script_execution] &&
         prompt_select_continue == MenuState::EXIT
+    end
+ 
+    def persist_fcb(options)
+      MarkdownExec::FCB.new(options).tap do |fcb|
+        @fcb_store << fcb
+      end
     end
 
     def pop_add_current_code_to_head_and_trigger_load(
@@ -4194,7 +4207,7 @@ module MarkdownExec
                    TtyMenu::ENABLE
                  end
 
-      MarkdownExec::FCB.new(
+      persist_fcb(
         body: [],
         call: rest.match(
           Regexp.new(@delegate_object[:block_calls_scan])
@@ -4319,7 +4332,9 @@ module MarkdownExec
         # add line if it is depth 0 or option allows it
         #
         HashDelegator.yield_line_if_selected(
-          line, selected_types, source_id: source_id, &block
+          line, selected_types,
+          all_fcbs: @fcb_store,
+          source_id: source_id, &block
         )
       end
     end
@@ -4531,7 +4546,8 @@ module MarkdownExec
 
       inherited_block_names = []
       inherited_dependencies = {}
-      selected = FCB.new(oname: 'load_code')
+      selected = persist_fcb(oname: 'load_code')
+
       pop_add_current_code_to_head_and_trigger_load(
         @dml_link_state, inherited_block_names,
         code_lines, inherited_dependencies, selected
