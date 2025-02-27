@@ -180,6 +180,17 @@ module MarkdownExec
 
     public
 
+    def name_in_menu!(indented_multi_line)
+      # Indent has been extracted from the first line,
+      # remove indent from the remaining lines.
+      @attrs[:dname] =
+        if @attrs[:indent].empty?
+          indented_multi_line
+        else
+          indented_multi_line.gsub("\n#{@attrs[:indent]}", "\n")
+        end
+    end
+
     def respond_to_missing?(method_name, include_private = false)
       @attrs.key?(method_name.to_sym) || super
     end
@@ -254,8 +265,8 @@ if $PROGRAM_NAME == __FILE__
   end
 
   def sort_hash_recursively(hash)
-    hash.each_with_object({}) do |(k, v), new_hash|
-      new_hash[k] = v.is_a?(Hash) ? sort_hash_recursively(v) : v
+    hash.transform_values do |v|
+      v.is_a?(Hash) ? sort_hash_recursively(v) : v
     end.sort.to_h
   end
 

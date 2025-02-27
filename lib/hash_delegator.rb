@@ -395,7 +395,8 @@ module HashDelegatorSelf
   # @param [String] line The line to be processed.
   # @param [Array<Symbol>] selected_types A list of message types to check.
   # @param [Proc] block The block to be called with the line data.
-  def yield_line_if_selected(line, selected_types, all_fcbs: nil, source_id: '', &block)
+  def yield_line_if_selected(line, selected_types, all_fcbs: nil,
+                             source_id: '', &block)
     return unless block && block_type_selected?(selected_types, :line)
 
     block.call(:line, persist_fcb_self(all_fcbs, body: [line], id: source_id))
@@ -847,22 +848,16 @@ module MarkdownExec
       end
     end
 
-    # private
-
-    def expand_references!(fcb, link_state)
-      expand_variable_references!(
-        blocks: [fcb],
-        initial_code_required: false,
-        link_state: link_state
-      )
-      expand_variable_references!(
-        blocks: [fcb],
-        echo_format: '%s',
-        group_name: :command,
-        initial_code_required: false,
-        key_format: '$(%s)',
-        link_state: link_state,
-        pattern: options_command_substitution_regexp
+    # find a block by its original (undecorated) name or nickname (not visible in menu)
+    # if matched, the block returned has properties that it is from cli and not ui
+    def block_state_for_name_from_cli(block_name)
+      SelectedBlockMenuState.new(
+        blocks_find_by_block_name(@dml_blocks_in_file, block_name),
+        OpenStruct.new(
+          block_name_from_cli: true,
+          block_name_from_ui: false
+        ),
+        MenuState::CONTINUE
       )
     end
 
@@ -918,19 +913,6 @@ module MarkdownExec
       blocks
     rescue StandardError
       HashDelegator.error_handler('blocks_from_nested_files')
-    end
-
-    # find a block by its original (undecorated) name or nickname (not visible in menu)
-    # if matched, the block returned has properties that it is from cli and not ui
-    def block_state_for_name_from_cli(block_name)
-      SelectedBlockMenuState.new(
-        blocks_find_by_block_name(@dml_blocks_in_file, block_name),
-        OpenStruct.new(
-          block_name_from_cli: true,
-          block_name_from_ui: false
-        ),
-        MenuState::CONTINUE
-      )
     end
 
     def blocks_find_by_block_name(blocks, block_name)
@@ -1389,13 +1371,18 @@ module MarkdownExec
         next if exclude_types.include?(block.type)
 
         # Scan each block name for matches of the pattern
-        ([block.oname || ''] + block.body).join("\n").scan(pattern) do |(_, _variable_name)|
+        count_named_group_occurrences_block_body_fix_indent(block).scan(pattern) do |(_, _variable_name)|
           pattern.match($LAST_MATCH_INFO.to_s) # Reapply match for named groups
           occurrence_count[$LAST_MATCH_INFO[group_name]] += 1
         end
       end
 
       occurrence_count
+    end
+
+    def count_named_group_occurrences_block_body_fix_indent(block)
+      ### actually double the entries, but not a problem since it's used as a boolean
+      ([block.oname || ''] + block.body).join("\n")
     end
 
     ##
@@ -2456,6 +2443,23 @@ module MarkdownExec
       end
     end
 
+    def expand_references!(fcb, link_state)
+      expand_variable_references!(
+        blocks: [fcb],
+        initial_code_required: false,
+        link_state: link_state
+      )
+      expand_variable_references!(
+        blocks: [fcb],
+        echo_format: '%s',
+        group_name: :command,
+        initial_code_required: false,
+        key_format: '$(%s)',
+        link_state: link_state,
+        pattern: options_command_substitution_regexp
+      )
+    end
+
     def expand_variable_references!(
       blocks:,
       echo_format: 'echo $%s',
@@ -3186,7 +3190,7 @@ module MarkdownExec
       #
       menu_blocks.each do |fcb|
         fcb.body = fcb.raw_body || fcb.body || []
-        fcb.dname = fcb.raw_dname || fcb.dname
+        fcb.name_in_menu!(fcb.raw_dname || fcb.dname)
         fcb.s0printable = fcb.raw_s0printable || fcb.s0printable
         fcb.s1decorated = fcb.raw_s1decorated || fcb.s1decorated
         expand_references!(fcb, link_state)
@@ -3376,7 +3380,7 @@ module MarkdownExec
       @delegate_object[:pause_after_script_execution] &&
         prompt_select_continue == MenuState::EXIT
     end
- 
+
     def persist_fcb(options)
       MarkdownExec::FCB.new(options).tap do |fcb|
         @fcb_store << fcb
