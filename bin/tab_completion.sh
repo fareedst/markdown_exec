@@ -12,10 +12,6 @@ __filedirs_all()
   COMPREPLY='.'
 }
 
-_mde_echo_version() {
-  echo "2.8.2"
-}
-
 _mde() {
   local cur prev opts
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -213,4 +209,3 @@ _mde() {
 }
 
 complete -o filenames -o nospace -F _mde mde
-# _mde_echo_version
