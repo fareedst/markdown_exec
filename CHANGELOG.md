@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.8.3] - 2025-02-27
+
+### Added
+
+- "echo" support to UX blocks for evaluated shell expressions
+
+  Introduces the `echo` key to UX blocks, allowing the output of an
+  evaluated shell expression to be assigned to a named variable.
+  Implements `export_echo_with_code` to execute the expression safely
+  and handle invalidated outputs. Also ensures proper transformation of
+  export values.
+
+- Persist allocated FCBs.
+
+- Read-only flag to UX menu blocks
+
+  Introduces a `readonly` flag for UX menu blocks, allowing exports to
+  specify whether a block should be immutable. The flag is assigned from
+  the export definition and enforced in the menu logic.
+
+### Changed
+
+- Correct indent of all lines displayed for a block.
+- Retain whitespace in output from shell blocks.
+- Remove a function to report the compiled version from the tab completion script. It is not used.
+
 ## [2.8.2] - 2025-02-19
 
 ### Added
