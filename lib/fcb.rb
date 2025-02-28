@@ -26,6 +26,7 @@ def parse_yaml_of_ux_block(
     name: name,
     preconditions: export['preconditions'],
     prompt: export['prompt'] || prompt,
+    readonly: export['readonly'].nil? ? false : export['readonly'],
     transform: export['transform'],
     validate: export['validate'] || validate
   )
@@ -138,6 +139,7 @@ module MarkdownExec
 
           @attrs[:center] = table_center
           oname = @attrs[:oname] = format(export.menu_format, export.to_h)
+          @attrs[:readonly] = export.readonly
         else
           # triggered by an empty block
           raise "Invalid data type: #{data.inspect}"

@@ -127,8 +127,9 @@ module MarkdownExec
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
       filters[:shell_default] = (fcb.type == BlockType::SHELL)
 
-      if options[:block_disable_match].present? &&
-         fcb.start_line =~ Regexp.new(options[:block_disable_match])
+      if fcb.readonly ||
+         (options[:block_disable_match].present? &&
+          fcb.start_line =~ Regexp.new(options[:block_disable_match]))
         fcb.disabled = TtyMenu::DISABLE
       end
       return unless name.present?
