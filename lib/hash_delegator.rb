@@ -848,19 +848,6 @@ module MarkdownExec
       end
     end
 
-    # find a block by its original (undecorated) name or nickname (not visible in menu)
-    # if matched, the block returned has properties that it is from cli and not ui
-    def block_state_for_name_from_cli(block_name)
-      SelectedBlockMenuState.new(
-        blocks_find_by_block_name(@dml_blocks_in_file, block_name),
-        OpenStruct.new(
-          block_name_from_cli: true,
-          block_name_from_ui: false
-        ),
-        MenuState::CONTINUE
-      )
-    end
-
     # Iterates through nested files to collect various types
     #  of blocks, including dividers, tasks, and others.
     # The method categorizes blocks based on their type and processes them accordingly.
@@ -913,17 +900,6 @@ module MarkdownExec
       blocks
     rescue StandardError
       HashDelegator.error_handler('blocks_from_nested_files')
-    end
-
-    def blocks_find_by_block_name(blocks, block_name)
-      @dml_blocks_in_file.find do |item|
-        # 2024-08-04 match oname for long block names
-        # 2024-08-04 match nickname for long block names
-        block_name == item.pub_name || block_name == item.nickname || block_name == item.oname
-      end || @dml_menu_blocks.find do |item|
-        # 2024-08-22 search in menu blocks to allow matching of automatic chrome with nickname
-        block_name == item.pub_name || block_name == item.nickname || block_name == item.oname
-      end
     end
 
     def build_menu_options(exit_option, display_mode_option,
@@ -2006,7 +1982,7 @@ module MarkdownExec
     end
 
     def execute_block_in_state(block_name)
-      @dml_block_state = block_state_for_name_from_cli(block_name)
+      @dml_block_state = find_block_state_by_name(block_name)
       dump_and_warn_block_state(name: block_name,
                                 selected: @dml_block_state.block)
       next_block_state =
@@ -2568,6 +2544,31 @@ module MarkdownExec
       end
 
       { size: file_size, lines: line_count }
+    end
+
+    # Search in @dml_blocks_in_file first,
+    # fallback to @dml_menu_blocks if not found.
+    def find_block_by_name(blocks, block_name)
+      match_block = ->(item) do
+        [item.pub_name, item.nickname,
+         item.oname, item.s2title].include?(block_name)
+      end
+
+      @dml_blocks_in_file.find(&match_block) ||
+       @dml_menu_blocks.find(&match_block)
+    end
+
+    # find a block by its original (undecorated) name or nickname (not visible in menu)
+    # if matched, the block returned has properties that it is from cli and not ui
+    def find_block_state_by_name(block_name)
+      SelectedBlockMenuState.new(
+        find_block_by_name(@dml_blocks_in_file, block_name),
+        OpenStruct.new(
+          block_name_from_cli: true,
+          block_name_from_ui: false
+        ),
+        MenuState::CONTINUE
+      )
     end
 
     def format_and_execute_command(
@@ -4412,7 +4413,7 @@ module MarkdownExec
     end
 
     def vux_execute_and_prompt(block_name)
-      @dml_block_state = block_state_for_name_from_cli(block_name)
+      @dml_block_state = find_block_state_by_name(block_name)
       if @dml_block_state.block &&
          @dml_block_state.block.type == BlockType::OPTS
         debounce_reset
@@ -4854,7 +4855,7 @@ module MarkdownExec
     def vux_user_selected_block_name
       if @dml_link_state.block_name.present?
         # @prior_block_was_link = true
-        @dml_block_state.block = blocks_find_by_block_name(
+        @dml_block_state.block = find_block_by_name(
           @dml_blocks_in_file,
           @dml_link_state.block_name
         )
