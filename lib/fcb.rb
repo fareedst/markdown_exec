@@ -181,8 +181,6 @@ module MarkdownExec
       raise err
     end
 
-    public
-
     def name_in_menu!(indented_multi_line)
       # Indent has been extracted from the first line,
       # remove indent from the remaining lines.

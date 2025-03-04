@@ -45,14 +45,6 @@ require_relative 'text_analyzer'
 $pd = false unless defined?($pd)
 $table_cell_truncate = true
 
-class String
-  # Checks if the string is not empty.
-  # @return [Boolean] Returns true if the string is not empty, false otherwise.
-  def non_empty?
-    !empty?
-  end
-end
-
 module HashDelegatorSelf
   # Applies an ANSI color method to a string using a specified color key.
   # The method retrieves the color method from the provided hash. If the

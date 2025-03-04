@@ -19,3 +19,14 @@ module StringUtil
     end
   end
 end
+
+class String
+  unless method_defined?(:present?)
+    # Checks if the string contains any non-whitespace characters.
+    # @return [Boolean] Returns true if the string contains non-whitespace
+    # characters, false otherwise.
+    def present?
+      !strip.empty?
+    end
+  end
+end

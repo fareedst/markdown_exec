@@ -20,7 +20,7 @@ class AnsiString < String
         segments[0..-2].each do |segment|
           codes += "\033[#{segment.split('_').join(';')}m"
         end
-        codes += self.to_s
+        codes += to_s
         codes += "\033[#{segments.last.split('_').join(';')}m"
         self.class.new(codes)
       when /^fg_bg_rgb_/
