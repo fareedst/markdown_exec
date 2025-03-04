@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
+require 'bundler/setup'  # Bundler enforces gem versions
 require 'pp'
 require 'stringio'
 
@@ -15,7 +16,8 @@ if $debug && ENV['WW_MINIMUM'].nil?
 end
 
 def ww(*objs, **kwargs)
-  return objs.size == 1 ? objs.first : objs unless $debug
+  # return the last item in the list, as the label is usually first
+  return objs.last unless $debug
 
   ww0(*objs, **kwargs.merge(locations: caller_locations))
 end
@@ -76,7 +78,8 @@ def ww0(*objs,
     file.puts(formatted_message)
   end
 
-  objs.size == 1 ? objs.first : objs
+  # return the last item in the list, as the label is usually first
+  objs.last
 end
 
 class Array
