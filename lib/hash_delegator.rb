@@ -158,7 +158,7 @@ module HashDelegatorSelf
   #  (default is an empty string).
   # @return [String] A single string with each line indented as specified.
   def indent_all_lines(body, indent = nil)
-    return body unless indent&.non_empty?
+    return body unless indent&.present?
 
     body.lines.map { |line| indent + line.chomp }.join("\n")
   end
@@ -2483,7 +2483,7 @@ module MarkdownExec
 
     def export_echo_with_code(export, inherited_code, code_lines, required)
       value = execute_temporary_script(
-        %Q{eval printf '%s' "#{export.echo}"},
+        %(eval printf '%s' "#{export.echo}"),
         (inherited_code || []) +
          code_lines + required[:code]
       )
@@ -2547,7 +2547,7 @@ module MarkdownExec
       end
 
       @dml_blocks_in_file.find(&match_block) ||
-       @dml_menu_blocks.find(&match_block)
+        @dml_menu_blocks.find(&match_block)
     end
 
     # find a block by its original (undecorated) name or nickname (not visible in menu)
@@ -3791,27 +3791,6 @@ module MarkdownExec
       end&.compact
     end
 
-    def saved_asset_for_history(
-      file:, form:, match_info:
-    )
-      OpenStruct.new(
-        file: file[(Dir.pwd.length + 1)..-1],
-        full: file,
-        row: format(
-          form,
-          # default '*' so unknown parameters are given a wildcard
-          match_info.names.each_with_object(Hash.new('*')) do |name, hash|
-            hash[name.to_sym] = match_info[name]
-          end
-        )
-      )
-    rescue KeyError
-      # pp $!, $@
-      warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
-      error_handler('saved_history_format')
-      :break
-    end
-
     # Processes YAML data from the selected menu item, updating delegate
     #  objects and optionally printing formatted output.
     # @param selected [Hash] Selected item from the menu containing a YAML body.
@@ -3866,8 +3845,8 @@ module MarkdownExec
     #      console [height, width]. If not provided or if the terminal
     #      is resized, it will be set to the current console dimensions.
     #   - :select_page_height [Integer, nil] The height of the page for
-    #      selection. If not provided or if not positive, it will be set
-    #      to the maximum of (console height - 3) or 4.
+    #      selection. If not provided or if not positive, it
+    #      will be set to the maximum of (console height - 3) or 4.
     #   - :per_page [Integer, nil] The number of items per page. If
     #      :select_page_height is not provided or if not positive, it
     #      will be set to the maximum of (console height - 3) or 4.
@@ -4029,6 +4008,27 @@ module MarkdownExec
             shell: shell
           )
       ).generate_name
+    end
+
+    def saved_asset_for_history(
+      file:, form:, match_info:
+    )
+      OpenStruct.new(
+        file: file[(Dir.pwd.length + 1)..-1],
+        full: file,
+        row: format(
+          form,
+          # default '*' so unknown parameters are given a wildcard
+          match_info.names.each_with_object(Hash.new('*')) do |name, hash|
+            hash[name.to_sym] = match_info[name]
+          end
+        )
+      )
+    rescue KeyError
+      # pp $!, $@
+      warn "Cannot format with: #{@delegate_object[:saved_history_format]}"
+      error_handler('saved_history_format')
+      :break
     end
 
     def screen_width
