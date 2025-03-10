@@ -92,10 +92,7 @@ module MarkdownExec
       # select blocks in order of appearance in source documents
       #
       blocks = @table.select do |fcb|
-        # 2024-08-04 match nickname
-        all_dependency_names.include?(fcb.pub_name) ||
-          all_dependency_names.include?(fcb.nickname) ||
-          all_dependency_names.include?(fcb.oname)
+        fcb.is_dependency_of?(all_dependency_names)
       end
       # !!t blocks.count
 
@@ -103,12 +100,7 @@ module MarkdownExec
       #
       unmet_dependencies = all_dependency_names.dup
       blocks = blocks.map do |fcb|
-        # 2024-08-04 match oname for long block names
-        # 2024-08-04 match nickname
-        # may not exist if block name is duplicated
-        unmet_dependencies.delete(fcb.pub_name) ||
-          unmet_dependencies.delete(fcb.nickname) ||
-          unmet_dependencies.delete(fcb.oname)
+        fcb.delete_matching_name!(unmet_dependencies)
         if (call = fcb.call)
           fcb1 = get_block_by_anyname("[#{call.match(/^%\((\S+) |\)/)[1]}]")
           fcb1.cann = call
@@ -333,12 +325,8 @@ module MarkdownExec
     # @return [Hash] The code block as a hash or the default value if not found.
     #
     def get_block_by_anyname(name, default = {})
-      # !!t name
       @table.select do |fcb|
-        fcb.nickname == name ||
-          fcb.dname == name ||
-          fcb.oname == name ||
-          fcb.pub_name == name
+        fcb.is_named?(name)
       end.fetch(0, default)
     end
 
@@ -528,7 +516,7 @@ if $PROGRAM_NAME == __FILE__
           { oname: 'block2', body: ['code for block2'], reqs: nil },
           { oname: 'block3', body: ['code for block3'], reqs: ['block1'] }
         ].map do |row|
-          OpenStruct.new(nickname: nil, **row)
+          FCB.new(nickname: nil, **row)
         end
         @doc = MDoc.new(@table)
       end

@@ -74,6 +74,19 @@ module MarkdownExec
       @attrs.delete(key)
     end
 
+    # Removes and returns the first matching name from dependencies collection
+    # Checks nickname, oname, pub_name and s2title
+    # 2024-08-04 match oname for long block names
+    # 2024-08-04 match nickname
+    # may not exist if block name is duplicated
+    def delete_matching_name!(dependencies)
+      dependencies.delete(@attrs[:dname]) ||
+       dependencies.delete(@attrs[:nickname]) ||
+       dependencies.delete(@attrs[:oname]) ||
+       dependencies.delete(@attrs.pub_name) ||
+       dependencies.delete(@attrs[:s2title])
+    end
+
     # Derives a title from the body of an FCB object.
     # @param fcb [Object] The FCB object whose title is to be derived.
     # @return [String] The derived title.
@@ -161,6 +174,24 @@ module MarkdownExec
       body_lines.map.with_index do |line, index|
         index.zero? ? line : "  #{line}"
       end.join("\n") << "\n"
+    end
+
+    # :reek:ManualDispatch
+    # 2024-08-04 match nickname
+    def is_dependency_of?(dependency_names)
+      dependency_names.include?(@attrs[:dname]) ||
+       dependency_names.include?(@attrs[:nickname]) ||
+       dependency_names.include?(@attrs[:oname]) ||
+       dependency_names.include?(@attrs.pub_name) ||
+       dependency_names.include?(@attrs[:s2title])
+    end
+
+    def is_named?(name)
+      @attrs[:dname] == name ||
+       @attrs[:nickname] == name ||
+       @attrs[:oname] == name ||
+       @attrs.pub_name == name ||
+       @attrs[:s2title] == name
     end
 
     # :reek:ManualDispatch
