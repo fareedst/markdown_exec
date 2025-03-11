@@ -982,6 +982,21 @@ module MarkdownExec
       ]
     end
 
+    # Executes the allowed exec command and processes the output
+    # @param export [Object] The export configuration object
+    # @param inherited_code [Array] The inherited code lines
+    # @param code_lines [Array] The code lines to append to
+    # @param required [Hash] Required code information
+    # @return [String, Symbol] The command output or :ux_exec_prohibited if execution failed
+    def process_allowed_exec(export, inherited_code, code_lines, required)
+      output = export_exec_with_code(
+        export, inherited_code, code_lines, required
+      )
+      return :ux_exec_prohibited if output == :invalidated
+
+      output.split("\n")
+    end
+
     # parse YAML body defining the UX for a single variable
     # set ENV value for the variable and return code lines for the same
     def code_from_ux_block_to_set_environment_variables(
@@ -1016,103 +1031,30 @@ module MarkdownExec
           end
 
           exportable = true
+          transformable = true
           if only_default
-            value = case export.default
-                    # echo > default
-                    when :echo
-                      raise unless export.echo.present?
-
-                      output = export_echo_with_code(
-                        export, inherited_code, code_lines, required
-                      )
-                      if output == :invalidated
-                        return :ux_exec_prohibited
-                      end
-
-                      transform_export_value(output, export)
-
-                    # exec > default
-                    when :exec
-                      raise unless export.exec.present?
-
-                      output = export_exec_with_code(
-                        export, inherited_code, code_lines, required
-                      )
-                      if output == :invalidated
-                        return :ux_exec_prohibited
-                      end
-
-                      transform_export_value(output, export)
-
-                    # default
-                    else
-                      export.default.to_s
-                    end
+            value, transformable =
+              ux_block_export_automatic(
+                export, inherited_code, code_lines, required
+              )
           else
-            value = nil
-
-            # echo > exec
-            if export.echo
-              value = export_echo_with_code(
-                export, inherited_code, code_lines, required
+            value, exportable, transformable =
+              ux_block_export_activated(
+                export, inherited_code, code_lines, required, exit_prompt
               )
-              if value == :invalidated
-                return :ux_exec_prohibited
-              end
+          end
+          return :ux_exec_prohibited if value == :ux_exec_prohibited
 
-            # exec > allowed
-            elsif export.exec
-              value = export_exec_with_code(
-                export, inherited_code, code_lines, required
-              )
-              if value == :invalidated
-                return :ux_exec_prohibited
-              end
-
-            # allowed > prompt
-            elsif export.allowed && export.allowed.count.positive?
-              case (choice = prompt_select_code_filename(
-                [exit_prompt] + export.allowed,
-                string: export.prompt,
-                color_sym: :prompt_color_after_script_execution
-              ))
-              when exit_prompt
-                exportable = false
-              else
-                value = choice
-              end
-
-            # prompt > default
-            elsif export.prompt.present?
-              begin
-                loop do
-                  print "#{export.prompt} [#{export.default}]: "
-                  value = gets.chomp
-                  value = export.default.to_s if value.empty?
-                  caps = NamedCaptureExtractor.extract_named_groups(value,
-                                                                    export.validate)
-                  break if caps
-
-                  # invalid input, retry
-                end
-              rescue Interrupt
-                exportable = false
-              end
-
-            # default
-            else
-              value = export.default
+          if SelectResponse.continue?(value)
+            if transformable
+              value = transform_export_value(value, export)
             end
 
             if exportable
-              value = transform_export_value(value, export)
+              ENV[export.name] = value.to_s
+              code_lines.push code_line_safe_assign(export.name, value,
+                                                    force: force)
             end
-          end
-
-          if exportable
-            ENV[export.name] = value.to_s
-            code_lines.push code_line_safe_assign(export.name, value,
-                                                  force: force)
           end
         else
           raise "Invalid data type: #{data.inspect}"
@@ -2756,7 +2698,7 @@ module MarkdownExec
           menu_entries, current_display_format
         )
 
-        selection = prompt_select_code_filename(
+        selection = prompt_select_from_list(
           menu_options,
           string: menu_title,
           color_sym: :prompt_color_after_script_execution
@@ -3116,7 +3058,7 @@ module MarkdownExec
       else
         ## user selects from existing files or other
         #
-        case (name = prompt_select_code_filename(
+        case (name = prompt_select_from_list(
           [@delegate_object[:prompt_filespec_back]] + files,
           string: @delegate_object[:prompt_select_code_file],
           color_sym: :prompt_color_after_script_execution
@@ -3295,6 +3237,19 @@ module MarkdownExec
         format(@delegate_object[:menu_chrome_format], option_value)
       else
         option_value
+      end
+    end
+
+    def menu_from_list_with_back(list)
+      case (name = prompt_select_from_list(
+        [@delegate_object[:prompt_filespec_back]] + list,
+        string: @delegate_object[:prompt_select_code_file],
+        color_sym: :prompt_color_after_script_execution
+      ))
+      when @delegate_object[:prompt_filespec_back]
+        SelectResponse::BACK
+      else
+        name
       end
     end
 
@@ -3678,9 +3633,22 @@ module MarkdownExec
       0
     end
 
+    def prompt_select_continue(filter: true, quiet: true)
+      sel = @prompt.select(
+        string_send_color(@delegate_object[:prompt_after_script_execution],
+                          :prompt_color_after_script_execution),
+        filter: filter,
+        quiet: quiet
+      ) do |menu|
+        menu.choice @delegate_object[:prompt_yes]
+        menu.choice @delegate_object[:prompt_exit]
+      end
+      sel == @delegate_object[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
+    end
+
     # public
 
-    def prompt_select_code_filename(
+    def prompt_select_from_list(
       filenames,
       color_sym: :prompt_color_after_script_execution,
       cycle: true,
@@ -3704,19 +3672,6 @@ module MarkdownExec
           end
         end
       end
-    end
-
-    def prompt_select_continue(filter: true, quiet: true)
-      sel = @prompt.select(
-        string_send_color(@delegate_object[:prompt_after_script_execution],
-                          :prompt_color_after_script_execution),
-        filter: filter,
-        quiet: quiet
-      ) do |menu|
-        menu.choice @delegate_object[:prompt_yes]
-        menu.choice @delegate_object[:prompt_exit]
-      end
-      sel == @delegate_object[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
     end
 
     # user prompt to exit if the menu will be displayed again
@@ -3974,7 +3929,7 @@ module MarkdownExec
         ## user selects from existing files or other
         # input into path with wildcard for easy entry
         #
-        case (name = prompt_select_code_filename(
+        case (name = prompt_select_from_list(
           [@delegate_object[:prompt_filespec_back],
            @delegate_object[:prompt_filespec_other]] + files,
           string: @delegate_object[:prompt_select_code_file],
@@ -4378,6 +4333,144 @@ module MarkdownExec
       # under simple uses, @menu_base_options may be nil
       @menu_base_options&.merge!(options)
       @delegate_object.merge!(options)
+    end
+
+    def ux_block_export_activated(export, inherited_code, code_lines, required,
+                                  exit_prompt)
+      exportable = true
+      transformable = true
+      [if export.allowed.present?
+         if export.allowed == :echo
+           output = export_echo_with_code(
+             export, inherited_code, code_lines, required
+           )
+           return :ux_exec_prohibited if output == :invalidated
+
+           menu_from_list_with_back(output.split("\n"))
+
+         elsif export.allowed == :exec
+           output = process_allowed_exec(export, inherited_code,
+                                         code_lines, required)
+           return :ux_exec_prohibited if output == :ux_exec_prohibited
+
+           menu_from_list_with_back(output)
+
+         else
+           menu_from_list_with_back(export.allowed)
+         end
+
+       # echo > exec
+       elsif export.echo
+         output = export_echo_with_code(
+           export, inherited_code, code_lines, required
+         )
+         return :ux_exec_prohibited if output == :invalidated
+
+         output
+
+       # exec > allowed
+       elsif export.exec
+         output = export_exec_with_code(
+           export, inherited_code, code_lines, required
+         )
+         return :ux_exec_prohibited if output == :invalidated
+
+         output
+
+       # allowed > prompt
+       elsif export.allowed && export.allowed.count.positive?
+         case (choice = prompt_select_from_list(
+           [exit_prompt] + export.allowed,
+           string: export.prompt,
+           color_sym: :prompt_color_after_script_execution
+         ))
+         when exit_prompt
+           exportable = false
+           transformable = false
+           nil
+         else
+           choice
+         end
+
+       # prompt > default
+       elsif export.prompt.present?
+         begin
+           loop do
+             print "#{export.prompt} [#{export.default}]: "
+             output = gets.chomp
+             output = export.default.to_s if output.empty?
+             caps = NamedCaptureExtractor.extract_named_groups(output,
+                                                               export.validate)
+             break if caps
+
+             # invalid input, retry
+           end
+         rescue Interrupt
+           exportable = false
+           transformable = false
+         end
+
+         output
+
+       # default
+       else
+         transformable = false
+         export.default
+       end, exportable, transformable]
+    end
+
+    def ux_block_export_automatic(export, inherited_code, code_lines, required)
+      transformable = true
+      [case export.default
+       when :allowed
+         raise unless export.allowed.present?
+
+         if export.allowed == :echo
+           output = export_echo_with_code(
+             export, inherited_code, code_lines, required
+           )
+           return :ux_exec_prohibited if output == :invalidated
+
+           output.split("\n").first
+
+         elsif export.allowed == :exec
+           output = process_allowed_exec(export, inherited_code,
+                                         code_lines, required)
+           return :ux_exec_prohibited if output == :ux_exec_prohibited
+
+           output.first
+
+         else
+           export.allowed.first
+         end
+
+       # echo > default
+       when :echo
+         raise unless export.echo.present?
+
+         output = export_echo_with_code(
+           export, inherited_code, code_lines, required
+         )
+         return :ux_exec_prohibited if output == :invalidated
+
+         output
+
+       # exec > default
+       when :exec
+         raise unless export.exec.present?
+
+         output = export_exec_with_code(
+           export, inherited_code, code_lines, required
+         )
+         return :ux_exec_prohibited if output == :invalidated
+
+         output
+
+       # default
+       else
+         transformable = false
+         export.default.to_s
+       end, transformable]
     end
 
     def vux_await_user_selection(prior_answer: @dml_block_selection)

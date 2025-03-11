@@ -103,6 +103,24 @@ end
 BlockSelection = Struct.new(:id)
 SelectedBlockMenuState = Struct.new(:block, :source, :state)
 
+# user responses to prompts to choose
+class SelectResponse
+  def initialize(value)
+    @value = value
+  end
+
+  def continue?
+    @value == OK
+  end
+
+  def self.continue?(value)
+    !value.is_a?(SelectResponse) || value.continue?
+  end
+end
+
+SelectResponse::BACK = SelectResponse.new(:back)
+SelectResponse::OK = SelectResponse.new(:ok)
+
 class TtyMenu
   ENABLE = nil
   DISABLE = ''
