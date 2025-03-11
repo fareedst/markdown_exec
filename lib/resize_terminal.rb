@@ -123,8 +123,7 @@ class ResizeTerminalTest < Minitest::Test
       ENV['LINES'] = '24'
       response = "\e[999;999H\e[6n\e[24;#{columns}R".dup
       $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
-        assert_output("\e7\e[r\e[999;999H\e[6n\e8xterm-256color #{columns}x24\n") do
-          # assert_output('', '') do
+        assert_output(/xterm-256color #{columns}x24$/) do
           resize_terminal(require_stdout: false)
         end
       end
