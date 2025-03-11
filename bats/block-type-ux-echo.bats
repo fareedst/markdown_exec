@@ -13,8 +13,8 @@ load 'test_helper'
    'VAR=markdown_exec_VAR=markdown_exec_IAB='
 }
 
-@test 'selected block' {
+@test 'selected block - output of wc includes whitespace' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-echo.md \
    '(VAR_has_count)' '[IAB_has_count]' \
-   'VAR=14_IAB=1414'
+   'VAR=14_IAB=14 14'
 }

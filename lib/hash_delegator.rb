@@ -2482,7 +2482,7 @@ module MarkdownExec
     end
 
     def export_echo_with_code(export, inherited_code, code_lines, required)
-      code = %(eval echo #{Shellwords.escape export.echo})
+      code = %(printf '%s' "#{export.echo}")
       value = execute_temporary_script(
         code,
         (inherited_code || []) +
@@ -2491,7 +2491,7 @@ module MarkdownExec
       if value == :invalidated
         warn "A value must exist for: #{export.preconditions.join(', ')}"
       end
-      value.chomp
+      value
     end
 
     def export_exec_with_code(export, inherited_code, code_lines, required)
