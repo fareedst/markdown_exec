@@ -178,9 +178,13 @@ spec_mde_args_grep_filter_expect () {
   SL="${BATS_SLEEP}"
 
   if [[ -z $SL ]]; then
-    echo >&2 $EXE "${remaining[@]}"
+    debug_args=()
+    for arg in "${remaining[@]}"; do
+      escaped_arg=$(printf '%q' "$arg")
+      debug_args+=("$escaped_arg")
+    done
+    echo >&2 $EXE "${debug_args[@]}"
 
-    # Pass the exact arguments including empty and space-containing ones
     run $EXE "${remaining[@]}"
   else
     bash -c "
