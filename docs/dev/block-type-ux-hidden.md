@@ -1,4 +1,4 @@
-/ a UX block that requires a shell block and another UX block
+/ a UX block requires a shell block and another UX block
 ``` :(shell)
 ENTITY='Pongo tapanuliensis,Pongo'
 ```

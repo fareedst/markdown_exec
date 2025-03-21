@@ -1034,10 +1034,8 @@ module MarkdownExec
             code_lines.push "[[ -z $#{precondition} ]] && exit 1"
           end
 
-          exportable = true
-          transformable = true
           if only_default
-            value, transformable =
+            value, exportable, transformable =
               ux_block_export_automatic(
                 export, inherited_code, code_lines, required
               )
@@ -2427,8 +2425,9 @@ module MarkdownExec
       expand_blocks_with_replacements(blocks, replacements)
     end
 
-    def export_echo_with_code(export, inherited_code, code_lines, required)
-      code = %(printf '%s' "#{export.echo}")
+    def export_echo_with_code_single(export_echo, inherited_code, code_lines,
+                                     required)
+      code = %(printf '%s' "#{export_echo}")
       value = execute_temporary_script(
         code,
         (inherited_code || []) +
@@ -2438,6 +2437,26 @@ module MarkdownExec
         warn "A value must exist for: #{export.preconditions.join(', ')}"
       end
       value
+    end
+
+    def export_echo_with_code(export, inherited_code, code_lines, required,
+                              force:)
+      exportable = true
+      case export.echo
+      when String
+        value = export_echo_with_code_single(export.echo, inherited_code,
+                                             code_lines, required)
+      when Hash
+        # each item in the hash is a variable name and value
+        export.echo.each do |name, expression|
+          value = export_echo_with_code_single(expression, inherited_code,
+                                               code_lines, required)
+          ENV[name] = value.to_s
+          code_lines.push code_line_safe_assign(name, value, force: force)
+        end
+        exportable = false
+      end
+      [value, exportable]
     end
 
     def export_exec_with_code(export, inherited_code, code_lines, required)
@@ -2801,7 +2820,8 @@ module MarkdownExec
                                                   nil),
             end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
             scan1: @delegate_object.fetch(:output_assignment_match, nil),
-            format1: @delegate_object.fetch(:output_assignment_format, nil)
+            format1: @delegate_object.fetch(:output_assignment_format, nil),
+            name: ''
           )
 
         else
@@ -3498,7 +3518,7 @@ module MarkdownExec
     # private
 
     def process_string_array(arr, begin_pattern: nil, end_pattern: nil, scan1: nil,
-                             format1: nil)
+                             format1: nil, name: '')
       in_block = !begin_pattern.present?
       collected_lines = []
 
@@ -3520,6 +3540,9 @@ module MarkdownExec
                 collected_lines << formatted
               end
             end
+          elsif format1.present?
+            formatted = format(format1, { value: line })
+            collected_lines << formatted
           else
             collected_lines << line
           end
@@ -4353,8 +4376,8 @@ module MarkdownExec
       transformable = true
       [if export.allowed.present?
          if export.allowed == :echo
-           output = export_echo_with_code(
-             export, inherited_code, code_lines, required
+           output, exportable = export_echo_with_code(
+             export, inherited_code, code_lines, required, force: true
            )
            return :ux_exec_prohibited if output == :invalidated
 
@@ -4373,8 +4396,8 @@ module MarkdownExec
 
        # echo > exec
        elsif export.echo
-         output = export_echo_with_code(
-           export, inherited_code, code_lines, required
+         output, exportable = export_echo_with_code(
+           export, inherited_code, code_lines, required, force: true
          )
          return :ux_exec_prohibited if output == :invalidated
 
@@ -4433,17 +4456,18 @@ module MarkdownExec
 
     def ux_block_export_automatic(export, inherited_code, code_lines, required)
       transformable = true
+      exportable = true
       [case export.default
        when :allowed
          raise unless export.allowed.present?
 
          if export.allowed == :echo
-           output = export_echo_with_code(
-             export, inherited_code, code_lines, required
+           output, exportable = export_echo_with_code(
+             export, inherited_code, code_lines, required, force: false
            )
            return :ux_exec_prohibited if output == :invalidated
 
-           output.split("\n").first
+           exportable && output.split("\n").first
 
          elsif export.allowed == :exec
            output = process_allowed_exec(export, inherited_code,
@@ -4460,8 +4484,8 @@ module MarkdownExec
        when :echo
          raise unless export.echo.present?
 
-         output = export_echo_with_code(
-           export, inherited_code, code_lines, required
+         output, exportable = export_echo_with_code(
+           export, inherited_code, code_lines, required, force: false
          )
          return :ux_exec_prohibited if output == :invalidated
 
@@ -4482,7 +4506,9 @@ module MarkdownExec
        else
          transformable = false
          export.default.to_s
-       end, transformable]
+       end,
+       exportable,
+       transformable]
     end
 
     def vux_await_user_selection(prior_answer: @dml_block_selection)
