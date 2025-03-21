@@ -30,10 +30,12 @@ require_relative 'hash_delegator'
 require_relative 'input_sequencer'
 require_relative 'markdown_exec/version'
 require_relative 'mdoc'
+require_relative 'null_result'
 require_relative 'option_value'
 require_relative 'saved_assets'
 require_relative 'saved_files_matcher'
 require_relative 'shared'
+require_relative 'success_result'
 require_relative 'tap'
 
 include CLI

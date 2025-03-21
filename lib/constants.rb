@@ -110,7 +110,7 @@ class SelectResponse
   end
 
   def continue?
-    @value == OK
+    @value == :ok
   end
 
   def self.continue?(value)

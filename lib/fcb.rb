@@ -154,8 +154,8 @@ module MarkdownExec
           oname = @attrs[:oname] = format(export.menu_format, export.to_h)
           @attrs[:readonly] = export.readonly
         else
-          # triggered by an empty block
-          raise "Invalid data type: #{data.inspect}"
+          # triggered by an empty or non-YAML block
+          return NullResult.new(message: 'Invalid YAML', data: data)
         end
       end
 
@@ -163,6 +163,8 @@ module MarkdownExec
         (yield oname, BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]),
         @attrs[:indent]
       )
+
+      SuccessResult.instance
     end
 
     # Formats multiline body content as a title string.
