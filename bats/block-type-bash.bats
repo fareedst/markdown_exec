@@ -2,8 +2,6 @@
 
 load 'test_helper'
 
-# Type: Bash
-
 @test 'Bash blocks - default' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/block-type-bash.md block-with-no-shell-type \
@@ -37,27 +35,4 @@ load 'test_helper'
   unset MDE_BLOCK_TYPE_DEFAULT
   spec_mde_args_expect docs/dev/block-type-bash.md \[show-shell-version\] \
    ' detected_shell: bash'
-}
-
-# Type: Link
-
-@test 'Link blocks - set variable in link block; call hidden block' {
-  # __Exit is required as last block is a Link type
-  run_mde_specs_md_args_expect_xansi '[VARIABLE1]' __Exit ' VARIABLE1: 1'
-  run_mde_specs_md_args_expect_xansi '[VARIABLE1]' '(echo-VARIABLE1)' ' VARIABLE1: 1   VARIABLE1: 1'
-}
-
-# Type: Port
-
-# includes output from assignment and from shell block
-@test 'Port block - export variable' {
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-port.md '[set_vault_1]' show \
-   'VAULT = 1  VAULT: 1'
-}
-
-@test 'Port block - export variable - not set' {
-  BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/block-type-port.md VAULT-is-export show \
-   '   VAULT: This variable has not been set.'
 }
