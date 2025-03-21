@@ -854,12 +854,15 @@ module MarkdownExec
 
       count = 0
       blocks = []
+      results = {}
       iter_blocks_from_nested_files do |btype, fcb|
         count += 1
         case btype
         when :blocks
+          result = SuccessResult.instance
           if @delegate_object[:bash]
-            fcb.for_menu!(
+            # prepare block for menu, may fail and call HashDelegator.error_handler
+            result = fcb.for_menu!(
               block_calls_scan: @delegate_object[:block_calls_scan],
               block_name_match: @delegate_object[:block_name_match],
               block_name_nick_match: @delegate_object[:block_name_nick_match],
@@ -870,10 +873,11 @@ module MarkdownExec
             ) do |oname, color|
               apply_block_type_color_option(oname, color)
             end
+            results[fcb.id] = result if result.failure?
           else
             expand_references!(fcb, link_state)
           end
-          blocks << fcb
+          blocks << fcb unless result.failure?
         when :filter # types accepted
           %i[blocks line]
         when :line
@@ -888,9 +892,9 @@ module MarkdownExec
           end
         end
       end
-      # !!t blocks.count
-      blocks
+      OpenStruct.new(blocks: blocks, results: results)
     rescue StandardError
+      # ww $@, $!,
       HashDelegator.error_handler('blocks_from_nested_files')
     end
 
@@ -2754,7 +2758,7 @@ module MarkdownExec
     def iter_source_blocks(source, source_id: nil, &block)
       case source
       when 1
-        blocks_from_nested_files(source_id: source_id).each(&block)
+        blocks_from_nested_files(source_id: source_id).blocks.each(&block)
       when 2
         @dml_blocks_in_file.each(&block)
       when 3
@@ -3089,11 +3093,19 @@ module MarkdownExec
     end
 
     def mdoc_and_blocks_from_nested_files(source_id: nil)
-      menu_blocks = blocks_from_nested_files(source_id: source_id)
-      mdoc = MDoc.new(menu_blocks) do |nopts|
+      blocks_results = blocks_from_nested_files(source_id: source_id)
+
+      blocks_results.results.select do |_id, result|
+        result.failure?
+      end.each do |id, result|
+        HashDelegator.error_handler("#{id} - #{result.to_yaml}")
+      end
+
+      mdoc = MDoc.new(blocks_results.blocks) do |nopts|
         @delegate_object.merge!(nopts)
       end
-      [menu_blocks, mdoc]
+
+      [blocks_results.blocks, mdoc]
     end
 
     ## Handles the file loading and returns the blocks
@@ -5410,7 +5422,7 @@ module MarkdownExec
     end
 
     def test_blocks_from_nested_files
-      result = @hd.blocks_from_nested_files
+      result = @hd.blocks_from_nested_files.blocks
       assert_kind_of Array, result
       assert_kind_of FCB, result.first
     end
@@ -5419,7 +5431,7 @@ module MarkdownExec
       @hd = HashDelegator.new(no_chrome: true)
       @hd.expects(:create_and_add_chrome_blocks).never
 
-      result = @hd.blocks_from_nested_files
+      result = @hd.blocks_from_nested_files.blocks
 
       assert_kind_of Array, result
     end

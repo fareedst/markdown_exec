@@ -92,7 +92,7 @@ RSpec.describe 'MarkdownExec' do
     MarkdownExec::MDoc.new(doc_block_options_blocks_from_nested_files.to_h)
   end
   let(:doc_block_options_blocks_from_nested_files) do
-    MarkdownExec::HashDelegator.new(doc_blocks_options).blocks_from_nested_files
+    MarkdownExec::HashDelegator.new(doc_blocks_options).blocks_from_nested_files.blocks
   end
   ## blocks
   #
@@ -129,7 +129,7 @@ RSpec.describe 'MarkdownExec' do
       hide_blocks_by_name: false,
       import_pattern: import_pattern,
       yaml_blocks: true
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:mdoc_yaml1) do
     MarkdownExec::MDoc.new(list_blocks_yaml1)
@@ -152,7 +152,7 @@ RSpec.describe 'MarkdownExec' do
       hide_blocks_by_name: false,
       import_pattern: import_pattern,
       yaml_blocks: true
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:specified_path) { 'path1' }
   let(:specified_filename) { 'file1' }
@@ -179,7 +179,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/title1.md',
       import_pattern: import_pattern
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_headings) do
     MarkdownExec::HashDelegator.new(
@@ -201,7 +201,7 @@ RSpec.describe 'MarkdownExec' do
       heading3_match: env_str('MDE_HEADING3_MATCH',
                               default: ymds[:heading3_match]),
       import_pattern: import_pattern
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_exclude_expect_blocks) do
     MarkdownExec::HashDelegator.new(
@@ -216,7 +216,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/exclude1.md',
       import_pattern: import_pattern
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_bash2) do
     MarkdownExec::HashDelegator.new(
@@ -230,7 +230,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/bash2.md',
       import_pattern: import_pattern
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   let(:options_parse_) do
     options.merge({ filename: 'fixtures/menu_divs.md' })
@@ -247,7 +247,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/bash1.md',
       import_pattern: import_pattern
-    ).blocks_from_nested_files
+    ).blocks_from_nested_files.blocks
   end
   ## options
   #
@@ -261,7 +261,7 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /^ *\[(?<status>.{0,4})\] *(?<name>.*) *$/ }
 
     it 'formats tasks' do
-      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
+      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.blocks.map do |block|
                [block.dname, block.text]
              end).to eq [
                ['one', nil],
@@ -283,7 +283,7 @@ RSpec.describe 'MarkdownExec' do
     end
 
     xit 'formats dividers' do
-      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
+      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.blocks.map do |block|
                [block.dname, block.text]
              end).to eq [
                ['one', nil],
@@ -297,7 +297,7 @@ RSpec.describe 'MarkdownExec' do
   #
   describe 'presence of chrome' do
     subject(:blocks) do
-      MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
+      MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.blocks.map do |block|
         [block.dname, block.text]
       end
     end
@@ -337,7 +337,7 @@ RSpec.describe 'MarkdownExec' do
     let(:menu_task_match) { /\[ \] +(?'name'.+) *$/ }
 
     it '' do
-      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.map do |block|
+      expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files.blocks.map do |block|
                [block.dname, block.text]
              end).to eq [
                ['one', nil],
@@ -371,7 +371,7 @@ RSpec.describe 'MarkdownExec' do
         user_must_approve: false
       )
       hopts = MarkdownExec::HashDelegator.new(opts)
-      mdoc = MarkdownExec::MDoc.new(hopts.blocks_from_nested_files)
+      mdoc = MarkdownExec::MDoc.new(hopts.blocks_from_nested_files.blocks)
 
       opts.merge!(block_name: 'one')
       hopts = MarkdownExec::HashDelegator.new(opts)
@@ -430,7 +430,7 @@ RSpec.describe 'MarkdownExec' do
   it 'test_get_blocks_struct' do
     expect(MarkdownExec::HashDelegator.new(mp.options).blocks_from_nested_files(
       link_state: MarkdownExec::LinkState.new
-    ).map do |block|
+    ).blocks.map do |block|
              [block.body, block.oname]
            end).to eq [
              [['a'], 'one'],
@@ -796,7 +796,7 @@ RSpec.describe 'MarkdownExec' do
          hide_blocks_by_name: false }]
     ].each.with_index do |(names, opts), _ind|
       MarkdownExec::MarkParse.new(o2 = options.merge(opts))
-      hd_doc_block_options_blocks_from_nested_files = MarkdownExec::HashDelegator.new(o2).blocks_from_nested_files
+      hd_doc_block_options_blocks_from_nested_files = MarkdownExec::HashDelegator.new(o2).blocks_from_nested_files.blocks
       mdoc = MarkdownExec::MDoc.new(hd_doc_block_options_blocks_from_nested_files)
       bs = mdoc.fcbs_per_options(o2)
       expect(bs.map(&:oname)).to eq names
