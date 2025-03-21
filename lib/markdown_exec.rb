@@ -826,7 +826,6 @@ module MarkdownExec
     def opts_menu_option_append(opts, options, item, options_parsed)
       return unless item[:long_name].present? || item[:short_name].present?
 
-      optname = "-#{item[:short_name]}"
       switches = [
         # - argument style = :NONE, :REQUIRED, :OPTIONAL
         case item[:procname]&.to_s
@@ -840,7 +839,6 @@ module MarkdownExec
 
         # - long name
         if item[:long_name].present?
-          optname = "--#{item[:long_name]}"
           "--#{item[:long_name]}" \
             "#{item[:arg_name].present? ? " #{item[:arg_name]}" : ''}"
         end,

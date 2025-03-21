@@ -29,7 +29,7 @@ end
 
 single_line = ARGV.delete('-l')
 ARGV.tap_inspect name: 'ARGV'
-code = eval("Proc.new { #{ARGV.join(' ')} }") # rubocop:disable Security/Eval,Style/EvalWithLocation
+code = eval("Proc.new { #{ARGV.join(' ')} }") # rubocop:disable Style/EvalWithLocation
 # code = Proc.new {
 #   binding.pry
 #   grep /Ex/ }

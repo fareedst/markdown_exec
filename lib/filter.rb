@@ -123,7 +123,6 @@ module MarkdownExec
     #
     def self.apply_other_filters(options, filters, fcb)
       name = fcb.oname
-      shell = fcb.shell
       filters[:fcb_chrome] = fcb.fetch(:chrome, false)
       filters[:shell_default] = (fcb.type == BlockType::SHELL)
 

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 # encoding=utf-8
-require 'bundler/setup'  # Bundler enforces gem versions
+require 'bundler/setup' # Bundler enforces gem versions
 require 'pp'
 require 'stringio'
 
-LOG_LEVELS = %i[debug info warn error fatal]
+LOG_LEVELS = %i[debug info warn error fatal].freeze
 
 $debug = $DEBUG || !ENV['WW'].nil?
 
@@ -57,12 +57,11 @@ def ww0(*objs,
   # Combine all parts into the final message
   header = "#{time_prefix}#{level_prefix} #{category_prefix}"
   trace = backtrace + objs
+  io = StringIO.new
   formatted_message = if single_line
-                        io = StringIO.new
                         PP.singleline_pp(trace, io)
                         "#{header} #{io.string}"
                       else
-                        io = StringIO.new
                         PP.pp(trace, io)
                         "#{header}\n#{io.string}"
                       end
@@ -85,8 +84,8 @@ end
 class Array
   unless defined?(deref)
     def deref
-      map(&:deref).select do |line|
-        !%r{^/(vendor|\.bundle)/}.match(line)
+      map(&:deref).reject do |line|
+        %r{^/(vendor|\.bundle)/}.match(line)
       end
     end
   end

@@ -52,45 +52,45 @@ module MarkdownExec
     end
 
     def inherited_lines
-      @inherited_lines.tap { |ret|
+      @inherited_lines.tap do |ret|
         pp ['LinkState.inherited_lines() ->', ret] if $pd
-      }
+      end
     end
 
     def inherited_lines=(value)
-      @inherited_lines = value.tap { |ret|
+      @inherited_lines = value.tap do |ret|
         pp ['LinkState.inherited_lines=() ->', ret] if $pd
-      }
+      end
     end
 
     def inherited_lines_append(value)
-      @inherited_lines = ((@inherited_lines || []) + value).tap { |ret|
+      @inherited_lines = ((@inherited_lines || []) + value).tap do |ret|
         pp ['LinkState.inherited_lines_append() ->', ret] if $pd
-      }
+      end
     end
 
     def inherited_lines_block
-      (@inherited_lines || []).join("\n").tap { |ret|
+      (@inherited_lines || []).join("\n").tap do |ret|
         pp ['LinkState.inherited_lines_block() ->', ret] if $pd
-      }
+      end
     end
 
     def inherited_lines_count
-      (@inherited_lines&.count || 0).tap { |ret|
+      (@inherited_lines&.count || 0).tap do |ret|
         pp ['LinkState.inherited_lines_count() ->', ret] if $pd
-      }
+      end
     end
 
-    def inherited_lines_map
-      @inherited_lines.map do |line|
-        yield line
-      end.tap { |ret| pp ['LinkState.inherited_lines_map() ->', ret] if $pd }
+    def inherited_lines_map(&block)
+      @inherited_lines.map(&block).tap do |ret|
+        pp ['LinkState.inherited_lines_map() ->', ret] if $pd
+      end
     end
 
     def inherited_lines_present?
-      @inherited_lines.present?.tap { |ret|
+      @inherited_lines.present?.tap do |ret|
         pp ['LinkState.inherited_lines_present?() ->', ret] if $pd
-      }
+      end
     end
   end
 
