@@ -1,4 +1,4 @@
-#!/usr/bin/env bundle exec ruby
+#!/usr/bin/env -S bundle exec ruby
 # frozen_string_literal: true
 
 # encoding=utf-8

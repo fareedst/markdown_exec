@@ -1,3 +1,4 @@
+#!/usr/bin/env -S bundle exec ruby
 # frozen_string_literal: true
 
 require 'ostruct'
