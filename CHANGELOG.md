@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.8.4] - 2025-03-24
+
+### Added
+
+- UX block default selection behavior: load as default the first item in `allowed` or the first line in the evaluated output of `echo` or `exec` parameters.
+- A hidden UX block can be required.
+- BATS tests validating an active UX block that requires read-only blocks.
+- UX blocks evaluated automatically load their specified defaults.
+- During interactive/manual evaluation, UX blocks present a menu of the list in the `allowed` parameter or the lines in the evaluated output of `echo` or `exec` parameters.
+- New `SelectResponse` class tracks user's "Back" choice in interactive menus.
+- `ww` calls now return the last item from the provided array, facilitating prefix usage in statements.
+- Ability to set multiple variables from a single UX block using a dictionary of variable names and evaluated expressions defined in the `echo` parameter.
+- BATS tests covering hidden and invalid UX blocks.
+- Introduced standardized result objects for representing success and failure states, supporting custom payloads for failures.
+
+### Changed
+
+- Enabled verbose mode by default for all minitests.
+- Improved whitespace handling in the evaluated output of `echo`.
+- Updated and expanded minitest suite.
+- Update the execution of UX blocks.
+- Aggregated results collected per UX block when processing input from files.
+- Enhanced ANSI sequence tests with more complex formatting scenarios (e.g., bold, italicized, bright-yellow text on a light-yellow background).
+- Standardized script shebangs to consistently execute Ruby minitests via `bundle exec`.
+- Multi-line shell expansions create multiple lines in the menu.
+
 ## [2.8.3] - 2025-02-27
 
 ### Added

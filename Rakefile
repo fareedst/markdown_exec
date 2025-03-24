@@ -105,7 +105,7 @@ task :bats do
 
     # temporary clear WW to disable debugging
     # WW pollutes output expected by BATS tests
-    "unset WW; bats #{file}"
+    %(unset WW; bats #{file})
   end
 end
 
