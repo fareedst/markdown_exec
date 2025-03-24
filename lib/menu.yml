@@ -772,7 +772,7 @@
 - :opt_name: menu_note_match
   :env_var: MDE_MENU_NOTE_MATCH
   :description: Pattern for notes in block selection menu
-  :default: "^(?<indent>[ \t]*)(?<line>(?!/)(?<text>.*?)(?<trailing>[ \t]*))?$"
+  :default: "^(?'indent'[ \t]*)(?'line'(?!/)(?'text'.*))(?'trailing'[ \t]*)?$"
   :procname: val_as_str
 - :opt_name: menu_option_back_name
   :env_var: MDE_MENU_OPTION_BACK_NAME

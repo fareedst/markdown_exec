@@ -4,7 +4,7 @@ load 'test_helper'
 
 @test 'Variable expansion - default' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/variable-expansion.md \
-   'EVIDENCE_SOURCE is:_SOURCE is:_SOURCE is:_| SOURCE |_| ------ |__name_with_${SOURCE}_in_name_load: file_.sh_SOURCES'
+   'EVIDENCE_SOURCE is:_SOURCE is:_SOURCE is: _| SOURCE |_| ------ |__name_with_${SOURCE}_in_name_load: file_.sh_SOURCES'
 }
 
 @test 'Variable expansion - LINK_LOAD_SOURCE' {

@@ -16,5 +16,5 @@ load 'test_helper'
 @test 'selected block - output of wc includes whitespace' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-echo.md \
    '(VAR_has_count)' '[IAB_has_count]' \
-   'VAR=14_IAB=14 14'
+   'VAR=      14_IAB=      14      14'
 }

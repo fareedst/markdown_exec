@@ -910,7 +910,8 @@ module MarkdownExec
       initial_code_required: false, key_format:
     )
       evaluate_shell_expressions(
-        (link_state&.inherited_lines_block || ''), commands,
+        (link_state&.inherited_lines_block || ''),
+        commands,
         initial_code_required: initial_code_required,
         key_format: key_format
       )
@@ -1361,10 +1362,30 @@ module MarkdownExec
       line_cap[:line] ||= ''
 
       line_caps = [line_cap]
-      if wrap && line_cap[:text].length > screen_width_for_wrapping
-        wrapper = StringWrapper.new(width: screen_width_for_wrapping - line_cap[:indent].length)
-        line_caps = wrapper.wrap(line_cap[:text]).map do |wrapped_line|
-          line_cap.dup.merge(text: wrapped_line)
+
+      # split text with newlines, from variable expansion
+      if line_cap[:text].include?("\n")
+        lines = line_cap[:text].split("\n")
+        line_caps = (lines.map do |line|
+                          line_cap.dup.merge(text: line)
+                        end.to_a)
+      end
+
+      # wrap text on multiple lines to screen width, replacing line_caps
+      if wrap
+        line_caps = line_caps.flat_map do |line_cap|
+          text = line_cap[:text]
+          wrapper = StringWrapper.new(width: screen_width_for_wrapping - line_cap[:indent].length)
+        
+          if text.length > screen_width_for_wrapping
+            # Wrap this text and create line_cap objects for each part
+            wrapper.wrap(text).map do |wrapped_text|
+              line_cap.dup.merge(text: wrapped_text)
+            end
+          else
+            # No change needed for this line
+            line_cap
+          end
         end
       end
 
@@ -1463,7 +1484,9 @@ module MarkdownExec
         if block_given?
           # expand references only if block is recognized (not a comment)
           yield if block_given?
-          mbody = fcb.body[0].match @delegate_object[criteria[:match]]
+
+          # parse multiline to capture output of variable expansion
+          mbody = fcb.body[0].match Regexp.new(@delegate_object[criteria[:match]], Regexp::MULTILINE)
         end
 
         create_and_add_chrome_block(
@@ -2368,7 +2391,8 @@ module MarkdownExec
       # update blocks
       #
       Regexp.union(replacements.keys.map do |word|
-                     Regexp.new(Regexp.escape(word))
+                     # match multiline text from variable expansion
+                     Regexp.new(Regexp.escape(word), Regexp::MULTILINE)
                    end).tap do |pattern|
         menu_blocks.each do |block|
           next if exclude_types.include?(block.type)
@@ -2397,7 +2421,7 @@ module MarkdownExec
 
     def expand_variable_references!(
       blocks:,
-      echo_format: 'echo $%s',
+      echo_format: 'echo "$%s"',
       group_name: :variable,
       initial_code_required: false,
       key_format: '${%s}',
