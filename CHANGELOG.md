@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.8.5] - 2025-04-07
+
+### Added
+
+- Opts blocks can require other Opts blocks.
+- Options to enable the change of shell expansion patterns.
+- Default ID to each FCB.
+- Convert the value of the 'echo' key to a string.
+- All UX blocks are now loaded automatically.
+
+### Changed
+
+- Make 'default' key optional for UX blocks.
+- Use the 'default' option to specify the initial computed value.
+
 ## [2.8.4] - 2025-03-24
 
 ### Added
