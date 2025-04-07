@@ -2468,8 +2468,8 @@ module MarkdownExec
                               force:)
       exportable = true
       case export.echo
-      when String
-        value = export_echo_with_code_single(export.echo, inherited_code,
+      when String, Integer, Float, TrueClass, FalseClass
+        value = export_echo_with_code_single(export.echo.to_s, inherited_code,
                                              code_lines, required)
       when Hash
         # each item in the hash is a variable name and value
@@ -4492,6 +4492,17 @@ module MarkdownExec
     def ux_block_export_automatic(export, inherited_code, code_lines, required)
       transformable = true
       exportable = true
+
+      if export.default.nil?
+        if export.echo.present?
+          export.default = :echo
+        elsif export.exec.present?
+          export.default = :exec
+        elsif export.allowed.present?
+          export.default = export.allowed.first
+        end
+      end
+
       [case export.default
        when :allowed
          raise unless export.allowed.present?

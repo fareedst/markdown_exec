@@ -1,6 +1,7 @@
 / auto-load block, does not execute command to calculate
 / click block to calculate
 ```ux :[document_ux0]
+default: ''
 exec: basename $(pwd)
 name: ux0
 ```
