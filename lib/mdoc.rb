@@ -83,7 +83,7 @@ module MarkdownExec
 
       nickname = name_block.pub_name
 
-      dependencies = collect_dependencies(nickname)
+      dependencies = collect_dependencies(source: nickname)
       # !!t dependencies.count
       all_dependency_names =
         collect_unique_names(dependencies).push(nickname).uniq
@@ -405,21 +405,23 @@ module MarkdownExec
     # @param source [String] The name of the initial source block.
     # @param memo [Hash] A memoization hash to store resolved dependencies.
     # @return [Hash] A hash mapping sources to their respective dependencies.
-    def collect_dependencies(source, memo = {})
-      return memo unless source
+    def collect_dependencies(block: nil, memo: {}, source: nil)
+      if block.nil?
+        return memo unless source
 
-      block = get_block_by_anyname(source)
-      if block.nil? || block.instance_of?(Hash)
-        raise "Named code block `#{source}` not found. (@#{__LINE__})"
+        block = get_block_by_anyname(source)
+        if block.nil? || block.instance_of?(Hash)
+          raise "Named code block `#{source}` not found. (@#{__LINE__})"
+        end
       end
-
       return memo unless block.reqs
 
-      memo[source] = block.reqs
+      memo[block.id] = block.reqs
 
       block.reqs.each do |req|
-        collect_dependencies(req, memo) unless memo.key?(req)
+        collect_dependencies(source: req, memo: memo) unless memo.key?(req)
       end
+
       memo
     end
 
@@ -463,24 +465,24 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_collect_dependencies_with_no_source
-        assert_empty @mdoc.collect_dependencies(nil)
+        assert_empty @mdoc.collect_dependencies
       end
 
       ### must raise error
       def test_collect_dependencies_with_nonexistent_source
         assert_raises(RuntimeError) do
-          @mdoc.collect_dependencies('nonexistent')
+          @mdoc.collect_dependencies(source: 'nonexistent')
         end
       end if false
 
       def test_collect_dependencies_with_valid_source
         @mdoc.stubs(:get_block_by_anyname)
-             .with('source1').returns(OpenStruct.new(reqs: ['source2']))
+             .with('source1').returns(OpenStruct.new(id: 'source1', reqs: ['source2']))
         @mdoc.stubs(:get_block_by_anyname)
-             .with('source2').returns(OpenStruct.new(reqs: []))
+             .with('source2').returns(OpenStruct.new(id: 'source2', reqs: []))
 
         expected = { 'source1' => ['source2'], 'source2' => [] }
-        assert_equal expected, @mdoc.collect_dependencies('source1')
+        assert_equal expected, @mdoc.collect_dependencies(source: 'source1')
       end
     end
 

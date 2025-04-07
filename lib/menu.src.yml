@@ -103,6 +103,12 @@
   :default: true
   :procname: val_as_bool
 
+- :opt_name: command_substitution_format
+  :env_var: MDE_COMMAND_SUBSTITUTION_FORMAT
+  :description: command_substitution_format
+  :default: '$(%s)'
+  :procname: val_as_str
+
 - :opt_name: command_substitution_regexp
   :env_var: MDE_COMMAND_SUBSTITUTION_REGEXP
   :description: command_substitution_regexp
@@ -1662,6 +1668,12 @@
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
+
+- :opt_name: variable_expression_format
+  :env_var: MDE_VARIABLE_EXPRESSION_FORMAT
+  :description: variable_expression_format
+  :default: '${%s}'
+  :procname: val_as_str
 
 - :opt_name: variable_expression_regexp
   :env_var: MDE_VARIABLE_EXPRESSION_REGEXP

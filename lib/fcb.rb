@@ -48,6 +48,7 @@ module MarkdownExec
         call: nil,
         dname: nil,
         headings: [],
+        id: object_id,
         indent: '',
         name: nil,
         nickname: nil,
@@ -60,6 +61,15 @@ module MarkdownExec
         title: '',
         type: ''
       }.merge(options)
+    end
+
+    def pub_name(**kwargs)
+      self.class.pub_name(@attrs, **kwargs)
+    end
+
+    def self.pub_name(attrs, **kwargs)
+      full = attrs.fetch(:nickname, nil) || attrs.fetch(:oname, nil)
+      full&.to_s&.pub_name(**kwargs)
     end
 
     def code_name_included?(*names)
@@ -331,13 +341,15 @@ if $PROGRAM_NAME == __FILE__
     end
 
     def test_to_h_method
-      assert_equal_hash @fcb_data.merge({ random: @fcb.random }), @fcb.to_h
+      assert_equal_hash @fcb_data.merge(
+        { id: @fcb.id, random: @fcb.random }
+      ), @fcb.to_h
     end
 
     def test_to_yaml_method
-      assert_equal_hash YAML.load(@fcb_data.merge({ random: @fcb.random })
-                                           .to_yaml),
-                        YAML.load(@fcb.to_yaml)
+      assert_equal_hash YAML.load(@fcb_data.merge(
+        { id: @fcb.id, random: @fcb.random }
+      ).to_yaml), YAML.load(@fcb.to_yaml)
     end
 
     def test_method_missing_getter

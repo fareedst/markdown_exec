@@ -1300,7 +1300,7 @@ module MarkdownExec
     )
       # Initialize a counter for named group occurrences
       occurrence_count = Hash.new(0)
-      return occurrence_count if pattern == //
+      return occurrence_count if pattern.nil? || pattern == //
 
       blocks.each do |block|
         # Skip processing for shell-type blocks
@@ -1318,7 +1318,7 @@ module MarkdownExec
 
     def count_named_group_occurrences_block_body_fix_indent(block)
       ### actually double the entries, but not a problem since it's used as a boolean
-      ([block.oname || ''] + block.body).join("\n")
+      ([block.oname || ''] + (block.body || [''])).join("\n")
     end
 
     ##
@@ -1366,9 +1366,9 @@ module MarkdownExec
       # split text with newlines, from variable expansion
       if line_cap[:text].include?("\n")
         lines = line_cap[:text].split("\n")
-        line_caps = (lines.map do |line|
-                          line_cap.dup.merge(text: line)
-                        end.to_a)
+        line_caps = lines.map do |line|
+          line_cap.dup.merge(text: line)
+        end.to_a
       end
 
       # wrap text on multiple lines to screen width, replacing line_caps
@@ -1376,7 +1376,7 @@ module MarkdownExec
         line_caps = line_caps.flat_map do |line_cap|
           text = line_cap[:text]
           wrapper = StringWrapper.new(width: screen_width_for_wrapping - line_cap[:indent].length)
-        
+
           if text.length > screen_width_for_wrapping
             # Wrap this text and create line_cap objects for each part
             wrapper.wrap(text).map do |wrapped_text|
@@ -1486,7 +1486,9 @@ module MarkdownExec
           yield if block_given?
 
           # parse multiline to capture output of variable expansion
-          mbody = fcb.body[0].match Regexp.new(@delegate_object[criteria[:match]], Regexp::MULTILINE)
+          mbody = fcb.body[0].match Regexp.new(
+            @delegate_object[criteria[:match]], Regexp::MULTILINE
+          )
         end
 
         create_and_add_chrome_block(
@@ -2406,14 +2408,16 @@ module MarkdownExec
       expand_variable_references!(
         blocks: [fcb],
         initial_code_required: false,
-        link_state: link_state
+        key_format: @delegate_object[:variable_expression_format],
+        link_state: link_state,
+        pattern: options_variable_expression_regexp
       )
       expand_variable_references!(
         blocks: [fcb],
         echo_format: '%s',
         group_name: :command,
         initial_code_required: false,
-        key_format: '$(%s)',
+        key_format: @delegate_object[:command_substitution_format],
         link_state: link_state,
         pattern: options_command_substitution_regexp
       )
@@ -2424,13 +2428,10 @@ module MarkdownExec
       echo_format: 'echo "$%s"',
       group_name: :variable,
       initial_code_required: false,
-      key_format: '${%s}',
+      key_format:,
       link_state:,
-      pattern: nil
+      pattern:
     )
-      pattern ||= options_variable_expression_regexp
-      return if pattern.nil?
-
       variable_counts = count_named_group_occurrences(blocks, pattern,
                                                       group_name: group_name)
       return if variable_counts.nil? || variable_counts == {}
@@ -2952,32 +2953,42 @@ module MarkdownExec
       @fout.fout_list(list)
     end
 
-    # Loads auto blocks based on delegate object settings and updates
-    #  if new filename is detected.
-    # Executes a specified block once per filename.
-    # @param all_blocks [Array] Array of all block elements.
-    # @return [Boolean, nil] True if values were modified, nil otherwise.
+    # Loads and updates auto options for document blocks if the current filename has changed.
+    #
+    # This method checks if the delegate object specifies a document load options block name and if the filename
+    # has been updated. It then selects the appropriate blocks, collects their dependencies, processes their
+    # options, and updates the menu base with the merged options.
+    #
+    # @param all_blocks [Array] An array of all block elements.
+    # @param mdoc [Object] The document object managing dependencies and options.
+    # @return [Boolean, nil] Returns true if options were updated; nil otherwise.
     def load_auto_opts_block(all_blocks, mdoc:)
-      block_name = @delegate_object[:document_load_opts_block_name]
-      unless block_name.present? &&
-             @opts_most_recent_filename != @delegate_object[:filename]
-        return
+      opts_block_name = @delegate_object[:document_load_opts_block_name]
+      current_filename = @delegate_object[:filename]
+
+      return unless opts_block_name.present? &&
+                    @opts_most_recent_filename != current_filename
+
+      selected_blocks = HashDelegator.block_select(all_blocks, :oname,
+                                                   opts_block_name)
+      return if selected_blocks.empty?
+
+      dependency_map = {}
+      selected_blocks.each do |block|
+        mdoc.collect_dependencies(memo: dependency_map, block: block)
       end
 
-      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
-      return if blocks.empty?
-
-      update_menu_base(
-        blocks.each.with_object({}) do |block, merged_options|
+      collected_options =
+        dependency_map.each.with_object({}) do |(block_id, _), merged_options|
+          matching_block = HashDelegator.block_find(all_blocks, :id, block_id)
           options_state = read_show_options_and_trigger_reuse(
-            mdoc: mdoc,
-            selected: block
+            mdoc: mdoc, selected: matching_block
           )
           merged_options.merge!(options_state.options)
         end
-      )
 
-      @opts_most_recent_filename = @delegate_object[:filename]
+      update_menu_base(collected_options)
+      @opts_most_recent_filename = current_filename
       true
     end
 
