@@ -6,7 +6,8 @@ name: v1
 / name and default
 / transform and validate options not applied to default
 ```ux
-default: 11
+default: ''
+echo: 11
 name: v2
 ```
 / name and default; auto-load

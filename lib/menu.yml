@@ -85,7 +85,7 @@
   :default: true
   :procname: val_as_bool
 - :opt_name: command_substitution_format
-  :env_var: MDE_COMMAND_SUBSTITUTION_format
+  :env_var: MDE_COMMAND_SUBSTITUTION_FORMAT
   :description: command_substitution_format
   :default: "$(%s)"
   :procname: val_as_str
@@ -176,11 +176,6 @@
   :env_var: MDE_DOCUMENT_LOAD_SHELL_BLOCK_NAME
   :description: Name of shell block to load with the document
   :default: "(document_shell)"
-  :procname: val_as_str
-- :opt_name: document_load_ux_block_name
-  :env_var: MDE_DOCUMENT_LOAD_UX_BLOCK_NAME
-  :description: Name of UX block to load with the document
-  :default: "\\[.*document_ux.*\\]"
   :procname: val_as_str
 - :opt_name: document_load_vars_block_name
   :env_var: MDE_DOCUMENT_LOAD_VARS_BLOCK_NAME

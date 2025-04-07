@@ -1002,6 +1002,37 @@ module MarkdownExec
       output.split("\n")
     end
 
+    def code_from_automatic_ux_blocks(
+      all_blocks,
+      mdoc
+    )
+      unless @ux_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      blocks = select_automatic_ux_blocks(all_blocks)
+      if blocks.empty?
+        blocks = select_automatic_ux_blocks(all_blocks)
+      end
+      return if blocks.empty?
+
+      @ux_most_recent_filename = @delegate_object[:filename]
+
+      (blocks.each.with_object([]) do |block, merged_options|
+        code = code_from_ux_block_to_set_environment_variables(
+          block,
+          mdoc,
+          force: @delegate_object[:ux_auto_load_force_default],
+          only_default: true
+        )
+        if code == :ux_exec_prohibited
+          merged_options
+        else
+          merged_options.push(code)
+        end
+      end).to_a
+    end
+
     # parse YAML body defining the UX for a single variable
     # set ENV value for the variable and return code lines for the same
     def code_from_ux_block_to_set_environment_variables(
@@ -2992,40 +3023,6 @@ module MarkdownExec
       true
     end
 
-    def load_auto_ux_block(
-      all_blocks,
-      mdoc,
-      block_name: @delegate_object[:document_load_ux_block_name]
-    )
-      unless block_name.present? &&
-             @ux_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
-      if blocks.empty?
-        blocks = HashDelegator.block_match(all_blocks, :nickname,
-                                           Regexp.new(block_name))
-      end
-      return if blocks.empty?
-
-      @ux_most_recent_filename = @delegate_object[:filename]
-
-      (blocks.each.with_object([]) do |block, merged_options|
-        code = code_from_ux_block_to_set_environment_variables(
-          block,
-          mdoc,
-          force: @delegate_object[:ux_auto_load_force_default],
-          only_default: true
-        )
-        if code == :ux_exec_prohibited
-          merged_options
-        else
-          merged_options.push(code)
-        end
-      end).to_a
-    end
-
     def load_auto_vars_block(
       all_blocks,
       block_name: @delegate_object[:document_load_vars_block_name]
@@ -3186,7 +3183,7 @@ module MarkdownExec
 
       # load document ux block
       #
-      if (code_lines = load_auto_ux_block(all_blocks, mdoc))
+      if (code_lines = code_from_automatic_ux_blocks(all_blocks, mdoc))
         new_code = HashDelegator.code_merge(link_state.inherited_lines,
                                             code_lines)
         next_state_set_code(nil, link_state, new_code)
@@ -3500,6 +3497,11 @@ module MarkdownExec
       do_save_execution_output
       output_execution_summary
       fout_execution_report if @delegate_object[:output_execution_report]
+    end
+
+    # all UX blocks are automatic for the document
+    def select_automatic_ux_blocks(blocks)
+      blocks.select { |item| item.type == 'ux' }
     end
 
     # Filter blocks per block_name_include_match, block_name_wrapper_match.
@@ -4493,66 +4495,74 @@ module MarkdownExec
       transformable = true
       exportable = true
 
-      if export.default.nil?
-        if export.echo.present?
-          export.default = :echo
-        elsif export.exec.present?
-          export.default = :exec
-        elsif export.allowed.present?
-          export.default = export.allowed.first
+      if export.default == false
+        exportable = false
+        transformable = false
+        value = nil
+      else
+        if export.default.nil?
+          if export.echo.present?
+            export.default = :echo
+          elsif export.exec.present?
+            export.default = :exec
+          elsif export.allowed.present?
+            export.default = export.allowed.first
+          end
         end
+
+        value = case export.default
+                when :allowed
+                  raise unless export.allowed.present?
+
+                  if export.allowed == :echo
+                    output, exportable = export_echo_with_code(
+                      export, inherited_code, code_lines, required, force: false
+                    )
+                    return :ux_exec_prohibited if output == :invalidated
+
+                    exportable && output.split("\n").first
+
+                  elsif export.allowed == :exec
+                    output = process_allowed_exec(export, inherited_code,
+                                                  code_lines, required)
+                    return :ux_exec_prohibited if output == :ux_exec_prohibited
+
+                    output.first
+
+                  else
+                    export.allowed.first
+                  end
+
+                # echo > default
+                when :echo
+                  raise unless export.echo.present?
+
+                  output, exportable = export_echo_with_code(
+                    export, inherited_code, code_lines, required, force: false
+                  )
+                  return :ux_exec_prohibited if output == :invalidated
+
+                  output
+
+                # exec > default
+                when :exec
+                  raise unless export.exec.present?
+
+                  output = export_exec_with_code(
+                    export, inherited_code, code_lines, required
+                  )
+                  return :ux_exec_prohibited if output == :invalidated
+
+                  output
+
+                # default
+                else
+                  transformable = false
+                  export.default.to_s
+                end
       end
 
-      [case export.default
-       when :allowed
-         raise unless export.allowed.present?
-
-         if export.allowed == :echo
-           output, exportable = export_echo_with_code(
-             export, inherited_code, code_lines, required, force: false
-           )
-           return :ux_exec_prohibited if output == :invalidated
-
-           exportable && output.split("\n").first
-
-         elsif export.allowed == :exec
-           output = process_allowed_exec(export, inherited_code,
-                                         code_lines, required)
-           return :ux_exec_prohibited if output == :ux_exec_prohibited
-
-           output.first
-
-         else
-           export.allowed.first
-         end
-
-       # echo > default
-       when :echo
-         raise unless export.echo.present?
-
-         output, exportable = export_echo_with_code(
-           export, inherited_code, code_lines, required, force: false
-         )
-         return :ux_exec_prohibited if output == :invalidated
-
-         output
-
-       # exec > default
-       when :exec
-         raise unless export.exec.present?
-
-         output = export_exec_with_code(
-           export, inherited_code, code_lines, required
-         )
-         return :ux_exec_prohibited if output == :invalidated
-
-         output
-
-       # default
-       else
-         transformable = false
-         export.default.to_s
-       end,
+      [value,
        exportable,
        transformable]
     end

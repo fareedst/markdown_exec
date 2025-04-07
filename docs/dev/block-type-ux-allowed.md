@@ -18,6 +18,7 @@ name: GENUS
 allowed:
 - Hominidae
 - Antennariidae
+default: ''
 name: FAMILY
 ```
 / automatic block loads default value that is not in allowed list
@@ -40,6 +41,7 @@ name: CLASS
 / executed block presents a menu of the lines in the output of exec
 ```ux :[YEAR_DISCOVERED]
 allowed: :exec
+default: ''
 exec: echo "2017\n2009"
 name: YEAR_DISCOVERED
 ```
