@@ -10,12 +10,11 @@ class EvaluateShellExpression
 end
 
 def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
-                               key_format: '%%<%s>',
-                               initial_code_required: false)
+                               initial_code_required: false,
+                               occurrence_expressions: nil)
   # !!p initial_code expressions key_format shell
   return if (initial_code_required && (initial_code.nil? || initial_code.empty?)) ||
-            expressions.nil? || expressions.empty? ||
-            key_format.nil? || key_format.empty?
+            expressions.nil? || expressions.empty?
 
   # token to separate output
   token = "__TOKEN__#{Time.now.to_i}__"
@@ -28,7 +27,7 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
   end
 
   # Execute
-  stdout_str, stderr_str, status = Open3.capture3(shell, '-c', script)
+  stdout_str, _, status = Open3.capture3(shell, '-c', script)
 
   unless status.success?
     return EvaluateShellExpression::StatusFail
@@ -40,7 +39,7 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
   unless part.empty?
     part[1..-1].tap do |output_parts|
       expressions.each_with_index do |(key, _expression), index|
-        result_hash[format(key_format, key)] = output_parts[index].chomp
+        result_hash[occurrence_expressions[key]] = output_parts[index].chomp
       end
     end
   end
@@ -54,7 +53,6 @@ require 'bundler/setup'
 Bundler.require(:default)
 
 require 'minitest/autorun'
-require 'open3'
 
 class TestShellExpressionEvaluator < Minitest::Test
   def setup
@@ -66,7 +64,11 @@ class TestShellExpressionEvaluator < Minitest::Test
 
   def test_single_expression
     expressions = { 'greeting' => "echo 'Hello, World!'" }
-    result = evaluate_shell_expressions(@initial_code, expressions)
+    occurrence_expressions = { 'greeting' => '%<greeting>' }
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     assert_equal 'Hello, World!', result['%<greeting>']
   end
@@ -77,7 +79,15 @@ class TestShellExpressionEvaluator < Minitest::Test
       'date' => 'date +%Y-%m-%d',
       'kernel' => 'uname -r'
     }
-    result = evaluate_shell_expressions(@initial_code, expressions)
+    occurrence_expressions = {
+      'date' => '%<date>',
+      'greeting' => '%<greeting>',
+      'kernel' => '%<kernel>'
+    }
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     assert_equal 'Hello, World!', result['%<greeting>']
     assert_match(/\d{4}-\d{2}-\d{2}/, result['%<date>'])
@@ -86,15 +96,22 @@ class TestShellExpressionEvaluator < Minitest::Test
 
   def test_empty_expressions_list
     expressions = {}
-    result = evaluate_shell_expressions(@initial_code, expressions)
+    occurrence_expressions = {}
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     assert_nil result
   end
 
   def test_invalid_expression
     expressions = { 'invalid' => 'invalid_command' }
-
-    result = evaluate_shell_expressions(@initial_code, expressions)
+    occurrence_expressions = {}
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     assert_equal EvaluateShellExpression::StatusFail, result
   end
@@ -105,18 +122,26 @@ class TestShellExpressionEvaluator < Minitest::Test
       echo "Custom setup message"
     BASH
     expressions = { 'test' => 'echo Test after initial setup' }
-
-    result = evaluate_shell_expressions(initial_code, expressions)
+    occurrence_expressions = { 'test' => '%<test>' }
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     assert_equal 'Test after initial setup', result['%<test>']
   end
 
   def test_large_number_of_expressions
-    expressions = (1..100).map do |i|
+    expressions = (1..100).to_h do |i|
       ["expr_#{i}", "echo Expression #{i}"]
-    end.to_h
-
-    result = evaluate_shell_expressions(@initial_code, expressions)
+    end
+    occurrence_expressions = (1..100).to_h do |i|
+      ["expr_#{i}", "%<expr_#{i}>"]
+    end
+    result = evaluate_shell_expressions(
+      @initial_code, expressions,
+      occurrence_expressions: occurrence_expressions
+    )
 
     expressions.each_with_index do |(key, _expression), index|
       assert_equal "Expression #{index + 1}", result["%<#{key}>"]

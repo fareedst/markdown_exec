@@ -103,10 +103,10 @@
   :default: true
   :procname: val_as_bool
 
-- :opt_name: command_substitution_format
-  :env_var: MDE_COMMAND_SUBSTITUTION_FORMAT
-  :description: command_substitution_format
-  :default: '$(%s)'
+- :opt_name: command_substitution_name_capture_group
+  :env_var: MDE_COMMAND_SUBSTITUTION_NAME_CAPTURE_GROUP
+  :description: command_substitution_name_capture_group
+  :default: command
   :procname: val_as_str
 
 - :opt_name: command_substitution_regexp
@@ -1111,6 +1111,18 @@
   :default: ''
   :procname: open
 
+- :opt_name: option_display_name_capture_group
+  :env_var: MDE_OPTION_DISPLAY_NAME_CAPTURE_GROUP
+  :description: option_display_name_capture_group
+  :default: option
+  :procname: val_as_str
+
+- :opt_name: option_display_regexp
+  :env_var: MDE_OPTION_DISPLAY_REGEXP
+  :description: option_display_regexp
+  :default: "(?<expression>&{(?<option>[A-Z0-9a-z_]+)})"
+  :procname: val_as_str
+
 - :opt_name: output_assignment_begin
   :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN
   :description: Expression to match to start collecting lines
@@ -1663,15 +1675,15 @@
   :default: true
   :procname: val_as_bool
 
-- :opt_name: variable_expression_format
-  :env_var: MDE_VARIABLE_EXPRESSION_FORMAT
-  :description: variable_expression_format
-  :default: '${%s}'
+- :opt_name: variable_expansion_name_capture_group
+  :env_var: MDE_VARIABLE_EXPANSION_NAME_CAPTURE_GROUP
+  :description: variable_expansion_name_capture_group
+  :default: variable
   :procname: val_as_str
 
-- :opt_name: variable_expression_regexp
-  :env_var: MDE_VARIABLE_EXPRESSION_REGEXP
-  :description: variable_expression_regexp
+- :opt_name: variable_expansion_regexp
+  :env_var: MDE_VARIABLE_EXPANSION_REGEXP
+  :description: variable_expansion_regexp
   :default: "(?<expression>\\${(?<variable>[A-Z0-9a-z_]+)})"
   :procname: val_as_str
 

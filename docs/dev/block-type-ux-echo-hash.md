@@ -1,6 +1,5 @@
 / This automatic block sets multiple variables and displays the first variable.
 ```ux :[document_ux_BASENAME]
-default: :echo
 echo:
   BASENAME: "$(basename `pwd`)"
   DOCUMENTS: "${BASENAME%%_*}"

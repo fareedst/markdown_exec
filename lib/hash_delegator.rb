@@ -894,7 +894,7 @@ module MarkdownExec
       end
       OpenStruct.new(blocks: blocks, results: results)
     rescue StandardError
-      # ww $@, $!,
+      # ww $@, $!
       HashDelegator.error_handler('blocks_from_nested_files')
     end
 
@@ -907,13 +907,14 @@ module MarkdownExec
 
     def build_replacement_dictionary(
       commands, link_state,
-      initial_code_required: false, key_format:
+      initial_code_required: false,
+      occurrence_expressions: nil
     )
       evaluate_shell_expressions(
         (link_state&.inherited_lines_block || ''),
         commands,
         initial_code_required: initial_code_required,
-        key_format: key_format
+        occurrence_expressions: occurrence_expressions
       )
     end
 
@@ -1331,7 +1332,9 @@ module MarkdownExec
     )
       # Initialize a counter for named group occurrences
       occurrence_count = Hash.new(0)
-      return occurrence_count if pattern.nil? || pattern == //
+      occurrence_expressions = {}
+      return [occurrence_count,
+              occurrence_expressions] if pattern.nil? || pattern == //
 
       blocks.each do |block|
         # Skip processing for shell-type blocks
@@ -1340,11 +1343,13 @@ module MarkdownExec
         # Scan each block name for matches of the pattern
         count_named_group_occurrences_block_body_fix_indent(block).scan(pattern) do |(_, _variable_name)|
           pattern.match($LAST_MATCH_INFO.to_s) # Reapply match for named groups
-          occurrence_count[$LAST_MATCH_INFO[group_name]] += 1
+          id = $LAST_MATCH_INFO[group_name]
+          occurrence_count[id] += 1
+          occurrence_expressions[id] = $LAST_MATCH_INFO['expression']
         end
       end
 
-      occurrence_count
+      [occurrence_count, occurrence_expressions]
     end
 
     def count_named_group_occurrences_block_body_fix_indent(block)
@@ -2436,19 +2441,37 @@ module MarkdownExec
     end
 
     def expand_references!(fcb, link_state)
+      # display options
       expand_variable_references!(
         blocks: [fcb],
+        echo_formatter: lambda do |variable|
+          "echo #{Shellwords.escape(@delegate_object[variable.to_sym])}"
+        end,
+        group_name: @delegate_object[:option_display_name_capture_group]&.to_sym,
         initial_code_required: false,
-        key_format: @delegate_object[:variable_expression_format],
         link_state: link_state,
-        pattern: options_variable_expression_regexp
+        pattern: @delegate_object[:option_display_regexp].present? &&
+          Regexp.new(@delegate_object[:option_display_regexp])
       )
+
+      # variable expansions
       expand_variable_references!(
         blocks: [fcb],
-        echo_format: '%s',
-        group_name: :command,
+        echo_formatter: lambda do |variable|
+          %(echo "$#{variable}")
+        end,
+        group_name: @delegate_object[:variable_expansion_name_capture_group]&.to_sym,
         initial_code_required: false,
-        key_format: @delegate_object[:command_substitution_format],
+        link_state: link_state,
+        pattern: options_variable_expansion_regexp
+      )
+
+      # command substitutions
+      expand_variable_references!(
+        blocks: [fcb],
+        echo_formatter: lambda { |command| command },
+        group_name: @delegate_object[:command_substitution_name_capture_group]&.to_sym,
+        initial_code_required: false,
         link_state: link_state,
         pattern: options_command_substitution_regexp
       )
@@ -2456,23 +2479,25 @@ module MarkdownExec
 
     def expand_variable_references!(
       blocks:,
-      echo_format: 'echo "$%s"',
-      group_name: :variable,
+      echo_formatter:,
+      group_name:,
       initial_code_required: false,
-      key_format:,
       link_state:,
       pattern:
     )
-      variable_counts = count_named_group_occurrences(blocks, pattern,
-                                                      group_name: group_name)
+      variable_counts, occurrence_expressions = count_named_group_occurrences(
+        blocks, pattern, group_name: group_name
+      )
       return if variable_counts.nil? || variable_counts == {}
 
-      echo_commands = generate_echo_commands(variable_counts, echo_format)
+      echo_commands = generate_echo_commands(
+        variable_counts, formatter: echo_formatter
+      )
 
       replacements = build_replacement_dictionary(
         echo_commands, link_state,
         initial_code_required: initial_code_required,
-        key_format: key_format
+        occurrence_expressions: occurrence_expressions
       )
 
       return if replacements.nil?
@@ -2661,13 +2686,12 @@ module MarkdownExec
                              color_sym: :execution_report_preview_frame_color)
     end
 
-    def generate_echo_commands(variable_counts, echo_format)
+    def generate_echo_commands(variable_counts, formatter: nil)
       # commands to echo variables
       #
       commands = {}
       variable_counts.each_key do |variable|
-        command = format(echo_format, variable)
-        commands[variable] = command
+        commands[variable] = formatter.call(variable)
       end
       commands
     end
@@ -3386,9 +3410,9 @@ module MarkdownExec
       @delegate_object[:import_paths]&.split(':') || ''
     end
 
-    def options_variable_expression_regexp
-      @delegate_object[:variable_expression_regexp].present? &&
-        Regexp.new(@delegate_object[:variable_expression_regexp])
+    def options_variable_expansion_regexp
+      @delegate_object[:variable_expansion_regexp].present? &&
+        Regexp.new(@delegate_object[:variable_expansion_regexp])
     end
 
     def output_color_formatted(data_sym, color_sym)
