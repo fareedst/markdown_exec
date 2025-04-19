@@ -138,7 +138,8 @@ module HashDelegatorSelf
   def delete_consecutive_blank_lines!(blocks_menu)
     blocks_menu.process_and_conditionally_delete! do
       |prev_item, current_item, _next_item|
-      prev_item&.fetch(:chrome, nil) &&
+      !current_item.is_split? &&
+        prev_item&.fetch(:chrome, nil) &&
         !(prev_item && prev_item.oname.present?) &&
         current_item&.fetch(:chrome, nil) &&
         !(current_item && current_item.oname.present?)
@@ -861,30 +862,104 @@ module MarkdownExec
         when :blocks
           result = SuccessResult.instance
           if @delegate_object[:bash]
-            # prepare block for menu, may fail and call HashDelegator.error_handler
-            result = fcb.for_menu!(
-              block_calls_scan: @delegate_object[:block_calls_scan],
-              block_name_match: @delegate_object[:block_name_match],
-              block_name_nick_match: @delegate_object[:block_name_nick_match],
-              id: "#{source_id}_bfnf_b_#{count}",
-              menu_format: @delegate_object[:menu_ux_row_format],
-              prompt: @delegate_object[:prompt_ux_enter_a_value],
-              table_center: @delegate_object[:table_center]
-            ) do |oname, color|
-              apply_block_type_color_option(oname, color)
+            begin
+              mf = MenuFilter.new(@delegate_object)
+              if fcb.body.count > 1 && mf.fcb_in_menu?(fcb) && fcb.is_split_displayed?(@delegate_object)
+                # make multiple FCB blocks, one for each line; only the first is active
+                id_prefix = "#{fcb.id}¤BlkFrmNstFls®block:#{count}©body:"
+                fcb0 = fcb
+                menu_lines = fcb.body
+                menu_lines.each.with_index do |menu_line, index|
+                  is_enabled_but_inactive = ((index + 1) % (@delegate_object[:select_page_height] / 2)).zero?
+                  if index.zero?
+                    # fcb.body = [menu_line]
+                    # fcb.center = center
+                    # fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
+                    # fcb.disabled = disabled ? TtyMenu::DISABLE : nil
+                    fcb.dname = fcb.indent + menu_line
+                    fcb.id = "#{id_prefix}#{index}"
+                    # fcb.indent = line_obj[:indent]
+                    fcb.is_split_first = true # the first block in a split
+                    fcb.is_split_rest = false
+                    # fcb.level = level
+                    # fcb.oname # computed
+                    # fcb.s0indent = indent
+                    fcb.s0printable = menu_line
+                    fcb.s1decorated = menu_line
+                    fcb.text = menu_line
+                    # fcb.token = line_obj[:collapse]
+                    # fcb.type = type
+                  else
+                    fcb = persist_fcb(
+                      body: fcb0.body,
+                      center: fcb0.center,
+                      chrome: true,
+                      collapse: false,
+                      disabled: is_enabled_but_inactive ? TtyMenu::ENABLE : TtyMenu::DISABLE,
+                      dname: fcb0.indent + menu_line,
+                      id: "#{id_prefix}#{index}",
+                      indent: fcb0.indent,
+                      is_enabled_but_inactive: is_enabled_but_inactive,
+                      is_split_first: false,
+                      is_split_rest: true, # subsequent blocks in a split
+                      level: fcb0.level,
+                      s0indent: fcb0.s0indent,
+                      s0printable: menu_line,
+                      s1decorated: menu_line,
+                      start_line: fcb0.start_line,
+                      text: menu_line,
+                      # token: ,
+                      type: fcb0.type
+                    )
+                  end
+
+                  result = fcb.for_menu!(
+                    block_calls_scan: @delegate_object[:block_calls_scan],
+                    block_name_match: @delegate_object[:block_name_match],
+                    block_name_nick_match: @delegate_object[:block_name_nick_match],
+                    id: fcb.id,
+                    menu_format: @delegate_object[:menu_ux_row_format],
+                    prompt: @delegate_object[:prompt_ux_enter_a_value],
+                    table_center: @delegate_object[:table_center]
+                  ) do |oname, color|
+                    apply_block_type_color_option(oname, color)
+                  end
+
+                  results[fcb.id] = result if result.failure?
+                  blocks << fcb unless result.failure?
+                end
+              else
+                # prepare block for menu, may fail and call HashDelegator.error_handler
+                result = fcb.for_menu!(
+                  block_calls_scan: @delegate_object[:block_calls_scan],
+                  block_name_match: @delegate_object[:block_name_match],
+                  block_name_nick_match: @delegate_object[:block_name_nick_match],
+                  id: "#{source_id}¤BlkFrmNstFls®block:#{count}©body",
+                  menu_format: @delegate_object[:menu_ux_row_format],
+                  prompt: @delegate_object[:prompt_ux_enter_a_value],
+                  table_center: @delegate_object[:table_center]
+                ) do |oname, color|
+                  apply_block_type_color_option(oname, color)
+                end
+                results[fcb.id] = result if result.failure?
+                blocks << fcb unless result.failure?
+              end
+            rescue StandardError
+              # ww $@, $!
+              HashDelegator.error_handler('blocks_from_nested_files',
+                                          { abort: true })
             end
-            results[fcb.id] = result if result.failure?
           else
             expand_references!(fcb, link_state)
+            blocks << fcb unless result.failure?
           end
-          blocks << fcb unless result.failure?
         when :filter # types accepted
           %i[blocks line]
         when :line
           unless @delegate_object[:no_chrome]
             # expand references only if block is recognized (not a comment)
             create_and_add_chrome_blocks(
-              blocks, fcb, id: "#{source_id}_bfnf_l_#{count}", init_ids: init_ids
+              blocks, fcb, id: "#{source_id}¤BlkFrmNstFls:#{count}®line", init_ids: init_ids
             ) do
               # expand references only if block is recognized (not a comment)
               expand_references!(fcb, link_state)
@@ -1011,10 +1086,9 @@ module MarkdownExec
         return
       end
 
-      blocks = select_automatic_ux_blocks(all_blocks)
-      if blocks.empty?
-        blocks = select_automatic_ux_blocks(all_blocks)
-      end
+      blocks = select_automatic_ux_blocks(
+        all_blocks.reject(&:is_split_rest?)
+      )
       return if blocks.empty?
 
       @ux_most_recent_filename = @delegate_object[:filename]
@@ -1464,17 +1538,17 @@ module MarkdownExec
           fcb.center = center
           fcb.chrome = true
           fcb.collapse = collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse
-          fcb.token = line_obj[:collapse]
           fcb.disabled = disabled ? TtyMenu::DISABLE : nil
+          fcb.dname = line_obj[:indent] + decorated
           fcb.id = "#{id}.#{index}"
+          fcb.indent = line_obj[:indent]
           fcb.level = level
+          fcb.oname = line_obj[:text]
           fcb.s0indent = indent
           fcb.s0printable = line_obj[:text]
           fcb.s1decorated = decorated
-          fcb.dname = line_obj[:indent] + decorated
-          fcb.indent = line_obj[:indent]
-          fcb.oname = line_obj[:text]
           fcb.text = line_obj[:text]
+          fcb.token = line_obj[:collapse]
           fcb.type = type
           use_fcb = false # next line is new record
         else
@@ -1482,17 +1556,17 @@ module MarkdownExec
             center: center,
             chrome: true,
             collapse: collapse.nil? ? (line_obj[:collapse] == COLLAPSIBLE_TOKEN_COLLAPSE) : collapse,
-            token: line_obj[:collapse],
             disabled: disabled ? TtyMenu::DISABLE : nil,
+            dname: line_obj[:indent] + decorated,
             id: "#{id}.#{index}",
+            indent: line_obj[:indent],
             level: level,
+            oname: line_obj[:text],
             s0indent: indent,
             s0printable: line_obj[:text],
             s1decorated: decorated,
-            dname: line_obj[:indent] + decorated,
-            indent: line_obj[:indent],
-            oname: line_obj[:text],
             text: line_obj[:text],
+            token: line_obj[:collapse],
             type: type
           )
         end
@@ -1982,6 +2056,11 @@ module MarkdownExec
       @dml_block_state = find_block_state_by_name(block_name)
       dump_and_warn_block_state(name: block_name,
                                 selected: @dml_block_state.block)
+      if @dml_block_state.block.fetch(:is_enabled_but_inactive, false)
+        @dml_block_selection = BlockSelection.new(@dml_block_state.block.id)
+        return # do nothing
+      end
+
       next_block_state =
         execute_block_for_state_and_name(
           selected: @dml_block_state.block,
@@ -2155,7 +2234,7 @@ module MarkdownExec
         end
       elsif (selected_option = select_option_with_metadata(
         prompt_title,
-        [exit_prompt] + dirs.map do |file|
+        [exit_prompt] + dirs.map do |file| # tty_menu_items
           { name:
               format(
                 block_data['view'] || view,
@@ -2848,7 +2927,7 @@ module MarkdownExec
 
         update_line_and_block_state(
           nested_line, state, selected_types,
-          source_id: "#{@delegate_object[:filename]}_ibfnf_#{index}",
+          source_id: "#{@delegate_object[:filename]}¤ItrBlkFrmNstFls:#{index}",
           &block
         )
       end
@@ -2999,7 +3078,8 @@ module MarkdownExec
 
       list = []
       iter_source_blocks(
-        @delegate_object[:list_blocks_type], source_id: source_id
+        @delegate_object[:list_blocks_type],
+        source_id: source_id
       ) do |block|
         list << (block_eval.present? ? eval(block_eval) : block.send(message))
       end
@@ -3263,12 +3343,27 @@ module MarkdownExec
         source_id: source_id
       )
 
-      ### compress empty lines
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
       HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
                                          screen_width_for_table)
+      handle_consecutive_inactive_items!(menu_blocks)
 
       [all_blocks, menu_blocks, mdoc]
+    end
+
+    def handle_consecutive_inactive_items!(menu_blocks)
+      consecutive_inactive_count = 0
+      menu_blocks.each do |fcb|
+        if fcb.disabled == TtyMenu::ENABLE
+          consecutive_inactive_count = 0
+        else
+          consecutive_inactive_count += 1
+          if (consecutive_inactive_count % (@delegate_object[:select_page_height] / 3)).zero?
+            fcb.disabled = TtyMenu::ENABLE
+            fcb.is_enabled_but_inactive = true
+          end
+        end
+      end
     end
 
     def menu_add_disabled_option(document_glob)
@@ -4121,7 +4216,7 @@ module MarkdownExec
     # Presents a TTY prompt to select an option or exit,
     #  returns metadata including option and selected
     def select_option_with_metadata(
-      prompt_text, menu_items, opts = {}, menu_blocks: nil
+      prompt_text, tty_menu_items, opts = {}, menu_blocks: nil
     )
       @dml_menu_blocks = menu_blocks if menu_blocks
 
@@ -4144,10 +4239,10 @@ module MarkdownExec
           per_page: @delegate_object[:select_page_height]
         }.freeze
 
-        if menu_items.all? do |item|
+        if tty_menu_items.all? do |item|
           !item.is_a?(String) && item[:disabled]
         end
-          menu_items.each do |prompt_item|
+          tty_menu_items.each do |prompt_item|
             puts prompt_item[:dname]
           end
           return
@@ -4157,12 +4252,12 @@ module MarkdownExec
         # crashes if default is not an existing item
         #
         selection = @prompt.select(prompt_text,
-                                   menu_items,
+                                   tty_menu_items,
                                    opts.merge(props))
       rescue TTY::Prompt::ConfigurationError
         # prompt fails when collapsible block name has changed; clear default
         selection = @prompt.select(prompt_text,
-                                   menu_items,
+                                   tty_menu_items,
                                    opts.merge(props).merge(default: nil))
       rescue NoMethodError
         # no enabled options in page
@@ -4865,10 +4960,10 @@ module MarkdownExec
         case msg
         when :parse_document # once for each menu
           count = 0
-          vux_parse_document(source_id: "#{@delegate_object[:filename]}_vmlpd")
+          vux_parse_document(source_id: "#{@delegate_object[:filename]}¤VuxMainLoop®PrsDoc")
           vux_menu_append_history_files(
             formatted_choice_ostructs,
-            source_id: "#{@delegate_object[:filename]}_vmlhf"
+            source_id: "#{@delegate_object[:filename]}¤VuxMainLoop®HstFls"
           )
           vux_publish_document_file_name_for_external_automation
 
@@ -4880,7 +4975,7 @@ module MarkdownExec
           # yield :end_of_cli, @delegate_object
 
           if @delegate_object[:list_blocks]
-            list_blocks(source_id: "#{@delegate_object[:filename]}_vmleoc")
+            list_blocks(source_id: "#{@delegate_object[:filename]}¤VuxMainLoop®EndCLI")
             :exit
           end
 
@@ -5105,8 +5200,8 @@ module MarkdownExec
         :prompt_color_after_script_execution
       )
 
-      menu_items = blocks_as_menu_items(menu_blocks)
-      if menu_items.empty?
+      tty_menu_items = blocks_as_menu_items(menu_blocks)
+      if tty_menu_items.empty?
         return SelectedBlockMenuState.new(nil, OpenStruct.new,
                                           MenuState::EXIT)
       end
@@ -5141,8 +5236,9 @@ module MarkdownExec
         { cycle: @delegate_object[:select_page_cycle],
           per_page: @delegate_object[:select_page_height] }
       )
-      selected_option = select_option_with_metadata(prompt_title, menu_items,
-                                                    selection_opts)
+      selected_option = select_option_with_metadata(
+        prompt_title, tty_menu_items, selection_opts
+      )
       determine_block_state(selected_option)
     end
 
@@ -5438,7 +5534,7 @@ module MarkdownExec
           input: MarkdownExec::FCB.new(title: '',
                                        body: ['def add(x, y)',
                                               '  x + y', 'end']),
-          output: "def add(x, y)\n    x + y\n  end\n"
+          output: "def add(x, y)\n    x + y\n  end"
         },
         {
           input: MarkdownExec::FCB.new(title: 'foo', body: %w[bar baz]),

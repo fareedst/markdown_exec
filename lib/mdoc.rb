@@ -10,6 +10,45 @@ require_relative 'filter'
 $pd = false unless defined?($pd)
 
 module MarkdownExec
+  class MenuFilter
+    def initialize(opts)
+      @opts = opts.merge(block_name_hidden_match: nil)
+    end
+
+    def fcb_in_menu?(fcb)
+      in_menu = Filter.fcb_select?(@opts, fcb)
+      unless @opts[:menu_include_imported_blocks]
+        in_menu = fcb.fetch(:depth, 0).zero?
+      end
+      if in_menu && @opts[:hide_blocks_by_name]
+        in_menu = !hide_menu_block_on_name(fcb)
+      end
+      in_menu
+    end
+
+    # Checks if a code block should be hidden based on the given options.
+    #
+    # @param opts [Hash] The options used for hiding code blocks.
+    # @param block [Hash] The code block to check for hiding.
+    # @return [Boolean] True if the code block should be hidden; false otherwise.
+    #
+    # :reek:UtilityFunction
+    def hide_menu_block_on_name(block)
+      if block.fetch(:chrome, false)
+        false
+      else
+        @opts[:hide_blocks_by_name] &&
+          ((@opts[:block_name_hidden_match]&.present? &&
+            block.s2title&.match(Regexp.new(@opts[:block_name_hidden_match]))) ||
+           (@opts[:block_name_include_match]&.present? &&
+            block.s2title&.match(Regexp.new(@opts[:block_name_include_match]))) ||
+           (@opts[:block_name_wrapper_match]&.present? &&
+            block.s2title&.match(Regexp.new(@opts[:block_name_wrapper_match])))) &&
+          (block.s2title&.present? || block[:label]&.present?)
+      end
+    end
+  end
+
   ##
   # MDoc represents an imported markdown document.
   #
@@ -26,7 +65,6 @@ module MarkdownExec
     #
     def initialize(table = [])
       @table = table
-      # !!t @table.count
     end
 
     def collect_block_code_cann(fcb)
@@ -91,7 +129,7 @@ module MarkdownExec
 
       # select blocks in order of appearance in source documents
       #
-      blocks = @table.select do |fcb|
+      blocks = table_not_split.select do |fcb|
         fcb.is_dependency_of?(all_dependency_names)
       end
       # !!t blocks.count
@@ -177,15 +215,19 @@ module MarkdownExec
     # @return [Array<Hash>] An array of code blocks required by the specified code blocks.
     #
     def collect_wrapped_blocks(blocks)
-      blocks.map do |block|
-        (block[:wraps] || []).map do |wrap|
+      blocks.map do |fcb|
+        next if fcb.is_split_rest?
+
+        (fcb[:wraps] || []).map do |wrap|
           wrap_before = wrap.sub('}', '-before}') ### hardcoded wrap name
-          @table.select { |fcb| fcb.code_name_included?(wrap_before, wrap) }
+          table_not_split.select { |fcb|
+            fcb.code_name_included?(wrap_before, wrap)
+          }
         end.flatten(1) +
-          [block] +
-          (block[:wraps] || []).reverse.map do |wrap|
+          [fcb] +
+          (fcb[:wraps] || []).reverse.map do |wrap|
             wrap_after = wrap.sub('}', '-after}') ### hardcoded wrap name
-            @table.select { |fcb| fcb.code_name_included?(wrap_after) }
+            table_not_split.select { |fcb| fcb.code_name_included?(wrap_after) }
           end.flatten(1)
       end.flatten(1).compact
     end
@@ -325,7 +367,7 @@ module MarkdownExec
     # @return [Hash] The code block as a hash or the default value if not found.
     #
     def get_block_by_anyname(name, default = {})
-      @table.select do |fcb|
+      table_not_split.select do |fcb|
         fcb.is_named?(name)
       end.fetch(0, default)
     end
@@ -448,6 +490,12 @@ module MarkdownExec
 
       selected_elements
     end
+
+    # exclude blocks with duplicate code
+    # the first block in each split contains the same data as the rest of the split
+    def table_not_split
+      @table.reject(&:is_split_rest?)
+    end
   end
 end
 
@@ -477,7 +525,8 @@ if $PROGRAM_NAME == __FILE__
 
       def test_collect_dependencies_with_valid_source
         @mdoc.stubs(:get_block_by_anyname)
-             .with('source1').returns(OpenStruct.new(id: 'source1', reqs: ['source2']))
+             .with('source1').returns(OpenStruct.new(id: 'source1',
+                                                     reqs: ['source2']))
         @mdoc.stubs(:get_block_by_anyname)
              .with('source2').returns(OpenStruct.new(id: 'source2', reqs: []))
 

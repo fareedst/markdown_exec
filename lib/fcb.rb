@@ -137,8 +137,10 @@ module MarkdownExec
       )&.fetch(1, nil)
       titlexcall = call ? @attrs[:title].sub("%#{call}", '') : @attrs[:title]
 
-      oname = if block_name_nick_match.present? &&
-                 @attrs[:oname] =~ Regexp.new(block_name_nick_match)
+      oname = if is_split?
+                @attrs[:text]
+              elsif block_name_nick_match.present? &&
+                    @attrs[:oname] =~ Regexp.new(block_name_nick_match)
                 @attrs[:nickname] = $~[0]
                 derive_title_from_body
               else
@@ -185,7 +187,7 @@ module MarkdownExec
     def self.format_multiline_body_as_title(body_lines)
       body_lines.map.with_index do |line, index|
         index.zero? ? line : "  #{line}"
-      end.join("\n") << "\n"
+      end.join("\n")
     end
 
     # :reek:ManualDispatch
@@ -204,6 +206,31 @@ module MarkdownExec
         @attrs[:oname] == name ||
         @attrs.pub_name == name ||
         @attrs[:s2title] == name
+    end
+
+    # true if this is a line split block
+    def is_split?
+      is_split_first? || is_split_rest?
+    end
+
+    # true if this block displays its split body
+    # names and nicknames are displayed instead of the body
+    # ux blocks display a single line for the named variable
+    # split blocks are: opts, shell, vars
+    def is_split_displayed?(opts)
+      @attrs[:type] != BlockType::UX &&
+        !(@attrs[:start_line] =~ Regexp.new(opts[:block_name_nick_match]) ||
+           @attrs[:start_line] =~ Regexp.new(opts[:block_name_match]))
+    end
+
+    # true if this is the first line in a split block
+    def is_split_first?
+      @attrs.fetch(:is_split_first, false)
+    end
+
+    # true if this is the second or later line in a split block
+    def is_split_rest?
+      @attrs.fetch(:is_split_rest, false)
     end
 
     # :reek:ManualDispatch
