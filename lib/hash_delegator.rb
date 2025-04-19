@@ -5312,9 +5312,13 @@ module MarkdownExec
       save_expr = link_block_data.fetch(LinkKeys::SAVE, '')
       if save_expr.present?
         save_filespec = save_filespec_from_expression(save_expr)
-        File.write(save_filespec,
-                   HashDelegator.join_code_lines(link_state&.inherited_lines))
-        @delegate_object[:filename]
+        if save_filespec.present?
+          File.write(save_filespec,
+                     HashDelegator.join_code_lines(link_state&.inherited_lines))
+          @delegate_object[:filename]
+        else
+          link_block_data[LinkKeys::FILE] || @delegate_object[:filename]
+        end
       else
         link_block_data[LinkKeys::FILE] || @delegate_object[:filename]
       end
