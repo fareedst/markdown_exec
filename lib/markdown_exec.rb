@@ -782,7 +782,7 @@ module MarkdownExec
     # Reports and executes block logic
     def mde_vux_main_loop(files)
       @options[:filename] = select_document_if_multiple(files)
-      @options.vux_main_loop do |type, data|
+      @options.vux_main_loop(menu_from_yaml: @menu_from_yaml) do |type, data|
         case type
         when :command_names
           simple_commands(data).keys
@@ -802,12 +802,13 @@ module MarkdownExec
     # Generates a menu suitable for OptionParser from the menu items defined in YAML format.
     # @return [Array<Hash>] The array of option hashes for OptionParser.
     def menu_for_optparse
-      menu_from_yaml.map do |menu_item|
-        menu_item.merge(
-          opt_name: menu_item[:opt_name]&.to_sym,
-          proccode: lambda_for_procname(menu_item[:procname], options)
-        )
-      end
+      @menu_from_yaml =
+        menu_from_yaml.map do |menu_item|
+          menu_item.merge(
+            opt_name: menu_item[:opt_name]&.to_sym,
+            proccode: lambda_for_procname(menu_item[:procname], options)
+          )
+        end
     end
 
     def menu_help

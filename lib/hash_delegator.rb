@@ -2520,17 +2520,14 @@ module MarkdownExec
     end
 
     def expand_references!(fcb, link_state)
-      # display options
       expand_variable_references!(
         blocks: [fcb],
-        echo_formatter: lambda do |variable|
-          "echo #{Shellwords.escape(@delegate_object[variable.to_sym])}"
-        end,
-        group_name: @delegate_object[:option_display_name_capture_group]&.to_sym,
+        echo_formatter: method(:format_echo_command),
+        group_name: :payload,
         initial_code_required: false,
         link_state: link_state,
-        pattern: @delegate_object[:option_display_regexp].present? &&
-          Regexp.new(@delegate_object[:option_display_regexp])
+        pattern: @delegate_object[:option_expansion_expression_regexp].present? &&
+          Regexp.new(@delegate_object[:option_expansion_expression_regexp])
       )
 
       # variable expansions
@@ -2689,6 +2686,13 @@ module MarkdownExec
       )
     end
 
+    def find_option_by_name(name)
+      name_sym = name.to_sym
+      @menu_from_yaml.find do |option|
+        option[:opt_name] == name_sym
+      end
+    end
+
     def format_and_execute_command(
       code_lines:,
       erls:,
@@ -2706,6 +2710,24 @@ module MarkdownExec
       )
       @fout.fout fetch_color(data_sym: :script_execution_tail,
                              color_sym: :script_execution_frame_color)
+    end
+
+    def format_echo_command(payload)
+      payload_match = payload.match(@delegate_object[:option_expansion_payload_regexp])
+      variable = payload_match[:option]
+      property = payload_match[:property]
+
+      echo_value = case property
+                   when 'default', 'description'
+                     item = find_option_by_name(variable)
+                     item ? item[property.to_sym] : ''
+                   when 'length'
+                     @delegate_object[variable.to_sym].to_s.length
+                   else
+                     @delegate_object[variable.to_sym]
+                   end
+
+      "echo #{Shellwords.escape(echo_value)}"
     end
 
     # Format expression using environment variables and run state
@@ -3344,8 +3366,12 @@ module MarkdownExec
       )
 
       HashDelegator.delete_consecutive_blank_lines!(menu_blocks)
-      HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
-                                         screen_width_for_table)
+      begin
+        HashDelegator.tables_into_columns!(menu_blocks, @delegate_object,
+                                           screen_width_for_table)
+      rescue NoMethodError
+        # an invalid table format
+      end
       handle_consecutive_inactive_items!(menu_blocks)
 
       [all_blocks, menu_blocks, mdoc]
@@ -4910,7 +4936,8 @@ module MarkdownExec
     #
     # @return [Nil] Returns nil if no code block is selected
     #  or an error occurs.
-    def vux_main_loop
+    def vux_main_loop(menu_from_yaml: nil)
+      @menu_from_yaml = menu_from_yaml
       vux_init
       vux_load_code_files_into_state
       formatted_choice_ostructs = vux_formatted_names_for_state_chrome_blocks

@@ -934,15 +934,15 @@
   :arg_name: OPEN
   :default: ''
   :procname: open
-- :opt_name: option_display_name_capture_group
-  :env_var: MDE_OPTION_DISPLAY_NAME_CAPTURE_GROUP
-  :description: option_display_name_capture_group
-  :default: option
+- :opt_name: option_expansion_expression_regexp
+  :env_var: MDE_OPTION_EXPANSION_EXPRESSION_REGEXP
+  :description: option_expansion_expression_regexp
+  :default: "(?<expression>&{(?<payload>(?<option>[A-Z0-9a-z_]+)(?:\\.(?<property>[A-Z0-9a-z_]+))?)})"
   :procname: val_as_str
-- :opt_name: option_display_regexp
-  :env_var: MDE_OPTION_DISPLAY_REGEXP
-  :description: option_display_regexp
-  :default: "(?<expression>&{(?<option>[A-Z0-9a-z_]+)})"
+- :opt_name: option_expansion_payload_regexp
+  :env_var: MDE_OPTION_EXPANSION_PAYLOAD_REGEXP
+  :description: option_expansion_payload_regexp
+  :default: "^(?<option>[A-Z0-9a-z_]+)(?:\\.(?<property>[A-Z0-9a-z_]+))?$"
   :procname: val_as_str
 - :opt_name: output_assignment_begin
   :env_var: MDE_OUTPUT_ASSIGNMENT_BEGIN

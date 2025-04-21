@@ -2,13 +2,13 @@
 
 load 'test_helper'
 
-@test 'Prefix $' {
+@test 'Operator $' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/command-substitution-options.md \
-   'prefix_$' \
-   'Command substitution__The current value of environment variable Common_Name is displayed using two different prefixes._The command echo $SHLVL is executed via command substitution, using two different prefixes.__| Prefix | Variable Expansion | Command Substitution |_| ------ | ------------------ | -------------------- |_| $      | Tapanuli Orangutan | Pongo tapanuliensis  |_| @      | @{Common_Name}     | @(echo $Species)     |__Toggle between prefixes.__prefix_$__prefix_@'
+   'operator_$' \
+   'Command substitution__The current value of environment variable Common_Name is displayed using two different operators._The command echo $SHLVL is executed via command substitution, using two different operators.__| Operator | Variable Expansion | Command Substitution |_| -------- | ------------------ | -------------------- |_| $        | Tapanuli Orangutan | Pongo tapanuliensis  |_| @        | @{Common_Name}     | @(echo $Species)     |__Toggle between operators.__operator_$__operator_@'
 }
 
-@test 'Prefix @' {
+@test 'Operator @' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/command-substitution-options.md \
-   'Command substitution__The current value of environment variable Common_Name is displayed using two different prefixes._The command echo $SHLVL is executed via command substitution, using two different prefixes.__| Prefix | Variable Expansion | Command Substitution |_| ------ | ------------------ | -------------------- |_| $      | ${Common_Name}     | $(echo $Species)     |_| @      | Tapanuli Orangutan | Pongo tapanuliensis  |__Toggle between prefixes.__prefix_$__prefix_@'
+   'Command substitution__The current value of environment variable Common_Name is displayed using two different operators._The command echo $SHLVL is executed via command substitution, using two different operators.__| Operator | Variable Expansion | Command Substitution |_| -------- | ------------------ | -------------------- |_| $        | ${Common_Name}     | $(echo $Species)     |_| @        | Tapanuli Orangutan | Pongo tapanuliensis  |__Toggle between operators.__operator_$__operator_@'
 }
