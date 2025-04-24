@@ -24,6 +24,7 @@ require_relative 'block_types'
 require_relative 'cached_nested_file_reader'
 require_relative 'constants'
 require_relative 'directory_searcher'
+require_relative 'error_reporting'
 require_relative 'evaluate_shell_expressions'
 require_relative 'exceptions'
 require_relative 'fcb'
@@ -2247,7 +2248,8 @@ module MarkdownExec
             oname: file }
         end,
         menu_options.merge(
-          cycle: true
+          cycle: true,
+          match_dml: false
         )
       ))
         if selected_option.dname != exit_prompt
@@ -4290,7 +4292,8 @@ module MarkdownExec
         return
       end
 
-      selected = @dml_menu_blocks.find do |item|
+      menu_list = opts.fetch(:match_dml, true) ? @dml_menu_blocks : menu_items
+      selected = menu_list.find do |item|
         if item.instance_of?(Hash)
           [item[:id], item[:name], item[:dname]].include?(selection)
         elsif item.instance_of?(MarkdownExec::FCB)
@@ -4300,7 +4303,15 @@ module MarkdownExec
         end
       end
 
+      # new FCB if selected is not an object
+      if selected.instance_of?(String)
+        selected = FCB.new(dname: selected)
+      elsif selected.instance_of?(Hash)
+        selected = FCB.new(selected)
+      end
+
       unless selected
+        report_and_reraise('menu item not found')
         HashDelegator.error_handler('select_option_with_metadata',
                                     error: 'menu item not found')
         exit 1
@@ -5353,6 +5364,8 @@ module MarkdownExec
   end
 
   class HashDelegator < HashDelegatorParent
+    include ::ErrorReporting
+
     # Cleans a value, handling both Hash and Struct types.
     # For Structs, the cleaned version is converted to a hash.
     def self.clean_value(value)

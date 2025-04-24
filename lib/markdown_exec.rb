@@ -238,6 +238,8 @@ module MarkdownExec
           end,
         matched_contents: matched_contents
       }
+    rescue StandardError => err
+      report_and_reraise(err)
     end
 
     def file_names(search_options, highlight_value)
