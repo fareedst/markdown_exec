@@ -2425,9 +2425,9 @@ module MarkdownExec
     def execute_inherited_save(
       code_lines: @dml_link_state.inherited_lines
     )
-      return unless (save_filespec = save_filespec_from_expression)
-
-      document_name_in_glob_as_file_name
+      return unless save_filespec = save_filespec_from_expression(
+        document_name_in_glob_as_file_name
+      )
 
       unless write_file_with_directory_creation(
         content: HashDelegator.join_code_lines(code_lines),
