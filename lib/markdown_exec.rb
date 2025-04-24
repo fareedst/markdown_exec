@@ -21,6 +21,7 @@ require_relative 'cli'
 require_relative 'color_scheme'
 require_relative 'directory_searcher'
 require_relative 'env'
+require_relative 'error_reporting'
 require_relative 'exceptions'
 require_relative 'fcb'
 require_relative 'filter'
@@ -110,11 +111,16 @@ module MarkdownExec
     # Prepends the age of the file in days to the file name for display in a menu.
     # @param filename [String] the name of the file
     # @return [String] modified file name with age prepended
-    def self.for_menu(filename)
+    def self.for_menu(filename, colorize: true, histogram: true)
       file_age = (Time.now - File.mtime(filename)) / (60 * 60 * 24 * 30)
-      filename = ColorScheme.colorize_path(filename)
+      filename = ColorScheme.colorize_path(filename) if colorize
 
-      "  #{Histogram.display(file_age, 0, 11, 12, inverse: false)}: #{filename}"
+      if histogram
+        "  #{Histogram.display(file_age, 0, 11, 12,
+                               inverse: false)}: #{filename}"
+      else
+        filename
+      end
     end
 
     # Removes the age from the string to retrieve the original file name.
@@ -165,33 +171,30 @@ module MarkdownExec
     end
 
     def build_menu(file_names, directory_names, found_in_block_names,
-                   file_name_choices, choices_from_block_names)
+                   file_name_choices, choices_from_block_names,
+                   colorize: true)
       choices = []
 
       # Adding section title and data for file names
-      choices << {
-        disabled: '',
-        name: AnsiString.new("in #{file_names[:section_title]}")
-                        .send(@chrome_color)
-      }
-      choices += file_names[:data].map { |str| FileInMenu.for_menu(str) }
+      text = "in #{file_names[:section_title]}"
+      text = AnsiString.new(text).send(@chrome_color) if colorize
+      choices << { disabled: '', name: text }
+      choices += file_names[:data].map do |str|
+        FileInMenu.for_menu(str, colorize: colorize)
+      end
 
       # Conditionally add directory names if data is present
       if directory_names[:data].any?
-        choices << {
-          disabled: '',
-          name: AnsiString.new("in #{directory_names[:section_title]}")
-                          .send(@chrome_color)
-        }
+        text = "in #{directory_names[:section_title]}"
+        text = AnsiString.new(text).send(@chrome_color) if colorize
+        choices << { disabled: '', name: text }
         choices += file_name_choices
       end
 
       # Adding found in block names
-      choices << {
-        disabled: '',
-        name: AnsiString.new("in #{found_in_block_names[:section_title]}")
-                        .send(@chrome_color)
-      }
+      text = "in #{found_in_block_names[:section_title]}"
+      text = AnsiString.new(text).send(@chrome_color) if colorize
+      choices << { disabled: '', name: text }
       choices += choices_from_block_names
 
       choices
@@ -199,6 +202,8 @@ module MarkdownExec
   end
 
   class SearchResultsReport < DirectorySearcher
+    include ErrorReporting
+
     def directory_names(search_options, highlight_value)
       matched_directories = find_directory_names
       {
@@ -348,6 +353,8 @@ module MarkdownExec
       }
     end
 
+    public
+
     def choices_from_block_names(value, found_in_block_names)
       found_in_block_names[:matched_contents].map do |matched_contents|
         filename, details, = matched_contents
@@ -362,13 +369,15 @@ module MarkdownExec
       end.flatten
     end
 
-    def choices_from_file_names(directory_names)
+    def choices_from_file_names(directory_names, colorize: true,
+                                histogram: true, pattern: '*')
       directory_names[:data].map do |dn|
-        find_files('*', [dn], exclude_dirs: true)
-      end.flatten(1).map { |str| FileInMenu.for_menu(str) }
+        find_files(pattern, [dn], exclude_dirs: true)
+      end.flatten(1).map do |str|
+        FileInMenu.for_menu(str, colorize: colorize,
+                                 histogram: histogram)
+      end
     end
-
-    public
 
     ## Determines the correct filename to use for searching files
     #
@@ -658,6 +667,32 @@ module MarkdownExec
       @options.pass_args = ARGV[@rest.count + 1..]
 
       @options.merge(@options.run_state.to_h)
+    end
+
+    def iter_source_blocks(source, &block)
+      case source
+      when 1
+        HashDelegator.new(@options).blocks_from_nested_files.each(&block)
+      when 2
+        blocks_in_file, =
+          HashDelegator.new(@options)
+                       .mdoc_menu_and_blocks_from_nested_files(LinkState.new)
+        blocks_in_file.each(&block)
+      when 3
+        _, menu_blocks, =
+          HashDelegator.new(@options)
+                       .mdoc_menu_and_blocks_from_nested_files(LinkState.new)
+        menu_blocks.each(&block)
+      else
+        @options.iter_blocks_from_nested_files do |btype, fcb|
+          case btype
+          when :blocks
+            yield fcb
+          when :filter
+            %i[blocks]
+          end
+        end
+      end
     end
 
     ##
@@ -966,6 +1001,8 @@ module MarkdownExec
                                            @options[:saved_filename_replacement])
     end
 
+    public
+
     def select_document_if_multiple(files = list_markdown_files_in_path,
                                     cycle: true,
                                     prompt: options[:prompt_select_md].to_s)
@@ -986,6 +1023,8 @@ module MarkdownExec
         )
       )
     end
+
+    private
 
     # Presents a TTY prompt to select an option or exit, returns selected option or nil
     def select_option_or_exit(prompt_text, strings, opts = {})
@@ -1052,21 +1091,70 @@ module MarkdownExec
   end # class MarkParse
 end # module MarkdownExec
 
-if $PROGRAM_NAME == __FILE__
-  require 'bundler/setup'
-  Bundler.require(:default)
+return if $PROGRAM_NAME != __FILE__
 
-  require 'minitest/autorun'
+require 'bundler/setup'
+Bundler.require(:default)
 
-  module MarkdownExec
-    def test_select_block
-      blocks = [block1, block2]
-      menu = [m1, m2]
+require 'minitest/autorun'
 
-      block, state = obj.select_block(blocks, menu, nil, {})
+module MarkdownExec
+  class TestMarkdownTableFormatter < Minitest::Test
+    def test_select_document_if_multiple
+      find_path = "#{`pwd`.chomp}/fixtures"
+      value = 'document'
+      searcher = SearchResultsReport.new(value, [find_path])
+      options = {
+        ansi_formatter_color: false,
+        block_name_match: ':(?<title>\\S+)( |$)',
+        block_name_nick_match: '^\[.*\]$',
+        fenced_start_and_end_regex: '^(?<indent>[ \t]*)`{3,}',
+        menu_active_color_pastel_messages: %w[inverse]
+      }
 
-      assert_equal block1, block
-      assert_equal MenuState::CONTINUE, state
+      file_names = searcher.file_names(options, value)
+      assert_equal ({ section_title: 'file names', data: [], formatted_text: [{ content: '' }] }),
+                   file_names
+
+      found_in_block_names = searcher.found_in_block_names(options, value,
+                                                           formspec: '%<line>s')
+      assert_equal ({ section_title: 'block names',
+                      data: [],
+                      formatted_text: [],
+                      matched_contents: [] }), found_in_block_names
+
+      directory_names = searcher.directory_names(options, value)
+      assert_equal ({ section_title: 'directory names',
+                      data: ["#{Dir.getwd}/fixtures"],
+                      formatted_text: [{ content: ["#{Dir.getwd}/fixtures"] }] }), directory_names
+
+      mp = MarkdownExec::MarkParse.new(options)
+
+      file_name_choices = mp.choices_from_file_names(
+        directory_names, colorize: false, histogram: false, pattern: 'y*'
+      )
+      assert_equal ['fixtures/yaml1.md',
+                    'fixtures/yaml2.md'], file_name_choices
+
+      choices = MenuBuilder.new.build_menu(
+        file_names, directory_names, found_in_block_names,
+        file_name_choices, mp.choices_from_block_names(value, found_in_block_names),
+        colorize: false
+      )
+      assert_equal [{ disabled: '', name: 'in file names' },
+                    { disabled: '', name: 'in directory names' },
+                    'fixtures/yaml1.md',
+                    'fixtures/yaml2.md',
+                    { disabled: '', name: 'in block names' }], choices
+
+      # @options[:filename] = FileInMenu.from_menu(
+      #   mp.select_document_if_multiple(
+      #     choices,
+      #     # test_select: 0,
+      #     prompt: options[:prompt_select_md].to_s +
+      #      AnsiString.new(' ¤ Age in months').fg_rgbh_AF_AF_00
+      #   )
+      # )
     end
-  end # module MarkdownExec
-end # if
+  end # if
+end # module MarkdownExec

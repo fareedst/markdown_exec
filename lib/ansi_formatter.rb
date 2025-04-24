@@ -116,6 +116,8 @@ class AnsiFormatter
   # @param default [String] Default color method to use if color_sym is not found in @options.
   # @return [String] The string with the applied color method.
   def string_send_color(string, color_sym, default: 'plain')
+    return string.to_s unless @options.fetch(:ansi_formatter_color, true)
+
     color_method = @options.fetch(color_sym, default).to_sym
     AnsiString.new(string.to_s).send(color_method)
   end

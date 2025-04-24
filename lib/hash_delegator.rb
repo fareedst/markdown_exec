@@ -4293,6 +4293,7 @@ module MarkdownExec
       end
 
       menu_list = opts.fetch(:match_dml, true) ? @dml_menu_blocks : menu_items
+      menu_list = tty_menu_items unless menu_list
       selected = menu_list.find do |item|
         if item.instance_of?(Hash)
           [item[:id], item[:name], item[:dname]].include?(selection)
