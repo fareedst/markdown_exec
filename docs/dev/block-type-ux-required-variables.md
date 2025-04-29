@@ -3,7 +3,7 @@
 default: :exec
 exec: printf "$MISSING_VARIABLE"
 name: SPECIES
-preconditions:
+required:
 - MISSING_VARIABLE
 ```
 @import bats-document-configuration.md

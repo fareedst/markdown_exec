@@ -3,6 +3,6 @@
 load 'test_helper'
 
 @test 'An undefined variable is a precondition' {
-  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-preconditions.md \
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-required-variables.md \
    'A value must exist for: MISSING_VARIABLE_SPECIES='
 }
