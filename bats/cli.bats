@@ -39,14 +39,14 @@ load 'test_helper'
 # the last block is a link block, so menu is displayed
 @test 'link block setting an environment variable requires a bash block' {
   BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/requiring-blocks.md '[link-local-block-with-vars]' __Exit \
+  spec_mde_args_expect docs/dev/requiring-blocks.md '[link-local-block-with-vars]' $EXIT_MENU \
    ' ARG1: 37'
 }
 
 # the last block is a link block, so menu is displayed
 @test 'link block setting an environment variable calls a bash block in a file' {
   BATS_OUTPUT_FILTER=A
-  spec_mde_args_expect docs/dev/requiring-blocks.md '[link-file-block-with-vars]' __Exit \
+  spec_mde_args_expect docs/dev/requiring-blocks.md '[link-file-block-with-vars]' $EXIT_MENU \
    ' ARG1: arg1-from-link-file'
 }
 

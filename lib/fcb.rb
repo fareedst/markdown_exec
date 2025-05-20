@@ -4,7 +4,7 @@
 # encoding=utf-8
 require 'digest'
 require_relative 'namer'
-
+BT_UX_FLD_REQUIRED = 'required'
 def parse_yaml_of_ux_block(
   data,
   menu_format: nil,
@@ -18,15 +18,17 @@ def parse_yaml_of_ux_block(
   raise "Name is missing in UX block: #{data.inspect}" unless name.present?
 
   OpenStruct.new(
-    allowed: export['allowed'],
+    act: export['act'],
+    allow: export['allow'] || export['allowed'],
     default: export['default'],
     echo: export['echo'],
     exec: export['exec'],
-    menu_format: export['menu_format'] || menu_format,
+    init: export['init'],
+    menu_format: export['format'] || export['menu_format'] || menu_format,
     name: name,
-    preconditions: export['preconditions'],
     prompt: export['prompt'] || prompt,
     readonly: export['readonly'].nil? ? false : export['readonly'],
+    required: export['require'] || export['required'] || export[BT_UX_FLD_REQUIRED],
     transform: export['transform'],
     validate: export['validate'] || validate
   )
@@ -190,6 +192,60 @@ module MarkdownExec
       end.join("\n")
     end
 
+    def self.act_source(export)
+      # If `false`, the UX block is not activated.
+      # If one of `:allow`, `:echo`, `:edit`, or `:exec` is specified,
+      # the value is calculated or the user is prompted.
+      # If not present, the default value is `:edit`.
+      if export.act.nil?
+        export.act = if export.init.to_s == 'false'
+                       if export.allow.present?
+                         UxActSource::ALLOW
+                       elsif export.echo.present?
+                         UxActSource::ECHO
+                       elsif export.edit.present?
+                         UxActSource::EDIT
+                       elsif export.exec.present?
+                         UxActSource::EXEC
+                       else
+                         UxActSource::EDIT
+                       end
+                     elsif export.allow.present?
+                       UxActSource::ALLOW
+                     else
+                       UxActSource::EDIT
+                     end
+      end
+
+      export.act
+    end
+
+    def self.init_source(export)
+      # If `false`, there is no initial value set.
+      # If a string, it is the initial value of the object variable.
+      # Otherwise, if one of `:allow`, `:echo`, or `:exec` is specified,
+      # the value is the output of the `echo` or `exec` evaluation
+      # or the first allowed value.
+      # If not present, the default value is whichever of
+      # `:allow`, `:default`, `:echo`, or `:exec` is present.
+      if export.init.nil?
+        export.init = case
+                      when export.allow.present?
+                        UxActSource::ALLOW
+                      when export.default.present?
+                        UxActSource::DEFAULT
+                      when export.echo.present?
+                        UxActSource::ECHO
+                      when export.exec.present?
+                        UxActSource::EXEC
+                      else
+                        UxActSource::FALSE
+                      end
+      end
+
+      export.init
+    end
+
     # :reek:ManualDispatch
     # 2024-08-04 match nickname
     def is_dependency_of?(dependency_names)
@@ -198,6 +254,14 @@ module MarkdownExec
         dependency_names.include?(@attrs[:oname]) ||
         dependency_names.include?(@attrs.pub_name) ||
         dependency_names.include?(@attrs[:s2title])
+    end
+
+    def is_disabled?
+      @attrs[:disabled] == TtyMenu::DISABLE
+    end
+
+    def is_enabled?
+      !is_disabled?
     end
 
     def is_named?(name)

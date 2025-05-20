@@ -9,19 +9,19 @@ readonly: true
 ```
 / This block displays the second variable in the first block.
 ```ux :[DOCUMENTS]
-default: false
+init: false
 name: DOCUMENTS
 readonly: true
 ```
 / This block displays the third variable in the first block.
 ```ux :[OPERATION]
-default: false
+init: false
 name: OPERATION
 readonly: true
 ```
 / Multiple UX blocks to set many variables for a specific name.
 ```ux
-default: false
+init: false
 echo:
   Species: Pongo tapanuliensis
   Genus: Pongo
@@ -36,7 +36,7 @@ menu_format: 'Load %{name}'
 name: Tapanuli Orangutan
 ```
 ```ux
-default: false
+init: false
 echo:
   Species: Histiophryne psychedelica
   Genus: Histiophryne
@@ -55,7 +55,7 @@ name: Psychedelic Frogfish
 | -| -
 / A read-only variable in a UX block in a table
 ```ux
-default: false
+init: false
 menu_format: '| %{name}| ${%{name}}'
 name: Species
 readonly: true
@@ -64,7 +64,7 @@ readonly: true
 | Genus| ${Genus}
 / An editable variable in a UX block in a table
 ```ux
-default: false
+init: false
 menu_format: '| %{name}| ${%{name}}'
 name: Family
 ```

@@ -3,13 +3,11 @@
 allowed:
 - Pongo tapanuliensis
 - Histiophryne psychedelica
-default: :allowed
 name: SPECIES
 ```
 / automatic block loads first line in output of exec
 ```ux :[document_ux_GENUS]
 allowed: :exec
-default: :allowed
 exec: echo "Pongo\nHistiophryne psychedelica"
 name: GENUS
 ```
@@ -18,7 +16,7 @@ name: GENUS
 allowed:
 - Hominidae
 - Antennariidae
-default: ''
+init: false
 name: FAMILY
 ```
 / automatic block loads default value that is not in allowed list
@@ -26,13 +24,13 @@ name: FAMILY
 allowed:
 - Primates
 - Lophiiformes
-default: Click to select...
+format: '%{name}: Click to select...'
 name: ORDER
 ```
 / automatic block loads default value, not in allowed list from echo
 ```ux :[document_ux_CLASS]
 allowed: :echo
-default: Click to select...
+format: Click to select...
 echo: |
   Mammalia
   Actinopterygii
@@ -41,14 +39,14 @@ name: CLASS
 / executed block presents a menu of the lines in the output of exec
 ```ux :[YEAR_DISCOVERED]
 allowed: :exec
-default: ''
+init: false
+prompt: ''
 exec: echo "2017\n2009"
 name: YEAR_DISCOVERED
 ```
 / automatic block presents a menu of the lines in the output of echo
 ```ux :[document_ux_NAME]
 allowed: :echo
-default: :allowed
 echo: |
   Tapanuli Orangutan
   Psychedelic Frogfish

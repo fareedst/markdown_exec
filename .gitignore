@@ -29,3 +29,12 @@
 /_yardoc/
 /pkg/
 /vendor/
+
+# logs
+2024-*
+*.cast
+
+/document_configurations/
+
+# debug fixtures
+/docs/**/*mini.md

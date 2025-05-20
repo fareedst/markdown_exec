@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.0] - 2025-05-20
+
+### Added
+
+- UX block keys 'act' and 'init' specify initial and activation behavior.
+- Inactive targets in long blocks of text to smooth navigation.
+- Options to display configuration keys and values similar to other shell expansions.
+
+### Changed
+
+- Rename UX block key 'default' to 'init' except when used in a prompt for input from the user.
+- Rename UX block keys 'allow', 'format', 'require'.
+- Handle user selecting 'Back' when saving.
+- Modify internal block IDs.
+- Remove extraneous final newline in output.
+- UX block required variables are temporary for evaluation.
+
 ## [2.8.5] - 2025-04-07
 
 ### Added
@@ -71,7 +88,7 @@
 
 ### Added
 
-- UX blocks can add preconditions. Preconditions are variable names that must be set before the UX block is executed. If any preconditions are not set, a warning is displayed, and the sequence is aborted.
+- UX blocks can specify required variables. The variables must be present before the UX block is executed. If any required variables are not set, a warning is displayed, and the sequence is aborted.
 - UX blocks can require shell an other UX blocks.
 - UX blocks are evaluated in order and calculation can depend on prior variables in the same sequence.
 

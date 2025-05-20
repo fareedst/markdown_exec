@@ -22,6 +22,7 @@ require_relative 'array'
 require_relative 'array_util'
 require_relative 'block_types'
 require_relative 'cached_nested_file_reader'
+require_relative 'command_result'
 require_relative 'constants'
 require_relative 'directory_searcher'
 require_relative 'error_reporting'
@@ -42,9 +43,11 @@ require_relative 'streams_out'
 require_relative 'string_util'
 require_relative 'table_extractor'
 require_relative 'text_analyzer'
+require_relative 'value_or_exception'
 
 $pd = false unless defined?($pd)
 $table_cell_truncate = true
+EXIT_STATUS_REQUIRED_EMPTY = 248
 
 module HashDelegatorSelf
   # Applies an ANSI color method to a string using a specified color key.
@@ -397,9 +400,19 @@ module HashDelegatorSelf
   end
 
   def persist_fcb_self(all_fcbs, options)
-    fcb = MarkdownExec::FCB.new(options)
-    all_fcbs << fcb if all_fcbs
-    fcb
+    raise if all_fcbs.nil?
+
+    # if the id is present, update the existing fcb
+    if options[:id]
+      fcb = all_fcbs.find { |fcb| fcb.id == options[:id] }
+      if fcb
+        fcb.update(options)
+        return fcb
+      end
+    end
+    MarkdownExec::FCB.new(options).tap do |fcb|
+      all_fcbs << fcb
+    end
   end
 end
 
@@ -935,11 +948,12 @@ module MarkdownExec
                   block_calls_scan: @delegate_object[:block_calls_scan],
                   block_name_match: @delegate_object[:block_name_match],
                   block_name_nick_match: @delegate_object[:block_name_nick_match],
-                  id: "#{source_id}¤BlkFrmNstFls®block:#{count}©body",
+                  id: fcb.id,
                   menu_format: @delegate_object[:menu_ux_row_format],
                   prompt: @delegate_object[:prompt_ux_enter_a_value],
                   table_center: @delegate_object[:table_center]
                 ) do |oname, color|
+                  # decorate the displayed line
                   apply_block_type_color_option(oname, color)
                 end
                 results[fcb.id] = result if result.failure?
@@ -1064,19 +1078,6 @@ module MarkdownExec
       ]
     end
 
-    # Executes the allowed exec command and processes the output
-    # @param export [Object] The export configuration object
-    # @param inherited_code [Array] The inherited code lines
-    # @param code_lines [Array] The code lines to append to
-    # @param required [Hash] Required code information
-    # @return [String, Symbol] The command output or :ux_exec_prohibited if execution failed
-    def process_allowed_exec(bash_script_lines, export)
-      output = export_exec_with_code(bash_script_lines, export)
-      return :ux_exec_prohibited if output == :invalidated
-
-      output.split("\n")
-    end
-
     def code_from_automatic_ux_blocks(
       all_blocks,
       mdoc
@@ -1093,16 +1094,16 @@ module MarkdownExec
       @ux_most_recent_filename = @delegate_object[:filename]
 
       (blocks.each.with_object([]) do |block, merged_options|
-        code = code_from_ux_block_to_set_environment_variables(
+        command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           block,
           mdoc,
           force: @delegate_object[:ux_auto_load_force_default],
           only_default: true
         )
-        if code == :ux_exec_prohibited
+        if command_result_w_e_t_nl.failure?
           merged_options
         else
-          merged_options.push(code)
+          merged_options.push(command_result_w_e_t_nl.stdout)
         end
       end).to_a
     end
@@ -1133,12 +1134,15 @@ module MarkdownExec
             prompt: @delegate_object[:prompt_ux_enter_a_value],
             validate: '^(?<name>[^ ].*)$'
           )
+          block.export = export
+          block.export_act = FCB.act_source(export)
+          block.export_init = FCB.init_source(export)
 
           # required are variable names that must be set before the UX block is executed.
           # if any precondition is not set, the sequence is aborted.
           required_variables = []
           export.required&.each do |precondition|
-            required_variables.push "[[ -z $#{precondition} ]] && exit 1"
+            required_variables.push "[[ -z $#{precondition} ]] && exit #{EXIT_STATUS_REQUIRED_EMPTY}"
           end
 
           eval_code = join_array_of_arrays(
@@ -1148,23 +1152,32 @@ module MarkdownExec
             required[:code] # current block code
           )
           if only_default
-            value, exportable, transformable, new_lines =
+            command_result_w_e_t_nl =
               ux_block_export_automatic(eval_code, export)
-          else
-            value, exportable, transformable, new_lines =
-              ux_block_export_activated(eval_code, export, exit_prompt)
-          end
-          return :ux_exec_prohibited if value == :ux_exec_prohibited
+            # do not display warnings on initializing call
+            return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
-          required_lines.concat(new_lines)
-          if SelectResponse.continue?(value)
-            if transformable
-              value = transform_export_value(value, export)
+          else
+            command_result_w_e_t_nl =
+              ux_block_export_activated(eval_code, export, exit_prompt)
+            if command_result_w_e_t_nl.failure?
+              warn command_result_w_e_t_nl.warning if command_result_w_e_t_nl.warning&.present?
+              return command_result_w_e_t_nl
+            end
+          end
+          return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
+
+          required_lines.concat(command_result_w_e_t_nl.new_lines)
+          if SelectResponse.continue?(command_result_w_e_t_nl.stdout)
+            if command_result_w_e_t_nl.transformable
+              command_result_w_e_t_nl.stdout = transform_export_value(
+                command_result_w_e_t_nl.stdout, export
+              )
             end
 
-            if exportable
-              ENV[export.name] = value.to_s
-              required_lines.push code_line_safe_assign(export.name, value,
+            if command_result_w_e_t_nl.exportable
+              ENV[export.name] = command_result_w_e_t_nl.stdout.to_s
+              required_lines.push code_line_safe_assign(export.name, command_result_w_e_t_nl.stdout,
                                                         force: force)
             end
           end
@@ -1173,7 +1186,7 @@ module MarkdownExec
         end
       end
 
-      required_lines
+      CommandResult.new(stdout: required_lines)
     end
 
     # sets ENV
@@ -2003,14 +2016,16 @@ module MarkdownExec
 
       elsif selected.type == BlockType::UX
         debounce_reset
+        command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
+          selected,
+          @dml_mdoc,
+          inherited_code: @dml_link_state.inherited_lines
+        )
+        ### TBD if command_result_w_e_t_nl.failure?
         next_state_append_code(
           selected,
           link_state,
-          code_from_ux_block_to_set_environment_variables(
-            selected,
-            @dml_mdoc,
-            inherited_code: @dml_link_state.inherited_lines
-          )
+          command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.stdout
         )
 
       elsif selected.type == BlockType::VARS
@@ -2565,55 +2580,48 @@ module MarkdownExec
       expand_blocks_with_replacements(blocks, replacements)
     end
 
-    def execute_single_echo_expression(bash_script_lines, export_echo, export)
-      output = output_from_adhoc_bash_script_file(
-        join_array_of_arrays(
-          bash_script_lines,
-          %(printf '%s' "#{export_echo}")
-        )
-      )
-      if output == :invalidated
-        warn "A value must exist for: #{export.required.join(', ')}"
-      end
-      output
-    end
-
     def export_echo_with_code(
       bash_script_lines, export, force:
     )
       exportable = true
-      value = nil
+      command_result = nil
       new_lines = []
       case export.echo
       when String, Integer, Float, TrueClass, FalseClass
-        value = execute_single_echo_expression(
-          bash_script_lines,
-          export.echo.to_s,
-          export
+        command_result = output_from_adhoc_bash_script_file(
+          join_array_of_arrays(
+            bash_script_lines,
+            %(printf '%s' "#{export.echo}")
+          )
         )
+        if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+          exportable = false
+          command_result.warning = warning_required_empty(export)
+        end
+
       when Hash
         # each item in the hash is a variable name and value
         export.echo.each do |name, expression|
-          value = execute_single_echo_expression(
-            bash_script_lines,
-            expression,
-            export
+          command_result = output_from_adhoc_bash_script_file(
+            join_array_of_arrays(
+              bash_script_lines,
+              %(printf '%s' "#{expression}")
+            )
           )
-          ENV[name] = value.to_s
-          new_lines << code_line_safe_assign(name, value, force: force)
+          if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+            command_result.warning = warning_required_empty(export)
+          else
+            ENV[name] = command_result.stdout.to_s
+            new_lines << code_line_safe_assign(name, command_result.stdout,
+                                               force: force)
+          end
         end
+
+        # individual items have been exported, none remain
         exportable = false
       end
 
-      [value, exportable, new_lines]
-    end
-
-    def export_exec_with_code(bash_script_lines, export)
-      output = output_from_adhoc_bash_script_file(bash_script_lines)
-      if output == :invalidated
-        warn "A value must exist for: #{export.required.join(', ')}"
-      end
-      output
+      [command_result, exportable, new_lines]
     end
 
     # Retrieves a specific data symbol from the delegate object,
@@ -3376,7 +3384,7 @@ module MarkdownExec
     def handle_consecutive_inactive_items!(menu_blocks)
       consecutive_inactive_count = 0
       menu_blocks.each do |fcb|
-        if fcb.disabled == TtyMenu::ENABLE
+        unless fcb.is_disabled?
           consecutive_inactive_count = 0
         else
           consecutive_inactive_count += 1
@@ -3562,11 +3570,7 @@ module MarkdownExec
 
         output = `#{temp_file.path}`
 
-        if $?.exitstatus != 0
-          return :invalidated
-        end
-
-        output
+        CommandResult.new(stdout: output, exit_status: $?.exitstatus)
       end
     rescue StandardError => err
       warn "Error executing script: #{err.message}"
@@ -3590,9 +3594,7 @@ module MarkdownExec
     end
 
     def persist_fcb(options)
-      MarkdownExec::FCB.new(options).tap do |fcb|
-        @fcb_store << fcb
-      end
+      HashDelegator.persist_fcb_self(@fcb_store, options)
     end
 
     def pop_add_current_code_to_head_and_trigger_load(
@@ -4583,178 +4585,182 @@ module MarkdownExec
       exportable = true
       transformable = true
       new_lines = []
-      value = if export.allowed.present?
-                if export.allowed == :echo
-                  output, exportable, new_lines = export_echo_with_code(
-                    bash_script_lines,
-                    export,
-                    force: true
-                  )
-                  return :ux_exec_prohibited if output == :invalidated
+      command_result = nil
 
-                  menu_from_list_with_back(output.split("\n"))
+      case as = FCB.act_source(export)####
+      when false, UxActSource::FALSE
+        raise 'Should not be reached.'
 
-                elsif export.allowed == :exec
-                  output = process_allowed_exec(
-                    join_array_of_arrays(bash_script_lines, export.exec),
-                    export
-                  )
-                  return :ux_exec_prohibited if output == :ux_exec_prohibited
+      when ':allow', UxActSource::ALLOW
+        raise unless export.allow.present?
 
-                  menu_from_list_with_back(output)
+        case export.allow
+        when :echo, ExportValueSource::ECHO
+          command_result, exportable, new_lines = export_echo_with_code(
+            bash_script_lines,
+            export,
+            force: true
+          )
+          if command_result.failure?
+            command_result
+          else
+            command_result = CommandResult.new(
+              stdout: menu_from_list_with_back(command_result.stdout.split("\n"))
+            )
+          end
 
-                else
-                  menu_from_list_with_back(export.allowed)
-                end
+        when ':exec', UxActSource::EXEC
+          command_result = output_from_adhoc_bash_script_file(
+            join_array_of_arrays(bash_script_lines, export.exec)
+          )
 
-              # echo > exec
-              elsif export.echo
-                output, exportable, new_lines = export_echo_with_code(
-                  bash_script_lines,
-                  export,
-                  force: true
-                )
-                return :ux_exec_prohibited if output == :invalidated
+          if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+            command_result
+          else
+            command_result = CommandResult.new(
+              stdout: menu_from_list_with_back(
+                command_result.stdout.split("\n")
+              )
+            )
+          end
 
-                output
+        else
+          command_result = CommandResult.new(
+            stdout: menu_from_list_with_back(export.allow)
+          )
+        end
 
-              # exec > allowed
-              elsif export.exec
-                output = export_exec_with_code(
-                  join_array_of_arrays(bash_script_lines, export.exec),
-                  export
-                )
-                return :ux_exec_prohibited if output == :invalidated
+      when ':echo', UxActSource::ECHO
+        command_result, exportable, new_lines = export_echo_with_code(
+          bash_script_lines,
+          export,
+          force: true
+        )
 
-                output
+        command_result
 
-              # allowed > prompt
-              elsif export.allowed && export.allowed.count.positive?
-                case (choice = prompt_select_from_list(
-                  [exit_prompt] + export.allowed,
-                  string: export.prompt,
-                  color_sym: :prompt_color_after_script_execution
-                ))
-                when exit_prompt
-                  exportable = false
-                  transformable = false
-                  nil
-                else
-                  choice
-                end
+      when ':edit', UxActSource::EDIT
+        output = nil
+        begin
+          loop do
+            print "#{export.prompt} [#{export.default}]: "
+            output = gets.chomp
+            output = export.default.to_s if output.empty?
+            caps = NamedCaptureExtractor.extract_named_groups(output,
+                                                              export.validate)
+            break if caps
 
-              # prompt > default
-              elsif export.prompt.present?
-                begin
-                  loop do
-                    print "#{export.prompt} [#{export.default}]: "
-                    output = gets.chomp
-                    output = export.default.to_s if output.empty?
-                    caps = NamedCaptureExtractor.extract_named_groups(output,
-                                                                      export.validate)
-                    break if caps
+            # invalid input, retry
+          end
+        rescue Interrupt
+          exportable = false
+          transformable = false
+        end
 
-                    # invalid input, retry
-                  end
-                rescue Interrupt
-                  exportable = false
-                  transformable = false
-                end
+        command_result = CommandResult.new(stdout: output)
 
-                output
+      when ':exec', UxActSource::EXEC
+        command_result = output_from_adhoc_bash_script_file(
+          join_array_of_arrays(bash_script_lines, export.exec)
+        )
 
-              # default
-              else
-                transformable = false
-                export.default
-              end
+        command_result
 
-      [value, exportable, transformable, new_lines]
+      else
+        transformable = false
+        command_result = CommandResult.new(stdout: export.default.to_s)
+      end
+
+      # add message for required variables
+      if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+        command_result.warning = warning_required_empty(export)
+        # warn command_result.warning
+      end
+
+      command_result.exportable = exportable
+      command_result.transformable = transformable
+      command_result.new_lines = new_lines
+      command_result
     end
 
     def ux_block_export_automatic(bash_script_lines, export)
       transformable = true
       exportable = true
       new_lines = []
+      command_result = nil
 
-      if export.default == false
+      case FCB.init_source(export)
+      when false, UxActSource::FALSE
         exportable = false
         transformable = false
-        value = nil
-      else
-        if export.default.nil?
-          if export.echo.present?
-            export.default = :echo
-          elsif export.exec.present?
-            export.default = :exec
-          elsif export.allowed.present?
-            export.default = export.allowed.first
+        command_result = CommandResult.new
+
+      when ':allow', UxActSource::ALLOW
+        raise unless export.allow.present?
+
+        case export.allow
+        when :echo, ExportValueSource::ECHO
+          command_result, exportable, new_lines = export_echo_with_code(
+            bash_script_lines,
+            export,
+            force: false
+          )
+          unless command_result.failure?
+            command_result.stdout = (exportable && command_result.stdout.split("\n").first) || ''
           end
+
+        when :exec, ExportValueSource::EXEC
+          command_result = output_from_adhoc_bash_script_file(
+            join_array_of_arrays(bash_script_lines, export.exec)
+          )
+          unless command_result.failure?
+            command_result.stdout = command_result.stdout.split("\n").first
+          end
+
+        else
+          # must be a list
+          command_result = CommandResult.new(stdout: export.allow.first)
         end
 
-        value = case export.default
-                when :allowed
-                  raise unless export.allowed.present?
+      when ':default', UxActSource::DEFAULT
+        transformable = false
+        command_result = CommandResult.new(stdout: export.default.to_s)
 
-                  if export.allowed == :echo
-                    output, exportable, new_lines = export_echo_with_code(
-                      bash_script_lines,
-                      export,
-                      force: false
-                    )
-                    return :ux_exec_prohibited if output == :invalidated
+      when ':echo', UxActSource::ECHO
+        raise unless export.echo.present?
 
-                    exportable && output.split("\n").first
+        command_result, exportable, new_lines = export_echo_with_code(
+          bash_script_lines,
+          export,
+          force: false
+        )
 
-                  elsif export.allowed == :exec
-                    output = process_allowed_exec(
-                      join_array_of_arrays(bash_script_lines, export.exec),
-                      export
-                    )
-                    return :ux_exec_prohibited if output == :ux_exec_prohibited
+      when ':exec', UxActSource::EXEC
+        raise unless export.exec.present?
 
-                    output.first
+        command_result = output_from_adhoc_bash_script_file(
+          join_array_of_arrays(bash_script_lines, export.exec)
+        )
 
-                  else
-                    export.allowed.first
-                  end
-
-                # echo > default
-                when :echo
-                  raise unless export.echo.present?
-
-                  output, exportable, new_lines = export_echo_with_code(
-                    bash_script_lines,
-                    export,
-                    force: false
-                  )
-                  return :ux_exec_prohibited if output == :invalidated
-
-                  output
-
-                # exec > default
-                when :exec
-                  raise unless export.exec.present?
-
-                  output = export_exec_with_code(
-                    join_array_of_arrays(bash_script_lines, export.exec),
-                    export
-                  )
-                  return :ux_exec_prohibited if output == :invalidated
-
-                  output
-
-                # default
-                else
-                  transformable = false
-                  export.default.to_s
-                end
+      else
+        command_result = CommandResult.new(stdout: export.init.to_s)
+        # raise "Unknown FCB.init_source(export) #{FCB.init_source(export)}"
       end
 
-      [value,
-       exportable,
-       transformable,
-       new_lines]
+      # add message for required variables
+      if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+        command_result.warning = warning_required_empty(export)
+        warn command_result.warning
+      end
+
+      command_result.exportable = exportable
+      command_result.transformable = transformable
+      command_result.new_lines = new_lines
+      command_result
+    end
+
+    def warning_required_empty(export)
+      "A value must exist for: #{export.required.join(', ')}"
     end
 
     def vux_await_user_selection(prior_answer: @dml_block_selection)

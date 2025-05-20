@@ -87,7 +87,7 @@ VARIABLE12: 12
 
 / An UX block
 ```ux
-default: false
+init: false
 echo:
   VARIABLE1: 1
   VARIABLE2: 2

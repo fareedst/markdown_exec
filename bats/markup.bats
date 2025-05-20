@@ -53,5 +53,5 @@ load 'test_helper'
 #}
 
 # @test 'OK' {
-#   run_mde_specs_md_args_expect_xansi '[VARIABLE1]' '__Exit' ' VARIABLE1: 1'
+#   run_mde_specs_md_args_expect_xansi '[VARIABLE1]' $EXIT_MENU ' VARIABLE1: 1'
 # }

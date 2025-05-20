@@ -9,14 +9,14 @@ menu_with_inherited_lines: true
 ```
 / This block is not visible. Execute to set a new value, displayed by the block above.
 ```ux :(VAR_has_count)
-default: false
+init: false
 echo: $(basename `pwd` | wc -c)
 force: false
 name: VAR
 ```
 / This block is visible. Execute to set a new value, displayed by the block above.
 ```ux :[IAB_has_count]
-default: false
+init: false
 echo: $VAR$VAR
 name: IAB
 ```

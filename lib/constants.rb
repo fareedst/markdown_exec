@@ -125,3 +125,21 @@ class TtyMenu
   ENABLE = nil
   DISABLE = ''
 end
+
+class ExportValueSource
+  ALLOW = ':allow'
+  DEFAULT = ':default'
+  ECHO = ':echo'
+  EDIT = ':edit'
+  EXEC = ':exec'
+  FALSE = false
+end
+
+class UxActSource
+  ALLOW = :allow
+  DEFAULT = :default
+  ECHO = :echo
+  EDIT = :edit
+  EXEC = :exec
+  FALSE = 'false'
+end

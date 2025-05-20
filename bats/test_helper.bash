@@ -1,5 +1,35 @@
 # facilitate execution of program, comparison of output
 
+EXIT_MENU=__Exit # name of menu Exit option
+
+#   Compare two byte sequences (strings or files) and report each difference:
+#     • zero-based byte offset
+#     • expected byte (0xHEX) and printable character (or “.”)
+#     • actual   byte (0xHEX) and printable character (or “.”)
+compare_bytes () {
+  set +e
+  local mode="$1"; shift
+  if [[ "$mode" == "--file" ]]; then
+    local f1="$1" f2="$2"
+    exec 3<"$f1" 4<"$f2"
+    # read raw bytes from file descriptors 3 and 4
+    cmp --verbose /dev/fd/3 /dev/fd/4
+  else
+    local live="$mode" expect="$1"
+    # feed the two strings into cmp via process-substitution
+    cmp --verbose <(printf '%s' "$live") <(printf '%s' "$expect")
+  fi |
+  head -n 3 |
+  gawk '{
+    live = strtonum(0 $2)
+    expect = strtonum(0 $3)
+    offset = $1 - 1
+    printf "Offset 0x%X (%4d): output \"%c\" 0x%02X (%3d) vs expect \"%c\" 0x%02X (%3d)\n", \
+           offset, offset, live, live, live, expect, expect, expect
+  }'
+  set -e
+}
+
 date_from_history_file_name () {
   basename "$1" | sed -E 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/'
 }
@@ -13,20 +43,27 @@ echo_hexdump_expected_output_filter () {
   local output="$2"
   local filter="$3"
 
+  # print label, line, character count; output
   echo -e "- output_$(echo "$output" | wc -l)_$(echo -n "$output" | wc -c):\n$output"
   if [[ $filter == A ]]; then
+    # print label, line, character count; converted output
     echo -e "- converted_$(echo "$output" | wc -l)_$(echo -n "$output" | wc -c):"
     echo "$(remove_ansi_escape_sequences "$output")"
   fi
+  # print label, line, character count; expected output
   echo -e "- expected_$(echo "$expected" | wc -l)_$(echo -n "$expected" | wc -c):\n$expected"
 
   if [[ $filter == A ]]; then
-    echo "- output"
-    echo_hexdump "$output"
+    # print label and hex dump of converted output
     echo "- converted"
     echo_hexdump "$(remove_ansi_escape_sequences "$output")"
+    # print label and hex dump of expected output
     echo "- expected"
     echo_hexdump "$expected"
+
+    # print the byte offset of the first few differences
+    echo "- offset"
+    compare_bytes "$(remove_ansi_escape_sequences "$output")" "$expected"
   fi
 } 
 
@@ -207,8 +244,8 @@ spec_mde_args_grep_filter_expect () {
 
   if ( ! expect_equal_with_conversion "$expected" "$output" "$filter"); then
     echo_hexdump_expected_output_filter "$expected" "$output" "$filter"
+    return 1
   fi
-  expect_equal_with_conversion "$expected" "$output" "$filter"
   [[ -n $status ]] && echo "- status: $status"
   [[ -n $status ]]
 }
@@ -229,6 +266,17 @@ spec_mde_xansi_dname_doc_blocks_expect () {
   spec_mde_args_expect "$1" \
    "${@:2:$(($#-2))}" \
    --list-blocks-message dname \
+   --list-blocks-type 3 \
+   --list-blocks \
+  "${!#}"
+}
+
+spec_mde_xansi_message_doc_blocks_expect () {
+  BATS_OUTPUT_FILTER=A
+  BATS_SAFE=_
+  spec_mde_args_expect "$1" \
+   "${@:3:$(($#-3))}" \
+   --list-blocks-message "$2" \
    --list-blocks-type 3 \
    --list-blocks \
   "${!#}"

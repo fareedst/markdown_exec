@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+# this file is skipped during code checks.
+
 greet () {
   echo "Hello, $1"'!'
   sleep 9

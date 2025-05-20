@@ -6,26 +6,28 @@ name: v1
 / name and default
 / transform and validate options not applied to default
 ```ux
-default: ''
+init: false
 echo: 11
 name: v2
 ```
 / name and default; auto-load
 / prompt option is ignored during auto-load
 ```ux :[document_ux_v3]
-default: 12
+init: :echo
+echo: 12
 name: v3
 ```
 / name, default, exec; auto-load static
 ```ux :[document_ux_v4]
-default: 21
+init: :echo
+echo: 21
 exec: basename $(pwd)
 name: v4
 ```
 / name, default, exec; auto-load executed `basename $(pwd)`
 / allowed is ignored by exec
 ```ux :[document_ux_v5]
-default: :exec
+init: :exec
 exec: basename $(pwd)
 name: v5
 ```
@@ -34,7 +36,8 @@ name: v5
 allowed:
 - 32
 - 33
-default: 31
+init: :echo
+echo: 31
 name: v6
 ```
 @import bats-document-configuration.md

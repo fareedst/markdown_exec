@@ -56,5 +56,6 @@ menu_final_divider:
 menu_for_saved_lines: false
 menu_initial_divider:
 menu_vars_set_format:
+screen_width: 64
 table_center: false
 ```

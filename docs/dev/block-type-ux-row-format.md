@@ -10,7 +10,7 @@ allowed:
 - Pongo tapanuliensis
 - Histiophryne psychedelica
 - Phyllopteryx dewysea
-default: Pongo tapanuliensis
+init: Pongo tapanuliensis
 name: Species
 prompt: New species?
 ```
@@ -24,7 +24,6 @@ allowed:
 - 1. Pongo
 - 2. Histiophryne
 - 3. Phyllopteryx
-default: Pongo
 menu_format: "| Name: %{name}| Value: ${%{name}}| Prompt: %{prompt}"
 name: Genus
 prompt: New genus?
@@ -35,13 +34,13 @@ validate: |
 / default
 / auto-load default value
 ```ux :[document_ux_Family]
-default: Hominidae
+init: Hominidae
 name: Family
 ```
 @import bats-document-configuration.md
 ```opts :(document_opts)
 menu_ux_row_format: '| %{name}| ${%{name}}| %{prompt}'
-screen_width: 64
+screen_width: 72
 table_center: true
 ux_auto_load_force_default: true
 ```

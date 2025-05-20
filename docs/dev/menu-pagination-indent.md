@@ -58,7 +58,7 @@
 / An UX block
 ::: Indented with 2 spaces
   ```ux
-  default: false
+  init: false
   echo:
     VARIABLE1: 1
     VARIABLE2: 2
@@ -68,7 +68,7 @@
   ```
 ::: Indented with 4 spaces
     ```ux
-    default: false
+    init: false
     echo:
       VARIABLE1: 1
       VARIABLE2: 2
@@ -78,7 +78,7 @@
     ```
 ::: Indented with 1 tab
 	```ux
-	default: false
+	init: false
 	echo:
 	  VARIABLE1: 1
 	  VARIABLE2: 2
