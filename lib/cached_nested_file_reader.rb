@@ -39,6 +39,8 @@ class CachedNestedFileReader
     )
   end
 
+  # yield each line to the block
+  # return the processed lines
   def readlines(filename, depth = 0, context: '', import_paths: nil,
                 indention: '', &block)
     if @file_cache.key?(filename)
@@ -70,7 +72,7 @@ class CachedNestedFileReader
                                      indention: import_indention,
                                      &block)
       else
-        nested_line = NestedLine.new(line, depth, indention)
+        nested_line = NestedLine.new(line, depth, indention, filename, ind)
         processed_lines.push(nested_line)
         block&.call(nested_line)
       end

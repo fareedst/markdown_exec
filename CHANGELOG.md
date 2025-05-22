@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1] - 2025-05-21
+
+### Changed
+
+- Block ids to reflect source file when imported.
+- Disable UX block warnings for initial values.
+
 ## [3.0.0] - 2025-05-20
 
 ### Added

@@ -1098,7 +1098,8 @@ module MarkdownExec
           block,
           mdoc,
           force: @delegate_object[:ux_auto_load_force_default],
-          only_default: true
+          only_default: true,
+          silent: true
         )
         if command_result_w_e_t_nl.failure?
           merged_options
@@ -1111,7 +1112,8 @@ module MarkdownExec
     # parse YAML body defining the UX for a single variable
     # set ENV value for the variable and return code lines for the same
     def code_from_ux_block_to_set_environment_variables(
-      selected, mdoc, inherited_code: nil, force: true, only_default: false
+      selected, mdoc, inherited_code: nil, force: true, only_default: false,
+      silent:
     )
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
@@ -1161,7 +1163,7 @@ module MarkdownExec
             command_result_w_e_t_nl =
               ux_block_export_activated(eval_code, export, exit_prompt)
             if command_result_w_e_t_nl.failure?
-              warn command_result_w_e_t_nl.warning if command_result_w_e_t_nl.warning&.present?
+              warn command_result_w_e_t_nl.warning if command_result_w_e_t_nl.warning&.present? && !silent
               return command_result_w_e_t_nl
             end
           end
@@ -2019,7 +2021,8 @@ module MarkdownExec
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
-          inherited_code: @dml_link_state.inherited_lines
+          inherited_code: @dml_link_state.inherited_lines,
+          silent: true
         )
         ### TBD if command_result_w_e_t_nl.failure?
         next_state_append_code(
@@ -2581,7 +2584,7 @@ module MarkdownExec
     end
 
     def export_echo_with_code(
-      bash_script_lines, export, force:
+      bash_script_lines, export, force:, silent:
     )
       exportable = true
       command_result = nil
@@ -2596,7 +2599,7 @@ module MarkdownExec
         )
         if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
           exportable = false
-          command_result.warning = warning_required_empty(export)
+          command_result.warning = warning_required_empty(export) unless silent
         end
 
       when Hash
@@ -2609,7 +2612,7 @@ module MarkdownExec
             )
           )
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
-            command_result.warning = warning_required_empty(export)
+            command_result.warning = warning_required_empty(export) unless silent
           else
             ENV[name] = command_result.stdout.to_s
             new_lines << code_line_safe_assign(name, command_result.stdout,
@@ -2937,17 +2940,20 @@ module MarkdownExec
 
       state = initial_state
       selected_types = yield :filter
+      index = 0
       cfile.readlines(
         @delegate_object[:filename],
         import_paths: options_import_paths
-      ).each_with_index do |nested_line, index|
-        next unless nested_line
+      ) do |nested_line|
+        next if nested_line.nil?
 
         update_line_and_block_state(
           nested_line, state, selected_types,
-          source_id: "#{@delegate_object[:filename]}¤ItrBlkFrmNstFls:#{index}",
+          source_id: "ItrBlkFrmNstFls:#{index}¤#{nested_line.filename}:#{nested_line.index}",
           &block
         )
+
+        index += 1
       end
     end
 
@@ -2962,10 +2968,8 @@ module MarkdownExec
       else
         iter_blocks_from_nested_files do |btype, fcb|
           case btype
-          when :blocks
-            yield fcb
-          when :filter
-            %i[blocks]
+          when :blocks; yield fcb
+          when :filter; %i[blocks]
           end
         end
       end
@@ -4587,7 +4591,7 @@ module MarkdownExec
       new_lines = []
       command_result = nil
 
-      case as = FCB.act_source(export)####
+      case as = FCB.act_source(export)
       when false, UxActSource::FALSE
         raise 'Should not be reached.'
 
@@ -4599,7 +4603,8 @@ module MarkdownExec
           command_result, exportable, new_lines = export_echo_with_code(
             bash_script_lines,
             export,
-            force: true
+            force: true,
+            silent: false
           )
           if command_result.failure?
             command_result
@@ -4634,7 +4639,8 @@ module MarkdownExec
         command_result, exportable, new_lines = export_echo_with_code(
           bash_script_lines,
           export,
-          force: true
+          force: true,
+          silent: false
         )
 
         command_result
@@ -4688,6 +4694,7 @@ module MarkdownExec
       exportable = true
       new_lines = []
       command_result = nil
+      silent = true
 
       case FCB.init_source(export)
       when false, UxActSource::FALSE
@@ -4703,7 +4710,8 @@ module MarkdownExec
           command_result, exportable, new_lines = export_echo_with_code(
             bash_script_lines,
             export,
-            force: false
+            force: false,
+            silent: silent
           )
           unless command_result.failure?
             command_result.stdout = (exportable && command_result.stdout.split("\n").first) || ''
@@ -4732,7 +4740,8 @@ module MarkdownExec
         command_result, exportable, new_lines = export_echo_with_code(
           bash_script_lines,
           export,
-          force: false
+          force: false,
+          silent: silent
         )
 
       when ':exec', UxActSource::EXEC
@@ -4750,7 +4759,7 @@ module MarkdownExec
       # add message for required variables
       if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
         command_result.warning = warning_required_empty(export)
-        warn command_result.warning
+        warn command_result.warning unless silent
       end
 
       command_result.exportable = exportable
@@ -5198,6 +5207,7 @@ module MarkdownExec
         mdoc_menu_and_blocks_from_nested_files(
           @dml_link_state, source_id: source_id
         )
+
       dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
     end
 
