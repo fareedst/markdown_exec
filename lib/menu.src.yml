@@ -4,6 +4,25 @@
   :description: Show current configuration values
   :procname: show_config
 
+- :opt_name: archive_ad_hoc_scripts
+  :env_var: MDE_ARCHIVE_AD_HOC_SCRIPTS
+  :description: Archive ad-hoc bash scripts
+  :arg_name: BOOL
+  :default: false
+  :procname: val_as_bool
+
+- :opt_name: archive_time_format
+  :env_var: MDE_ARCHIVE_TIME_FORMAT
+  :description: Time format for archive filenames
+  :default: '%Y-%m-%d-%H-%M-%S-%N'
+  :procname: val_as_str
+
+- :opt_name: archive_path_format
+  :env_var: MDE_ARCHIVE_PATH_FORMAT
+  :description: Format for archive file paths
+  :default: '/tmp/mde-ad-hoc-%{time}'
+  :procname: val_as_str
+
 - :opt_name: bash_only
   :env_var: MDE_BASH_ONLY
   :description: Execute only blocks of type "bash"

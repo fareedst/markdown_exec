@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.2] - 2025-05-21
+
+### Added
+
+- Options to permit the archiving of ad-hoc shell scripts.
+
+### Changed
+
+- Force use of Bash shell for ad-hoc shell scripts.
+
 ## [3.0.1] - 2025-05-21
 
 ### Changed

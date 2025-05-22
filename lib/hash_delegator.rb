@@ -3014,7 +3014,7 @@ module MarkdownExec
           )
 
         else
-          output_lines = `#{cmd}`.split("\n")
+          output_lines = `bash #{file.path}`.split("\n")
         end
       end
 
@@ -3568,11 +3568,23 @@ module MarkdownExec
 
     def output_from_adhoc_bash_script_file(bash_script_lines)
       Tempfile.create('script_exec') do |temp_file|
-        temp_file.write(HashDelegator.join_code_lines(bash_script_lines))
-        temp_file.flush
+        temp_file.write(
+          HashDelegator.join_code_lines(
+            bash_script_lines
+          )
+        )
+        temp_file.close  # Close the file before chmod and execution
         File.chmod(0o755, temp_file.path)
 
-        output = `#{temp_file.path}`
+        if @delegate_object[:archive_ad_hoc_scripts]
+          archive_filename = format(
+            @delegate_object[:archive_path_format],
+            time: Time.now.strftime(@delegate_object[:archive_time_format])
+          )
+          `cp #{temp_file.path} #{archive_filename}`
+        end
+
+        output = `bash #{temp_file.path}`
 
         CommandResult.new(stdout: output, exit_status: $?.exitstatus)
       end
