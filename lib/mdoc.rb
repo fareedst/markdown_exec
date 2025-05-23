@@ -121,7 +121,7 @@ module MarkdownExec
 
       nickname = name_block.pub_name
 
-      dependencies = collect_dependencies(source: nickname)
+      dependencies = collect_dependencies(pubname: nickname)
       # !!t dependencies.count
       all_dependency_names =
         collect_unique_names(dependencies).push(nickname).uniq
@@ -372,6 +372,18 @@ module MarkdownExec
       end.fetch(0, default)
     end
 
+    # Retrieves code blocks by a name.
+    #
+    # @param name [String] The name of the code block to retrieve.
+    # @param default [Hash] The default value to return if the code block is not found.
+    # @return [Hash] The code block as a hash or the default value if not found.
+    #
+    def get_blocks_by_anyname(name)
+      table_not_split.select do |fcb|
+        fcb.is_named?(name)
+      end
+    end
+
     # Checks if a code block should be hidden based on the given options.
     #
     # @param opts [Hash] The options used for hiding code blocks.
@@ -426,13 +438,12 @@ module MarkdownExec
       return memo unless source
       return memo if memo.keys.include? source
 
-      block = get_block_by_anyname(source)
-      # if block.nil? || block.keys.nil? || block.keys.empty?
-      if block.nil?
+      blocks = get_blocks_by_anyname(source)
+      if blocks.empty?
         raise "Named code block `#{source}` not found. (@#{__LINE__})"
       end
 
-      memo[source] = block.reqs
+      memo[source] = blocks.map(&:reqs).flatten(1)
       return memo unless memo[source]&.count&.positive?
 
       memo[source].each do |req|
@@ -447,21 +458,28 @@ module MarkdownExec
     # @param source [String] The name of the initial source block.
     # @param memo [Hash] A memoization hash to store resolved dependencies.
     # @return [Hash] A hash mapping sources to their respective dependencies.
-    def collect_dependencies(block: nil, memo: {}, source: nil)
+    def collect_dependencies(block: nil, memo: {}, pubname: nil)
       if block.nil?
-        return memo unless source
+        return memo unless pubname
 
-        block = get_block_by_anyname(source)
-        if block.nil? || block.instance_of?(Hash)
-          raise "Named code block `#{source}` not found. (@#{__LINE__})"
+        blocks = get_blocks_by_anyname(pubname)
+        if blocks.empty?
+          raise "Named code block `#{pubname}` not found. (@#{__LINE__})"
         end
+      else
+        blocks = [block]
       end
-      return memo unless block.reqs
+      return memo unless blocks.count.positive?
 
-      memo[block.id] = block.reqs
+      required_blocks = blocks.map(&:reqs).flatten(1)
+      return memo unless required_blocks.count.positive?
 
-      block.reqs.each do |req|
-        collect_dependencies(source: req, memo: memo) unless memo.key?(req)
+      blocks.each do |block|
+        memo[block.id] = required_blocks
+      end
+
+      required_blocks.each do |req|
+        collect_dependencies(pubname: req, memo: memo)
       end
 
       memo
@@ -519,7 +537,7 @@ if $PROGRAM_NAME == __FILE__
       ### must raise error
       def test_collect_dependencies_with_nonexistent_source
         assert_raises(RuntimeError) do
-          @mdoc.collect_dependencies(source: 'nonexistent')
+          @mdoc.collect_dependencies(pubname: 'nonexistent')
         end
       end if false
 
@@ -531,7 +549,7 @@ if $PROGRAM_NAME == __FILE__
              .with('source2').returns(OpenStruct.new(id: 'source2', reqs: []))
 
         expected = { 'source1' => ['source2'], 'source2' => [] }
-        assert_equal expected, @mdoc.collect_dependencies(source: 'source1')
+        assert_equal expected, @mdoc.collect_dependencies(pubname: 'source1')
       end
     end
 

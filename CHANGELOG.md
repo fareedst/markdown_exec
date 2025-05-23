@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.3] - 2025-05-23
+
+### Changed
+
+- Collect all required blocks when multiple blocks have the same name.
+
 ## [3.0.2] - 2025-05-21
 
 ### Added

@@ -8,7 +8,7 @@ name: SPECIES
 / automatic block loads first line in output of exec
 ```ux :[document_ux_GENUS]
 allowed: :exec
-exec: echo "Pongo\nHistiophryne psychedelica"
+exec: printf "Pongo\nHistiophryne psychedelica"
 name: GENUS
 ```
 / executed block presents a menu of the allowed list

@@ -3138,7 +3138,10 @@ module MarkdownExec
                                                    opts_block_name)
       return if selected_blocks.empty?
 
-      dependency_map = {}
+      dependency_map = selected_blocks.map do |block|
+        [block.id, block.reqs]
+      end.to_h
+
       selected_blocks.each do |block|
         mdoc.collect_dependencies(memo: dependency_map, block: block)
       end
