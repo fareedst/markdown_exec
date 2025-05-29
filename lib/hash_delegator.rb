@@ -1377,11 +1377,13 @@ module MarkdownExec
                         end
 
       if allow_execution
-        execute_required_lines(blockname: selected.pub_name,
-                               erls: { play_bin: play_bin,
-                                       shell: selected.shell },
-                               required_lines: required_lines,
-                               shell: selected.shell)
+        execute_required_lines(
+          blockname: selected.pub_name,
+          erls: { play_bin: play_bin,
+                  shell: selected_shell(selected.shell) },
+          required_lines: required_lines,
+          shell: selected_shell(selected.shell)
+        )
       end
 
       link_state.block_name = nil
@@ -1692,6 +1694,10 @@ module MarkdownExec
 
     def debounce_reset
       @prior_execution_block = nil
+    end
+
+    def selected_shell(shell_name)
+      shell_name.empty? ? shell : shell_name
     end
 
     # Determines the state of a selected block in the menu based
@@ -2490,7 +2496,7 @@ module MarkdownExec
       if @delegate_object[:save_executed_script]
         write_command_file(blockname: blockname,
                            required_lines: required_lines,
-                           shell: shell)
+                           shell: selected_shell(shell))
       end
       if @dml_block_state
         calc_logged_stdout_filename(block_name: @dml_block_state.block.oname)
@@ -2498,7 +2504,7 @@ module MarkdownExec
       format_and_execute_command(
         code_lines: required_lines,
         erls: erls,
-        shell: shell
+        shell: selected_shell(shell)
       )
       post_execution_process
     end
@@ -2705,7 +2711,7 @@ module MarkdownExec
         formatted_command,
         args: @pass_args,
         erls: erls,
-        shell: shell
+        shell: selected_shell(shell)
       )
       @fout.fout fetch_color(data_sym: :script_execution_tail,
                              color_sym: :script_execution_frame_color)
@@ -2968,8 +2974,8 @@ module MarkdownExec
       else
         iter_blocks_from_nested_files do |btype, fcb|
           case btype
-          when :blocks; yield fcb
-          when :filter; %i[blocks]
+          when :blocks then yield fcb
+          when :filter then %i[blocks]
           end
         end
       end
@@ -3138,9 +3144,9 @@ module MarkdownExec
                                                    opts_block_name)
       return if selected_blocks.empty?
 
-      dependency_map = selected_blocks.map do |block|
+      dependency_map = selected_blocks.to_h do |block|
         [block.id, block.reqs]
-      end.to_h
+      end
 
       selected_blocks.each do |block|
         mdoc.collect_dependencies(memo: dependency_map, block: block)
@@ -3576,7 +3582,7 @@ module MarkdownExec
             bash_script_lines
           )
         )
-        temp_file.close  # Close the file before chmod and execution
+        temp_file.close # Close the file before chmod and execution
         File.chmod(0o755, temp_file.path)
 
         if @delegate_object[:archive_ad_hoc_scripts]
@@ -3587,7 +3593,7 @@ module MarkdownExec
           `cp #{temp_file.path} #{archive_filename}`
         end
 
-        output = `bash #{temp_file.path}`
+        output = `#{shell} #{temp_file.path}`
 
         CommandResult.new(stdout: output, exit_status: $?.exitstatus)
       end
@@ -3867,7 +3873,7 @@ module MarkdownExec
       elsif sel == MenuOptions::SAVE_SCRIPT
         save_to_file(
           required_lines: required_lines, selected: selected,
-          shell: selected.shell
+          shell: selected_shell(selected.shell)
         )
       end
 
@@ -4203,7 +4209,7 @@ module MarkdownExec
       required_lines:, selected:, shell:
     )
       write_command_file(
-        required_lines: required_lines, blockname: selected.pub_name, shell: shell
+        required_lines: required_lines, blockname: selected.pub_name, shell: selected_shell(shell)
       )
       @fout.fout "File saved: #{@run_state.saved_filespec}"
     end
@@ -4214,7 +4220,7 @@ module MarkdownExec
         saved_asset_format:
           shell_escape_asset_format(
             code_lines: link_state&.inherited_lines,
-            shell: shell
+            shell: selected_shell(shell)
           )
       ).generate_name
     end
@@ -4606,7 +4612,7 @@ module MarkdownExec
       new_lines = []
       command_result = nil
 
-      case as = FCB.act_source(export)
+      case FCB.act_source(export)
       when false, UxActSource::FALSE
         raise 'Should not be reached.'
 

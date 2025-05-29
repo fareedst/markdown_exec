@@ -361,7 +361,7 @@ RSpec.describe 'MarkdownExec' do
       expect_any_instance_of(MarkdownExec::HashDelegator).to \
         receive(:command_execute).with(
           'a',
-          { args: [], erls: { play_bin: 'play', shell: '' }, shell: '' }
+          { args: [], erls: { play_bin: 'play', shell: 'bash' }, shell: 'bash' }
         )
       opts = mp.options.merge(
         bash: true,

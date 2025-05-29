@@ -469,6 +469,9 @@ module MarkdownExec
       else
         blocks = [block]
       end
+      blocks.each do |block|
+        memo[block.id] = []
+      end
       return memo unless blocks.count.positive?
 
       required_blocks = blocks.map(&:reqs).flatten(1)
@@ -542,11 +545,11 @@ if $PROGRAM_NAME == __FILE__
       end if false
 
       def test_collect_dependencies_with_valid_source
-        @mdoc.stubs(:get_block_by_anyname)
-             .with('source1').returns(OpenStruct.new(id: 'source1',
-                                                     reqs: ['source2']))
-        @mdoc.stubs(:get_block_by_anyname)
-             .with('source2').returns(OpenStruct.new(id: 'source2', reqs: []))
+        @mdoc.stubs(:get_blocks_by_anyname)
+             .with('source1').returns([OpenStruct.new(id: 'source1',
+                                                      reqs: ['source2'])])
+        @mdoc.stubs(:get_blocks_by_anyname)
+             .with('source2').returns([OpenStruct.new(id: 'source2', reqs: [])])
 
         expected = { 'source1' => ['source2'], 'source2' => [] }
         assert_equal expected, @mdoc.collect_dependencies(pubname: 'source1')
@@ -627,7 +630,7 @@ if $PROGRAM_NAME == __FILE__
         result = @doc.recursively_required_hash('block3')
         assert_equal ({ 'block3' => ['block1'],
                         'block1' => ['block2'],
-                        'block2' => nil }),
+                        'block2' => [nil] }),
                      result
 
         result_no_reqs = @doc.recursively_required_hash(nil)
