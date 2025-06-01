@@ -20,4 +20,7 @@ init: false
 echo: $VAR$VAR
 name: IAB
 ```
+```opts :(document_opts)
+menu_with_inherited_lines: true
+```
 @import bats-document-configuration.md

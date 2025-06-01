@@ -10,7 +10,7 @@ load 'test_helper'
 @test 'inherited lines' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-echo.md \
    '(menu_with_inherited_lines)' \
-   'VAR=markdown_exec_VAR=markdown_exec_IAB='
+   'VAR=markdown_exec_IAB='
 }
 
 @test 'selected block - output of wc includes whitespace' {

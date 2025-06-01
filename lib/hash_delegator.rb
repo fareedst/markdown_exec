@@ -1094,17 +1094,18 @@ module MarkdownExec
       @ux_most_recent_filename = @delegate_object[:filename]
 
       (blocks.each.with_object([]) do |block, merged_options|
-        command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
-          block,
-          mdoc,
-          force: @delegate_object[:ux_auto_load_force_default],
-          only_default: true,
-          silent: true
-        )
+        command_result_w_e_t_nl =
+          code_from_ux_block_to_set_environment_variables(
+            block,
+            mdoc,
+            force: @delegate_object[:ux_auto_load_force_default],
+            only_default: true,
+            silent: true
+          )
         if command_result_w_e_t_nl.failure?
           merged_options
         else
-          merged_options.push(command_result_w_e_t_nl.stdout)
+          merged_options.push(command_result_w_e_t_nl.new_lines)
         end
       end).to_a
     end
@@ -1115,6 +1116,7 @@ module MarkdownExec
       selected, mdoc, inherited_code: nil, force: true, only_default: false,
       silent:
     )
+      ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
       required = mdoc.collect_recursively_required_code(
@@ -1169,7 +1171,20 @@ module MarkdownExec
           end
           return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
+          command_result_w_e_t_nl.new_lines =
+            command_result_w_e_t_nl.new_lines.map do |name_force|
+              transformed = if command_result_w_e_t_nl.transformable
+                              transform_export_value(name_force[:text], export)
+                            else
+                              name_force[:text]
+                            end
+              ENV[name_force[:name]] = transformed
+              code_line_safe_assign(
+                name_force[:name], transformed, force: name_force[:force]
+              )
+            end
           required_lines.concat(command_result_w_e_t_nl.new_lines)
+
           if SelectResponse.continue?(command_result_w_e_t_nl.stdout)
             if command_result_w_e_t_nl.transformable
               command_result_w_e_t_nl.stdout = transform_export_value(
@@ -1179,16 +1194,18 @@ module MarkdownExec
 
             if command_result_w_e_t_nl.exportable
               ENV[export.name] = command_result_w_e_t_nl.stdout.to_s
-              required_lines.push code_line_safe_assign(export.name, command_result_w_e_t_nl.stdout,
-                                                        force: force)
+              required_lines.push code_line_safe_assign(
+                export.name, command_result_w_e_t_nl.stdout, force: force
+              )
             end
           end
+          ret_command_result = command_result_w_e_t_nl
         else
           raise "Invalid data type: #{data.inspect}"
         end
       end
 
-      CommandResult.new(stdout: required_lines)
+      ret_command_result || CommandResult.new(stdout: required_lines)
     end
 
     # sets ENV
@@ -2621,8 +2638,8 @@ module MarkdownExec
             command_result.warning = warning_required_empty(export) unless silent
           else
             ENV[name] = command_result.stdout.to_s
-            new_lines << code_line_safe_assign(name, command_result.stdout,
-                                               force: force)
+            new_lines << { name: name, force: force,
+                           text: command_result.stdout }
           end
         end
 
@@ -4395,7 +4412,6 @@ module MarkdownExec
       marker = Random.new.rand.to_s
 
       code = (code_lines || []) + ["echo -n \"#{marker}#{raw}\""]
-      # !!t code
       File.write filespec, HashDelegator.join_code_lines(code)
       File.chmod 0o755, filespec
 

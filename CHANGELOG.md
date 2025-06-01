@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.5] - 2025-05-23
+
+### Changed
+
+- Values for UX echo are validated and transformed.
+
+## [3.0.4] - 2025-05-28
+
+### Changed
+
+- Apply shell option when not specified for a block.
+
 ## [3.0.3] - 2025-05-23
 
 ### Changed
