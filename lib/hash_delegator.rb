@@ -44,6 +44,7 @@ require_relative 'string_util'
 require_relative 'table_extractor'
 require_relative 'text_analyzer'
 require_relative 'value_or_exception'
+require_relative 'env_interface'
 
 $pd = false unless defined?($pd)
 $table_cell_truncate = true
@@ -94,10 +95,6 @@ module HashDelegatorSelf
 
   def block_select(blocks, msg, value, default = nil)
     blocks.select { |item| item.send(msg) == value }
-  end
-
-  def code_merge(*bodies)
-    merge_lists(*bodies)
   end
 
   def count_matches_in_lines(lines, regex)
@@ -157,6 +154,14 @@ module HashDelegatorSelf
     )
   end
 
+  # Takes multiple arrays as arguments, flattens them into a single array, and removes nil values.
+  # @param args [Array<Array>] Variable number of arrays to be processed
+  # @return [Array] A single flattened array with nil values removed, or an empty array if the result is empty
+  def flatten_and_compact_arrays(*args)
+    merged = args.compact.flatten
+    merged.empty? ? [] : merged
+  end
+
   # Indents all lines in a given string with a specified indentation string.
   # @param body [String] A multi-line string to be indented.
   # @param indent [String] The string used for indentation
@@ -175,13 +180,6 @@ module HashDelegatorSelf
 
   def join_code_lines(lines)
     ((lines || []) + ['']).join("\n")
-  end
-
-  def merge_lists(*args)
-    # Filters out nil values, flattens the arrays, and ensures an
-    #  empty list is returned if no valid lists are provided.
-    merged = args.compact.flatten
-    merged.empty? ? [] : merged
   end
 
   def next_link_state(
@@ -501,10 +499,6 @@ class BashCommentFormatter
     end
     formatted.join("\n")
   end
-  # # fit oname in single bash comment
-  # def oname_for_bash_comment(oname)
-  #   oname.gsub("\n", ' ~ ').gsub(/  +/, ' ')
-  # end
 end
 
 class StringWrapper
@@ -1177,28 +1171,15 @@ module MarkdownExec
                               transform_export_value(name_force[:text], export)
                             else
                               name_force[:text]
+
                             end
-              ENV[name_force[:name]] = transformed
+              EnvInterface.set(name_force[:name], transformed)
+
               code_line_safe_assign(
                 name_force[:name], transformed, force: name_force[:force]
               )
             end
           required_lines.concat(command_result_w_e_t_nl.new_lines)
-
-          if SelectResponse.continue?(command_result_w_e_t_nl.stdout)
-            if command_result_w_e_t_nl.transformable
-              command_result_w_e_t_nl.stdout = transform_export_value(
-                command_result_w_e_t_nl.stdout, export
-              )
-            end
-
-            if command_result_w_e_t_nl.exportable
-              ENV[export.name] = command_result_w_e_t_nl.stdout.to_s
-              required_lines.push code_line_safe_assign(
-                export.name, command_result_w_e_t_nl.stdout, force: force
-              )
-            end
-          end
           ret_command_result = command_result_w_e_t_nl
         else
           raise "Invalid data type: #{data.inspect}"
@@ -1208,13 +1189,17 @@ module MarkdownExec
       ret_command_result || CommandResult.new(stdout: required_lines)
     end
 
+    def env_set(name, value)
+      EnvInterface.set(name, value)
+    end
+
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
       code_lines = []
       case data = YAML.load(selected.body.join("\n"))
       when Hash
         data.each do |key, value|
-          ENV[key] = value.to_s
+          EnvInterface.set(key, value.to_s)
           code_lines.push "#{key}=#{Shellwords.escape(value)}"
 
           next unless @delegate_object[:menu_vars_set_format].present?
@@ -1908,7 +1893,7 @@ module MarkdownExec
       before_mtime = temp_file.mtime
 
       # Open the temporary file in the default editor
-      system("#{ENV['EDITOR'] || 'vi'} #{temp_file.path}")
+      system("#{EnvInterface.get('EDITOR', default: 'vi')} #{temp_file.path}")
 
       # Capture the exit status of the editor
       editor_exit_status = $?.exitstatus
@@ -2051,13 +2036,16 @@ module MarkdownExec
         next_state_append_code(
           selected,
           link_state,
-          command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.stdout
+          command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
         )
 
       elsif selected.type == BlockType::VARS
         debounce_reset
-        next_state_append_code(selected, link_state,
-                               code_from_vars_block_to_set_environment_variables(selected))
+        next_state_append_code(
+          selected,
+          link_state,
+          code_from_vars_block_to_set_environment_variables(selected)
+        )
 
       elsif COLLAPSIBLE_TYPES.include?(selected.type)
         debounce_reset
@@ -2182,7 +2170,7 @@ module MarkdownExec
       if link_block_data[LinkKeys::VARS]
         code_lines.push BashCommentFormatter.format_comment(selected.pub_name)
         (link_block_data[LinkKeys::VARS] || []).each do |(key, value)|
-          ENV[key] = value.to_s
+          EnvInterface.set(key, value.to_s)
           code_lines.push(assign_key_value_in_bash(key, value))
         end
       end
@@ -2237,7 +2225,7 @@ module MarkdownExec
            ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies:
            (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-          inherited_lines: HashDelegator.code_merge(
+          inherited_lines: HashDelegator.flatten_and_compact_arrays(
             link_state&.inherited_lines, code_lines
           ),
           keep_code: link_state&.keep_code,
@@ -2345,15 +2333,15 @@ module MarkdownExec
 
       if selected[:type] == BlockType::OPTS
         # body of blocks is returned as a list of lines to be read an YAML
-        HashDelegator.code_merge(required[:blocks].map(&:body).flatten(1))
+        HashDelegator.flatten_and_compact_arrays(required[:blocks].map(&:body).flatten(1))
       else
         code_lines = if selected.type == BlockType::VARS
                        code_from_vars_block_to_set_environment_variables(selected)
                      else
                        []
                      end
-        HashDelegator.code_merge(link_state&.inherited_lines,
-                                 required[:code] + code_lines)
+        HashDelegator.flatten_and_compact_arrays(link_state&.inherited_lines,
+                                                 required[:code] + code_lines)
       end
     end
 
@@ -2575,6 +2563,7 @@ module MarkdownExec
         link_state: link_state,
         pattern: options_command_substitution_regexp
       )
+      # no return
     end
 
     def expand_variable_references!(
@@ -2604,31 +2593,37 @@ module MarkdownExec
       return if replacements == EvaluateShellExpression::StatusFail
 
       expand_blocks_with_replacements(blocks, replacements)
+      # no return
     end
 
     def export_echo_with_code(
-      bash_script_lines, export, force:, silent:
+      bash_script_lines, export, force:, silent:, string: nil
     )
       exportable = true
       command_result = nil
       new_lines = []
-      case export.echo
+      export_string = string || export.echo
+      case export_string
       when String, Integer, Float, TrueClass, FalseClass
-        command_result = output_from_adhoc_bash_script_file(
+        command_result, = output_from_adhoc_bash_script_file(
           join_array_of_arrays(
             bash_script_lines,
-            %(printf '%s' "#{export.echo}")
+            %(printf '%s' "#{export_string}")
           )
         )
         if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
           exportable = false
           command_result.warning = warning_required_empty(export) unless silent
+        else
+          EnvInterface.set(export.name, command_result.stdout.to_s)
+          new_lines << { name: export.name, force: force,
+                         text: command_result.stdout }
         end
 
       when Hash
         # each item in the hash is a variable name and value
-        export.echo.each do |name, expression|
-          command_result = output_from_adhoc_bash_script_file(
+        export_string.each do |name, expression|
+          command_result, = output_from_adhoc_bash_script_file(
             join_array_of_arrays(
               bash_script_lines,
               %(printf '%s' "#{expression}")
@@ -2637,14 +2632,11 @@ module MarkdownExec
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
             command_result.warning = warning_required_empty(export) unless silent
           else
-            ENV[name] = command_result.stdout.to_s
+            EnvInterface.set(name, command_result.stdout.to_s)
             new_lines << { name: name, force: force,
                            text: command_result.stdout }
           end
         end
-
-        # individual items have been exported, none remain
-        exportable = false
       end
 
       [command_result, exportable, new_lines]
@@ -2755,7 +2747,7 @@ module MarkdownExec
     # Format expression using environment variables and run state
     def format_expression(expr)
       data = link_load_format_data
-      ENV.each { |key, value| data[key.to_sym] = value }
+      EnvInterface.each { |key, value| data[key.to_sym] = value }
       format(expr, data)
     end
 
@@ -3008,8 +3000,8 @@ module MarkdownExec
 
     def link_block_data_eval(link_state, code_lines, selected, link_block_data,
                              block_source:, shell:)
-      all_code = HashDelegator.code_merge(link_state&.inherited_lines,
-                                          code_lines)
+      all_code = HashDelegator.flatten_and_compact_arrays(link_state&.inherited_lines,
+                                                          code_lines)
       output_lines = []
 
       Tempfile.open do |file|
@@ -3304,8 +3296,11 @@ module MarkdownExec
       [block_name_from_cli, now_using_cli]
     end
 
-    def mdoc_and_blocks_from_nested_files(source_id: nil)
-      blocks_results = blocks_from_nested_files(source_id: source_id)
+    def mdoc_and_blocks_from_nested_files(source_id: nil, link_state: nil)
+      blocks_results = blocks_from_nested_files(
+        link_state: link_state,
+        source_id: source_id
+      )
 
       blocks_results.results.select do |_id, result|
         result.failure?
@@ -3328,7 +3323,10 @@ module MarkdownExec
       #
       reload_blocks = false
 
-      all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
+      all_blocks, mdoc = mdoc_and_blocks_from_nested_files(
+        link_state: link_state,
+        source_id: source_id
+      )
       if load_auto_opts_block(all_blocks, mdoc: mdoc)
         reload_blocks = true
       end
@@ -3344,8 +3342,8 @@ module MarkdownExec
       # load document ux block
       #
       if (code_lines = code_from_automatic_ux_blocks(all_blocks, mdoc))
-        new_code = HashDelegator.code_merge(link_state.inherited_lines,
-                                            code_lines)
+        new_code = HashDelegator.flatten_and_compact_arrays(link_state.inherited_lines,
+                                                            code_lines)
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
         reload_blocks = true
@@ -3354,15 +3352,18 @@ module MarkdownExec
       # load document vars block
       #
       if (code_lines = load_auto_vars_block(all_blocks))
-        new_code = HashDelegator.code_merge(link_state.inherited_lines,
-                                            code_lines)
+        new_code = HashDelegator.flatten_and_compact_arrays(link_state.inherited_lines,
+                                                            code_lines)
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
         reload_blocks = true
       end
 
       if reload_blocks
-        all_blocks, mdoc = mdoc_and_blocks_from_nested_files(source_id: source_id)
+        all_blocks, mdoc = mdoc_and_blocks_from_nested_files(
+          link_state: link_state,
+          source_id: source_id
+        )
       end
 
       # filter by name, collapsed
@@ -3531,7 +3532,7 @@ module MarkdownExec
       next_state_set_code(
         selected,
         link_state,
-        HashDelegator.code_merge(
+        HashDelegator.flatten_and_compact_arrays(
           link_state&.inherited_lines,
           code_lines.is_a?(Array) ? code_lines : [] # no code for :ux_exec_prohibited
         )
@@ -3548,7 +3549,7 @@ module MarkdownExec
           ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
         inherited_dependencies:
           (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-        inherited_lines: HashDelegator.code_merge(code_lines),
+        inherited_lines: HashDelegator.flatten_and_compact_arrays(code_lines),
         keep_code: link_state&.keep_code,
         next_block_name: '',
         next_document_filename: @delegate_object[:filename],
@@ -3592,7 +3593,10 @@ module MarkdownExec
       }
     end
 
-    def output_from_adhoc_bash_script_file(bash_script_lines)
+    def output_from_adhoc_bash_script_file(
+      bash_script_lines,
+      export = nil
+    )
       Tempfile.create('script_exec') do |temp_file|
         temp_file.write(
           HashDelegator.join_code_lines(
@@ -3612,7 +3616,31 @@ module MarkdownExec
 
         output = `#{shell} #{temp_file.path}`
 
-        CommandResult.new(stdout: output, exit_status: $?.exitstatus)
+        exportable = export ? export.exportable : false
+        new_lines = []
+        if export
+          new_lines << "#{export.name}="
+          export_value = output
+
+          command_result, exportable, new_lines = export_echo_with_code(
+            ["#{export.name}=#{Shellwords.escape(export_value)}"],
+            export,
+            force: force,
+            silent: silent,
+            string: export_value
+          )
+        else
+          command_result = CommandResult.new(
+            stdout: output,
+            exit_status: $?.exitstatus
+          )
+        end
+
+        [
+          command_result,
+          exportable,
+          new_lines
+        ]
       end
     rescue StandardError => err
       warn "Error executing script: #{err.message}"
@@ -3653,7 +3681,8 @@ module MarkdownExec
           inherited_dependencies:
            dependencies.merge(pop.inherited_dependencies || {}), ### merge, not replace, key data
           inherited_lines:
-           HashDelegator.code_merge(pop.inherited_lines, code_lines)
+           HashDelegator.flatten_and_compact_arrays(pop.inherited_lines,
+                                                    code_lines)
         )
         @link_history.push(next_state)
 
@@ -3670,7 +3699,9 @@ module MarkdownExec
           inherited_dependencies:
            (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           inherited_lines:
-           HashDelegator.code_merge(link_state&.inherited_lines, code_lines),
+           HashDelegator.flatten_and_compact_arrays(
+             link_state&.inherited_lines, code_lines
+           ),
           keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
           next_document_filename: @delegate_object[:filename], # not next_document_filename
@@ -4623,16 +4654,21 @@ module MarkdownExec
     def ux_block_export_activated(
       bash_script_lines, export, exit_prompt
     )
-      exportable = true
-      transformable = true
-      new_lines = []
       command_result = nil
+      exportable = true
+      force = true
+      new_lines = []
+      silent = false
+      transformable = true
 
       case FCB.act_source(export)
       when false, UxActSource::FALSE
-        raise 'Should not be reached.'
+        # read-only
+        command_result = CommandResult.new
+        exportable = false
+        transformable = false
 
-      when ':allow', UxActSource::ALLOW
+      when :allow, UxActSource::ALLOW
         raise unless export.allow.present?
 
         case export.allow
@@ -4640,9 +4676,10 @@ module MarkdownExec
           command_result, exportable, new_lines = export_echo_with_code(
             bash_script_lines,
             export,
-            force: true,
-            silent: false
+            force: force,
+            silent: silent
           )
+
           if command_result.failure?
             command_result
           else
@@ -4651,8 +4688,8 @@ module MarkdownExec
             )
           end
 
-        when ':exec', UxActSource::EXEC
-          command_result = output_from_adhoc_bash_script_file(
+        when :exec, UxActSource::EXEC
+          command_result, = output_from_adhoc_bash_script_file(
             join_array_of_arrays(bash_script_lines, export.exec)
           )
 
@@ -4667,22 +4704,26 @@ module MarkdownExec
           end
 
         else
-          command_result = CommandResult.new(
-            stdout: menu_from_list_with_back(export.allow)
+          export_init = menu_from_list_with_back(export.allow)
+          command_result, exportable, new_lines = export_echo_with_code(
+            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            export,
+            force: force,
+            silent: silent,
+            string: export_init
           )
+
         end
 
-      when ':echo', UxActSource::ECHO
+      when :echo, UxActSource::ECHO
         command_result, exportable, new_lines = export_echo_with_code(
           bash_script_lines,
           export,
-          force: true,
-          silent: false
+          force: force,
+          silent: silent
         )
 
-        command_result
-
-      when ':edit', UxActSource::EDIT
+      when :edit, UxActSource::EDIT
         output = nil
         begin
           loop do
@@ -4702,12 +4743,10 @@ module MarkdownExec
 
         command_result = CommandResult.new(stdout: output)
 
-      when ':exec', UxActSource::EXEC
-        command_result = output_from_adhoc_bash_script_file(
+      when :exec, UxActSource::EXEC
+        command_result, = output_from_adhoc_bash_script_file(
           join_array_of_arrays(bash_script_lines, export.exec)
         )
-
-        command_result
 
       else
         transformable = false
@@ -4717,7 +4756,7 @@ module MarkdownExec
       # add message for required variables
       if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
         command_result.warning = warning_required_empty(export)
-        # warn command_result.warning
+        warn command_result.warning unless silent
       end
 
       command_result.exportable = exportable
@@ -4726,12 +4765,15 @@ module MarkdownExec
       command_result
     end
 
-    def ux_block_export_automatic(bash_script_lines, export)
-      transformable = true
-      exportable = true
-      new_lines = []
+    def ux_block_export_automatic(
+      bash_script_lines, export
+    )
       command_result = nil
+      exportable = true
+      force = false
+      new_lines = []
       silent = true
+      transformable = true
 
       case FCB.init_source(export)
       when false, UxActSource::FALSE
@@ -4739,57 +4781,85 @@ module MarkdownExec
         transformable = false
         command_result = CommandResult.new
 
-      when ':allow', UxActSource::ALLOW
+      when :allow, UxActSource::ALLOW
         raise unless export.allow.present?
 
         case export.allow
         when :echo, ExportValueSource::ECHO
-          command_result, exportable, new_lines = export_echo_with_code(
-            bash_script_lines,
-            export,
-            force: false,
-            silent: silent
+          cr_echo, = output_from_adhoc_bash_script_file(
+            join_array_of_arrays(
+              bash_script_lines,
+              %(printf '%s' "#{export.echo}")
+            )
           )
-          unless command_result.failure?
-            command_result.stdout = (exportable && command_result.stdout.split("\n").first) || ''
-          end
+          export_init = cr_echo.stdout.split("\n").first
+          command_result, exportable, new_lines = export_echo_with_code(
+            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            export,
+            force: force,
+            silent: silent,
+            string: export_init
+          )
 
         when :exec, ExportValueSource::EXEC
-          command_result = output_from_adhoc_bash_script_file(
+          # extract first line from 'exec' output
+          command_result, = output_from_adhoc_bash_script_file(
             join_array_of_arrays(bash_script_lines, export.exec)
           )
           unless command_result.failure?
-            command_result.stdout = command_result.stdout.split("\n").first
+            export_init = command_result.stdout.split("\n").first
+            command_result, exportable, new_lines = export_echo_with_code(
+              ["#{export.name}=#{Shellwords.escape(export_init)}"],
+              export,
+              force: force,
+              silent: silent,
+              string: export_init
+            )
           end
 
         else
-          # must be a list
-          command_result = CommandResult.new(stdout: export.allow.first)
+          # first item from 'allow' list
+          export_init = export.allow.first
+          command_result, exportable, new_lines = export_echo_with_code(
+            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            export,
+            force: force,
+            silent: silent,
+            string: export_init
+          )
+
         end
 
-      when ':default', UxActSource::DEFAULT
+      when :default, UxActSource::DEFAULT
         transformable = false
         command_result = CommandResult.new(stdout: export.default.to_s)
 
-      when ':echo', UxActSource::ECHO
+      when :echo, UxActSource::ECHO
         raise unless export.echo.present?
 
         command_result, exportable, new_lines = export_echo_with_code(
           bash_script_lines,
           export,
-          force: false,
+          force: force,
           silent: silent
         )
-
-      when ':exec', UxActSource::EXEC
+      when :exec, UxActSource::EXEC
         raise unless export.exec.present?
 
-        command_result = output_from_adhoc_bash_script_file(
-          join_array_of_arrays(bash_script_lines, export.exec)
+        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
+          join_array_of_arrays(bash_script_lines, export.exec),
+          export
         )
 
       else
-        command_result = CommandResult.new(stdout: export.init.to_s)
+        export_init = export.init.to_s
+        command_result, exportable, new_lines = export_echo_with_code(
+          ["#{export.name}=#{Shellwords.escape(export_init)}"],
+          export,
+          force: force,
+          silent: silent,
+          string: export_init
+        )
         # raise "Unknown FCB.init_source(export) #{FCB.init_source(export)}"
       end
 
@@ -5205,9 +5275,6 @@ module MarkdownExec
         )
       end
       # rubocop:enable Style/GuardClause
-
-      # # reflect new menu items
-      # @dml_mdoc = MDoc.new(@dml_menu_blocks)
     end
 
     def vux_navigate_back_for_ls
@@ -5244,7 +5311,6 @@ module MarkdownExec
         mdoc_menu_and_blocks_from_nested_files(
           @dml_link_state, source_id: source_id
         )
-
       dump_delobj(@dml_blocks_in_file, @dml_menu_blocks, @dml_link_state)
     end
 

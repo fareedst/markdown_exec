@@ -21,6 +21,6 @@ echo: $VAR$VAR
 name: IAB
 ```
 ```opts :(document_opts)
-menu_with_inherited_lines: true
+menu_with_inherited_lines: false
 ```
 @import bats-document-configuration.md

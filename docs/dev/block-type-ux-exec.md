@@ -15,7 +15,6 @@ name: ux1
 / auto-load block and execute command to calculate
 / click block to recalculate
 ```ux :[document_ux2]
-act: :exec
 exec: basename $(pwd)
 name: ux2
 ```

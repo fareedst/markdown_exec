@@ -77,15 +77,22 @@ def ww0(*objs,
     file.puts(formatted_message)
   end
 
+  def wwb
+    binding.irb if $debug
+  end
+
   # return the last item in the list, as the label is usually first
   objs.last
 end
 
 class Array
   unless defined?(deref)
-    def deref
+    def deref(count = 4)
+      dir_pwd = Dir.pwd
       map(&:deref).reject do |line|
         %r{^/(vendor|\.bundle)/}.match(line)
+      end.first(count).map do |line|
+        line.sub(dir_pwd, '.')
       end
     end
   end

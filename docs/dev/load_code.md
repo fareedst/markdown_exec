@@ -10,5 +10,6 @@ Run this command to display the inherited code.
 @import bats-document-configuration.md
 ```opts :(document_opts)
 menu_for_saved_lines: false
+screen_width: 80
 table_center: false
 ```

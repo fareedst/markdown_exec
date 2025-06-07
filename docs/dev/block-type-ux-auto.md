@@ -27,7 +27,6 @@ name: v4
 / name, default, exec; auto-load executed `basename $(pwd)`
 / allowed is ignored by exec
 ```ux :[document_ux_v5]
-init: :exec
 exec: basename $(pwd)
 name: v5
 ```

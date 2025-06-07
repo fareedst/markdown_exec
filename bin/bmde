@@ -6,12 +6,13 @@ require 'bundler/setup'
 Bundler.require(:default)
 
 require_relative '../lib/markdown_exec'
+require_relative '../lib/env_interface'
 
 trace_enabled = false
 
-if ENV['MDE_TRACE_POINT']
-  trace_output = if ENV['MDE_TRACE_POINT_FILE']
-                   File.open(ENV['MDE_TRACE_POINT_FILE'], 'a')
+if EnvInterface.get('MDE_TRACE_POINT')
+  trace_output = if EnvInterface.get('MDE_TRACE_POINT_FILE')
+                   File.open(EnvInterface.get('MDE_TRACE_POINT_FILE'), 'a')
                  else
                    $stderr
                  end

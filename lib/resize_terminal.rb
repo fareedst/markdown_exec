@@ -4,6 +4,7 @@
 # encoding=utf-8
 require 'io/console'
 require 'timeout'
+require_relative 'env_interface'
 
 # This function attempts to resize the terminal to its maximum supported size.
 # It checks if the script is running in an interactive terminal with no arguments.
@@ -49,7 +50,9 @@ def resize_terminal(show_dims: false, show_rectangle: false,
 
   calculated_rows, calculated_columns = match_data.captures.map(&:to_i)
 
-  if ENV['COLUMNS'].to_i == calculated_columns && ENV['LINES'].to_i == calculated_rows
+  if EnvInterface.get('COLUMNS',
+                      transform: lambda(&:to_i)) == calculated_columns &&
+     EnvInterface.get('LINES', transform: lambda(&:to_i)) == calculated_rows
     puts "#{ENV.fetch('TERM', nil)} #{calculated_columns}x#{calculated_rows}"
   elsif calculated_columns.positive? && calculated_rows.positive?
     warn "#{ENV.fetch('COLUMNS',
@@ -70,6 +73,9 @@ rescue Timeout::Error
 rescue StandardError => err
   warn "Error: #{err.message}. Unsupported terminal emulator."
   1
+ensure
+  EnvInterface.set('COLUMNS', @original_columns)
+  EnvInterface.set('LINES', @original_lines)
 end
 
 # This function draws a rectangle of the given width and height
@@ -96,8 +102,8 @@ class ResizeTerminalTest < Minitest::Test
   def teardown
     # Restore original ARGV and environment variables
     ARGV.replace(@original_argv)
-    ENV['COLUMNS'] = @original_columns
-    ENV['LINES'] = @original_lines
+    EnvInterface.set('COLUMNS', @original_columns)
+    EnvInterface.set('LINES', @original_lines)
   end
 
   # def test_resize_terminal_successful
@@ -119,8 +125,8 @@ class ResizeTerminalTest < Minitest::Test
     $stdin.stub(:tty?, true) do
       ARGV.replace([])
       columns = 40 + (2 * rand(10))
-      ENV['COLUMNS'] = columns.to_s
-      ENV['LINES'] = '24'
+      EnvInterface.set('COLUMNS', columns.to_s)
+      EnvInterface.set('LINES', '24')
       response = "\e[999;999H\e[6n\e[24;#{columns}R".dup
       $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
         assert_output(/xterm-256color #{columns}x24$/) do

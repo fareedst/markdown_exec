@@ -11,7 +11,7 @@ load 'test_helper'
 @test 'init_source' {
   spec_mde_xansi_message_doc_blocks_expect docs/dev/block-type-ux-sources.md \
    export_init \
-   'default_exec_echo_allow_false_false'
+   'Guest_exec_echo_allow_false_false'
 }
 
 @test 'act_source' {

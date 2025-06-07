@@ -1,8 +1,8 @@
 / 1. Simple variable display and edit:
 ```ux
+init: Guest
 name: USER_NAME
 prompt: Enter your name
-default: Guest
 ```
 /Behavior: Displays the USER_NAME variable. When clicked, prompts for input with "Enter your name" and defaults to "Guest" if no input is provided.
 /

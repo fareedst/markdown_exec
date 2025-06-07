@@ -6,7 +6,7 @@ name: v1
 / name and default
 / transform and validate options not applied to default
 ```ux
-default: 11
+init: 11
 name: v2
 ```
 / name and default; auto-load
@@ -17,7 +17,7 @@ name: v3
 ```
 / name, default, exec; auto-load static
 ```ux :[document_ux_v4]
-default: 21
+init: 21
 exec: basename $(pwd)
 name: v4
 ```
