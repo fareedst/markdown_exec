@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.6] - 2025-06-07
+
+### Added
+
+- Class to interface with ENV variable.
+
+### Changed
+
+- Improve the collection of inherited code resulting from the evaluation of blocks.
+
 ## [3.0.5] - 2025-05-23
 
 ### Changed
