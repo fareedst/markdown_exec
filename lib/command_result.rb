@@ -32,6 +32,18 @@ class CommandResult
     exit_status.zero?
   end
 
+  # def new_lines
+  #   value = @attributes[:new_lines]
+  #   ww caller.deref[0..4], value    
+  #   value
+  # end
+
+  # # trap assignment to new_lines
+  # def new_lines=(value)
+  #   ww caller.deref[0..4], value    
+  #   @attributes[:new_lines] = value
+  # end
+
   def method_missing(name, *args)
     key = name.to_s.chomp('=').to_sym
 

@@ -1187,6 +1187,9 @@ module MarkdownExec
       end
 
       ret_command_result || CommandResult.new(stdout: required_lines)
+    rescue StandardError
+      ww $@, $!
+      HashDelegator.error_handler('code_from_ux_block_to_set_environment_variables')
     end
 
     def env_set(name, value)
@@ -2602,7 +2605,7 @@ module MarkdownExec
       exportable = true
       command_result = nil
       new_lines = []
-      export_string = string || export.echo
+      export_string = string.nil? ? export.echo : string
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
         command_result, = output_from_adhoc_bash_script_file(
@@ -2994,7 +2997,7 @@ module MarkdownExec
     # convert single items to arrays
     def join_array_of_arrays(*args)
       args.map do |item|
-        item.is_a?(Array) ? item : [item]
+        item.nil? ? nil : (item.is_a?(Array) ? item : [item])
       end.compact.flatten(1)
     end
 
