@@ -2593,7 +2593,11 @@ module MarkdownExec
       )
 
       return if replacements.nil?
-      return if replacements == EvaluateShellExpression::StatusFail
+      if replacements == EvaluateShellExpression::StatusFail
+        # happens on first processing of blocks before requirements are met
+        ww "EvaluateShellExpression::StatusFail", echo_commands, link_state
+        return
+      end
 
       expand_blocks_with_replacements(blocks, replacements)
       # no return
@@ -2608,7 +2612,7 @@ module MarkdownExec
       export_string = string.nil? ? export.echo : string
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
-        command_result, = output_from_adhoc_bash_script_file(
+        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
           join_array_of_arrays(
             bash_script_lines,
             %(printf '%s' "#{export_string}")
@@ -4747,8 +4751,9 @@ module MarkdownExec
         command_result = CommandResult.new(stdout: output)
 
       when :exec, UxActSource::EXEC
-        command_result, = output_from_adhoc_bash_script_file(
-          join_array_of_arrays(bash_script_lines, export.exec)
+        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
+          join_array_of_arrays(bash_script_lines, export.exec),
+          export
         )
 
       else
@@ -4793,7 +4798,8 @@ module MarkdownExec
             join_array_of_arrays(
               bash_script_lines,
               %(printf '%s' "#{export.echo}")
-            )
+            ),
+            export
           )
           export_init = cr_echo.stdout.split("\n").first
           command_result, exportable, new_lines = export_echo_with_code(
@@ -4806,8 +4812,9 @@ module MarkdownExec
 
         when :exec, ExportValueSource::EXEC
           # extract first line from 'exec' output
-          command_result, = output_from_adhoc_bash_script_file(
-            join_array_of_arrays(bash_script_lines, export.exec)
+          command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
+            join_array_of_arrays(bash_script_lines, export.exec),
+            export
           )
           unless command_result.failure?
             export_init = command_result.stdout.split("\n").first
