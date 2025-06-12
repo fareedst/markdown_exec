@@ -954,7 +954,7 @@ module MarkdownExec
                 blocks << fcb unless result.failure?
               end
             rescue StandardError
-              # ww $@, $!
+              ww $@, $!, caller.deref
               HashDelegator.error_handler('blocks_from_nested_files',
                                           { abort: true })
             end
@@ -978,7 +978,7 @@ module MarkdownExec
       end
       OpenStruct.new(blocks: blocks, results: results)
     rescue StandardError
-      # ww $@, $!
+      ww $@, $!, caller.deref
       HashDelegator.error_handler('blocks_from_nested_files')
     end
 
@@ -1166,19 +1166,8 @@ module MarkdownExec
           return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
           command_result_w_e_t_nl.new_lines =
-            command_result_w_e_t_nl.new_lines.map do |name_force|
-              transformed = if command_result_w_e_t_nl.transformable
-                              transform_export_value(name_force[:text], export)
-                            else
-                              name_force[:text]
-
-                            end
-              EnvInterface.set(name_force[:name], transformed)
-
-              code_line_safe_assign(
-                name_force[:name], transformed, force: name_force[:force]
-              )
-            end
+            process_command_result_lines(command_result_w_e_t_nl, export,
+                                         required_lines)
           required_lines.concat(command_result_w_e_t_nl.new_lines)
           ret_command_result = command_result_w_e_t_nl
         else
@@ -1188,22 +1177,19 @@ module MarkdownExec
 
       ret_command_result || CommandResult.new(stdout: required_lines)
     rescue StandardError
-      ww $@, $!
+      ww $@, $!, caller.deref
       HashDelegator.error_handler('code_from_ux_block_to_set_environment_variables')
-    end
-
-    def env_set(name, value)
-      EnvInterface.set(name, value)
     end
 
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
       code_lines = []
+      # code_lines << '# code_from_vars_block_to_set_environment_variables'
       case data = YAML.load(selected.body.join("\n"))
       when Hash
         data.each do |key, value|
           EnvInterface.set(key, value.to_s)
-          code_lines.push "#{key}=#{Shellwords.escape(value)}"
+          code_lines << assign_key_value_in_bash(key, value)
 
           next unless @delegate_object[:menu_vars_set_format].present?
 
@@ -1701,10 +1687,6 @@ module MarkdownExec
       @prior_execution_block = nil
     end
 
-    def selected_shell(shell_name)
-      shell_name.empty? ? shell : shell_name
-    end
-
     # Determines the state of a selected block in the menu based
     #  on the selected option.
     # It categorizes the selected option into either EXIT, BACK,
@@ -1925,6 +1907,10 @@ module MarkdownExec
       temp_file.unlink
 
       result_text
+    end
+
+    def env_set(name, value)
+      EnvInterface.set(name, value)
     end
 
     # Execute a code block after approval and provide user interaction options.
@@ -2171,10 +2157,10 @@ module MarkdownExec
       # load key and values from link block into current environment
       #
       if link_block_data[LinkKeys::VARS]
-        code_lines.push BashCommentFormatter.format_comment(selected.pub_name)
-        (link_block_data[LinkKeys::VARS] || []).each do |(key, value)|
+        code_lines << BashCommentFormatter.format_comment(selected.pub_name)
+        link_block_data[LinkKeys::VARS].each do |key, value|
+          code_lines << assign_key_value_in_bash(key, value)
           EnvInterface.set(key, value.to_s)
-          code_lines.push(assign_key_value_in_bash(key, value))
         end
       end
 
@@ -2197,7 +2183,7 @@ module MarkdownExec
       if link_block_data.fetch(LinkKeys::EVAL,
                                false) || link_block_data.fetch(LinkKeys::EXEC,
                                                                false)
-        code_lines = link_block_data_eval(
+        code_lines += link_block_data_eval(
           link_state, code_lines, selected, link_block_data,
           block_source: block_source,
           shell: @delegate_object[:block_type_default]
@@ -2595,7 +2581,6 @@ module MarkdownExec
       return if replacements.nil?
       if replacements == EvaluateShellExpression::StatusFail
         # happens on first processing of blocks before requirements are met
-        ww "EvaluateShellExpression::StatusFail", echo_commands, link_state
         return
       end
 
@@ -3001,7 +2986,11 @@ module MarkdownExec
     # convert single items to arrays
     def join_array_of_arrays(*args)
       args.map do |item|
-        item.nil? ? nil : (item.is_a?(Array) ? item : [item])
+        if item.nil?
+          nil
+        else
+          (item.is_a?(Array) ? item : [item])
+        end
       end.compact.flatten(1)
     end
 
@@ -3625,12 +3614,13 @@ module MarkdownExec
 
         exportable = export ? export.exportable : false
         new_lines = []
+        # new_lines << { comment: 'output_from_adhoc_bash_script_file' }
         if export
           new_lines << "#{export.name}="
           export_value = output
 
           command_result, exportable, new_lines = export_echo_with_code(
-            ["#{export.name}=#{Shellwords.escape(export_value)}"],
+            [assign_key_value_in_bash(export.name, export_value)],
             export,
             force: force,
             silent: silent,
@@ -3795,6 +3785,35 @@ module MarkdownExec
     end
 
     # private
+
+    def process_command_result_lines(command_result_w_e_t_nl, export,
+                                     required_lines)
+      command_result_w_e_t_nl.new_lines.map do |name_force|
+        comment = name_force.fetch(:comment, '')
+        name = name_force.fetch(:name, '')
+        if !name.empty?
+          transformed = if command_result_w_e_t_nl.transformable
+                          transform_export_value(name_force[:text], export)
+                        else
+                          name_force[:text]
+                        end
+
+          # store the transformed value in ENV
+          EnvInterface.set(name, transformed)
+
+          set = code_line_safe_assign(
+            name, transformed, force: name_force[:force]
+          )
+
+          comment.empty? ? set : "#{set} # #{comment}"
+        else
+          "# #{comment}" if comment.empty?
+        end
+      end
+    rescue StandardError
+      ww $@, $!, caller.deref
+      raise StandardError, $!
+    end
 
     def process_string_array(arr, begin_pattern: nil, end_pattern: nil, scan1: nil,
                              format1: nil, name: '')
@@ -4425,6 +4444,10 @@ module MarkdownExec
       selected
     end
 
+    def selected_shell(shell_name)
+      shell_name.empty? ? shell : shell_name
+    end
+
     def shell
       @delegate_object[:shell]
     end
@@ -4663,7 +4686,7 @@ module MarkdownExec
     )
       command_result = nil
       exportable = true
-      force = true
+      force = export.force.nil? ? true : export.force
       new_lines = []
       silent = false
       transformable = true
@@ -4713,7 +4736,7 @@ module MarkdownExec
         else
           export_init = menu_from_list_with_back(export.allow)
           command_result, exportable, new_lines = export_echo_with_code(
-            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            [assign_key_value_in_bash(export.name, export_init)],
             export,
             force: force,
             silent: silent,
@@ -4748,7 +4771,12 @@ module MarkdownExec
           transformable = false
         end
 
-        command_result = CommandResult.new(stdout: output)
+        if exportable
+          EnvInterface.set(export.name, output)
+          new_lines << { name: export.name, force: force,
+                         text: output }
+          command_result = CommandResult.new(stdout: output)
+        end
 
       when :exec, UxActSource::EXEC
         command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
@@ -4778,7 +4806,7 @@ module MarkdownExec
     )
       command_result = nil
       exportable = true
-      force = false
+      force = export.force.nil? ? false : export.force
       new_lines = []
       silent = true
       transformable = true
@@ -4803,7 +4831,7 @@ module MarkdownExec
           )
           export_init = cr_echo.stdout.split("\n").first
           command_result, exportable, new_lines = export_echo_with_code(
-            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            [assign_key_value_in_bash(export.name, export_init)],
             export,
             force: force,
             silent: silent,
@@ -4819,7 +4847,7 @@ module MarkdownExec
           unless command_result.failure?
             export_init = command_result.stdout.split("\n").first
             command_result, exportable, new_lines = export_echo_with_code(
-              ["#{export.name}=#{Shellwords.escape(export_init)}"],
+              [assign_key_value_in_bash(export.name, export_init)],
               export,
               force: force,
               silent: silent,
@@ -4831,7 +4859,7 @@ module MarkdownExec
           # first item from 'allow' list
           export_init = export.allow.first
           command_result, exportable, new_lines = export_echo_with_code(
-            ["#{export.name}=#{Shellwords.escape(export_init)}"],
+            [assign_key_value_in_bash(export.name, export_init)],
             export,
             force: force,
             silent: silent,
@@ -4864,7 +4892,7 @@ module MarkdownExec
       else
         export_init = export.init.to_s
         command_result, exportable, new_lines = export_echo_with_code(
-          ["#{export.name}=#{Shellwords.escape(export_init)}"],
+          [assign_key_value_in_bash(export.name, export_init)],
           export,
           force: force,
           silent: silent,
@@ -5867,7 +5895,7 @@ module MarkdownExec
         mdoc: @mdoc, selected: @selected, block_source: {}
       )
 
-      assert_equal ['code line', 'key=value'], result
+      assert_equal ['code line', 'key="value"'], result
     end
   end
 

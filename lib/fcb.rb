@@ -23,6 +23,7 @@ def parse_yaml_of_ux_block(
     default: export['default'],
     echo: export['echo'],
     exec: export['exec'],
+    force: export['force'],
     init: export['init'],
     menu_format: export['format'] || export['menu_format'] || menu_format,
     name: name,
@@ -156,20 +157,26 @@ module MarkdownExec
       @attrs[:id] = id
 
       if @attrs[:type] == BlockType::UX
-        case data = YAML.load(@attrs[:body].join("\n"))
-        when Hash
-          export = parse_yaml_of_ux_block(
-            data,
-            menu_format: menu_format,
-            prompt: prompt
-          )
+        begin
+          case data = YAML.load(@attrs[:body].join("\n"))
+          when Hash
+            export = parse_yaml_of_ux_block(
+              data,
+              menu_format: menu_format,
+              prompt: prompt
+            )
 
-          @attrs[:center] = table_center
-          oname = @attrs[:oname] = format(export.menu_format, export.to_h)
-          @attrs[:readonly] = export.readonly
-        else
-          # triggered by an empty or non-YAML block
-          return NullResult.new(message: 'Invalid YAML', data: data)
+            @attrs[:center] = table_center
+            oname = @attrs[:oname] = format(export.menu_format, export.to_h)
+            @attrs[:readonly] = export.readonly
+          else
+            # triggered by an empty or non-YAML block
+            return NullResult.new(message: 'Invalid YAML', data: data)
+          end
+        rescue StandardError
+          ww $@, $!, caller.deref
+          ww @attrs[:body], data, export
+          raise StandardError, $!
         end
       end
 

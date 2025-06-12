@@ -36,6 +36,18 @@ load 'test_helper'
    ' ARG1: 37'
 }
 
+@test 'vars in link block are appended to inherited lines - local link' {
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/requiring-blocks.md \
+   '[link-local-block-with-vars]' \
+   '* Exit_# [link-local-block-with-vars]_ARG1="37"_block: echo-ARG1_  file: docs/dev/linked-file.md_  vars:_    ARG1: arg1-from-link-file_block: output_arguments_  vars:_    ARG1: 37_block: missing_ARG1=37_output_arguments'
+}
+
+@test 'vars in link block are appended to inherited lines - external file' {
+  spec_mde_xansi_dname_doc_blocks_expect docs/dev/requiring-blocks.md \
+   '[link-file-block-with-vars]' \
+   '* Exit_# [link-file-block-with-vars]_ARG1="arg1-from-link-file"_echo-ARG1'
+}
+
 # the last block is a link block, so menu is displayed
 @test 'link block setting an environment variable requires a bash block' {
   BATS_OUTPUT_FILTER=A

@@ -45,6 +45,10 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
   end
 
   result_hash
+rescue StandardError
+  ww $@, $!, caller.deref
+  ww initial_code, expressions
+  raise StandardError, $!
 end
 
 return if $PROGRAM_NAME != __FILE__

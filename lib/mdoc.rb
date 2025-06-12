@@ -178,11 +178,12 @@ module MarkdownExec
                 collect_block_code_stdout(fcb)
               elsif [BlockType::OPTS].include? fcb.type
                 fcb.body # entire body is returned to requesing block
+
               elsif [BlockType::LINK,
                      BlockType::LOAD,
                      BlockType::UX,
                      BlockType::VARS].include? fcb.type
-                nil
+                nil # Vars for all types are collected later
               elsif fcb[:chrome] # for Link blocks like History
                 nil
               elsif fcb.type == BlockType::PORT

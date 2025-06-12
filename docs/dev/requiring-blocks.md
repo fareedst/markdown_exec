@@ -21,4 +21,5 @@ echo "ARG1: $ARG1"
 @import bats-document-configuration.md
 ```opts :(document_opts)
 menu_with_exit: true
+menu_with_inherited_lines: true
 ```
