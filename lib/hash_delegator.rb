@@ -4754,7 +4754,7 @@ module MarkdownExec
         )
 
       when :edit, UxActSource::EDIT
-        output = nil
+        output = ''
         begin
           loop do
             print "#{export.prompt} [#{export.default}]: "
@@ -4775,8 +4775,8 @@ module MarkdownExec
           EnvInterface.set(export.name, output)
           new_lines << { name: export.name, force: force,
                          text: output }
-          command_result = CommandResult.new(stdout: output)
         end
+        command_result = CommandResult.new(stdout: output)
 
       when :exec, UxActSource::EXEC
         command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
