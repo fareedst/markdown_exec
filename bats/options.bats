@@ -19,7 +19,7 @@ load 'test_helper'
 
 @test 'Options - find, find-path in directory names' {
   run_mde_specs_md_args_expect_xansi --find-path ./docs --find search \
-   'Searching in: ./docs In directory names ./docs/research'
+   'Searching in: ./docs In directory names ./docs/research In file names ./docs/dev/import-substitution-research.md'
 }
 
 @test 'Options - find, find-path in file names' {

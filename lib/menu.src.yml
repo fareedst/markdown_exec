@@ -580,7 +580,8 @@
 
 - :opt_name: import_pattern
   :env_var: MDE_IMPORT_PATTERN
-  :default: "^(?<indention> *)@import +(?<name>.+?) *$"
+  :default: >-
+    ^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$
   :procname: val_as_str
 
 - :opt_name: line_decor_main
