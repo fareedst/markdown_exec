@@ -22,6 +22,30 @@ def ww(*objs, **kwargs)
   ww0(*objs, **kwargs.merge(locations: caller_locations))
 end
 
+# select enabled, for exceptions
+# print a data object for the error, and the failing line
+def wwe(*objs, **kwargs)
+  ww0(*objs, **kwargs.merge(locations: caller_locations[0..0]))
+
+  raise StandardError, objs.first[:error]
+end
+
+# selectively enabled, for process tracking
+# print the failing line
+def wwp(*objs, **kwargs)
+  ww(*objs, **kwargs.merge(locations: caller_locations[0..0]))
+end
+
+# selectively enabled, for tagged
+# print the failing line
+# eg wwt :line, 'data:', data
+def wwt(*objs, **kwargs)
+  # return if [:line].include? objs.first
+
+  formatted = ['Tagged', objs.first] + objs[1..]
+  ww(*formatted, **kwargs.merge(locations: caller_locations[0..0]))
+end
+
 def ww0(*objs,
         category: nil,
         full_backtrace: false,

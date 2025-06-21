@@ -5,11 +5,19 @@
 require_relative 'ansi_string'
 
 module Exceptions
-  def self.error_handler(name = '', opts = {}, backtrace: $@, format_string: "\nError: %{name} -- %{message}", color_symbol: :red, take_count: 16)
+  def self.error_handler(
+    name = '',
+    opts = {},
+    backtrace: $@,
+    color_symbol: :red,
+    format_string: "\nError: %{name} -- %{message}",
+    show_backtrace: false,
+    take_count: 16
+  )
     warn(error = AnsiString.new(format(format_string,
                                        { name: name,
                                          message: $! })).send(color_symbol))
-    if backtrace
+    if show_backtrace && backtrace
       warn(backtrace.select do |s|
              s.include? 'markdown_exec'
            end.reject { |s| s.include? 'vendor' }.take(take_count).map.with_index { |line, ind| " *   #{ind}: #{line}" })

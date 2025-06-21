@@ -20,6 +20,7 @@ class CommandResult
     @attributes = {}
     @attributes[:exit_status] = 0
     @attributes[:stdout] = ''
+    @attributes[:warning] = ''
     attributes.each { |name, value| @attributes[name] = value }
   end
 
@@ -34,13 +35,13 @@ class CommandResult
 
   # def new_lines
   #   value = @attributes[:new_lines]
-  #   ww caller.deref[0..4], value    
+  #   ww caller.deref[0..4], value
   #   value
   # end
 
   # # trap assignment to new_lines
   # def new_lines=(value)
-  #   ww caller.deref[0..4], value    
+  #   ww caller.deref[0..4], value
   #   @attributes[:new_lines] = value
   # end
 

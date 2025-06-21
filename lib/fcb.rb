@@ -174,9 +174,8 @@ module MarkdownExec
             return NullResult.new(message: 'Invalid YAML', data: data)
           end
         rescue StandardError
-          ww $@, $!, caller.deref
-          ww @attrs[:body], data, export
-          raise StandardError, $!
+          wwe 'Error processing block for menu', 'body:', @attrs[:body],
+              'data', data, 'export', export
         end
       end
 

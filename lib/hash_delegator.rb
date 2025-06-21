@@ -978,8 +978,8 @@ module MarkdownExec
       end
       OpenStruct.new(blocks: blocks, results: results)
     rescue StandardError
-      ww $@, $!, caller.deref
-      HashDelegator.error_handler('blocks_from_nested_files')
+      wwe 'link_state:', link_state, 'source_id:', source_id, 'btype:', btype,
+          'fcb:', fcb
     end
 
     def build_menu_options(exit_option, display_mode_option,
@@ -1110,6 +1110,7 @@ module MarkdownExec
       selected, mdoc, inherited_code: nil, force: true, only_default: false,
       silent:
     )
+      wwt :fcb, 'ux block with code', selected
       ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
@@ -1119,13 +1120,16 @@ module MarkdownExec
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source
       )
+      wwt :required, required
 
       # process each ux block in sequence, setting ENV and collecting lines
       required_lines = []
       required[:blocks].each do |block|
         next unless block.type == BlockType::UX
 
-        case data = YAML.load(block.body.join("\n"))
+        wwt :fcb, 'a required block', block
+
+        case data = safe_yaml_load(block.body.join("\n"))
         when Hash
           export = parse_yaml_of_ux_block(
             data,
@@ -1175,10 +1179,12 @@ module MarkdownExec
         end
       end
 
-      ret_command_result || CommandResult.new(stdout: required_lines)
+      (ret_command_result || CommandResult.new(stdout: required_lines)).tap do |ret|
+        wwt :cr, ret
+      end
     rescue StandardError
-      ww $@, $!, caller.deref
-      HashDelegator.error_handler('code_from_ux_block_to_set_environment_variables')
+      wwe 'selected:', selected, 'required:', required, 'block:', block,
+          'data:', data
     end
 
     # sets ENV
@@ -1199,9 +1205,14 @@ module MarkdownExec
         end
       end
       code_lines
+    rescue StandardError
+      wwe 'selected:', selected, 'data:', data, 'key:', key, 'value:', value,
+          'code_lines:', code_lines, 'formatted_string:', formatted_string
     end
 
-    def code_line_safe_assign(name, value, force:)
+    # make a single line of shell code to assign an escaped value to a variable
+    # force/default
+    def code_line_to_assign_a_variable(name, value, force:)
       if force
         "#{name}=#{Shellwords.escape(value)}"
       else
@@ -1213,11 +1224,15 @@ module MarkdownExec
       extract_patterns = lambda do |key|
         return [] unless delegate_object[key].present?
 
-        HashDelegator.safeval(delegate_object[key]).map do |pc|
-          {
-            color_method: pc[:color_method].to_sym,
-            pattern: Regexp.new(pc[:pattern])
-          }
+        begin
+          (value = HashDelegator.safeval(delegate_object[key])).map do |pc|
+            {
+              color_method: pc[:color_method].to_sym,
+              pattern: Regexp.new(pc[:pattern])
+            }
+          end
+        rescue StandardError
+          wwe({ error: $!, callback: $@[0], key: key, value: value })
         end
       end
 
@@ -2591,17 +2606,20 @@ module MarkdownExec
     def export_echo_with_code(
       bash_script_lines, export, force:, silent:, string: nil
     )
+      wwp
       exportable = true
       command_result = nil
       new_lines = []
       export_string = string.nil? ? export.echo : string
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
-        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
+        command_result, exportable, = output_from_adhoc_bash_script_file(
           join_array_of_arrays(
             bash_script_lines,
             %(printf '%s' "#{export_string}")
-          )
+          ),
+          export,
+          force: force
         )
         if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
           exportable = false
@@ -2619,7 +2637,9 @@ module MarkdownExec
             join_array_of_arrays(
               bash_script_lines,
               %(printf '%s' "#{expression}")
-            )
+            ),
+            export,
+            force: force
           )
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
             command_result.warning = warning_required_empty(export) unless silent
@@ -3591,7 +3611,8 @@ module MarkdownExec
 
     def output_from_adhoc_bash_script_file(
       bash_script_lines,
-      export = nil
+      export = nil,
+      force:
     )
       Tempfile.create('script_exec') do |temp_file|
         temp_file.write(
@@ -3612,25 +3633,22 @@ module MarkdownExec
 
         output = `#{shell} #{temp_file.path}`
 
-        exportable = export ? export.exportable : false
+        exportable = if export&.exportable.nil?
+                       true
+                     else
+                       (export ? export.exportable : false)
+                     end
         new_lines = []
         # new_lines << { comment: 'output_from_adhoc_bash_script_file' }
-        if export
-          new_lines << "#{export.name}="
-          export_value = output
 
-          command_result, exportable, new_lines = export_echo_with_code(
-            [assign_key_value_in_bash(export.name, export_value)],
-            export,
-            force: force,
-            silent: silent,
-            string: export_value
-          )
-        else
-          command_result = CommandResult.new(
-            stdout: output,
-            exit_status: $?.exitstatus
-          )
+        command_result = CommandResult.new(
+          stdout: output,
+          exit_status: $?.exitstatus
+        )
+        exportable &&= command_result.success?
+        if exportable
+          new_lines << { name: export.name, force: force,
+                         text: command_result.stdout }
         end
 
         [
@@ -3640,6 +3658,7 @@ module MarkdownExec
         ]
       end
     rescue StandardError => err
+      # wwe 'bash_script_lines:', bash_script_lines, 'export:', export
       warn "Error executing script: #{err.message}"
       nil
     end
@@ -3791,7 +3810,9 @@ module MarkdownExec
       command_result_w_e_t_nl.new_lines.map do |name_force|
         comment = name_force.fetch(:comment, '')
         name = name_force.fetch(:name, '')
-        if !name.empty?
+        if name.empty?
+          "# #{comment}" unless comment.empty?
+        else
           transformed = if command_result_w_e_t_nl.transformable
                           transform_export_value(name_force[:text], export)
                         else
@@ -3801,13 +3822,11 @@ module MarkdownExec
           # store the transformed value in ENV
           EnvInterface.set(name, transformed)
 
-          set = code_line_safe_assign(
+          set = code_line_to_assign_a_variable(
             name, transformed, force: name_force[:force]
           )
 
           comment.empty? ? set : "#{set} # #{comment}"
-        else
-          "# #{comment}" if comment.empty?
         end
       end
     rescue StandardError
@@ -4720,7 +4739,9 @@ module MarkdownExec
 
         when :exec, UxActSource::EXEC
           command_result, = output_from_adhoc_bash_script_file(
-            join_array_of_arrays(bash_script_lines, export.exec)
+            join_array_of_arrays(bash_script_lines, export.exec),
+            export,
+            force: force
           )
 
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
@@ -4746,6 +4767,7 @@ module MarkdownExec
         end
 
       when :echo, UxActSource::ECHO
+        wwp
         command_result, exportable, new_lines = export_echo_with_code(
           bash_script_lines,
           export,
@@ -4781,7 +4803,8 @@ module MarkdownExec
       when :exec, UxActSource::EXEC
         command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
           join_array_of_arrays(bash_script_lines, export.exec),
-          export
+          export,
+          force: force
         )
 
       else
@@ -4827,7 +4850,8 @@ module MarkdownExec
               bash_script_lines,
               %(printf '%s' "#{export.echo}")
             ),
-            export
+            export,
+            force: force
           )
           export_init = cr_echo.stdout.split("\n").first
           command_result, exportable, new_lines = export_echo_with_code(
@@ -4842,7 +4866,8 @@ module MarkdownExec
           # extract first line from 'exec' output
           command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
             join_array_of_arrays(bash_script_lines, export.exec),
-            export
+            export,
+            force: force
           )
           unless command_result.failure?
             export_init = command_result.stdout.split("\n").first
@@ -4881,12 +4906,14 @@ module MarkdownExec
           force: force,
           silent: silent
         )
+
       when :exec, UxActSource::EXEC
         raise unless export.exec.present?
 
         command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
           join_array_of_arrays(bash_script_lines, export.exec),
-          export
+          export,
+          force: force
         )
 
       else
@@ -5551,6 +5578,16 @@ module MarkdownExec
       else
         link_block_data[LinkKeys::FILE] || @delegate_object[:filename]
       end
+    end
+
+    def safe_yaml_load(body)
+      return {} unless body&.present?
+
+      YAML.load(body.to_s)
+    rescue Psych::SyntaxError => err
+      wwe 'YAML parsing error', { body: body, error: err.message }
+    rescue StandardError => err
+      wwe 'YAML loading error', { body: body, error: err.message }
     end
   end
 
