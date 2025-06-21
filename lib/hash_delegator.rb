@@ -1973,8 +1973,9 @@ module MarkdownExec
 
       elsif selected.type == BlockType::LOAD
         debounce_reset
-        code_lines = execute_block_type_load_code_lines(selected)
-        next_state_append_code(selected, link_state, code_lines)
+        load_result = execute_block_type_load_code_lines(selected)
+        next_state_append_code(selected, link_state, load_result.code,
+                               mode: load_result.mode)
 
       elsif selected.type == BlockType::SAVE
         debounce_reset
@@ -2261,38 +2262,54 @@ module MarkdownExec
       )
       dirs.sort_by! { |f| File.mtime(f) }.reverse!
 
-      if !contains_glob?(block_data['directory']) &&
-         !contains_glob?(block_data['glob'])
-        if dirs[0]
-          File.readlines(dirs[0], chomp: true)
-        else
-          warn 'No matching file found.'
-        end
-      elsif (selected_option = select_option_with_metadata(
-        prompt_title,
-        [exit_prompt] + dirs.map do |file| # tty_menu_items
-          { name:
-              format(
-                block_data['view'] || view,
-                NamedCaptureExtractor.extract_named_group_match_data(
-                  file.match(
-                    Regexp.new(block_data['filename_pattern'] || filename_pattern)
-                  )
-                )
-              ),
-            oname: file }
-        end,
-        menu_options.merge(
-          cycle: true,
-          match_dml: false
-        )
-      ))
-        if selected_option.dname != exit_prompt
-          File.readlines(selected_option.oname, chomp: true)
+      code = if !contains_glob?(block_data['directory']) &&
+                !contains_glob?(block_data['glob'])
+               if dirs[0]
+                 File.readlines(dirs[0], chomp: true)
+               else
+                 warn 'No matching file found.'
+               end
+             elsif (selected_option = select_option_with_metadata(
+               prompt_title,
+               [exit_prompt] + dirs.map do |file| # tty_menu_items
+                 { name:
+                     format(
+                       block_data['view'] || view,
+                       NamedCaptureExtractor.extract_named_group_match_data(
+                         file.match(
+                           Regexp.new(block_data['filename_pattern'] || filename_pattern)
+                         )
+                       )
+                     ),
+                   oname: file }
+               end,
+               menu_options.merge(
+                 cycle: true,
+                 match_dml: false
+               )
+             ))
+               if selected_option.dname != exit_prompt
+                 File.readlines(selected_option.oname, chomp: true)
+               end
+             else
+               warn 'No matching files found.'
+             end
+
+      if (mode = block_data['mode']&.to_sym)
+        reason = 'specified Load mode'
+        unless [LoadMode::APPEND, LoadMode::REPLACE].include? mode
+          wwe 'Invalid mode', 'block_data:', block_data
         end
       else
-        warn 'No matching files found.'
+        reason = 'default Load mode'
+        mode = LoadMode::APPEND
       end
+
+      OpenStruct.new(
+        code: code,
+        mode: mode,
+        reason: reason
+      )
     end
 
     # Collects required code lines based on the selected block and
@@ -2536,6 +2553,7 @@ module MarkdownExec
     end
 
     def expand_references!(fcb, link_state)
+      # options expansions
       expand_variable_references!(
         blocks: [fcb],
         echo_formatter: method(:format_echo_command),
@@ -3544,12 +3562,13 @@ module MarkdownExec
       list[(index + 1) % list.size] # Get the next item, wrap around if at the end
     end
 
-    def next_state_append_code(selected, link_state, code_lines)
+    def next_state_append_code(selected, link_state, code_lines,
+                               mode: LoadMode::APPEND)
       next_state_set_code(
         selected,
         link_state,
         HashDelegator.flatten_and_compact_arrays(
-          link_state&.inherited_lines,
+          mode == LoadMode::APPEND ? link_state&.inherited_lines : [],
           code_lines.is_a?(Array) ? code_lines : [] # no code for :ux_exec_prohibited
         )
       )

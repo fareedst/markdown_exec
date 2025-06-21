@@ -72,6 +72,11 @@ end
 
 LoadFileLinkState = Struct.new(:load_file, :link_state)
 
+class LoadMode
+  APPEND = :append
+  REPLACE = :replace
+end
+
 class MenuOptions
   YES = 1
   NO = 2
