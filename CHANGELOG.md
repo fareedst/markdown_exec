@@ -1,5 +1,35 @@
 # Changelog
 
+## [3.1.0] - 2025-06-23
+
+### Added
+
+- Enhance import with text substitution.
+- Load block modes (append, replace).
+
+### Changed
+
+- Handle interrupt at UX edit prompt.
+- Apply the force attribute (stated and default) in UX blocks.
+
+## [3.0.9] - 2025-06-12
+
+### Changed
+
+- Edited values are appended to inherited lines.
+
+## [3.0.8] - 2025-06-11
+
+### Changed
+
+- Export code from UX blocks.
+
+## [3.0.7] - 2025-06-10
+
+### Changed
+
+- Fix False as the initial allow value.
+
 ## [3.0.6] - 2025-06-07
 
 ### Added

@@ -7,22 +7,6 @@
 # demos
 /examples/hypercard-stack/
 
-# dev
-.tbkp/
-/*.gem
-/*.patch
-/.*key
-/assets/.*.key
-/coverage/
-/doc/
-/docs/prompts/
-/docs/research/
-/lib/dev/
-/llm_prompts/
-/llm_responses/
-/recordings/
-/tmp/
-
 # Ruby
 /.bundle/
 /.yardoc
