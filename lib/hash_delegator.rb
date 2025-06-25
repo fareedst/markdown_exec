@@ -1110,7 +1110,7 @@ module MarkdownExec
       selected, mdoc, inherited_code: nil, force: true, only_default: false,
       silent:
     )
-      wwt :fcb, 'ux block with code', selected
+      wwt :fcb, 'selected:', selected
       ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
@@ -1169,10 +1169,12 @@ module MarkdownExec
           end
           return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
+          # update the required lines for this and subsequent blocks
           command_result_w_e_t_nl.new_lines =
             process_command_result_lines(command_result_w_e_t_nl, export,
                                          required_lines)
           required_lines.concat(command_result_w_e_t_nl.new_lines)
+          command_result_w_e_t_nl.new_lines = required_lines
           ret_command_result = command_result_w_e_t_nl
         else
           raise "Invalid data type: #{data.inspect}"

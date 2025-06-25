@@ -19,7 +19,8 @@ def ww(*objs, **kwargs)
   # return the last item in the list, as the label is usually first
   return objs.last unless $debug
 
-  ww0(*objs, **kwargs.merge(locations: caller_locations))
+  locations = kwargs[:locations] || caller_locations
+  ww0(*objs, **kwargs.merge(locations: locations))
 end
 
 # select enabled, for exceptions
@@ -33,6 +34,8 @@ end
 # selectively enabled, for process tracking
 # print the failing line
 def wwp(*objs, **kwargs)
+  return objs.last unless $debug
+
   ww(*objs, **kwargs.merge(locations: caller_locations[0..0]))
 end
 
@@ -40,7 +43,7 @@ end
 # print the failing line
 # eg wwt :line, 'data:', data
 def wwt(*objs, **kwargs)
-  # return if [:line].include? objs.first
+  return objs.last if !$debug || %i[env].include?(objs.first)
 
   formatted = ['Tagged', objs.first] + objs[1..]
   ww(*formatted, **kwargs.merge(locations: caller_locations[0..0]))
