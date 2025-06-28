@@ -123,7 +123,9 @@ class CachedNestedFileReader
       /([A-Za-z_]\w*)=(?:"([^"]*)"|'([^']*)'|(\S+))/
     ) do |key, quoted_double, quoted_single, unquoted|
       value = quoted_double || quoted_single || unquoted
-      params[key] = value
+      # skip replacement of equal values
+      # otherwise, the text is not available for other substitutions
+      params[key] = value if key != value
     end
     params
   end
