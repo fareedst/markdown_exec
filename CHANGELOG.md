@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1] - 2025-06-28
+
+### Changed
+
+- Fix inherited lines for chained blocks.
+- Optimize import text replacement.
+
 ## [3.1.0] - 2025-06-23
 
 ### Added
