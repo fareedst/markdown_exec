@@ -5263,9 +5263,14 @@ module MarkdownExec
           vux_user_selected_block_name
 
         when :execute_block
-          ret = vux_execute_block_per_type(data, formatted_choice_ostructs)
-          vux_publish_block_name_for_external_automation(data)
-          ret
+          begin
+            ret = vux_execute_block_per_type(data, formatted_choice_ostructs)
+            vux_publish_block_name_for_external_automation(data)
+            ret
+          rescue StandardError
+            # error executing block, do not abort
+            InputSequencer.next_link_state(prior_block_was_link: false)
+          end
 
         when :close_ux
           if @vux_pipe_open.present? && File.exist?(@vux_pipe_open)
