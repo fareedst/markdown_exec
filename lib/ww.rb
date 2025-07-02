@@ -26,7 +26,9 @@ end
 # select enabled, for exceptions
 # print a data object for the error, and the failing line
 def wwe(*objs, **kwargs)
-  ww0(*objs, **kwargs.merge(locations: caller_locations[0..0]))
+  ww0(*objs,
+      **kwargs.merge(full_backtrace: true,
+                     locations: caller_locations))
 
   raise StandardError, objs.first[:error]
 end
