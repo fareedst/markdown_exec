@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.2.0] - 2025-07-24
+
+### Added
+
+- Option for number of inactive lines requiring a scroll point.
+- Option for variables to not export from a series.
+  Some intermediate results are not to be exported.
+  Names matching the regular expression are available for
+  calculation within the block but not after.
+
+### Changed
+
+- Intermediate results are available.
+  Fix the evaluation of sequences of expressions by providing
+  script lines for intermediate results.
+- Complete backtrace is available for exceptions.
+- Prevent abort when executing a block.
+  Often raised by YAML parsing.
+
 ## [3.1.1] - 2025-06-28
 
 ### Changed

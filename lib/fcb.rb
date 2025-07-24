@@ -361,6 +361,7 @@ module MarkdownExec
     end
 
     # Expand variables in attributes
+    # @return [void]
     def expand_variables_in_attributes!(pattern, replacements)
       @attrs[:raw_dname] ||= @attrs[:dname]
       @attrs[:dname] = @attrs[:dname]&.gsub(pattern) do |match|
