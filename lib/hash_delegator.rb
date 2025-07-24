@@ -2679,11 +2679,13 @@ module MarkdownExec
               name, transformed, force: force
             )
 
-            # store the transformed value in ENV
-            EnvInterface.set(name, transformed)
+            if variable_is_exportable(name)
+              # store the transformed value in ENV
+              EnvInterface.set(name, transformed)
 
-            new_lines << { name: name, force: force,
-                           text: command_result.stdout }
+              new_lines << { name: name, force: force,
+                            text: command_result.stdout }
+            end
           end
         end
       end
@@ -4978,8 +4980,15 @@ module MarkdownExec
       command_result
     end
 
-    def warning_required_empty(export)
-      "A value must exist for: #{export.required.join(', ')}"
+    # true if the variable is exported in a series of evaluations
+    def variable_is_exportable(name)
+      local_name_pattern = @delegate_object.fetch(:local_name_pattern, '')
+
+      # export all if rule is empty
+      return true if local_name_pattern.empty?
+
+      # export if it its name does not match the rule
+      !(name =~ Regexp.new(local_name_pattern))
     end
 
     def vux_await_user_selection(prior_answer: @dml_block_selection)
@@ -5539,6 +5548,10 @@ module MarkdownExec
         prompt_title, tty_menu_items, selection_opts
       )
       determine_block_state(selected_option)
+    end
+
+    def warning_required_empty(export)
+      "A value must exist for: #{export.required.join(', ')}"
     end
 
     # Handles the core logic for generating the command
