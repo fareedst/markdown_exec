@@ -1600,6 +1600,12 @@
   :default: 0
   :procname: val_as_int
 
+- :opt_name: select_page_ratio
+  :env_var: MDE_SELECT_PAGE_RATIO
+  :description: Number of lines of inactive text that require a scroll point, as a ratio of the page height.
+  :default: 2
+  :procname: val_as_int
+
 - :opt_name: shebang
   :env_var: MDE_SHEBANG
   :description: Shebang for saved scripts

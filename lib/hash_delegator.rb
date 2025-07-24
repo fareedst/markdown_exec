@@ -3467,6 +3467,7 @@ module MarkdownExec
       [all_blocks, menu_blocks, mdoc]
     end
 
+    # enable scroll targets in long sequences of inactive lines
     def handle_consecutive_inactive_items!(menu_blocks)
       consecutive_inactive_count = 0
       menu_blocks.each do |fcb|
@@ -3474,7 +3475,10 @@ module MarkdownExec
           consecutive_inactive_count = 0
         else
           consecutive_inactive_count += 1
-          if (consecutive_inactive_count % (@delegate_object[:select_page_height] / 3)).zero?
+          if (consecutive_inactive_count %
+              (@delegate_object[:select_page_height] /
+               @delegate_object[:select_page_ratio])
+             ).zero?
             fcb.disabled = TtyMenu::ENABLE
             fcb.is_enabled_but_inactive = true
           end
