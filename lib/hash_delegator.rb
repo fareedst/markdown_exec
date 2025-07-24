@@ -2645,17 +2645,23 @@ module MarkdownExec
           exportable = false
           command_result.warning = warning_required_empty(export) unless silent
         else
+          ### TBD validate/transform?  
+          # store the transformed value in ENV
           EnvInterface.set(export.name, command_result.stdout.to_s)
+
           new_lines << { name: export.name, force: force,
                          text: command_result.stdout }
         end
 
       when Hash
+        required_lines = []
+
         # each item in the hash is a variable name and value
         export_string.each do |name, expression|
           command_result, = output_from_adhoc_bash_script_file(
             join_array_of_arrays(
               bash_script_lines,
+              required_lines,
               %(printf '%s' "#{expression}")
             ),
             export,
@@ -2664,7 +2670,18 @@ module MarkdownExec
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
             command_result.warning = warning_required_empty(export) unless silent
           else
-            EnvInterface.set(name, command_result.stdout.to_s)
+            transformed = command_result.stdout.to_s
+            ### TBD validate/transform?
+            # transformed = if command_result_w_e_t_nl.transformable transform_export_value(name_force[:text], export) else name_force[:text] end
+
+            # code for subsequent expression evaluations
+            required_lines << code_line_to_assign_a_variable(
+              name, transformed, force: force
+            )
+
+            # store the transformed value in ENV
+            EnvInterface.set(name, transformed)
+
             new_lines << { name: name, force: force,
                            text: command_result.stdout }
           end
