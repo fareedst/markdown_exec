@@ -97,6 +97,33 @@ module HashDelegatorSelf
     blocks.select { |item| item.send(msg) == value }
   end
 
+  def chrome_block_criteria
+    [
+      { center: :table_center,         format: :menu_note_format,
+        match: :table_row_multi_line_match, type: BlockType::TEXT },
+      { case_conversion: :upcase,      center: :heading1_center,
+        collapse: :heading1_collapse,  collapsible: :heading1_collapsible,
+        color: :menu_heading1_color,   format: :menu_heading1_format,      level: 1,
+        match: :heading1_match,        type: BlockType::HEADING,           wrap: true },
+      { center: :heading2_center,
+        collapse: :heading2_collapse,  collapsible: :heading2_collapsible,
+        color: :menu_heading2_color,   format: :menu_heading2_format,      level: 2,
+        match: :heading2_match,        type: BlockType::HEADING,           wrap: true },
+      { case_conversion: :downcase,    center: :heading3_center,
+        collapse: :heading3_collapse,  collapsible: :heading3_collapsible,
+        color: :menu_heading3_color,   format: :menu_heading3_format,      level: 3,
+        match: :heading3_match,        type: BlockType::HEADING,           wrap: true },
+      { center: :divider4_center,
+        collapse: :divider4_collapse, collapsible: :divider4_collapsible,
+        color: :menu_divider_color,    format: :menu_divider_format, level: 4,
+        match: :divider_match,         type: BlockType::DIVIDER                       },
+      { color: :menu_note_color,       format: :menu_note_format,
+        match: :menu_note_match,       type: BlockType::TEXT,              wrap: true },
+      { color: :menu_task_color,       format: :menu_task_format,
+        match: :menu_task_match,       type: BlockType::TEXT,              wrap: true }
+    ]
+  end
+
   def count_matches_in_lines(lines, regex)
     lines.count { |line| line.to_s.match(regex) }
   end
@@ -274,7 +301,9 @@ module HashDelegatorSelf
     lines = blocks_menu.map(&:oname)
     text_tables = TableExtractor.extract_tables(
       lines,
-      regexp: delegate_object[:table_parse_regexp]
+      regexp: delegate_object[:table_parse_regexp],
+      multi_line_delimiter: delegate_object[:table_row_multi_line_delimiter],
+      single_line_delimiter: delegate_object[:table_row_single_line_delimiter]
     )
     return unless text_tables.count.positive?
 
@@ -287,11 +316,16 @@ module HashDelegatorSelf
         column_count: table[:columns],
         decorate: {
           border: delegate_object[:table_border_color],
-          header_row: delegate_object[:table_header_row_color],
+          header_row: if table[:rows] == 1
+                        delegate_object[:table_row_color]
+                      else
+                        delegate_object[:table_header_row_color]
+                      end,
           row: delegate_object[:table_row_color],
           separator_line: delegate_object[:table_separator_line_color]
         },
         lines: lines,
+        table: table,
         table_width: screen_width_for_table,
         truncate: $table_cell_truncate
       )
@@ -390,11 +424,22 @@ module HashDelegatorSelf
   # @param [String] line The line to be processed.
   # @param [Array<Symbol>] selected_types A list of message types to check.
   # @param [Proc] block The block to be called with the line data.
-  def yield_line_if_selected(line, selected_types, all_fcbs: nil,
-                             source_id: '', &block)
+  def yield_line_if_selected(
+    line, selected_types, all_fcbs: nil,
+    criteria: nil, source_id: '', &block
+  )
     return unless block && block_type_selected?(selected_types, :line)
 
-    block.call(:line, persist_fcb_self(all_fcbs, body: [line], id: source_id))
+    opts = {
+      body: [line],
+      id: source_id
+    }
+    # add style if it is a single line table
+    opts[:criteria] = criteria if criteria
+
+    block.call(:line, persist_fcb_self(all_fcbs, opts))
+  rescue StandardError
+    wwe 'YAML loading error', { body: body, error: $! }
   end
 
   def persist_fcb_self(all_fcbs, options)
@@ -1045,33 +1090,6 @@ module MarkdownExec
       true
     end
 
-    def chrome_block_criteria
-      [
-        { center: :table_center,         format: :menu_note_format,
-          match: :menu_table_rows_match, type: BlockType::TEXT },
-        { case_conversion: :upcase,      center: :heading1_center,
-          collapse: :heading1_collapse,  collapsible: :heading1_collapsible,
-          color: :menu_heading1_color,   format: :menu_heading1_format,      level: 1,
-          match: :heading1_match,        type: BlockType::HEADING,           wrap: true },
-        { center: :heading2_center,
-          collapse: :heading2_collapse,  collapsible: :heading2_collapsible,
-          color: :menu_heading2_color,   format: :menu_heading2_format,      level: 2,
-          match: :heading2_match,        type: BlockType::HEADING,           wrap: true },
-        { case_conversion: :downcase,    center: :heading3_center,
-          collapse: :heading3_collapse,  collapsible: :heading3_collapsible,
-          color: :menu_heading3_color,   format: :menu_heading3_format,      level: 3,
-          match: :heading3_match,        type: BlockType::HEADING,           wrap: true },
-        { center: :divider4_center,
-          collapse: :divider4_collapse, collapsible: :divider4_collapsible,
-          color: :menu_divider_color,    format: :menu_divider_format, level: 4,
-          match: :divider_match,         type: BlockType::DIVIDER                       },
-        { color: :menu_note_color,       format: :menu_note_format,
-          match: :menu_note_match,       type: BlockType::TEXT,              wrap: true },
-        { color: :menu_task_color,       format: :menu_task_format,
-          match: :menu_task_match,       type: BlockType::TEXT,              wrap: true }
-      ]
-    end
-
     def code_from_automatic_ux_blocks(
       all_blocks,
       mdoc
@@ -1613,53 +1631,65 @@ module MarkdownExec
     # @param use_chrome [Boolean] Indicates if the chrome styling should
     #  be applied.
     def create_and_add_chrome_blocks(blocks, fcb, id: '', init_ids: false)
-      chrome_block_criteria.each_with_index do |criteria, index|
-        unless @delegate_object[criteria[:match]].present? &&
-               (mbody = fcb.body[0].match @delegate_object[criteria[:match]])
-          next
+      index = nil
+
+      unless (criteria = fcb.criteria)
+        HashDelegator.chrome_block_criteria.each_with_index do |criteria1, index1|
+          # rubocop:disable Lint/UselessAssignment
+          if !@delegate_object[criteria1[:match]].present? ||
+             !(match_data = fcb.body[0].match @delegate_object[criteria1[:match]])
+            next
+          end
+          # rubocop:enable Lint/UselessAssignment
+
+          criteria = criteria1
+          index = index1
+          break
         end
-
-        if block_given?
-          # expand references only if block is recognized (not a comment)
-          yield if block_given?
-
-          # parse multiline to capture output of variable expansion
-          mbody = fcb.body[0].match Regexp.new(
-            @delegate_object[criteria[:match]], Regexp::MULTILINE
-          )
-        end
-
-        create_and_add_chrome_block(
-          blocks: blocks,
-          case_conversion: criteria[:case_conversion],
-          center: criteria[:center] &&
-                  @delegate_object[criteria[:center]],
-
-          collapse: case fcb.collapse_token
-                    when COLLAPSIBLE_TOKEN_COLLAPSE
-                      true
-                    when COLLAPSIBLE_TOKEN_EXPAND
-                      false
-                    else
-                      false
-                    end,
-
-          color_method: criteria[:color] &&
-                        @delegate_object[criteria[:color]].to_sym,
-          decor_patterns:
-            @decor_patterns_from_delegate_object_for_block_create,
-          disabled: !(criteria[:collapsible] && @delegate_object[criteria[:collapsible]]),
-          fcb: fcb,
-          id: "#{id}.#{index}",
-          format_option: criteria[:format] &&
-                         @delegate_object[criteria[:format]],
-          level: criteria[:level],
-          match_data: mbody,
-          type: criteria[:type],
-          wrap: criteria[:wrap]
-        )
-        break
       end
+
+      return unless criteria
+
+      if block_given?
+        # expand references only if block is recognized (not a comment)
+        yield if block_given?
+
+        # parse multiline to capture output of variable expansion
+        match_data = fcb.body[0].match Regexp.new(
+          @delegate_object[criteria[:match]], Regexp::MULTILINE
+        )
+      end
+
+      create_and_add_chrome_block(
+        blocks: blocks,
+        case_conversion: criteria[:case_conversion],
+        center: criteria[:center] &&
+                @delegate_object[criteria[:center]],
+
+        collapse: case fcb.collapse_token
+                  when COLLAPSIBLE_TOKEN_COLLAPSE
+                    true
+                  when COLLAPSIBLE_TOKEN_EXPAND
+                    false
+                  else
+                    false
+                  end,
+
+        color_method: criteria[:color] &&
+                      @delegate_object[criteria[:color]].to_sym,
+        decor_patterns:
+          @decor_patterns_from_delegate_object_for_block_create,
+        disabled: !(criteria[:collapsible] &&
+                    @delegate_object[criteria[:collapsible]]),
+        fcb: fcb,
+        id: "#{id}.#{index}",
+        format_option: criteria[:format] &&
+                       @delegate_object[criteria[:format]],
+        level: criteria[:level],
+        match_data: match_data,
+        type: criteria[:type],
+        wrap: criteria[:wrap]
+      )
     end
 
     def create_divider(position, source_id: '')
@@ -2588,6 +2618,8 @@ module MarkdownExec
         pattern: options_command_substitution_regexp
       )
       # no return
+    rescue StandardError
+      wwe 'fcb:', fcb, 'link_state:', link_state
     end
 
     def expand_variable_references!(
@@ -2626,7 +2658,6 @@ module MarkdownExec
     def export_echo_with_code(
       bash_script_lines, export, force:, silent:, string: nil
     )
-      wwp
       exportable = true
       command_result = nil
       new_lines = []
@@ -2645,7 +2676,7 @@ module MarkdownExec
           exportable = false
           command_result.warning = warning_required_empty(export) unless silent
         else
-          ### TBD validate/transform?  
+          ### TBD validate/transform?
           # store the transformed value in ENV
           EnvInterface.set(export.name, command_result.stdout.to_s)
 
@@ -2684,7 +2715,7 @@ module MarkdownExec
               EnvInterface.set(name, transformed)
 
               new_lines << { name: name, force: force,
-                            text: command_result.stdout }
+                             text: command_result.stdout }
             end
           end
         end
@@ -3021,6 +3052,8 @@ module MarkdownExec
 
         index += 1
       end
+    rescue StandardError
+      wwe 'state:', state, 'nested_line:', nested_line
     end
 
     def iter_source_blocks(source, source_id: nil, &block)
@@ -4104,15 +4137,6 @@ module MarkdownExec
       end
     end
 
-    # Handle expression with wildcard characters
-    # allow user to select or enter
-    def puts_gets_oprompt_(filespec)
-      puts format(@delegate_object[:prompt_show_expr_format],
-                  { expr: filespec })
-      puts @delegate_object[:prompt_enter_filespec]
-      gets.chomp
-    end
-
     def read_saved_assets_for_history_table(
       asset: nil,
       filename: nil,
@@ -4728,12 +4752,23 @@ module MarkdownExec
             @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it
         #
+        criteria = nil
+        if @delegate_object[:table_row_single_line_match]&.present? &&
+           line.match(@delegate_object[:table_row_single_line_match])
+          criteria = {
+            center: :table_center,
+            match: :table_row_single_line_match
+          }
+        end
         HashDelegator.yield_line_if_selected(
           line, selected_types,
           all_fcbs: @fcb_store,
+          criteria: criteria,
           source_id: source_id, &block
         )
       end
+    rescue StandardError
+      wwe 'state:', state, 'nested_line:', nested_line
     end
 
     ## apply options to current state
@@ -4992,7 +5027,7 @@ module MarkdownExec
       return true if local_name_pattern.empty?
 
       # export if it its name does not match the rule
-      !(name =~ Regexp.new(local_name_pattern))
+      name !~ Regexp.new(local_name_pattern)
     end
 
     def vux_await_user_selection(prior_answer: @dml_block_selection)

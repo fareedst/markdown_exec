@@ -867,11 +867,6 @@
   :description: Color of Save link
   :default: fg_rgbh_ff_ff_20
   :procname: val_as_str
-- :opt_name: menu_table_rows_match
-  :env_var: MDE_MENU_TABLE_ROWS_MATCH
-  :description: Pattern for table rows
-  :default: "^(?<indent>[ \\t]*)(?<line>(?<text>\\|.*?)(?<trailing>[ \\t]*))$"
-  :procname: val_as_str
 - :opt_name: menu_task_color
   :env_var: MDE_MENU_TASK_COLOR
   :description: Color of menu task
@@ -1440,6 +1435,26 @@
   :default:
   - fg_bg_rgbh_cf_cf_cf_14_18_1c
   - fg_bg_rgbh_df_df_df_24_24_24
+- :opt_name: table_row_multi_line_delimiter
+  :env_var: MDE_TABLE_ROW_MULTI_LINE_DELIMITER
+  :description: Multi-line-table delimiter
+  :default: "|"
+  :procname: val_as_str
+- :opt_name: table_row_multi_line_match
+  :env_var: MDE_TABLE_ROW_MULTI_LINE_MATCH
+  :description: Pattern for multi-line-table rows
+  :default: "^(?<indent>[ \\t]*)(?<line>(?<text>\\|.*?)(?<trailing>[ \\t]*))$"
+  :procname: val_as_str
+- :opt_name: table_row_single_line_delimiter
+  :env_var: MDE_TABLE_ROW_SINGLE_LINE_DELIMITER
+  :description: Single-line-table delimiter
+  :default: "!"
+  :procname: val_as_str
+- :opt_name: table_row_single_line_match
+  :env_var: MDE_TABLE_ROW_SINGLE_LINE_MATCH
+  :description: Pattern for single-line-table rows
+  :default: "^(?<indent>[ \\t]*)(?<line>(?<text>!.*?)(?<trailing>[ \\t]*))$"
+  :procname: val_as_str
 - :opt_name: table_separator_line_color
   :env_var: MDE_TABLE_SEPARATOR_LINE_COLOR
   :description: Color for table separator line
