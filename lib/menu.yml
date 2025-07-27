@@ -208,6 +208,12 @@
   :arg_name: GLOB
   :default: document_configurations/%{document_filename}_*.sh
   :procname: val_as_str
+- :opt_name: document_save_make_directory
+  :env_var: MDE_DOCUMENT_SAVE_MAKE_DIRECTORY
+  :description: Make the directory if it does not exist when saving
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
 - :opt_name: menu_for_saved_lines
   :env_var: MDE_MENU_FOR_SAVED_LINES
   :description: Add menu options for saved lines

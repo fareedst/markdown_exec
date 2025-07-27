@@ -2413,6 +2413,11 @@ module MarkdownExec
       save_filespec_from_expression(directory_glob).tap do |save_filespec|
         if save_filespec && save_filespec != exit_prompt
           begin
+            if @delegate_object[:document_save_make_directory]
+              # make directory if it doesn't exist
+              FileUtils.mkdir_p(File.dirname(save_filespec))
+            end
+
             File.write(save_filespec,
                        HashDelegator.join_code_lines(code_lines))
           rescue Errno::ENOENT
