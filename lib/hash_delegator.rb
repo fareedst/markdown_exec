@@ -754,6 +754,22 @@ module MarkdownExec
       )
     end
 
+    def annotate_required_lines(name, lines, block_name:)
+      if @delegate_object[:required_lines_with_source_comments] && !lines.empty?
+        formatted = formatted_block_name(block_name,
+                                         :script_comment_block_name_format)
+        ['',
+         "#‡¯¯¯ #{name} ¯¯¯ #{formatted}",
+         '',
+         *lines,
+         '',
+         "#‡___ #{name} ___ #{formatted}",
+         '']
+      else
+        lines || []
+      end
+    end
+
     # Appends a chrome block, which is a menu option for Back or Exit
     #
     # @param all_blocks [Array] The current blocks in the menu
@@ -1192,6 +1208,11 @@ module MarkdownExec
             process_command_result_lines(command_result_w_e_t_nl, export,
                                          required_lines)
           required_lines.concat(command_result_w_e_t_nl.new_lines)
+
+          required_lines = annotate_required_lines(
+            'blk:UX', required_lines, block_name: selected.id
+          )
+
           command_result_w_e_t_nl.new_lines = required_lines
           ret_command_result = command_result_w_e_t_nl
         else
@@ -1199,7 +1220,11 @@ module MarkdownExec
         end
       end
 
-      (ret_command_result || CommandResult.new(stdout: required_lines)).tap do |ret|
+      (ret_command_result || CommandResult.new(
+        stdout: annotate_required_lines(
+          'blk:UX', required_lines, block_name: selected.id
+        )
+      )).tap do |ret|
         wwt :cr, ret
       end
     rescue StandardError
@@ -1210,7 +1235,6 @@ module MarkdownExec
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
       code_lines = []
-      # code_lines << '# code_from_vars_block_to_set_environment_variables'
       case data = YAML.load(selected.body.join("\n"))
       when Hash
         data.each do |key, value|
@@ -1224,7 +1248,7 @@ module MarkdownExec
           print string_send_color(formatted_string, :menu_vars_set_color)
         end
       end
-      code_lines
+      annotate_required_lines('blk:VARS', code_lines, block_name: selected.id)
     rescue StandardError
       wwe 'selected:', selected, 'data:', data, 'key:', key, 'value:', value,
           'code_lines:', code_lines, 'formatted_string:', formatted_string
@@ -2184,6 +2208,7 @@ module MarkdownExec
       link_state: LinkState.new, block_source: {}
     )
       link_block_data = HashDelegator.parse_yaml_data_from_body(link_block_body)
+
       ## collect blocks specified by block
       #
       if mdoc
@@ -2193,7 +2218,9 @@ module MarkdownExec
           label_format_below: @delegate_object[:shell_code_label_format_below],
           block_source: block_source
         )
-        code_lines = code_info[:code]
+        code_lines = annotate_required_lines(
+          'blk:LINK', code_info[:code], block_name: selected.id
+        )
         block_names = code_info[:block_names]
         dependencies = code_info[:dependencies]
       else
@@ -2246,6 +2273,10 @@ module MarkdownExec
         LinkKeys::NEXT_BLOCK,
         nil
       ) || link_block_data.fetch(LinkKeys::BLOCK, nil) || ''
+
+      code_lines = annotate_required_lines(
+        'blk:LINK', code_lines, block_name: selected.id
+      )
 
       if link_block_data[LinkKeys::RETURN]
         pop_add_current_code_to_head_and_trigger_load(
@@ -2338,7 +2369,8 @@ module MarkdownExec
       end
 
       OpenStruct.new(
-        code: code,
+        code: annotate_required_lines('blk:LOAD', code,
+                                      block_name: selected.id),
         mode: mode,
         reason: reason
       )
@@ -2393,8 +2425,12 @@ module MarkdownExec
                      else
                        []
                      end
-        HashDelegator.flatten_and_compact_arrays(link_state&.inherited_lines,
-                                                 required[:code] + code_lines)
+        HashDelegator.flatten_and_compact_arrays(
+          link_state&.inherited_lines,
+          annotate_required_lines(
+            'blk:PORT', required[:code] + code_lines, block_name: selected.id
+          )
+        )
       end
     end
 
@@ -2862,6 +2898,20 @@ module MarkdownExec
       string_send_color(formatted_string, color_sym)
     end
 
+    # for inherited code comments
+    # for external automation
+    def formatted_block_name(block_name,
+                             format_sym = :publish_block_name_format)
+      format(
+        @delegate_object[format_sym],
+        { block: block_name,
+          document: @delegate_object[:filename],
+          time: Time.now.utc.strftime(
+            @delegate_object[:publish_time_format]
+          ) }
+      )
+    end
+
     # Expand expression if it contains format specifiers
     def formatted_expression(expr)
       expr.include?('%{') ? format_expression(expr) : expr
@@ -3321,16 +3371,17 @@ module MarkdownExec
 
       @shell_most_recent_filename = @delegate_object[:filename]
 
-      if mdoc
-        mdoc.collect_recursively_required_code(
-          anyname: fcb.pub_name,
-          label_format_above: @delegate_object[:shell_code_label_format_above],
-          label_format_below: @delegate_object[:shell_code_label_format_below],
-          block_source: block_source
-        )[:code]
-      else
-        fcb.body
-      end
+      code = if mdoc
+               mdoc.collect_recursively_required_code(
+                 anyname: fcb.pub_name,
+                 label_format_above: @delegate_object[:shell_code_label_format_above],
+                 label_format_below: @delegate_object[:shell_code_label_format_below],
+                 block_source: block_source
+               )[:code]
+             else
+               fcb.body
+             end
+      annotate_required_lines('blk:SHELL', code, block_name: fcb.id)
     end
 
     # format + glob + select for file in load block
@@ -5057,7 +5108,12 @@ module MarkdownExec
 
     def vux_edit_inherited
       edited = edit_text(@dml_link_state.inherited_lines_block)
-      @dml_link_state.inherited_lines = edited.split("\n") if edited
+      return unless edited
+
+      @dml_link_state.inherited_lines =
+        annotate_required_lines(
+          'blk:EDIT', edited.split("\n"), block_name: 'EDIT'
+        )
     end
 
     def vux_execute_and_prompt(block_name)
@@ -5477,14 +5533,7 @@ module MarkdownExec
 
     def vux_publish_block_name_for_external_automation(block_name)
       publish_for_external_automation(
-        message: format(
-          @delegate_object[:publish_block_name_format],
-          { block: block_name,
-            document: @delegate_object[:filename],
-            time: Time.now.utc.strftime(
-              @delegate_object[:publish_time_format]
-            ) }
-        )
+        message: formatted_block_name(block_name)
       )
     end
 

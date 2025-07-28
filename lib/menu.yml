@@ -121,12 +121,6 @@
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
-- :opt_name: tables_into_columns
-  :env_var: MDE_TABLES_INTO_COLUMNS
-  :description: Format tables as columns
-  :arg_name: BOOL
-  :default: true
-  :procname: val_as_bool
 - :long_name: debug
   :short_name: d
   :env_var: MDE_DEBUG
@@ -211,18 +205,6 @@
 - :opt_name: document_save_make_directory
   :env_var: MDE_DOCUMENT_SAVE_MAKE_DIRECTORY
   :description: Make the directory if it does not exist when saving
-  :arg_name: BOOL
-  :default: true
-  :procname: val_as_bool
-- :opt_name: menu_for_saved_lines
-  :env_var: MDE_MENU_FOR_SAVED_LINES
-  :description: Add menu options for saved lines
-  :arg_name: BOOL
-  :default: true
-  :procname: val_as_bool
-- :opt_name: menu_for_history
-  :env_var: MDE_MENU_FOR_HISTORY
-  :description: Add menu options for history
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
@@ -687,6 +669,18 @@
   :description: closing demarcations for menu
   :default:
     :line: "~~~"
+- :opt_name: menu_for_history
+  :env_var: MDE_MENU_FOR_HISTORY
+  :description: Add menu options for history
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+- :opt_name: menu_for_saved_lines
+  :env_var: MDE_MENU_FOR_SAVED_LINES
+  :description: Add menu options for saved lines
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
 - :opt_name: menu_heading1_color
   :env_var: MDE_MENU_HEADING1_COLOR
   :description: Color for heading 1 in menu
@@ -1224,6 +1218,11 @@
 - :opt_name: pwd
   :long_name: pwd
   :description: Print the gem's home directory
+- :opt_name: required_lines_with_source_comments
+  :env_var: MDE_REQUIRED_LINES_WITH_SOURCE_COMMENTS
+  :description: Add comments about source to blocks of required lines
+  :default: false
+  :procname: val_as_bool
 - :opt_name: run_last_script
   :long_name: run-last-script
   :description: Run most recently saved script
@@ -1312,6 +1311,11 @@
   :description: Screen width for document and interface. 0 to use the actual dimension.
   :default: 0
   :procname: val_as_int
+- :opt_name: script_comment_block_name_format
+  :env_var: MDE_SCRIPT_COMMENT_BLOCK_NAME_FORMAT
+  :description: format for block name in script comments
+  :default: "%{block} %{time}"
+  :procname: val_as_str
 - :opt_name: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
   :description: script_execution_frame_color
@@ -1465,6 +1469,12 @@
   :env_var: MDE_TABLE_SEPARATOR_LINE_COLOR
   :description: Color for table separator line
   :default: fg_bg_rgbh_df_df_00_14_18_1c
+- :opt_name: tables_into_columns
+  :env_var: MDE_TABLES_INTO_COLUMNS
+  :description: Format tables as columns
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
 - :opt_name: user_must_approve
   :long_name: user-must-approve
   :short_name: q
