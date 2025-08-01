@@ -1106,22 +1106,129 @@ module MarkdownExec
       true
     end
 
-    def code_from_automatic_ux_blocks(
+    # return code resulting from evaluating all automatic blocks in order
+    def code_from_auto_blocks(all_blocks, mdoc: nil, default_only: true)
+      shell_block_name = @delegate_object[:document_load_shell_block_name]
+      vars_block_name = @delegate_object[:document_load_vars_block_name]
+
+      # do not reload the same document
+      read_shell = @shell_most_recent_filename != @delegate_object[:filename]
+      read_ux = @ux_most_recent_filename != @delegate_object[:filename]
+      read_vars = @vars_most_recent_filename != @delegate_object[:filename]
+      @shell_most_recent_filename = @delegate_object[:filename]
+      @ux_most_recent_filename = @delegate_object[:filename]
+      @vars_most_recent_filename = @delegate_object[:filename]
+
+      all_code = []
+      all_blocks.each do |fcb|
+        block_code = []
+        if fcb.oname == shell_block_name
+          if read_shell
+            # collect code from shell block
+            code = if mdoc
+                     mdoc.collect_recursively_required_code(
+                       anyname: fcb.pub_name,
+                       label_format_above: @delegate_object[:shell_code_label_format_above],
+                       label_format_below: @delegate_object[:shell_code_label_format_below],
+                       block_source: block_source
+                     )[:code]
+                   else
+                     fcb.body
+                   end
+            block_code = annotate_required_lines('blk:SHELL', code,
+                                                 block_name: fcb.id)
+          end
+        elsif fcb.oname == vars_block_name
+          if read_vars
+            block_code = code_from_vars_block_to_set_environment_variables(fcb)
+          end
+        elsif fcb.type == 'ux'
+          # binding.irb
+          if !read_ux
+            # skip
+          elsif fcb.is_split_rest?
+            # ignore
+          else
+            command_result_w_e_t_nl =
+              code_from_ux_block_to_set_environment_variables(
+                fcb,
+                mdoc,
+                force: @delegate_object[:ux_auto_load_force_default],
+                only_default: default_only,
+                silent: true
+              )
+            block_code = if command_result_w_e_t_nl.failure?
+                           []
+                         else
+                           command_result_w_e_t_nl.new_lines
+                         end
+
+          end
+
+        else
+          # do nothing
+        end
+
+        all_code += block_code
+      end
+
+      all_code
+    rescue StandardError
+      wwe 'all_blocks:', all_blocks
+    end
+
+    # return code resulting from evaluating all automatic SHELL blocks in order
+    def code_from_auto_shell_blocks(all_blocks, mdoc: nil)
+      # a block name is required
+      # do not reload the most recent filename
+      block_name = @delegate_object[:document_load_shell_block_name]
+      unless block_name.present? &&
+             @shell_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      @shell_most_recent_filename = @delegate_object[:filename]
+
+      # select the first block with the given name
+      fcb = HashDelegator.block_find(all_blocks, :oname, block_name)
+      return unless fcb
+
+      # collect code from shell block
+      code = if mdoc
+               mdoc.collect_recursively_required_code(
+                 anyname: fcb.pub_name,
+                 label_format_above: @delegate_object[:shell_code_label_format_above],
+                 label_format_below: @delegate_object[:shell_code_label_format_below],
+                 block_source: block_source
+               )[:code]
+             else
+               fcb.body
+             end
+      annotate_required_lines('blk:SHELL', code, block_name: fcb.id)
+    end
+
+    # return code resulting from evaluating all UX blocks in order
+    def code_from_auto_ux_blocks(
       all_blocks,
       mdoc
     )
+      # do not reload the most recent filename
       unless @ux_most_recent_filename != @delegate_object[:filename]
         return
       end
 
+      @ux_most_recent_filename = @delegate_object[:filename]
+      wwp
+
+      # select all UX blocks, rejecting non-primary split
       blocks = select_automatic_ux_blocks(
         all_blocks.reject(&:is_split_rest?)
       )
       return if blocks.empty?
 
-      @ux_most_recent_filename = @delegate_object[:filename]
-
+      # collect code from all ux blocks
       (blocks.each.with_object([]) do |block, merged_options|
+        wwp
         command_result_w_e_t_nl =
           code_from_ux_block_to_set_environment_variables(
             block,
@@ -1131,10 +1238,37 @@ module MarkdownExec
             silent: true
           )
         if command_result_w_e_t_nl.failure?
+          # if a block fails, proceed with next block
           merged_options
         else
           merged_options.push(command_result_w_e_t_nl.new_lines)
         end
+      end).to_a
+    end
+
+    # return code resulting from evaluating all automatic VARS blocks in order
+    def code_from_auto_vars_blocks(
+      all_blocks,
+      block_name: @delegate_object[:document_load_vars_block_name]
+    )
+      # a block name is required
+      # do not reload the most recent filename
+      unless block_name.present? &&
+             @vars_most_recent_filename != @delegate_object[:filename]
+        return
+      end
+
+      @vars_most_recent_filename = @delegate_object[:filename]
+
+      # select all blocks with the given name
+      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
+      return if blocks.empty?
+
+      # collect code for vars from all blocks
+      (blocks.each.with_object([]) do |block, merged_options|
+        merged_options.push(
+          code_from_vars_block_to_set_environment_variables(block)
+        )
       end).to_a
     end
 
@@ -1163,6 +1297,7 @@ module MarkdownExec
 
         wwt :fcb, 'a required block', block
 
+        wwp
         case data = safe_yaml_load(block.body.join("\n"))
         when Hash
           export = parse_yaml_of_ux_block(
@@ -1180,6 +1315,8 @@ module MarkdownExec
           export.required&.each do |precondition|
             required_variables.push "[[ -z $#{precondition} ]] && exit #{EXIT_STATUS_REQUIRED_EMPTY}"
           end
+          wwt :required_variables, 'required_variables',
+              required_variables
 
           eval_code = join_array_of_arrays(
             inherited_code, # inherited code
@@ -1187,6 +1324,8 @@ module MarkdownExec
             required_variables, # test conditions
             required[:code] # current block code
           )
+          wwt :eval_code, 'eval_code', eval_code
+          wwp
           if only_default
             command_result_w_e_t_nl =
               ux_block_export_automatic(eval_code, export)
@@ -1197,17 +1336,22 @@ module MarkdownExec
             command_result_w_e_t_nl =
               ux_block_export_activated(eval_code, export, exit_prompt)
             if command_result_w_e_t_nl.failure?
-              warn command_result_w_e_t_nl.warning if command_result_w_e_t_nl.warning&.present? && !silent
+              if command_result_w_e_t_nl.warning&.present? && !silent
+                warn command_result_w_e_t_nl.warning
+              end
               return command_result_w_e_t_nl
             end
           end
           return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
+
+          wwp
 
           # update the required lines for this and subsequent blocks
           command_result_w_e_t_nl.new_lines =
             process_command_result_lines(command_result_w_e_t_nl, export,
                                          required_lines)
           required_lines.concat(command_result_w_e_t_nl.new_lines)
+          wwp
 
           required_lines = annotate_required_lines(
             'blk:UX', required_lines, block_name: selected.id
@@ -1219,13 +1363,14 @@ module MarkdownExec
           raise "Invalid data type: #{data.inspect}"
         end
       end
+      wwt :required_lines, required_lines
 
       (ret_command_result || CommandResult.new(
         stdout: annotate_required_lines(
           'blk:UX', required_lines, block_name: selected.id
         )
       )).tap do |ret|
-        wwt :cr, ret
+        wwt :cr, ret, caller.deref
       end
     rescue StandardError
       wwe 'selected:', selected, 'required:', required, 'block:', block,
@@ -1555,7 +1700,9 @@ module MarkdownExec
       if wrap
         line_caps = line_caps.flat_map do |line_cap|
           text = line_cap[:text]
-          wrapper = StringWrapper.new(width: screen_width_for_wrapping - line_cap[:indent].length)
+          wrapper = StringWrapper.new(
+            width: screen_width_for_wrapping - line_cap[:indent].length
+          )
 
           if text.length > screen_width_for_wrapping
             # Wrap this text and create line_cap objects for each part
@@ -2087,10 +2234,12 @@ module MarkdownExec
 
       elsif selected.type == BlockType::UX
         debounce_reset
+        wwp
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
           inherited_code: @dml_link_state.inherited_lines,
+          only_default: false,
           silent: true
         )
         ### TBD if command_result_w_e_t_nl.failure?
@@ -2300,7 +2449,11 @@ module MarkdownExec
           next_block_name: next_block_name,
           next_document_filename: next_document_filename,
           next_keep_code: next_keep_code,
-          next_load_file: next_document_filename == @delegate_object[:filename] ? LoadFile::REUSE : LoadFile::LOAD
+          next_load_file: if next_document_filename == @delegate_object[:filename]
+                            LoadFile::REUSE
+                          else
+                            LoadFile::LOAD
+                          end
         )
       end
     end
@@ -3278,9 +3431,10 @@ module MarkdownExec
 
     # Loads and updates auto options for document blocks if the current filename has changed.
     #
-    # This method checks if the delegate object specifies a document load options block name and if the filename
-    # has been updated. It then selects the appropriate blocks, collects their dependencies, processes their
-    # options, and updates the menu base with the merged options.
+    # This method checks if the delegate object specifies a document load
+    # options block name and if the filename has been updated. It then
+    # selects the appropriate blocks, collects their dependencies, processes
+    # their options, and updates the menu base with the merged options.
     #
     # @param all_blocks [Array] An array of all block elements.
     # @param mdoc [Object] The document object managing dependencies and options.
@@ -3318,27 +3472,6 @@ module MarkdownExec
       true
     end
 
-    def load_auto_vars_block(
-      all_blocks,
-      block_name: @delegate_object[:document_load_vars_block_name]
-    )
-      unless block_name.present? &&
-             @vars_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      blocks = HashDelegator.block_select(all_blocks, :oname, block_name)
-      return if blocks.empty?
-
-      @vars_most_recent_filename = @delegate_object[:filename]
-
-      (blocks.each.with_object([]) do |block, merged_options|
-        merged_options.push(
-          code_from_vars_block_to_set_environment_variables(block)
-        )
-      end).to_a
-    end
-
     def load_cli_or_user_selected_block(all_blocks: [], menu_blocks: [],
                                         prior_answer: nil)
       if @delegate_object[:block_name].present?
@@ -3357,31 +3490,6 @@ module MarkdownExec
       end
 
       SelectedBlockMenuState.new(block, source, state)
-    end
-
-    def load_document_shell_block(all_blocks, mdoc: nil)
-      block_name = @delegate_object[:document_load_shell_block_name]
-      unless block_name.present? &&
-             @shell_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      fcb = HashDelegator.block_find(all_blocks, :oname, block_name)
-      return unless fcb
-
-      @shell_most_recent_filename = @delegate_object[:filename]
-
-      code = if mdoc
-               mdoc.collect_recursively_required_code(
-                 anyname: fcb.pub_name,
-                 label_format_above: @delegate_object[:shell_code_label_format_above],
-                 label_format_below: @delegate_object[:shell_code_label_format_below],
-                 block_source: block_source
-               )[:code]
-             else
-               fcb.body
-             end
-      annotate_required_lines('blk:SHELL', code, block_name: fcb.id)
     end
 
     # format + glob + select for file in load block
@@ -3475,32 +3583,19 @@ module MarkdownExec
         reload_blocks = true
       end
 
-      # load document shell block
+      # return code resulting from evaluating all SHELL, UX, VARS blocks; each set in sequence; with its own order
       #
-      if (code_lines = load_document_shell_block(all_blocks, mdoc: mdoc))
-        next_state_set_code(nil, link_state, code_lines)
-        link_state.inherited_lines = code_lines
-        reload_blocks = true
-      end
-
-      # load document ux block
-      #
-      if (code_lines = code_from_automatic_ux_blocks(all_blocks, mdoc))
-        new_code = HashDelegator.flatten_and_compact_arrays(link_state.inherited_lines,
-                                                            code_lines)
+      if (code_lines = code_from_auto_blocks(
+        all_blocks,
+        default_only: true,
+        mdoc: mdoc
+      ))&.select_by(:empty?, false)&.compact&.count&.positive?
+        new_code = code_lines
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
         reload_blocks = true
-      end
-
-      # load document vars block
-      #
-      if (code_lines = load_auto_vars_block(all_blocks))
-        new_code = HashDelegator.flatten_and_compact_arrays(link_state.inherited_lines,
-                                                            code_lines)
-        next_state_set_code(nil, link_state, new_code)
-        link_state.inherited_lines = new_code
-        reload_blocks = true
+      else
+        link_state&.inherited_lines
       end
 
       if reload_blocks
