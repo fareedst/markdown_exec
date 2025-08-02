@@ -3583,7 +3583,8 @@ module MarkdownExec
         reload_blocks = true
       end
 
-      # return code resulting from evaluating all SHELL, UX, VARS blocks; each set in sequence; with its own order
+      # return code resulting from evaluating all SHELL, UX, VARS blocks;
+      # each set in sequence; with its own order
       #
       if (code_lines = code_from_auto_blocks(
         all_blocks,
@@ -4116,6 +4117,9 @@ module MarkdownExec
 
       @allowed_execution_block = @prior_execution_block
       true
+    rescue TTY::Reader::InputInterrupt
+      # treat as denial
+      false
     end
 
     def prompt_for_command(prompt)
@@ -4199,6 +4203,9 @@ module MarkdownExec
       end
 
       sel == MenuOptions::YES
+    rescue TTY::Reader::InputInterrupt
+      # treat as denial
+      false
     end
 
     def prompt_margin_left_text
@@ -4224,6 +4231,9 @@ module MarkdownExec
         menu.choice @delegate_object[:prompt_exit]
       end
       sel == @delegate_object[:prompt_exit] ? MenuState::EXIT : MenuState::CONTINUE
+    rescue TTY::Reader::InputInterrupt
+      # treat as denial
+      MenuState::EXIT
     end
 
     # public
@@ -4252,6 +4262,9 @@ module MarkdownExec
           end
         end
       end
+    rescue TTY::Reader::InputInterrupt
+      # treat as no selection
+      nil
     end
 
     # user prompt to exit if the menu will be displayed again
