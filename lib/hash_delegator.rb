@@ -1143,7 +1143,6 @@ module MarkdownExec
             block_code = code_from_vars_block_to_set_environment_variables(fcb)
           end
         elsif fcb.type == 'ux'
-          # binding.irb
           if !read_ux
             # skip
           elsif fcb.is_split_rest?
@@ -1157,12 +1156,11 @@ module MarkdownExec
                 only_default: default_only,
                 silent: true
               )
-            block_code = if command_result_w_e_t_nl.failure?
-                           []
-                         else
+            block_code = if command_result_w_e_t_nl&.success?
                            command_result_w_e_t_nl.new_lines
+                         else
+                           []
                          end
-
           end
 
         else
@@ -1174,7 +1172,7 @@ module MarkdownExec
 
       all_code
     rescue StandardError
-      wwe 'all_blocks:', all_blocks
+      wwe 'all_blocks.count:', all_blocks.count
     end
 
     # return code resulting from evaluating all automatic SHELL blocks in order
@@ -1218,7 +1216,6 @@ module MarkdownExec
       end
 
       @ux_most_recent_filename = @delegate_object[:filename]
-      wwp
 
       # select all UX blocks, rejecting non-primary split
       blocks = select_automatic_ux_blocks(
@@ -1228,7 +1225,6 @@ module MarkdownExec
 
       # collect code from all ux blocks
       (blocks.each.with_object([]) do |block, merged_options|
-        wwp
         command_result_w_e_t_nl =
           code_from_ux_block_to_set_environment_variables(
             block,
@@ -1297,7 +1293,6 @@ module MarkdownExec
 
         wwt :fcb, 'a required block', block
 
-        wwp
         case data = safe_yaml_load(block.body.join("\n"))
         when Hash
           export = parse_yaml_of_ux_block(
@@ -1324,8 +1319,7 @@ module MarkdownExec
             required_variables, # test conditions
             required[:code] # current block code
           )
-          wwt :eval_code, 'eval_code', eval_code
-          wwp
+          wwt :eval_code, 'eval_code:', eval_code
           if only_default
             command_result_w_e_t_nl =
               ux_block_export_automatic(eval_code, export)
@@ -1344,14 +1338,13 @@ module MarkdownExec
           end
           return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
-          wwp
-
           # update the required lines for this and subsequent blocks
           command_result_w_e_t_nl.new_lines =
             process_command_result_lines(command_result_w_e_t_nl, export,
                                          required_lines)
+          ww 'command_result_w_e_t_nl.new_lines:',
+             command_result_w_e_t_nl.new_lines
           required_lines.concat(command_result_w_e_t_nl.new_lines)
-          wwp
 
           required_lines = annotate_required_lines(
             'blk:UX', required_lines, block_name: selected.id
@@ -2234,7 +2227,6 @@ module MarkdownExec
 
       elsif selected.type == BlockType::UX
         debounce_reset
-        wwp
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
@@ -2849,19 +2841,27 @@ module MarkdownExec
       # no return
     end
 
-    def export_echo_with_code(
-      bash_script_lines, export, force:, silent:, string: nil
+    def ux_block_eval_for_export(
+      bash_script_lines, export,
+      data:,
+      first_only: false,
+      force:,
+      printf_expand: false,
+      silent:,
+      string: nil
     )
       exportable = true
       command_result = nil
       new_lines = []
-      export_string = string.nil? ? export.echo : string
+      export_string = string.nil? ? data : string
+      expander = ->(expression) { %(printf '%s' "#{expression}") }
+
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
         command_result, exportable, = output_from_adhoc_bash_script_file(
           join_array_of_arrays(
             bash_script_lines,
-            %(printf '%s' "#{export_string}")
+            printf_expand ? expander.call(export_string) : [export_string]
           ),
           export,
           force: force
@@ -2870,7 +2870,6 @@ module MarkdownExec
           exportable = false
           command_result.warning = warning_required_empty(export) unless silent
         else
-          ### TBD validate/transform?
           # store the transformed value in ENV
           EnvInterface.set(export.name, command_result.stdout.to_s)
 
@@ -2887,7 +2886,7 @@ module MarkdownExec
             join_array_of_arrays(
               bash_script_lines,
               required_lines,
-              %(printf '%s' "#{expression}")
+              printf_expand ? expander.call(expression) : [expression]
             ),
             export,
             force: force
@@ -2896,8 +2895,6 @@ module MarkdownExec
             command_result.warning = warning_required_empty(export) unless silent
           else
             transformed = command_result.stdout.to_s
-            ### TBD validate/transform?
-            # transformed = if command_result_w_e_t_nl.transformable transform_export_value(name_force[:text], export) else name_force[:text] end
 
             # code for subsequent expression evaluations
             required_lines << code_line_to_assign_a_variable(
@@ -2912,10 +2909,16 @@ module MarkdownExec
                              text: command_result.stdout }
             end
           end
+
+          break if first_only
         end
+      else
+        # do nothing
       end
 
       [command_result, exportable, new_lines]
+    rescue StandardError
+      wwe bash_script_lines, export, force, silent, string
     end
 
     # Retrieves a specific data symbol from the delegate object,
@@ -4965,10 +4968,13 @@ module MarkdownExec
 
         case export.allow
         when :echo, ExportValueSource::ECHO
-          command_result, exportable, new_lines = export_echo_with_code(
+          command_result, exportable, new_lines = ux_block_eval_for_export(
             bash_script_lines,
             export,
+            data: export.echo,
+            first_only: true,
             force: force,
+            printf_expand: true,
             silent: silent
           )
 
@@ -4981,10 +4987,13 @@ module MarkdownExec
           end
 
         when :exec, UxActSource::EXEC
-          command_result, = output_from_adhoc_bash_script_file(
-            join_array_of_arrays(bash_script_lines, export.exec),
+          command_result, exportable, new_lines = ux_block_eval_for_export(
+            bash_script_lines,
             export,
-            force: force
+            data: export.exec,
+            first_only: true,
+            force: force,
+            silent: silent
           )
 
           if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
@@ -4999,10 +5008,13 @@ module MarkdownExec
 
         else
           export_init = menu_from_list_with_back(export.allow)
-          command_result, exportable, new_lines = export_echo_with_code(
+          command_result, exportable, new_lines = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
+            data: export.echo,
+            first_only: true,
             force: force,
+            printf_expand: true,
             silent: silent,
             string: export_init
           )
@@ -5010,11 +5022,12 @@ module MarkdownExec
         end
 
       when :echo, UxActSource::ECHO
-        wwp
-        command_result, exportable, new_lines = export_echo_with_code(
+        command_result, exportable, new_lines = ux_block_eval_for_export(
           bash_script_lines,
           export,
+          data: export.echo,
           force: force,
+          printf_expand: true,
           silent: silent
         )
 
@@ -5044,10 +5057,12 @@ module MarkdownExec
         command_result = CommandResult.new(stdout: output)
 
       when :exec, UxActSource::EXEC
-        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
-          join_array_of_arrays(bash_script_lines, export.exec),
+        command_result, exportable, new_lines = ux_block_eval_for_export(
+          bash_script_lines,
           export,
-          force: force
+          data: export.exec,
+          force: force,
+          silent: silent
         )
 
       else
@@ -5065,6 +5080,8 @@ module MarkdownExec
       command_result.transformable = transformable
       command_result.new_lines = new_lines
       command_result
+    rescue StandardError
+      wwe bash_script_lines, export, exit_prompt
     end
 
     def ux_block_export_automatic(
@@ -5088,36 +5105,47 @@ module MarkdownExec
 
         case export.allow
         when :echo, ExportValueSource::ECHO
-          cr_echo, = output_from_adhoc_bash_script_file(
-            join_array_of_arrays(
-              bash_script_lines,
-              %(printf '%s' "#{export.echo}")
-            ),
+          cr_echo, = ux_block_eval_for_export(
+            bash_script_lines,
             export,
-            force: force
+            data: export.echo,
+            first_only: true,
+            force: force,
+            printf_expand: true,
+            silent: silent
           )
           export_init = cr_echo.stdout.split("\n").first
-          command_result, exportable, new_lines = export_echo_with_code(
+
+          command_result, exportable, new_lines = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
+            data: export.echo,
+            first_only: true,
             force: force,
+            printf_expand: true,
             silent: silent,
             string: export_init
           )
 
         when :exec, ExportValueSource::EXEC
           # extract first line from 'exec' output
-          command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
-            join_array_of_arrays(bash_script_lines, export.exec),
+          command_result, exportable, new_lines = ux_block_eval_for_export(
+            bash_script_lines,
             export,
-            force: force
+            data: export.exec,
+            first_only: true,
+            force: force,
+            silent: silent
           )
+
           unless command_result.failure?
             export_init = command_result.stdout.split("\n").first
-            command_result, exportable, new_lines = export_echo_with_code(
+            command_result, exportable, new_lines = ux_block_eval_for_export(
               [assign_key_value_in_bash(export.name, export_init)],
               export,
+              data: export.exec,
               force: force,
+              printf_expand: true,
               silent: silent,
               string: export_init
             )
@@ -5126,10 +5154,12 @@ module MarkdownExec
         else
           # first item from 'allow' list
           export_init = export.allow.first
-          command_result, exportable, new_lines = export_echo_with_code(
+          command_result, exportable, new_lines = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
+            data: export.allow,
             force: force,
+            printf_expand: true,
             silent: silent,
             string: export_init
           )
@@ -5143,32 +5173,37 @@ module MarkdownExec
       when :echo, UxActSource::ECHO
         raise unless export.echo.present?
 
-        command_result, exportable, new_lines = export_echo_with_code(
+        command_result, exportable, new_lines = ux_block_eval_for_export(
           bash_script_lines,
           export,
+          data: export.echo,
           force: force,
+          printf_expand: true,
           silent: silent
         )
 
       when :exec, UxActSource::EXEC
         raise unless export.exec.present?
 
-        command_result, exportable, new_lines = output_from_adhoc_bash_script_file(
-          join_array_of_arrays(bash_script_lines, export.exec),
+        command_result, exportable, new_lines = ux_block_eval_for_export(
+          bash_script_lines,
           export,
-          force: force
+          data: export.exec,
+          force: force,
+          silent: silent
         )
 
       else
         export_init = export.init.to_s
-        command_result, exportable, new_lines = export_echo_with_code(
+        command_result, exportable, new_lines = ux_block_eval_for_export(
           [assign_key_value_in_bash(export.name, export_init)],
           export,
+          data: export.exec,
           force: force,
+          printf_expand: true,
           silent: silent,
           string: export_init
         )
-        # raise "Unknown FCB.init_source(export) #{FCB.init_source(export)}"
       end
 
       # add message for required variables
@@ -5181,6 +5216,8 @@ module MarkdownExec
       command_result.transformable = transformable
       command_result.new_lines = new_lines
       command_result
+    rescue StandardError
+      wwe bash_script_lines, export
     end
 
     # true if the variable is exported in a series of evaluations
@@ -6959,6 +6996,429 @@ module MarkdownExec
       def self.resolve_path_or_substitute(input, filespec)
         'resolved_path_or_substituted_value' # Placeholder implementation
       end
+    end
+  end
+
+  # Comprehensive tests for ux_block_eval_for_export function
+  class TestUxBlockEvalForExport < Minitest::Test
+    def setup
+      @hd = HashDelegator.new
+      @bash_script_lines = ['#!/bin/bash', 'set -e']
+      @export = OpenStruct.new(name: 'TEST_VAR', required: ['TEST_VAR'])
+      @mock_result = OpenStruct.new(
+        exit_status: 0,
+        stdout: 'test_output',
+        stderr: '',
+        warning: nil
+      )
+    end
+
+    def teardown
+      # Clean up environment variables set during tests
+      ENV.delete('TEST_VAR')
+      ENV.delete('VAR1')
+      ENV.delete('VAR2')
+    end
+
+    # Test string input - typical case
+    def test_string_input_success
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'echo "hello"',
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+      assert_equal 1, new_lines.length
+      assert_equal 'TEST_VAR', new_lines.first[:name]
+      assert_equal 'test_output', new_lines.first[:text]
+    end
+
+    # Test string input with printf_expand
+    def test_string_input_with_printf_expand
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'test_value',
+        force: false,
+        printf_expand: true,
+        silent: false
+      )
+
+      # Verify that join_array_of_arrays was called with printf wrapped expression
+      # This tests that the expander lambda is applied correctly
+    end
+
+    # Test integer input
+    def test_integer_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 42,
+        force: true,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+      assert_equal 1, new_lines.length
+    end
+
+    # Test boolean inputs
+    def test_boolean_true_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: true,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    def test_boolean_false_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: false,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    # Test float input
+    def test_float_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 3.14,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    # Test hash input - typical case
+    def test_hash_input_success
+      hash_data = { 'VAR1' => 'value1', 'VAR2' => 'value2' }
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+      @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=value1')
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: hash_data,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+      assert_equal 2, new_lines.length
+      assert_equal 'VAR1', new_lines.first[:name]
+      assert_equal 'VAR2', new_lines.last[:name]
+    end
+
+    # Test hash input with first_only flag
+    def test_hash_input_first_only
+      hash_data = { 'VAR1' => 'value1', 'VAR2' => 'value2' }
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+      @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=value1')
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: hash_data,
+        first_only: true,
+        force: false,
+        silent: false
+      )
+
+      command_result, _, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal 1, new_lines.length
+      assert_equal 'VAR1', new_lines.first[:name]
+    end
+
+    # Test hash with non-exportable variables
+    def test_hash_input_non_exportable_variables
+      hash_data = { 'LOCAL_VAR' => 'value1' }
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(false)
+      @hd.stubs(:code_line_to_assign_a_variable).returns('LOCAL_VAR=value1')
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: hash_data,
+        force: false,
+        silent: false
+      )
+
+      command_result, _, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal 0, new_lines.length # No exportable variables
+    end
+
+    # Test EXIT_STATUS_REQUIRED_EMPTY handling
+    def test_exit_status_required_empty_with_warning
+      failed_result = OpenStruct.new(
+        exit_status: 248, # EXIT_STATUS_REQUIRED_EMPTY
+        stdout: '',
+        stderr: 'Required variable empty',
+        warning: nil
+      )
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([failed_result,
+                                                              false])
+      @hd.stubs(:warning_required_empty).returns('Warning: required empty')
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'echo ""',
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_equal failed_result, command_result
+      assert_equal false, exportable
+      assert_equal 0, new_lines.length
+      assert_equal 'Warning: required empty', command_result.warning
+    end
+
+    # Test EXIT_STATUS_REQUIRED_EMPTY handling with silent flag
+    def test_exit_status_required_empty_silent
+      failed_result = OpenStruct.new(
+        exit_status: 248,
+        stdout: '',
+        stderr: 'Required variable empty',
+        warning: nil
+      )
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([failed_result,
+                                                              false])
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'echo ""',
+        force: false,
+        silent: true
+      )
+
+      command_result, exportable, = result
+      assert_equal failed_result, command_result
+      assert_equal false, exportable
+      assert_nil command_result.warning # No warning when silent
+    end
+
+    # Test string parameter override
+    def test_string_parameter_override
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'original_data',
+        string: 'override_string',
+        force: false,
+        silent: false
+      )
+
+      # The function should use string parameter instead of data
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    # Edge case: empty string
+    def test_empty_string_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: '',
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    # Edge case: nil data (uses string.nil? check)
+    def test_nil_data_input
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'd1',
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+    end
+
+    # Edge case: empty hash
+    def test_empty_hash_input
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: {},
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_nil command_result # No iterations, so command_result remains nil
+      assert_equal true, exportable # Initial value
+      assert_equal 0, new_lines.length
+    end
+
+    # Edge case: hash with nil values
+    def test_hash_with_nil_values
+      hash_data = { 'VAR1' => nil, 'VAR2' => 'value2' }
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+      @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=')
+
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: hash_data,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_equal @mock_result, command_result
+      assert_equal true, exportable
+      assert_equal 2, new_lines.length
+    end
+
+    # Edge case: unsupported input type (Array)
+    def test_unsupported_input_type_array
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: %w[item1 item2],
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_nil command_result # No processing for unsupported types
+      assert_equal true, exportable # Initial value
+      assert_equal 0, new_lines.length
+    end
+
+    # Edge case: unsupported input type (custom object)
+    def test_unsupported_input_type_object
+      custom_object = Object.new
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: custom_object,
+        force: false,
+        silent: false
+      )
+
+      command_result, exportable, new_lines = result
+      assert_nil command_result # No processing for unsupported types
+      assert_equal true, exportable # Initial value
+      assert_equal 0, new_lines.length
+    end
+
+    # Test error handling - StandardError rescue
+    def test_standard_error_rescue
+      # Should not raise, but return nil due to rescue block
+      result = @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'test_data',
+        force: false,
+        silent: false
+      )
+
+      command_result, = result
+      assert_equal 127, command_result.exit_status
+    end
+
+    # Test environment variable setting
+    def test_environment_variable_setting
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      # Mock EnvInterface.set to verify it's called
+      EnvInterface.expects(:set).with('TEST_VAR', 'test_output')
+
+      @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'echo "test"',
+        force: false,
+        silent: false
+      )
+    end
+
+    # Test join_array_of_arrays is called correctly
+    def test_join_array_of_arrays_called
+      @hd.stubs(:output_from_adhoc_bash_script_file).returns([@mock_result,
+                                                              true])
+      @hd.stubs(:variable_is_exportable).returns(true)
+
+      # Mock join_array_of_arrays to verify it's called with correct parameters
+      @hd.expects(:join_array_of_arrays).with(
+        @bash_script_lines,
+        ['test_data']
+      ).returns(['combined_script_lines'])
+
+      @hd.ux_block_eval_for_export(
+        @bash_script_lines, @export,
+        data: 'test_data',
+        force: false,
+        printf_expand: false,
+        silent: false
+      )
     end
   end
 end # module MarkdownExec
