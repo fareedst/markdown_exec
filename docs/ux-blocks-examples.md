@@ -61,7 +61,7 @@ transform: '%{major}.%{minor}.%{patch}'
 name: BRANCH_NAME
 init: ":exec"
 exec: "git branch --format='%(refname:short)'"
-validate: "^(?<type>feature|bugfix|hotfix)/(?<ticket>[A-Z]+-\d+)-(?<desc>.+)$"
+validate: '^(?<type>feature|bugfix|hotfix)/(?<ticket>[A-Z]+-\d+)-(?<desc>.+)$'
 transform: "${type}/${ticket}-${desc}"
 prompt: "Select or enter branch name"
 ```
@@ -104,7 +104,7 @@ require:
 ```ux
 name: PHONE_NUMBER
 prompt: "Enter phone number"
-validate: "(?<country>\d{1,3})(?<area>\d{3})(?<number>\d{7})"
+validate: '(?<country>\d{1,3})(?<area>\d{3})(?<number>\d{7})'
 transform: "+${country} (${area}) ${number}"
 format: "Phone: ${PHONE_NUMBER}"
 ```
@@ -114,7 +114,7 @@ format: "Phone: ${PHONE_NUMBER}"
 name: GIT_STATUS
 init: ":exec"
 exec: "git status --porcelain"
-validate: "(?<status>[AMDR])\s+(?<file>.+)"
+validate: '(?<status>[AMDR])\s+(?<file>.+)'
 transform: "${status}: ${file}"
 format: "Changes: ${GIT_STATUS}"
 ``` 
