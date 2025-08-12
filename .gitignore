@@ -1,3 +1,6 @@
+# local exclude (linked)
+/.gitexclude
+
 # MDE history
 /logs/
 
