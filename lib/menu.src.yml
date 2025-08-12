@@ -1362,12 +1362,6 @@
   :default: "\nChoose a file:"
   :procname: val_as_str
 
-- :opt_name: prompt_select_output
-  :env_var: MDE_PROMPT_SELECT_OUTPUT
-  :default: "\nChoose a file:"
-  :description: Prompt to select a saved file
-  :procname: val_as_str
-
 - :opt_name: prompt_ux_enter_a_value
   :env_var: MDE_PROMPT_UX_ENTER_A_VALUE
   :description: Prompt to enter a value for UX blocks
