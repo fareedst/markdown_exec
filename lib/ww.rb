@@ -22,6 +22,11 @@ $ww_log_file = nil
 
 # default output to $stderr
 $ww_output = $stderr
+unless ($id = ENV.fetch('WW_LOG', '')).empty?
+  alg = ENV.fetch('ALG', '0')
+  # local log file with timestamp and algo name
+  $ww_log_file = "#{Time.now.utc.strftime '%H-%M-%S'}-#{$id}-#{alg}.log"
+end
 
 # attribution in output unless disabled
 if $debug && ENV['WW_MINIMUM'].nil?
@@ -41,6 +46,16 @@ def ww(*objs, **kwargs)
 end
 
 # output the object and backtrace for the error
+# abort
+def wwa(*objs, **kwargs)
+  ww0(*objs,
+      **kwargs.merge(full_backtrace: true,
+                     locations: caller_locations))
+
+  exit 1
+end
+
+# output the object and backtrace for the error
 # raise the error for the caller to handle
 def wwe(*objs, **kwargs)
   ww0(*objs,
@@ -55,7 +70,11 @@ end
 def wwp(*objs, **kwargs)
   return objs.last unless $debug
 
-  ww(*objs, **kwargs.merge(locations: caller_locations[0..0]))
+  ww0(*objs,
+      **kwargs.merge(
+        locations: caller_locations[0..0],
+        location_offset: caller_locations.count
+      ))
 end
 
 # selectively enabled, for tagged data
@@ -67,7 +86,11 @@ def wwt(*objs, **kwargs)
   return objs.last if !$debug || %i[env].include?(objs.first)
 
   formatted = ['Tagged', objs.first] + objs[1..]
-  ww(*formatted, **kwargs.merge(locations: caller_locations[0..0]))
+  ww0(*formatted,
+      **kwargs.merge(
+        locations: caller_locations[0..0],
+        location_offset: caller_locations.count
+      ))
 end
 
 # output the formatted data and location
@@ -79,13 +102,14 @@ def ww0(*objs,
         log_file: $ww_log_file,
         output: $ww_output,
         single_line: false,
-        timestamp: false)
+        timestamp: false,
+        location_offset: 0)
   # Format caller information line
-  caller_info_line = lambda do |caller_info|
+  caller_info_line = lambda do |caller_info, ind|
     [
-      DEPTH_ICON * locations.count,
-      caller_info.lineno,
+      DEPTH_ICON * (location_offset + locations.count - ind),
       caller_info.path.deref,
+      caller_info.lineno,
       caller_info.label
     ].join(' : ')
   end
@@ -95,11 +119,11 @@ def ww0(*objs,
 
   # Generate backtrace
   backtrace = if full_backtrace
-                locations.map do |caller_info|
-                  caller_info_line.call(caller_info)
+                locations.map.with_index do |caller_info, ind|
+                  caller_info_line.call(caller_info, ind)
                 end
               else
-                [caller_info_line.call(locations.first)]
+                [caller_info_line.call(locations.first, 0)]
               end
 
   # Add optional timestamp
