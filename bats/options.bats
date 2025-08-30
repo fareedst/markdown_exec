@@ -74,7 +74,7 @@ load 'test_helper'
 @test 'Options - load-code' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/load_code.md \
    --load-code docs/dev/load1.sh \
-   --list-blocks-message dname --list-blocks-type 3 --list-blocks \
+   --blocks dname \
    'Demonstrate loading inherited code via the command line.__Run this command to display the inherited code._mde --load-code docs/dev/load1.sh docs/dev/load_code.md__| Variable | Value |_| -------- | ----- |_| var1     | line2 |_| var2     | line4 |'
 }
 

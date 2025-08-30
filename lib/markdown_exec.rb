@@ -1045,6 +1045,8 @@ module MarkdownExec
     def simple_commands(options)
       # !!b
       {
+        # [stage, function]
+        blocks: [2, -> { list_blocks }],
         doc_glob: [1, -> { @fout.fout options[:md_filename_glob] }],
         history: [1, -> { history }],
         list_blocks: [2, -> { list_blocks }],

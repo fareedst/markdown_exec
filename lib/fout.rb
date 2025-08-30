@@ -33,6 +33,11 @@ class FOut
     puts str
   end
 
+  # `puts` guarantees exactly one line break per item it prints. For each
+  # argument (and for each element when given an Array), it appends a newline
+  # only if the string does not already end with "\n". If it does, `puts`
+  # does not add another. Net effect: trailing newlines in your data are
+  # consumed rather than duplicated, so "Line\n" does not create a blank line.
   def fout_list(str)
     puts str
   end

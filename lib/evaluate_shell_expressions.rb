@@ -25,6 +25,7 @@ def evaluate_shell_expressions(initial_code, expressions, shell: '/bin/bash',
     script << "\necho #{token}#{index}\n"
     script << expression << "\n"
   end
+  wwt :eval, 'script:', script
 
   # Execute
   stdout_str, _, status = Open3.capture3(shell, '-c', script)

@@ -25,7 +25,7 @@ def parse_yaml_of_ux_block(
     exec: export['exec'],
     force: export['force'],
     init: export['init'],
-    menu_format: export['format'] || export['menu_format'] || menu_format,
+    menu_format: export['format'] || export['menu_format'], # || menu_format,####
     name: name,
     prompt: export['prompt'] || prompt,
     readonly: export['readonly'].nil? ? false : export['readonly'],
@@ -93,7 +93,8 @@ module MarkdownExec
     # 2024-08-04 match nickname
     # may not exist if block name is duplicated
     def delete_matching_name!(dependencies)
-      dependencies.delete(@attrs[:dname]) ||
+      dependencies.delete(@attrs[:id]) ||
+        dependencies.delete(@attrs[:dname]) ||
         dependencies.delete(@attrs[:nickname]) ||
         dependencies.delete(@attrs[:oname]) ||
         dependencies.delete(@attrs.pub_name) ||
@@ -127,6 +128,7 @@ module MarkdownExec
     # @return [Object] The modified functional code block with updated
     #  summary attributes.
     def for_menu!(
+      appopts:,
       block_calls_scan:,
       block_name_match:,
       block_name_nick_match:,
@@ -162,12 +164,19 @@ module MarkdownExec
           when Hash
             export = parse_yaml_of_ux_block(
               data,
-              menu_format: menu_format,
               prompt: prompt
             )
 
+            if !export.menu_format || export.menu_format.empty?
+              format_symbol = option_to_format_ux_block(export)
+              export.menu_format = appopts[format_symbol]
+              if !export.menu_format || export.menu_format.empty?
+                export.menu_format = appopts[:menu_ux_row_format]
+              end
+            end
+            @attrs[:oname] = oname = format(export.menu_format, export.to_h)
+
             @attrs[:center] = table_center
-            oname = @attrs[:oname] = format(export.menu_format, export.to_h)
             @attrs[:readonly] = export.readonly
           else
             # triggered by an empty or non-YAML block
@@ -180,7 +189,8 @@ module MarkdownExec
       end
 
       @attrs[:dname] = HashDelegator.indent_all_lines(
-        (yield oname, BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]),
+        # yield the text and option name for the color
+        (yield oname, option_to_decorate_ux_block),
         @attrs[:indent]
       )
 
@@ -198,6 +208,38 @@ module MarkdownExec
       end.join("\n")
     end
 
+    def self.is_allow?(export)
+      export&.allow&.present?
+    end
+
+    def is_allow?
+      FCB.is_allow?(export)
+    end
+
+    def self.is_echo?(export)
+      export&.echo&.present?
+    end
+
+    def is_echo?
+      FCB.is_echo?(export)
+    end
+
+    def self.is_edit?(export)
+      export&.edit&.present?
+    end
+
+    def is_edit?
+      FCB.is_edit?(export)
+    end
+
+    def self.is_exec?(export)
+      export&.exec&.present?
+    end
+
+    def is_exec?
+      FCB.is_exec?(export)
+    end
+
     def self.act_source(export)
       # If `false`, the UX block is not activated.
       # If one of `:allow`, `:echo`, `:edit`, or `:exec` is specified,
@@ -205,18 +247,22 @@ module MarkdownExec
       # If not present, the default value is `:edit`.
       if export.act.nil?
         export.act = if export.init.to_s == 'false'
-                       if export.allow.present?
+                       # if export.allow.present?
+                       if FCB.is_allow?(export)
                          UxActSource::ALLOW
-                       elsif export.echo.present?
+                       # elsif export.echo.present?
+                       elsif FCB.is_echo?(export)
                          UxActSource::ECHO
-                       elsif export.edit.present?
+                       # elsif export.edit.present?
+                       elsif FCB.is_edit?(export)
                          UxActSource::EDIT
-                       elsif export.exec.present?
+                       # elsif export.exec.present?
+                       elsif FCB.is_exec?(export)
                          UxActSource::EXEC
                        else
                          UxActSource::EDIT
                        end
-                     elsif export.allow.present?
+                     elsif FCB.is_allow?(export)
                        UxActSource::ALLOW
                      else
                        UxActSource::EDIT
@@ -236,13 +282,15 @@ module MarkdownExec
       # `:allow`, `:default`, `:echo`, or `:exec` is present.
       if export.init.nil?
         export.init = case
-                      when export.allow.present?
+                      when FCB.is_allow?(export)
                         UxActSource::ALLOW
                       when export.default.present?
                         UxActSource::DEFAULT
-                      when export.echo.present?
+                      # when export.echo.present?
+                      when FCB.is_echo?(export)
                         UxActSource::ECHO
-                      when export.exec.present?
+                      # when export.exec.present?
+                      when FCB.is_exec?(export)
                         UxActSource::EXEC
                       else
                         UxActSource::FALSE
@@ -255,7 +303,8 @@ module MarkdownExec
     # :reek:ManualDispatch
     # 2024-08-04 match nickname
     def is_dependency_of?(dependency_names)
-      dependency_names.include?(@attrs[:dname]) ||
+      dependency_names.include?(@attrs[:id]) ||
+        dependency_names.include?(@attrs[:dname]) ||
         dependency_names.include?(@attrs[:nickname]) ||
         dependency_names.include?(@attrs[:oname]) ||
         dependency_names.include?(@attrs.pub_name) ||
@@ -271,11 +320,16 @@ module MarkdownExec
     end
 
     def is_named?(name)
-      @attrs[:dname] == name ||
-        @attrs[:nickname] == name ||
-        @attrs[:oname] == name ||
-        @attrs.pub_name == name ||
-        @attrs[:s2title] == name
+      if /^ItrBlk/.match(name)
+        @attrs[:id] == name
+      else
+        @attrs[:id] == name ||
+          @attrs[:dname] == name ||
+          @attrs[:nickname] == name ||
+          @attrs[:oname] == name ||
+          @attrs.pub_name == name ||
+          @attrs[:s2title] == name
+      end
     end
 
     # true if this is a line split block
@@ -332,6 +386,54 @@ module MarkdownExec
         end
     end
 
+    # calc the decoration sybol for the current block
+    def option_to_decorate_ux_block
+      symbol_or_hash = BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]
+      if @attrs[:type] == BlockType::UX
+        # only UX blocks accept a symbol or a hash
+        if symbol_or_hash.is_a? Hash
+          # default to the first symbol
+          symbol = symbol_or_hash.first.last
+          symbol_or_hash.keys.each do |key|
+            if key == true
+              symbol = symbol_or_hash[key]
+              break
+            elsif symbol_or_hash[key].present? && send(key)
+              symbol = symbol_or_hash[key]
+              break
+            end
+          end
+          symbol
+        else
+          # only symbol
+          symbol_or_hash
+        end
+      else
+        # only symbol
+        symbol_or_hash
+      end
+    end
+
+    def option_to_format_ux_block(export)
+      if export.readonly
+        :menu_ux_row_format_readonly
+      else
+        case FCB.act_source(export)
+        when UxActSource::ALLOW
+          :menu_ux_row_format_allow
+        when UxActSource::ECHO
+          :menu_ux_row_format_echo
+        when UxActSource::EDIT
+          :menu_ux_row_format_edit
+        when UxActSource::EXEC
+          :menu_ux_row_format_exec
+        else
+          # this UX block does not have a format, treat as editable
+          :menu_ux_row_format_edit
+        end
+      end
+    end
+
     def respond_to_missing?(method_name, include_private = false)
       @attrs.key?(method_name.to_sym) || super
     end
@@ -381,6 +483,7 @@ module MarkdownExec
       # Replace variables in each line of `body` if `body` is present
       return unless @attrs[:body]
 
+      # save body for YAML and re-interpretation
       @attrs[:raw_body] ||= @attrs[:body]
       @attrs[:body] = @attrs[:body]&.map do |line|
         if line.empty?

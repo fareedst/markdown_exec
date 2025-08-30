@@ -103,9 +103,9 @@ task :bats do
   execute_with_error_handling(FileList['bats/**/*.bats']) do |file|
     next nil if %w[bats/bats.bats bats/fail.bats].include?(file)
 
-    # temporary clear WW to disable debugging
-    # WW pollutes output expected by BATS tests
-    %(unset WW; bats #{file})
+    # If enabled, WW pollutes stderr processed by BATS tests
+    # silence with WW=0
+    %(export WW=0; bats #{file})
   end
 end
 

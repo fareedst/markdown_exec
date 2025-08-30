@@ -27,7 +27,14 @@ BLOCK_TYPE_COLOR_OPTIONS = {
   BlockType::OPTS => :menu_opts_color,
   BlockType::SAVE => :menu_save_color,
   BlockType::SHELL => :menu_bash_color,
-  BlockType::UX => :menu_ux_color,
+  BlockType::UX => {
+    :is_allow? => :menu_ux_color_allow,
+    :is_echo? => :menu_ux_color_echo,
+    :is_edit? => :menu_ux_color_edit,
+    :is_exec? => :menu_ux_color_exec,
+    :readonly => :menu_ux_color_readonly,
+    true => :menu_ux_color
+  },
   BlockType::VARS => :menu_vars_color
 }.freeze
 

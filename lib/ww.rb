@@ -11,8 +11,26 @@ DEPTH_ICON = '›'
 # log levels
 LOG_LEVELS = %i[debug info warn error fatal].freeze
 
+# is enabled
+def enable_debugging
+  ENV.fetch('WW', '0').to_i.positive?
+end
+
+# is enabled, not silent
+def env_show_attribution
+  ENV['WW'] != '0'
+end
+
+def is_new_alg?
+  # use the new algo only if env var is ALG is not empty
+  !ENV.fetch('ALG','').empty?
+
+  # use the new algo if ALG != 0
+  # ENV.fetch('ALG', '') != '0'
+end
+
 # enable application-wide debugging
-$debug = $DEBUG || !ENV['WW'].nil?
+$debug = $DEBUG || enable_debugging
 
 # no default category
 $ww_category = nil
@@ -23,15 +41,26 @@ $ww_log_file = nil
 # default output to $stderr
 $ww_output = $stderr
 unless ($id = ENV.fetch('WW_LOG', '')).empty?
-  alg = ENV.fetch('ALG', '0')
+  alg = is_new_alg? ? '1' : '0'
   # local log file with timestamp and algo name
   $ww_log_file = "#{Time.now.utc.strftime '%H-%M-%S'}-#{$id}-#{alg}.log"
 end
 
 # attribution in output unless disabled
-if $debug && ENV['WW_MINIMUM'].nil?
-  warn "WW Debugging per $DEBUG ('ruby --debug')" if $DEBUG
-  warn 'WW Debugging per environment variable WW' unless ENV['WW'].nil?
+if env_show_attribution
+  if $debug
+    # not silent, display notice
+    if $DEBUG
+      # debugging triggered by Ruby debug
+      warn "WW Debugging per $DEBUG ('ruby --debug')"
+    else
+      # debugging triggered by WW environment variable
+      warn 'WW Debugging per environment variable WW'
+    end
+  end
+  if is_new_alg?
+    warn "WW Testing a new algorithm. Control with env var 'ALG'"
+  end
 end
 
 # selectively enabled, for general debugging
@@ -83,7 +112,7 @@ end
 # output data and the caller's location
 def wwt(*objs, **kwargs)
   # tags to skip
-  return objs.last if !$debug || %i[env].include?(objs.first)
+  return objs.last if !$debug || %i[blocks env fcb].include?(objs.first)
 
   formatted = ['Tagged', objs.first] + objs[1..]
   ww0(*formatted,
@@ -146,7 +175,7 @@ def ww0(*objs,
                       end
 
   # Output to $stderr or specified IO object
-  output.puts formatted_message
+  output.puts "\033[38;2;128;191;191m#{formatted_message}\033[0m"
   output.flush
 
   # Optionally log to a file
@@ -185,7 +214,7 @@ end
 
 class String
   unless defined?(deref)
-    # replace the home directory with a .
+    # replace the app's directory with a .
     def deref
       sub(%r{^#{Dir.pwd}}, '')
     end

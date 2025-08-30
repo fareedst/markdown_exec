@@ -120,19 +120,21 @@ module MarkdownExec
       end
 
       nickname = name_block.pub_name
+      ref = name_block.id
+      dependencies = collect_dependencies(pubname: ref)
+      wwt :dependencies, 'dependencies.count:', dependencies.count
 
-      dependencies = collect_dependencies(pubname: nickname)
-      # !!t dependencies.count
       all_dependency_names =
-        collect_unique_names(dependencies).push(nickname).uniq
-      # !!t all_dependency_names.count
+        collect_unique_names(dependencies).push(ref).uniq
+      wwt :dependencies, 'all_dependency_names.count:',
+        all_dependency_names.count
 
       # select blocks in order of appearance in source documents
       #
       blocks = table_not_split.select do |fcb|
         fcb.is_dependency_of?(all_dependency_names)
       end
-      # !!t blocks.count
+      wwt :blocks, 'blocks.count:', blocks.count
 
       ## add cann key to blocks, calc unmet_dependencies
       #
@@ -147,12 +149,16 @@ module MarkdownExec
           []
         end + [fcb]
       end.flatten(1)
-      # !!t unmet_dependencies.count
+      wwt :unmet_dependencies, 'unmet_dependencies.count:',
+          unmet_dependencies.count
+      wwt :dependencies, 'dependencies.keys:', dependencies.keys
 
       { all_dependency_names: all_dependency_names,
         blocks: blocks,
         dependencies: dependencies,
         unmet_dependencies: unmet_dependencies }
+    rescue StandardError
+      wwe
     end
 
     # Collects recursively required code blocks and returns them as an array of strings.

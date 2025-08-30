@@ -45,12 +45,24 @@ class CachedNestedFileReader
   # return the processed lines
   def readlines(
     filename, depth = 0, context: '', import_paths: nil,
-    indention: '', substitutions: {}, use_template_delimiters: false, &block
+    indention: '', substitutions: {}, use_template_delimiters: false,
+    clear_cache: true,
+    read_cache: false,
+    &block
   )
+    # clear cache if requested
+    @file_cache.clear if clear_cache
+
     cache_key = build_cache_key(filename, substitutions)
     if @file_cache.key?(cache_key)
+      return ["# dup #{cache_key}"] unless read_cache
+
       @file_cache[cache_key].each(&block) if block
       return @file_cache[cache_key]
+
+      # do not return duplicates per filename and substitutions
+      # return an indicator that the file was already read
+
     end
     raise Errno::ENOENT, filename unless filename
 
@@ -78,15 +90,28 @@ class CachedNestedFileReader
 
         raise Errno::ENOENT, name_strip unless included_file_path
 
-        imported_lines = readlines(
-          included_file_path, depth + 1,
-          context: "#{filename}:#{ind + 1}",
-          import_paths: import_paths,
-          indention: import_indention,
-          substitutions: merged_substitutions,
-          use_template_delimiters: use_template_delimiters,
-          &block
-        )
+        # Create a cache key for the imported file that includes both filename and parameters
+        imported_cache_key = build_import_cache_key(included_file_path,
+                                                    name_strip, params_string, merged_substitutions)
+
+        # Check if we've already loaded this specific import
+        if @file_cache.key?(imported_cache_key)
+          imported_lines = @file_cache[imported_cache_key]
+        else
+          imported_lines = readlines(
+            included_file_path, depth + 1,
+            context: "#{filename}:#{ind + 1}",
+            import_paths: import_paths,
+            indention: import_indention,
+            substitutions: merged_substitutions,
+            use_template_delimiters: use_template_delimiters,
+            clear_cache: false,
+            &block
+          )
+
+          # Cache the imported lines with the specific import cache key
+          @file_cache[imported_cache_key] = imported_lines
+        end
 
         # Apply text substitutions to imported content
         processed_imported_lines = apply_substitutions(
@@ -190,6 +215,13 @@ class CachedNestedFileReader
     substitution_hash = substitutions.sort.to_h.hash
     "#{filename}##{substitution_hash}"
   end
+
+  # Build a cache key specifically for imported files
+  def build_import_cache_key(filename, name_strip, params_string, substitutions)
+    # Sort parameters for consistent key
+    sorted_params = substitutions.sort.to_h.hash
+    "#{filename}##{name_strip}##{params_string}##{sorted_params}"
+  end
 end
 
 return if $PROGRAM_NAME != __FILE__
@@ -278,9 +310,92 @@ class CachedNestedFileReaderTest < Minitest::Test
     @file2.reopen(@file2.path, 'w') { |f| f.write('ChangedLine') }
 
     # Second read (should read from cache, not the changed file)
-    result2 = @reader.readlines(@file2.path).map(&:to_s)
+    result2 = @reader.readlines(@file2.path, clear_cache: false,
+                                             read_cache: true).map(&:to_s)
 
     assert_equal result1, result2
     assert_equal %w[ImportedLine1 ImportedLine2], result2
+  end
+
+  def test_import_caching_with_same_parameters
+    # Create a file that will be imported multiple times
+    shared_file = Tempfile.new('shared.txt')
+    shared_file.write("Shared content line 1\nShared content line 2")
+    shared_file.rewind
+
+    # Create a file that imports the same file multiple times with same parameters
+    importing_file = Tempfile.new('importing_multiple.txt')
+    importing_file.write("Start\n @import #{shared_file.path} PARAM=value\nMiddle\n @import #{shared_file.path} PARAM=value\nEnd")
+    importing_file.rewind
+
+    # Track how many times the shared file is actually read
+    read_count = 0
+    original_readlines = File.method(:readlines)
+    File.define_singleton_method(:readlines) do |filename, **opts|
+      if filename == shared_file.path
+        read_count += 1
+      end
+      original_readlines.call(filename, **opts)
+    end
+
+    result = @reader.readlines(importing_file.path).map(&:to_s)
+
+    # The shared file should only be read once, not twice
+    assert_equal 1, read_count,
+                 'Shared file should only be read once when imported with same parameters'
+
+    # Verify the content is correct
+    expected = ['Start', ' Shared content line 1', ' Shared content line 2',
+                'Middle', ' Shared content line 1', ' Shared content line 2', 'End']
+    assert_equal expected, result
+
+    # Restore original method
+    File.define_singleton_method(:readlines, original_readlines)
+
+    shared_file.close
+    shared_file.unlink
+    importing_file.close
+    importing_file.unlink
+  end
+
+  def test_import_caching_with_different_parameters
+    # Create a file that will be imported with different parameters
+    template_file = Tempfile.new('template.txt')
+    template_file.write('Hello NAME, your ID is ID')
+    template_file.rewind
+
+    # Create a file that imports the same file with different parameters
+    importing_file = Tempfile.new('importing_different.txt')
+    importing_file.write("Users:\n @import #{template_file.path} NAME=Alice ID=123\n @import #{template_file.path} NAME=Bob ID=456\nEnd")
+    importing_file.rewind
+
+    # Track how many times the template file is actually read
+    read_count = 0
+    original_readlines = File.method(:readlines)
+    File.define_singleton_method(:readlines) do |filename, **opts|
+      if filename == template_file.path
+        read_count += 1
+      end
+      original_readlines.call(filename, **opts)
+    end
+
+    result = @reader.readlines(importing_file.path).map(&:to_s)
+
+    # The template file should be read twice since parameters are different
+    assert_equal 2, read_count,
+                 'Template file should be read twice when imported with different parameters'
+
+    # Verify the content is correct
+    expected = ['Users:', ' Hello Alice, your 123 is 123',
+                ' Hello Bob, your 456 is 456', 'End']
+    assert_equal expected, result
+
+    # Restore original method
+    File.define_singleton_method(:readlines, original_readlines)
+
+    template_file.close
+    template_file.unlink
+    importing_file.close
+    importing_file.unlink
   end
 end
