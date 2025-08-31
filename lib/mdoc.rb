@@ -127,7 +127,7 @@ module MarkdownExec
       all_dependency_names =
         collect_unique_names(dependencies).push(ref).uniq
       wwt :dependencies, 'all_dependency_names.count:',
-        all_dependency_names.count
+          all_dependency_names.count
 
       # select blocks in order of appearance in source documents
       #

@@ -9,6 +9,7 @@ require 'fileutils'
 require_relative 'constants'
 require_relative 'exceptions'
 require_relative 'find_files'
+require_relative 'ww'
 
 ##
 # The CachedNestedFileReader class provides functionality to read file
@@ -22,9 +23,26 @@ require_relative 'find_files'
 class CachedNestedFileReader
   include Exceptions
 
-  def initialize(import_pattern: /^ *#import (.+)$/)
+  def initialize(
+    import_pattern:,
+    parameter_scan:,
+    shell_block_name:,
+    symbol_command_substitution:,
+    symbol_evaluated_expression:,
+    symbol_raw_literal:,
+    symbol_force_quoted_literal:,
+    symbol_variable_reference:
+  )
     @file_cache = {}
     @import_pattern = import_pattern
+    @symbol_command_substitution = symbol_command_substitution
+    @symbol_evaluated_expression = symbol_evaluated_expression
+    @symbol_raw_literal = symbol_raw_literal
+    @symbol_force_quoted_literal = symbol_force_quoted_literal
+    @symbol_variable_reference = symbol_variable_reference
+
+    @parameter_scan = parameter_scan
+    @shell_block_name = shell_block_name
   end
 
   def error_handler(name = '', opts = {})
@@ -69,13 +87,34 @@ class CachedNestedFileReader
     directory_path = File.dirname(filename)
     processed_lines = []
     File.readlines(filename, chomp: true).each.with_index do |line, ind|
+      wwt :readline, 'depth:', depth, 'filename:', filename, 'ind:', ind,
+          'line:', line
       if Regexp.new(@import_pattern) =~ line
         name_strip = $~[:name].strip
         params_string = $~[:params] || ''
         import_indention = indention + $~[:indention]
 
         # Parse parameters for text substitution
-        import_substitutions = parse_import_params(params_string)
+        import_substitutions, add_code = parse_import_params(params_string,
+                                                             @parameter_scan)
+        wwt :import_parameter_code, 'add_code:', add_code
+        if add_code
+          # strings as NestedLines
+          add_lines = add_code.map.with_index do |line, ind2|
+            nested_line = NestedLine.new(
+              line,
+              depth + 1,
+              import_indention,
+              filename,
+              ind2
+            )
+            block&.call(nested_line)
+
+            nested_line
+          end
+          ww 'add_lines:', add_lines
+          processed_lines += add_lines
+        end
         merged_substitutions = substitutions.merge(import_substitutions)
 
         included_file_path =
@@ -130,6 +169,7 @@ class CachedNestedFileReader
       end
     end
 
+    wwt :read_document_code, 'processed_lines:', processed_lines
     @file_cache[cache_key] = processed_lines
   rescue Errno::ENOENT => err
     warn_format('readlines', "#{err} @@ #{context}",
@@ -138,21 +178,58 @@ class CachedNestedFileReader
 
   private
 
+  def shell_code_block_for_statement(statement)
+    ["```bash :#{@shell_block_name}",
+     statement,
+     '```']
+  end
+
   # Parse key=value parameters from the import line
-  def parse_import_params(params_string)
+  def parse_import_params(params_string, parameter_scan)
     return {} if params_string.nil? || params_string.strip.empty?
 
+    add_code = []
     params = {}
     # Match key=value pairs, handling quoted values
-    params_string.scan(
-      /([A-Za-z_]\w*)=(?:"([^"]*)"|'([^']*)'|(\S+))/
-    ) do |key, quoted_double, quoted_single, unquoted|
+    params_string.scan(parameter_scan) do |key, op, quoted_double, quoted_single, unquoted|
+      wwt :import, 'key:', key, 'op:', op, 'quoted_double:', quoted_double,
+          'quoted_single:', quoted_single, 'unquoted:', unquoted
+
       value = quoted_double || quoted_single || unquoted
-      # skip replacement of equal values
-      # otherwise, the text is not available for other substitutions
-      params[key] = value if key != value
+      # skip replacement of equal values otherwise,
+      # the text is not available for other substitutions
+      if key != value
+        case op
+        when '='
+          # replace the literal below
+        when ':c='
+          # add code to set the variable to the value of the parameter
+          add_code += shell_code_block_for_statement(%(#{key}=$(#{value})))
+          # replace key with expansion of the added variable
+          value = "${#{key}}"
+        when ':e='
+          # add code to set the variable to the value of the parameter
+          add_code += shell_code_block_for_statement(%(#{key}="#{value}"))
+          # replace key with expansion of the added variable
+          value = "${#{key}}"
+        when ':q='
+          # add code to set the variable to the value of the parameter
+          add_code += shell_code_block_for_statement(
+            %(#{key}=#{Shellwords.escape value})
+          )
+          # replace key with expansion of the added variable
+          value = "${#{key}}"
+        when ':v='
+          # variable exists
+          value = "${#{value}}"
+        else
+          wwe "Invalid op '#{op}'"
+        end
+
+        params[key] = value
+      end
     end
-    params
+    [params, add_code]
   end
 
   # Apply text substitutions to a collection of NestedLine objects
@@ -180,8 +257,10 @@ class CachedNestedFileReader
     if use_template_delimiters
       # Replace template-style placeholders: ${KEY} or {{KEY}}
       substitutions.each do |key, value|
-        substituted_line = substituted_line.gsub(/\$\{#{Regexp.escape(key)}\}/,
-                                                 value)
+        substituted_line = substituted_line.gsub(
+          /\$\{#{Regexp.escape(key)}\}/,
+          value
+        )
         substituted_line = substituted_line.gsub(
           /\{\{#{Regexp.escape(key)}\}\}/, value
         )
@@ -193,7 +272,6 @@ class CachedNestedFileReader
       # Replace each key with a unique temporary placeholder
       substitutions.each_with_index do |(key, value), index|
         temp_placeholder = "__MDE_TEMP_#{index}__"
-        # pattern = /\b#{Regexp.escape(key)}\b/
         pattern = Regexp.new(Regexp.escape(key))
         substituted_line = substituted_line.gsub(pattern, temp_placeholder)
         temp_placeholders[temp_placeholder] = value
@@ -239,7 +317,14 @@ class CachedNestedFileReaderTest < Minitest::Test
     @file1.write("Line1\nLine2\n @import #{@file2.path}\nLine3")
     @file1.rewind
     @reader = CachedNestedFileReader.new(
-      import_pattern: /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/
+      import_pattern: /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      parameter_scan: /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      shell_block_name: '(document_shell)',
+      symbol_command_substitution: ':c=',
+      symbol_evaluated_expression: ':e=',
+      symbol_raw_literal: '=',
+      symbol_force_quoted_literal: ':q=',
+      symbol_variable_reference: ':v='
     )
   end
 

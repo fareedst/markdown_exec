@@ -26,6 +26,8 @@ _mde() {
     if [[ ${prev} == -* ]] ; then
       case $prev in
         
+              --blocks) COMPREPLY="''"; return 0 ;;
+            
               --config) COMPREPLY="."; return 0 ;;
             
               --debug) COMPREPLY="f"; return 0 ;;
@@ -65,8 +67,6 @@ _mde() {
               --how) COMPREPLY="''"; return 0 ;;
             
               -?) COMPREPLY="''"; return 0 ;;
-            
-              --blocks) COMPREPLY="''"; return 0 ;;
             
               --list-blocks-eval) COMPREPLY="''"; return 0 ;;
             
@@ -110,7 +110,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--config" "--debug" "--dig" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block-names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute-in-own-window" "--exit" "--filename" "--find" "--find-path" "--help" "--history" "--how" "--blocks" "--list-blocks" "--list-blocks-eval" "--list-blocks-message" "--list-blocks-type" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--format" "--list-recent-output" "--list-recent-scripts" "--load-code" "--mine" "--open" "--output-script" "--output-stdout" "--path" "--pause-after-script-execution" "--probe" "--publish-document-file-mode" "--publish-document-file-name" "--pwd" "--run-last-script" "--sift" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--blocks" "--config" "--debug" "--dig" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block-names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute-in-own-window" "--exit" "--filename" "--find" "--find-path" "--help" "--history" "--how" "--list-blocks" "--list-blocks-eval" "--list-blocks-message" "--list-blocks-type" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--format" "--list-recent-output" "--list-recent-scripts" "--load-code" "--mine" "--open" "--output-script" "--output-stdout" "--path" "--pause-after-script-execution" "--probe" "--publish-document-file-mode" "--publish-document-file-name" "--pwd" "--run-last-script" "--sift" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -126,6 +126,8 @@ _mde() {
           --block-name) COMPREPLY=".NAME."; return 0 ;;
         
           -b) COMPREPLY=".NAME."; return 0 ;;
+        
+          --blocks) COMPREPLY=".MESSAGE."; return 0 ;;
         
           --config) COMPREPLY=".PATH."; return 0 ;;
         
@@ -166,8 +168,6 @@ _mde() {
           --how) COMPREPLY=".HOW."; return 0 ;;
         
           -?) COMPREPLY=".HOW."; return 0 ;;
-        
-          --blocks) COMPREPLY=".MESSAGE."; return 0 ;;
         
           --list-blocks-eval) COMPREPLY=".EVAL."; return 0 ;;
         

@@ -575,7 +575,38 @@
 - :opt_name: import_pattern
   :env_var: MDE_IMPORT_PATTERN
   :default: >-
-    ^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$
+    ^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*(?::c=|:e=|:q=|:v=|=)(?:"[^"]*"|'[^']*'|\S+))*) *$
+  :procname: val_as_str
+
+- :opt_name: import_pattern_scan
+  :env_var: MDE_IMPORT_PATTERN_SCAN
+  :default: >-
+    ([A-Za-z_]\w*)(:c=|:e=|:q=|:v=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
+  :procname: val_as_str
+
+- :opt_name: import_symbol_command_substitution
+  :env_var: MDE_IMPORT_SYMBOL_COMMAND_SUBSTITUTION
+  :default: ':c='
+  :procname: val_as_str
+
+- :opt_name: import_symbol_evaluated_expression
+  :env_var: MDE_IMPORT_SYMBOL_EVALUATED_EXPRESSION
+  :default: ':e='
+  :procname: val_as_str
+
+- :opt_name: import_symbol_raw_literal
+  :env_var: MDE_IMPORT_SYMBOL_RAW_LITERAL
+  :default: '='
+  :procname: val_as_str
+
+- :opt_name: import_symbol_force_quoted_literal
+  :env_var: MDE_IMPORT_SYMBOL_FORCE_QUOTED_LITERAL
+  :default: ':q='
+  :procname: val_as_str
+
+- :opt_name: import_symbol_variable_reference
+  :env_var: MDE_IMPORT_SYMBOL_VARIABLE_REFERENCE
+  :default: ':v='
   :procname: val_as_str
 
 - :opt_name: line_decor_main
@@ -872,7 +903,7 @@
   :env_var: MDE_MENU_INCLUDE_IMPORTED_NOTES
   :description: Whether imported blocks should be included in the menu
   :arg_name: BOOL
-  :default: false
+  :default: true
   :procname: val_as_bool
 
 - :opt_name: menu_inherited_lines_at_top

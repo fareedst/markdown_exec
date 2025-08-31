@@ -23,7 +23,7 @@ end
 
 def is_new_alg?
   # use the new algo only if env var is ALG is not empty
-  !ENV.fetch('ALG','').empty?
+  !ENV.fetch('ALG', '').empty?
 
   # use the new algo if ALG != 0
   # ENV.fetch('ALG', '') != '0'
@@ -91,7 +91,8 @@ def wwe(*objs, **kwargs)
       **kwargs.merge(full_backtrace: true,
                      locations: caller_locations))
 
-  raise StandardError, objs.first[:error]
+  # raise StandardError, objs.first.fetch(:error) || objs.first
+  raise StandardError, objs.first
 end
 
 # selectively enabled, for process tracking
