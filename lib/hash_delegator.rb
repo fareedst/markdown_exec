@@ -1100,20 +1100,26 @@ module MarkdownExec
 
     def cfile
       @cfile ||= CachedNestedFileReader.new(
-        import_pattern:
-          @delegate_object.fetch(:import_pattern),
-        parameter_scan:
-          Regexp.new(@delegate_object.fetch(:import_pattern_scan, '')),
+        import_directive_line_pattern:
+          @delegate_object.fetch(:import_directive_line_pattern),
+        import_directive_parameter_scan:
+          Regexp.new(
+            @delegate_object.fetch(:import_directive_parameter_scan, '')
+          ),
+        import_parameter_variable_assignment:
+          @delegate_object[:import_parameter_variable_assignment],
+        shell:
+          @delegate_object[:shell],
         shell_block_name:
           @delegate_object[:document_load_shell_block_name],
         symbol_command_substitution:
           @delegate_object[:import_symbol_command_substitution],
         symbol_evaluated_expression:
           @delegate_object[:import_symbol_evaluated_expression],
-        symbol_raw_literal:
-          @delegate_object[:import_symbol_raw_literal],
         symbol_force_quoted_literal:
           @delegate_object[:import_symbol_force_quoted_literal],
+        symbol_raw_literal:
+          @delegate_object[:import_symbol_raw_literal],
         symbol_variable_reference:
           @delegate_object[:import_symbol_variable_reference]
       )

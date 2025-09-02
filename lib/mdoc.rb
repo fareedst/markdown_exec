@@ -158,7 +158,7 @@ module MarkdownExec
         dependencies: dependencies,
         unmet_dependencies: unmet_dependencies }
     rescue StandardError
-      wwe
+      wwe $!
     end
 
     # Collects recursively required code blocks and returns them as an array of strings.

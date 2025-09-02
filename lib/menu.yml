@@ -483,14 +483,18 @@
   :env_var: MDE_IMPORT_PATHS
   :default:
   :procname: val_as_str
-- :opt_name: import_pattern
+- :opt_name: import_directive_line_pattern
   :env_var: MDE_IMPORT_PATTERN
-  :default: '^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*(?::c=|:e=|:q=|:v=|=)(?:"[^"]*"|''[^'']*''|\S+))*)
+  :default: '^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +\w+(?::c=|:e=|:q=|:v=|=)(?:"[^"]*"|''[^'']*''|\S+))*)
     *$'
   :procname: val_as_str
-- :opt_name: import_pattern_scan
+- :opt_name: import_directive_parameter_scan
   :env_var: MDE_IMPORT_PATTERN_SCAN
-  :default: ([A-Za-z_]\w*)(:c=|:e=|:q=|:v=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
+  :default: (\w+)(:c=|:e=|:q=|:v=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
+  :procname: val_as_str
+- :opt_name: import_parameter_variable_assignment
+  :env_var: MDE_IMPORT_PARAMETER_VARIABLE_ASSIGNMENT
+  :default: "%{key}=%{value}"
   :procname: val_as_str
 - :opt_name: import_symbol_command_substitution
   :env_var: MDE_IMPORT_SYMBOL_COMMAND_SUBSTITUTION

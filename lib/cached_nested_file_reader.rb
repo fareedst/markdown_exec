@@ -24,25 +24,28 @@ class CachedNestedFileReader
   include Exceptions
 
   def initialize(
-    import_pattern:,
-    parameter_scan:,
+    import_directive_line_pattern:,
+    import_directive_parameter_scan:,
+    import_parameter_variable_assignment:,
+    shell:,
     shell_block_name:,
     symbol_command_substitution:,
     symbol_evaluated_expression:,
-    symbol_raw_literal:,
     symbol_force_quoted_literal:,
+    symbol_raw_literal:,
     symbol_variable_reference:
   )
     @file_cache = {}
-    @import_pattern = import_pattern
+    @import_directive_line_pattern = import_directive_line_pattern
+    @import_directive_parameter_scan = import_directive_parameter_scan
+    @import_parameter_variable_assignment = import_parameter_variable_assignment
+    @shell = shell
+    @shell_block_name = shell_block_name
     @symbol_command_substitution = symbol_command_substitution
     @symbol_evaluated_expression = symbol_evaluated_expression
-    @symbol_raw_literal = symbol_raw_literal
     @symbol_force_quoted_literal = symbol_force_quoted_literal
+    @symbol_raw_literal = symbol_raw_literal
     @symbol_variable_reference = symbol_variable_reference
-
-    @parameter_scan = parameter_scan
-    @shell_block_name = shell_block_name
   end
 
   def error_handler(name = '', opts = {})
@@ -89,15 +92,13 @@ class CachedNestedFileReader
     File.readlines(filename, chomp: true).each.with_index do |line, ind|
       wwt :readline, 'depth:', depth, 'filename:', filename, 'ind:', ind,
           'line:', line
-      if Regexp.new(@import_pattern) =~ line
+      if Regexp.new(@import_directive_line_pattern) =~ line
         name_strip = $~[:name].strip
         params_string = $~[:params] || ''
         import_indention = indention + $~[:indention]
 
         # Parse parameters for text substitution
-        import_substitutions, add_code = parse_import_params(params_string,
-                                                             @parameter_scan)
-        wwt :import_parameter_code, 'add_code:', add_code
+        import_substitutions, add_code = parse_import_params(params_string)
         if add_code
           # strings as NestedLines
           add_lines = add_code.map.with_index do |line, ind2|
@@ -178,58 +179,91 @@ class CachedNestedFileReader
 
   private
 
-  def shell_code_block_for_statement(statement)
-    ["```bash :#{@shell_block_name}",
-     statement,
-     '```']
+  def shell_code_block_for_assignment(key, expression)
+    ["```#{@shell} :#{@shell_block_name}",
+     format(@import_parameter_variable_assignment,
+            { key: key, value: expression }),
+     '```'].tap { wwr _1 }
   end
 
   # Parse key=value parameters from the import line
-  def parse_import_params(params_string, parameter_scan)
+  def parse_import_params(params_string)
     return {} if params_string.nil? || params_string.strip.empty?
 
     add_code = []
     params = {}
-    # Match key=value pairs, handling quoted values
-    params_string.scan(parameter_scan) do |key, op, quoted_double, quoted_single, unquoted|
-      wwt :import, 'key:', key, 'op:', op, 'quoted_double:', quoted_double,
-          'quoted_single:', quoted_single, 'unquoted:', unquoted
 
+    # First loop: store all scanned parameters in a temporary variable
+    scanned_params = []
+    params_string.scan(@import_directive_parameter_scan) do |key, op, quoted_double, quoted_single, unquoted|
       value = quoted_double || quoted_single || unquoted
-      # skip replacement of equal values otherwise,
-      # the text is not available for other substitutions
-      if key != value
-        case op
-        when '='
-          # replace the literal below
-        when ':c='
-          # add code to set the variable to the value of the parameter
-          add_code += shell_code_block_for_statement(%(#{key}=$(#{value})))
-          # replace key with expansion of the added variable
-          value = "${#{key}}"
-        when ':e='
-          # add code to set the variable to the value of the parameter
-          add_code += shell_code_block_for_statement(%(#{key}="#{value}"))
-          # replace key with expansion of the added variable
-          value = "${#{key}}"
-        when ':q='
-          # add code to set the variable to the value of the parameter
-          add_code += shell_code_block_for_statement(
-            %(#{key}=#{Shellwords.escape value})
-          )
-          # replace key with expansion of the added variable
-          value = "${#{key}}"
-        when ':v='
-          # variable exists
-          value = "${#{value}}"
-        else
-          wwe "Invalid op '#{op}'"
-        end
-
-        params[key] = value
-      end
+      scanned_params << [key, op, value]
     end
-    [params, add_code]
+    wwt 'scanned_params:', scanned_params
+
+    # Preceding loop: select items where op = '='
+    equal_op_params = scanned_params.select { |_key, op, _value| op == '=' }
+    wwt 'equal_op_params:', equal_op_params
+    # Process remaining parameters (non-equal operators)
+    scanned_params.each do |key, op, value|
+      wwt :import, 'key:', key, 'op:', op, 'value:', value
+
+      # adjust key for current stem value
+      varname = key
+      case op
+      when @symbol_command_substitution,
+           @symbol_evaluated_expression,
+           @symbol_force_quoted_literal,
+           @symbol_variable_reference
+        # perform all substitutions per equal_op_params
+        equal_op_params.each do |equal_key, _equal_op, equal_value|
+          varname = varname.gsub(equal_key, equal_value)
+        end
+        wwt :import_key, 'varname:', varname
+      end
+
+      case op
+      when @symbol_raw_literal
+        # skip replacement of equal values otherwise,
+        # the text is not available for other substitutions
+        next unless key != value
+
+        # replace the literal below
+      when @symbol_command_substitution
+        # add code to set the variable to the value of the parameter
+        add_code += shell_code_block_for_assignment(
+          varname, %($(#{value}))
+        )
+        # replace key with expansion of the added variable
+        value = "${#{varname}}"
+      when @symbol_evaluated_expression
+        # add code to set the variable to the value of the parameter
+        add_code += shell_code_block_for_assignment(
+          varname, %("#{value}")
+        )
+        # replace key with expansion of the added variable
+        value = "${#{varname}}"
+      when @symbol_force_quoted_literal
+        # add code to set the variable to the value of the parameter
+        add_code += shell_code_block_for_assignment(
+          varname, Shellwords.escape(value)
+        )
+        # replace key with expansion of the added variable
+        value = "${#{varname}}"
+      when @symbol_variable_reference
+        # variable exists
+        value = "${#{value}}"
+      else
+        wwe "Invalid op '#{op}'"
+      end
+
+      params[key] = value
+    end
+    [params, add_code].tap do
+      wwr 'params:', _1[0], 'add_code:', _1[1]
+    end
+  rescue StandardError
+    wwe $!
   end
 
   # Apply text substitutions to a collection of NestedLine objects
@@ -317,8 +351,12 @@ class CachedNestedFileReaderTest < Minitest::Test
     @file1.write("Line1\nLine2\n @import #{@file2.path}\nLine3")
     @file1.rewind
     @reader = CachedNestedFileReader.new(
-      import_pattern: /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
-      parameter_scan: /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_directive_line_pattern:
+        /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      import_directive_parameter_scan:
+        /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_parameter_variable_assignment: '%{key}=%{value}',
+      shell: 'bash',
       shell_block_name: '(document_shell)',
       symbol_command_substitution: ':c=',
       symbol_evaluated_expression: ':e=',

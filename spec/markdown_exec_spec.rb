@@ -38,7 +38,7 @@ RSpec.describe 'MarkdownExec' do
     '>(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))'
   end
   let(:fixtures_filename) { 'fixtures/sample1.md' }
-  let(:import_pattern) { '^ *@import +(?<name>.+?) *$' }
+  let(:import_directive_line_pattern) { '^ *@import +(?<name>.+?) *$' }
   let(:menu_divider_color) { 'plain' }
   let(:menu_divider_format) { ymds[:menu_divider_format] }
   let(:divider_match) { nil }
@@ -108,7 +108,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/block_exclude.md',
       hide_blocks_by_name: false,
-      import_pattern: import_pattern,
+      import_directive_line_pattern: import_directive_line_pattern,
       yaml_blocks: true
     }
   end
@@ -127,7 +127,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/yaml2.md',
       hide_blocks_by_name: false,
-      import_pattern: import_pattern,
+      import_directive_line_pattern: import_directive_line_pattern,
       yaml_blocks: true
     ).blocks_from_nested_files.blocks
   end
@@ -150,7 +150,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/yaml1.md',
       hide_blocks_by_name: false,
-      import_pattern: import_pattern,
+      import_directive_line_pattern: import_directive_line_pattern,
       yaml_blocks: true
     ).blocks_from_nested_files.blocks
   end
@@ -178,7 +178,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_and_end_regex: fenced_start_and_end_regex,
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/title1.md',
-      import_pattern: import_pattern
+      import_directive_line_pattern: import_directive_line_pattern
     ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_headings) do
@@ -200,7 +200,7 @@ RSpec.describe 'MarkdownExec' do
                               default: ymds[:heading2_match]),
       heading3_match: env_str('MDE_HEADING3_MATCH',
                               default: ymds[:heading3_match]),
-      import_pattern: import_pattern
+      import_directive_line_pattern: import_directive_line_pattern
     ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_exclude_expect_blocks) do
@@ -215,7 +215,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_and_end_regex: fenced_start_and_end_regex,
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/exclude1.md',
-      import_pattern: import_pattern
+      import_directive_line_pattern: import_directive_line_pattern
     ).blocks_from_nested_files.blocks
   end
   let(:list_blocks_bash2) do
@@ -229,7 +229,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_and_end_regex: fenced_start_and_end_regex,
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/bash2.md',
-      import_pattern: import_pattern
+      import_directive_line_pattern: import_directive_line_pattern
     ).blocks_from_nested_files.blocks
   end
   let(:options_parse_) do
@@ -246,7 +246,7 @@ RSpec.describe 'MarkdownExec' do
       fenced_start_and_end_regex: fenced_start_and_end_regex,
       fenced_start_extended_regex: fenced_start_extended_regex,
       filename: 'fixtures/bash1.md',
-      import_pattern: import_pattern
+      import_directive_line_pattern: import_directive_line_pattern
     ).blocks_from_nested_files.blocks
   end
   ## options

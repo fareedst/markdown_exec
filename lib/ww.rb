@@ -107,6 +107,19 @@ def wwp(*objs, **kwargs)
       ))
 end
 
+# the return value for a function
+def wwr(*objs, **kwargs)
+  # assume the final item is the significant one
+  # allows prefixing to an existing expression and forwarding the result
+  return objs.last unless $debug
+
+  ww0(*objs,
+      **kwargs.merge(
+        locations: caller_locations[0..0],
+        location_offset: caller_locations.count
+      ))
+end
+
 # selectively enabled, for tagged data
 # the first item is the tag, the rest is data
 # exclude tags in the list of tags to skip
@@ -174,6 +187,10 @@ def ww0(*objs,
                         PP.pp(trace, io)
                         "#{header}\n#{io.string}"
                       end
+
+  # prefix each line in formatted_message
+  prefix = (' ' * 8).freeze
+  formatted_message = prefix + formatted_message.gsub("\n", "\n#{prefix}")
 
   # Output to $stderr or specified IO object
   output.puts "\033[38;2;128;191;191m#{formatted_message}\033[0m"
