@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.3.0] - 2025-09-02
+
+### Added
+
+- Process Shell, Vars, and UX blocks in sequence.
+- A personal exclude file that is not checked in.
+- Option to annotate required lines.
+- Option to make the directory if it does not exist when saving inherited code.
+- Support for single-line tables.
+- Options to decorate UX blocks per its activation.
+- Special value '0' for environment variable 'WW' silences it. Otherwise, 'WW' outputs that it's testing new algorithm when the app is started.
+- Apply text substitutions for each parameter according to a symbol.
+
+### Changed
+
+- Trigger a selected block by it ID instead of its name. Stops co-triggering of blocks with and without names.
+- Imported documents are skipped if duplicate. Importing a document with alternate parameters makes it unique.
+- Set multiple variables in a UX block:
+  - UX blocks set multiple variables from echo expansions or exec evaluations
+  - Automatic allowed value based on echo or exec is the first line of the first variable set by the block
+- Debug output improvements:
+  - Debug output indicates the depth of the call stack in each line.
+  - Add a function to alert and abort
+  - Add an environment variable to the log file name to document variations.
+- Remove an unused option.
+- Improve handling of interrupt at prompt.
+
 ## [3.2.0] - 2025-07-24
 
 ### Added
