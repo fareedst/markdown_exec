@@ -7,15 +7,23 @@ require_relative 'namer'
 BT_UX_FLD_REQUIRED = 'required'
 def parse_yaml_of_ux_block(
   data,
-  menu_format: nil,
   prompt: nil,
   validate: nil
 )
-  export = data['export']
-  export = data if export.nil?
-  name = export['name']
+  export = data if (export = data['export']).nil?
 
-  raise "Name is missing in UX block: #{data.inspect}" unless name.present?
+  # a single variable name is required to display a single value
+  menu_format = export['format'] || export['menu_format']
+  name = export['name']
+  # if name is missing, use the last key in the echo or exec hashes
+  if !name&.present?
+    name = if export['echo'].is_a? Hash
+             export['echo'].keys.last
+           elsif export['exec'].is_a? Hash
+             export['exec'].keys.last
+           end
+  end
+  raise "Name is missing in UX block: #{data.inspect}" unless name.present? || menu_format.present?
 
   OpenStruct.new(
     act: export['act'],
@@ -25,7 +33,7 @@ def parse_yaml_of_ux_block(
     exec: export['exec'],
     force: export['force'],
     init: export['init'],
-    menu_format: export['format'] || export['menu_format'], # || menu_format,####
+    menu_format: menu_format,
     name: name,
     prompt: export['prompt'] || prompt,
     readonly: export['readonly'].nil? ? false : export['readonly'],
@@ -394,7 +402,7 @@ module MarkdownExec
         if symbol_or_hash.is_a? Hash
           # default to the first symbol
           symbol = symbol_or_hash.first.last
-          symbol_or_hash.keys.each do |key|
+          symbol_or_hash.each_key do |key|
             if key == true
               symbol = symbol_or_hash[key]
               break
