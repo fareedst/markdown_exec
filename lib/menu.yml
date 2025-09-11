@@ -486,7 +486,7 @@
 - :opt_name: import_directive_line_pattern
   :env_var: MDE_IMPORT_PATTERN
   :default: '^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +\w+(?::c=|:e=|:q=|:v=|=)(?:"[^"]*"|''[^'']*''|\S+))*)
-    *$'
+    *\\?$'
   :procname: val_as_str
 - :opt_name: import_directive_parameter_scan
   :env_var: MDE_IMPORT_PATTERN_SCAN

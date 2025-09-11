@@ -89,10 +89,22 @@ class CachedNestedFileReader
 
     directory_path = File.dirname(filename)
     processed_lines = []
-    File.readlines(filename, chomp: true).each.with_index do |line, ind|
+    continued_line = nil # continued import directive
+    File.readlines(filename, chomp: true).each.with_index do |segment, ind|
       wwt :readline, 'depth:', depth, 'filename:', filename, 'ind:', ind,
-          'line:', line
-      if Regexp.new(@import_directive_line_pattern) =~ line
+          'segment:', segment
+
+      if continued_line || (Regexp.new(@import_directive_line_pattern) =~ segment)
+
+        line = (continued_line || '') + segment
+        # if segment ends in a continuation, prepend to next line
+        if line.end_with?('\\')
+          continued_line = line.chomp('\\')
+          next
+        end
+
+        continued_line = nil
+        Regexp.new(@import_directive_line_pattern) =~ line
         name_strip = $~[:name].strip
         params_string = $~[:params] || ''
         import_indention = indention + $~[:indention]
@@ -101,9 +113,9 @@ class CachedNestedFileReader
         import_substitutions, add_code = parse_import_params(params_string)
         if add_code
           # strings as NestedLines
-          add_lines = add_code.map.with_index do |line, ind2|
+          add_lines = add_code.map.with_index do |line2, ind2|
             nested_line = NestedLine.new(
-              line,
+              line2,
               depth + 1,
               import_indention,
               filename,
@@ -161,7 +173,7 @@ class CachedNestedFileReader
         processed_lines += processed_imported_lines
       else
         # Apply substitutions to the current line
-        substituted_line = apply_line_substitutions(line, substitutions,
+        substituted_line = apply_line_substitutions(segment, substitutions,
                                                     use_template_delimiters)
         nested_line = NestedLine.new(substituted_line, depth, indention,
                                      filename, ind)
