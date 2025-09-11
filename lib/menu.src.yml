@@ -325,7 +325,7 @@
 - :opt_name: exception_color_detail
   :env_var: MDE_EXCEPTION_COLOR_DETAIL
   :description: Color of exception detail
-  :default: fg_rgbh_ff_00_7f
+  :default: fg_rgbh_ff_99_cc  # Light pink - softer error detail color, less harsh than bright magenta
   :procname: val_as_str
 
 - :opt_name: exception_format_detail
@@ -337,7 +337,7 @@
 - :opt_name: exception_color_name
   :env_var: MDE_EXCEPTION_COLOR_NAME
   :description: Color of exception name
-  :default: fg_rgbh_ff_00_00
+  :default: fg_rgbh_ff_6b_6b  # Light red - matches exec color for serious attention
   :procname: val_as_str
 
 - :opt_name: exception_format_name
@@ -415,7 +415,7 @@
 - :opt_name: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
   :description: execution_report_preview_frame_color
-  :default: fg_rgbh_7f_ff_00
+  :default: fg_rgbh_90_e0_90  # Light green - consistent with allow/success colors
   :procname: val_as_str
 
 - :opt_name: execution_report_preview_head
@@ -757,7 +757,7 @@
 - :opt_name: menu_bash_color
   :env_var: MDE_MENU_BASH_COLOR
   :description: Color of menu bash
-  :default: fg_rgbh_00_c0_c0
+  :default: fg_rgbh_87_ce_eb  # Sky blue - matches echo color for informational bash blocks
   :procname: val_as_str
 
 - :opt_name: menu_blocks_with_docname
@@ -777,7 +777,7 @@
 - :opt_name: menu_chrome_color
   :env_var: MDE_MENU_CHROME_COLOR
   :description: Color of menu chrome
-  :default: fg_rgbh_40_c0_c0
+  :default: fg_rgbh_b0_b0_b0  # Medium gray - neutral, non-distracting UI chrome
   :procname: val_as_str
 
 - :opt_name: menu_chrome_format
@@ -801,7 +801,7 @@
 - :opt_name: menu_divider_color
   :env_var: MDE_MENU_DIVIDER_COLOR
   :description: Color of menu divider
-  :default: fg_rgbh_80_d0_c0
+  :default: fg_rgbh_d0_d0_d0  # Light gray - subtle, neutral separators
   :procname: val_as_str
 
 - :opt_name: menu_divider_format
@@ -819,7 +819,7 @@
 - :opt_name: menu_edit_color
   :env_var: MDE_MENU_EDIT_COLOR
   :description: Color of Edit link
-  :default: fg_rgbh_e0_e0_20
+  :default: fg_rgbh_ff_b3_66  # Light orange - matches edit UX color for consistency
   :procname: val_as_str
 
 - :opt_name: menu_exit_at_top
@@ -852,7 +852,7 @@
 - :opt_name: menu_heading1_color
   :env_var: MDE_MENU_HEADING1_COLOR
   :description: Color for heading 1 in menu
-  :default: fg_bg_rgbh_80_80_c0_10_10_20
+  :default: fg_bg_rgbh_70_70_b0_f8_f8_fa  # Medium blue on light background for better readability
   :procname: val_as_str
 
 - :opt_name: menu_heading1_format
@@ -864,7 +864,7 @@
 - :opt_name: menu_heading2_color
   :env_var: MDE_MENU_HEADING2_COLOR
   :description: Color for heading 2 in menu
-  :default: fg_bg_rgbh_60_60_c0_10_10_20
+  :default: fg_bg_rgbh_60_60_a0_f5_f5_f8  # Lighter blue on light background for hierarchy
   :procname: val_as_str
 
 - :opt_name: menu_heading2_format
@@ -876,7 +876,7 @@
 - :opt_name: menu_heading3_color
   :env_var: MDE_MENU_HEADING3_COLOR
   :description: Color for heading 3 in menu
-  :default: fg_bg_rgbh_40_40_c0_10_10_20
+  :default: fg_bg_rgbh_50_50_90_f2_f2_f5  # Lightest blue on light background for sub-hierarchy
   :procname: val_as_str
 
 - :opt_name: menu_heading3_format
@@ -888,7 +888,7 @@
 - :opt_name: menu_history_color
   :env_var: MDE_MENU_HISTORY_COLOR
   :description: Color of History link
-  :default: fg_rgbh_e0_e0_20
+  :default: fg_rgbh_87_ce_eb  # Sky blue - informational like echo, for browsing history
   :procname: val_as_str
 
 - :opt_name: menu_import_level_match
@@ -921,7 +921,7 @@
 - :opt_name: menu_inherited_lines_color
   :env_var: MDE_MENU_INHERITED_LINES_COLOR
   :description: Color of inherited lines in menu
-  :default: fg_rgbh_94_00_D3
+  :default: fg_rgbh_b3_9a_d8  # Light purple - softer than bright purple for inherited content
   :procname: val_as_str
 
 - :opt_name: menu_inherited_lines_edit_always
@@ -946,7 +946,7 @@
 - :opt_name: menu_link_color
   :env_var: MDE_MENU_LINK_COLOR
   :description: Color of menu link
-  :default: fg_rgbh_e0_e0_20
+  :default: fg_rgbh_90_e0_90  # Light green - indicates safe/allowed navigation
   :procname: val_as_str
 
 - :opt_name: menu_link_format
@@ -965,7 +965,7 @@
 - :opt_name: menu_load_color
   :env_var: MDE_MENU_LOAD_COLOR
   :description: Color of Load link
-  :default: fg_rgbh_e0_e0_20
+  :default: fg_rgbh_87_ce_eb  # Sky blue - informational action for loading content
   :procname: val_as_str
 
 - :opt_name: menu_note_color
@@ -1040,13 +1040,13 @@
 - :opt_name: menu_opts_color
   :env_var: MDE_MENU_OPTS_COLOR
   :description: Color of menu opts
-  :default: fg_rgbh_ff_00_ff
+  :default: fg_rgbh_d8_b3_ff  # Light lavender - matches vars color family for options
   :procname: val_as_str
 
 - :opt_name: menu_opts_set_color
   :env_var: MDE_MENU_OPTS_SET_COLOR
   :description: Color of menu opts
-  :default: fg_rgbh_7f_00_ff
+  :default: fg_rgbh_c0_9a_ff  # Medium lavender - darker than opts color for set values
   :procname: val_as_str
 
 - :opt_name: menu_opts_set_format
@@ -1071,14 +1071,13 @@
 - :opt_name: menu_save_color
   :env_var: MDE_MENU_SAVE_COLOR
   :description: Color of Save link
-  :default: fg_rgbh_ff_ff_20
-  # :default: fg_rgbh_e0_e0_20
+  :default: fg_rgbh_90_e0_90  # Light green - indicates safe/allowed save operation
   :procname: val_as_str
 
 - :opt_name: menu_task_color
   :env_var: MDE_MENU_TASK_COLOR
   :description: Color of menu task
-  :default: fg_rgbh_ff_ff_ff
+  :default: fg_rgbh_40_40_40  # Dark gray - better contrast than white for readability
   :procname: val_as_str
 
 - :opt_name: menu_task_format
@@ -1102,37 +1101,37 @@
 - :opt_name: menu_ux_color
   :env_var: MDE_MENU_UX_COLOR
   :description: Default color of menu ux
-  :default: fg_rgbh_df_c0_df
+  :default: fg_rgbh_df_c0_df # light purple/lavender
   :procname: val_as_str
 
 - :opt_name: menu_ux_color_allow
   :env_var: MDE_MENU_UX_COLOR_ALLOW
   :description: Color of menu ux when it is allow
-  :default:
+  :default: fg_rgbh_90_e0_90  # Light green - universally indicates safe/permitted actions
   :procname: val_as_str
 
 - :opt_name: menu_ux_color_echo
   :env_var: MDE_MENU_UX_COLOR_ECHO
   :description: Color of menu ux when it is echo
-  :default:
+  :default: fg_rgbh_87_ce_eb  # Sky blue - calm, informational, non-destructive display
   :procname: val_as_str
 
 - :opt_name: menu_ux_color_edit
   :env_var: MDE_MENU_UX_COLOR_EDIT
   :description: Color of menu ux when it is edit
-  :default:
+  :default: fg_rgbh_ff_b3_66  # Light orange - caution color for modification operations
   :procname: val_as_str
 
 - :opt_name: menu_ux_color_exec
   :env_var: MDE_MENU_UX_COLOR_EXEC
   :description: Color of menu ux when it is exec
-  :default:
+  :default: fg_rgbh_ff_6b_6b  # Light red - attention-demanding color for execution commands
   :procname: val_as_str
 
 - :opt_name: menu_ux_color_readonly
   :env_var: MDE_MENU_UX_COLOR_READONLY
   :description: Color of menu ux when it is read-only
-  :default:
+  :default: fg_rgbh_c0_c0_c0  # Light gray - standard disabled/inactive UI element color
   :procname: val_as_str
 
 - :opt_name: menu_ux_row_format
@@ -1144,13 +1143,13 @@
 - :opt_name: menu_vars_color
   :env_var: MDE_MENU_VARS_COLOR
   :description: Color of menu vars
-  :default: fg_rgbh_ff_a0_ff
+  :default: fg_rgbh_d8_b3_ff  # Light lavender - complements default purple, softer than bright magenta
   :procname: val_as_str
 
 - :opt_name: menu_vars_set_color
   :env_var: MDE_MENU_VARS_SET_COLOR
   :description: Color of menu vars
-  :default: fg_rgbh_00_ff_ff
+  :default: fg_rgbh_a0_e6_e6  # Light teal - calmer than bright cyan, distinct from sky blue
   :procname: val_as_str
 
 - :opt_name: menu_vars_set_format
@@ -1257,13 +1256,13 @@
 - :opt_name: output_execution_label_name_color
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_NAME_COLOR
   :description: Color of output_execution_label_name
-  :default: fg_rgbh_00_ff_00
+  :default: fg_rgbh_70_c0_70  # Medium green - softer than bright green for labels
   :procname: val_as_str
 
 - :opt_name: output_execution_label_value_color
   :env_var: MDE_OUTPUT_EXECUTION_LABEL_VALUE_COLOR
   :description: Color of output_execution_label_value
-  :default: fg_rgbh_00_ff_00
+  :default: fg_rgbh_90_e0_90  # Light green - consistent with success/allow colors
   :procname: val_as_str
 
 - :opt_name: output_execution_report
@@ -1349,7 +1348,7 @@
 - :opt_name: prompt_color_after_script_execution
   :env_var: MDE_PROMPT_COLOR_AFTER_SCRIPT_EXECUTION
   :description: Color of prompt after script execution
-  :default: fg_rgbh_00_ff_00
+  :default: fg_rgbh_70_c0_70  # Medium green - indicates successful completion
   :procname: val_as_str
 
 - :opt_name: prompt_debounce
@@ -1614,7 +1613,7 @@
 - :opt_name: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
   :description: script_execution_frame_color
-  :default: fg_rgbh_00_ff_7f
+  :default: fg_rgbh_80_d0_a0  # Sage green - calmer frame color for execution context
   :procname: val_as_str
 
 - :opt_name: script_execution_head
@@ -1633,7 +1632,7 @@
 - :opt_name: script_preview_frame_color
   :env_var: MDE_OUTPUT_DIVIDER_COLOR
   :description: Color of output divider
-  :default: fg_rgbh_7f_ff_00
+  :default: fg_rgbh_a0_d0_80  # Light sage - preview frame for non-executed content
   :procname: val_as_str
 
 - :opt_name: script_preview_head
@@ -1846,7 +1845,7 @@
 - :opt_name: warning_color
   :env_var: MDE_WARNING_COLOR
   :description: Color of warning message
-  :default: fg_rgbh_ff_7f_00
+  :default: fg_rgbh_ff_b3_66  # Light orange - matches edit/caution color for warnings
   :procname: val_as_str
 
 - :opt_name: warning_format
