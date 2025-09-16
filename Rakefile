@@ -146,7 +146,8 @@ task :minitest do
     './lib/saved_assets.rb --verbose',
     './lib/saved_files_matcher.rb --verbose',
     './lib/table_extractor.rb --verbose',
-    './lib/text_analyzer.rb --verbose'
+    './lib/text_analyzer.rb --verbose',
+    './lib/ww.rb --verbose'
   ]
 
   execute_with_error_handling(commands) do |command|
