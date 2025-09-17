@@ -325,8 +325,8 @@ module HashDelegatorSelf
           separator_line: delegate_object[:table_separator_line_color]
         },
         lines: lines,
+        max_table_width: screen_width_for_table,
         table: table,
-        table_width: screen_width_for_table,
         truncate: $table_cell_truncate
       )
 

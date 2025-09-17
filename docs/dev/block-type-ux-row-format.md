@@ -40,7 +40,7 @@ name: Family
 @import bats-document-configuration.md
 ```opts :(document_opts)
 menu_ux_row_format: '| %{name}| ${%{name}}| %{prompt}'
-screen_width: 72
+screen_width: 76
 table_center: true
 ux_auto_load_force_default: true
 ```

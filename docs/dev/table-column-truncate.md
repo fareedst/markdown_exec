@@ -12,6 +12,6 @@
 @import bats-document-configuration.md
 ```opts :(document_opts)
 heading1_center: false
-screen_width: 60
+screen_width: 90
 table_center: false
 ```

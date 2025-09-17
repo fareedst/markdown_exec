@@ -7,6 +7,7 @@ EXIT_MENU=__Exit # name of menu Exit option
 #     • expected byte (0xHEX) and printable character (or “.”)
 #     • actual   byte (0xHEX) and printable character (or “.”)
 compare_bytes () {
+  readonly line_count=16
   set +e
   local mode="$1"; shift
   if [[ "$mode" == "--file" ]]; then
@@ -19,13 +20,13 @@ compare_bytes () {
     # feed the two strings into cmp via process-substitution
     cmp --verbose <(printf '%s' "$live") <(printf '%s' "$expect")
   fi |
-  head -n 3 |
+  head -n $line_count |
   gawk '{
     live = strtonum(0 $2)
     expect = strtonum(0 $3)
     offset = $1 - 1
-    printf "Offset 0x%X (%4d): output \"%c\" 0x%02X (%3d) vs expect \"%c\" 0x%02X (%3d)\n", \
-           offset, offset, live, live, live, expect, expect, expect
+    printf "Offset 0x%X (%4d): expect \"%c\" 0x%02X (%3d) vs output \"%c\" 0x%02X (%3d)\n", \
+           offset, offset, expect, expect, expect, live, live, live
   }'
   set -e
 }

@@ -142,10 +142,10 @@ module MarkdownTableFormatter
 
   def format_table__hs(
     column_count:,
-    lines:,
-    table:,
     decorate: nil,
-    table_width: nil,
+    lines:,
+    max_table_width: nil,
+    table:,
     truncate: true
   )
     unless column_count.positive?
@@ -162,13 +162,26 @@ module MarkdownTableFormatter
     alignment_indicators, column_widths =
       calculate_column_alignment_and_widths(rows, column_count)
 
-    unless table_width.nil?
-      sum_column_widths = column_widths.sum + ((column_count * 3) + 5)
-      if sum_column_widths > table_width
-        ratio = table_width.to_f / sum_column_widths
+    unless max_table_width.nil?
+      # each column has a frame width of 3 characters
+      # border and space before and after each and 1 final border
+      borders_width = (column_count * 3) + 1
+
+      full_column_table_width = column_widths.sum + borders_width
+
+      if full_column_table_width > max_table_width
+        text_width_sum = full_column_table_width - borders_width
+        available_text_width = max_table_width - borders_width
+        ratio = available_text_width.to_f / text_width_sum
+
+        # distribute the width across the columns
         column_widths.each_with_index do |width, i|
           column_widths[i] = (width * ratio).to_i
         end
+
+        # the last column fills the remaining width
+        column_widths[column_widths.count - 1] =
+          available_text_width - column_widths.sum + column_widths.last
       end
     end
 
@@ -238,6 +251,7 @@ end
 return if $PROGRAM_NAME != __FILE__
 
 require 'minitest/autorun'
+require_relative 'ww'
 
 class TestMarkdownTableFormatter < Minitest::Test
   def setup
@@ -377,7 +391,8 @@ class TestFormatTable < Minitest::Test
   #     "| A | B | C ",
   #     "| 1 | 2 | 3 "
   #   ]
-  #   assert_equal expected, MarkdownTableFormatter.format_table(lines, column_count)
+  #   assert_equal expected,
+  #    MarkdownTableFormatter.format_table(lines, column_count)
   # end
 
   def test_empty_input
