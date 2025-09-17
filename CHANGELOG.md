@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.4.0] - 2025-09-16
+
+### Added
+
+- Accept line continuation for an import directive.
+- Debug methods for block form and direct evaluation
+- Color families indicate related functionality.
+
+### Changed
+
+- Size table columns to fit.
+- Name key is not required for all UX blocks. Display the formatted string if specified. Display the last key in the echo or exec hash otherwise.
+
 ## [3.3.0] - 2025-09-02
 
 ### Added

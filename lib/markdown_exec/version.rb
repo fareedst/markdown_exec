@@ -8,5 +8,5 @@ module MarkdownExec
   BIN_NAME = 'mde'
   GEM_NAME = 'markdown_exec'
   TAP_DEBUG = 'MDE_DEBUG'
-  VERSION = '3.3.0'
+  VERSION = '3.4.0'
 end
