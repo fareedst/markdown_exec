@@ -35,7 +35,9 @@ BLOCK_TYPE_COLOR_OPTIONS = {
     :readonly => :menu_ux_color_readonly,
     true => :menu_ux_color
   },
-  BlockType::VARS => :menu_vars_color
+  BlockType::VARS => :menu_vars_color,
+  # default for remaining block types
+  true => :menu_block_color
 }.freeze
 
 COLLAPSIBLE_SYMBOL_COLLAPSED = '⬢' # '<+>' # '∆'

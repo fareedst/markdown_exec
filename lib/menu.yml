@@ -640,6 +640,11 @@
   :description: Color of menu bash
   :default: fg_rgbh_87_ce_eb
   :procname: val_as_str
+- :opt_name: menu_block_color
+  :env_var: MDE_MENU_BLOCK_COLOR
+  :description: Default color for fenced code blocks
+  :default: fg_rgbh_60_a0_a0
+  :procname: val_as_str
 - :opt_name: menu_blocks_with_docname
   :env_var: MDE_MENU_BLOCKS_WITH_DOCNAME
   :description: Display document name in block selection menu

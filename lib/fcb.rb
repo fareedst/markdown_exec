@@ -396,7 +396,7 @@ module MarkdownExec
 
     # calc the decoration sybol for the current block
     def option_to_decorate_ux_block
-      symbol_or_hash = BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]]
+      symbol_or_hash = BLOCK_TYPE_COLOR_OPTIONS[@attrs[:type]] || BLOCK_TYPE_COLOR_OPTIONS[true]
       if @attrs[:type] == BlockType::UX
         # only UX blocks accept a symbol or a hash
         if symbol_or_hash.is_a? Hash

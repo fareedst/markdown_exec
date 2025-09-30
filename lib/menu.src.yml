@@ -760,6 +760,12 @@
   :default: fg_rgbh_87_ce_eb  # Sky blue - matches echo color for informational bash blocks
   :procname: val_as_str
 
+- :opt_name: menu_block_color
+  :env_var: MDE_MENU_BLOCK_COLOR
+  :description: Default color for fenced code blocks
+  :default: fg_rgbh_60_a0_a0  # Teal - unrecognized fcb type, not active
+  :procname: val_as_str
+
 - :opt_name: menu_blocks_with_docname
   :env_var: MDE_MENU_BLOCKS_WITH_DOCNAME
   :description: Display document name in block selection menu

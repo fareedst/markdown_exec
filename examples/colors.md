@@ -1,27 +1,19 @@
 # Demo configuring options
-
+/ v2025-09-30
 ::: These Opts blocks set the color for all elements.
-
-<https://en.wikipedia.org/wiki/Complementary_colors#/media/File:RGB_color_wheel.svg>
-
-/ ff0000 red - exception text
-/ ff7f00 orange - warning text
-/ ffff00 yellow - notification text
-/ 7fff00 chartreuse green - output frame
-/ 00ff00 green - prompt
-/ 00ff7f spring green - input frame
-/ 00ffff cyan - menu text
-/ 007fff azure - menu frame
-/ 0000ff blue
-/ 7f00ff violet - opts frame
-/ ff00ff magenta - opts text
-/ ff007f rose - exception frame
-
+/ blue    fg_rgbh_00_00_FF
+/ green   fg_rgbh_00_FF_00
+/ indigo  fg_rgbh_4B_00_82
+/ orange  fg_rgbh_FF_7F_00
+/ red     fg_rgbh_FF_00_00
+/ violet  fg_rgbh_94_00_D3
+/ yellow  fg_rgbh_FF_FF_00
 ```opts :load_colors
 exception_color_detail: fg_rgbh_1f_00_7f
 exception_color_name: fg_rgbh_1f_00_00
 execution_report_preview_frame_color: fg_rgbh_7f_1f_00
 menu_bash_color: fg_rgbh_00_c0_c0
+menu_block_color: fg_rgbh_47_ce_eb
 menu_chrome_color: fg_rgbh_40_c0_c0
 menu_divider_color: fg_rgbh_80_d0_c0
 menu_edit_color: fg_rgbh_e0_e0_20
@@ -44,11 +36,13 @@ script_preview_frame_color: fg_rgbh_7f_1f_00
 warning_color: fg_rgbh_1f_7f_00
 ```
 
+/ more green, less blue
 ```opts :load_colors2
 exception_color_detail: fg_rgbh_ff_00_7f
 exception_color_name: fg_rgbh_ff_00_00
 execution_report_preview_frame_color: fg_rgbh_7f_ff_00
 menu_bash_color: fg_rgbh_00_c0_c0
+menu_block_color: fg_rgbh_47_fe_bb
 menu_chrome_color: fg_rgbh_40_c0_c0
 menu_divider_color: fg_rgbh_80_d0_c0
 menu_edit_color: fg_rgbh_e2_e2_20
@@ -72,12 +66,18 @@ script_preview_frame_color: fg_rgbh_7f_ff_00
 warning_color: fg_rgbh_ff_7f_00
 ```
 
-::: Example blocks
+::: Divider color
+
+::: Fenced code blocks of different types
+Each block has a name. Its name is decorated according to the type of the block.
+``` :Unspecified1
 ```
+```unknown :Unknown1
 ```
 ```bash :Bash1
 ```
-```edit :Edit1
+/ Chrome decoration
+```edit :Edit-inherited-blocks
 ```
 ```history :History1
 ```
@@ -85,20 +85,22 @@ warning_color: fg_rgbh_ff_7f_00
 ```
 ```load :Load1
 ```
+/ Note decoration
+A Note
+/ Opts decoration
 ```opts :Opts1
 ```
 ```port :Port1
 ```
+/ Save decoration
 ```save :Save1
 ```
+/ Task decoration
+[ ] Task
+/ UX decoration
+```ux
+format: UX-1
+```
+/ Vars decoration
 ```vars :Vars1
 ```
-[ ] Task1
-
-/ blue;    fg_rgbh_00_00_FF
-/ green;   fg_rgbh_00_FF_00
-/ indigo;  fg_rgbh_4B_00_82
-/ orange;  fg_rgbh_FF_7F_00
-/ red;     fg_rgbh_FF_00_00
-/ violet;  fg_rgbh_94_00_D3
-/ yellow;  fg_rgbh_FF_FF_00
