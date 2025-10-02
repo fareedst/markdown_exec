@@ -33,11 +33,11 @@ class CommandResult
     exit_status.zero?
   end
 
-  # def new_lines
-  #   value = @attributes[:new_lines]
-  #   ww caller.deref[0..4], value
-  #   value
-  # end
+  def new_lines
+    value = @attributes[:new_lines] || []
+    ww caller.deref[0..4], value
+    value
+  end
 
   # # trap assignment to new_lines
   # def new_lines=(value)

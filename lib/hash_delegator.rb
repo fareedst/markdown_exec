@@ -1316,13 +1316,13 @@ module MarkdownExec
     # for BlockType::UX
     def code_from_ux_block_to_set_environment_variables(
       selected, mdoc, inherited_code: nil, force: true, only_default: false,
-      silent:
+      required: nil, silent:
     )
       wwt :fcb, 'selected:', selected
       ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
-      required = mdoc.collect_recursively_required_code(
+      required ||= mdoc.collect_recursively_required_code(
         anyname: selected_id_name(selected),
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
@@ -1331,8 +1331,8 @@ module MarkdownExec
       wwt :required, required
 
       # process each ux block in sequence, setting ENV and collecting lines
-      required_lines = []
-      required[:blocks].each do |block|
+      concatenated_code_from_required_blocks = []
+      required[:blocks]&.each do |block|
         next unless block.type == BlockType::UX
 
         wwt :fcb, 'a required block', block
@@ -1360,9 +1360,9 @@ module MarkdownExec
 
           eval_code = join_array_of_arrays(
             inherited_code, # inherited code
-            required_lines, # current block requirements
+            concatenated_code_from_required_blocks, # current block requirements
             required_variables, # test conditions
-            required[:code] # current block code
+            required[:code] # required by selected
           )
           wwt :eval_code, 'eval_code:', eval_code
           if only_default
@@ -1386,24 +1386,24 @@ module MarkdownExec
           # update the required lines for this and subsequent blocks
           command_result_w_e_t_nl.new_lines =
             process_command_result_lines(command_result_w_e_t_nl, export,
-                                         required_lines)
-          required_lines.concat(command_result_w_e_t_nl.new_lines)
+                                         concatenated_code_from_required_blocks)
+          concatenated_code_from_required_blocks.concat(command_result_w_e_t_nl.new_lines)
 
-          required_lines = annotate_required_lines(
-            'blk:UX', required_lines, block_name: selected.id
+          concatenated_code_from_required_blocks = annotate_required_lines(
+            'blk:UX', concatenated_code_from_required_blocks, block_name: selected.id
           )
 
-          command_result_w_e_t_nl.new_lines = required_lines
+          command_result_w_e_t_nl.new_lines = concatenated_code_from_required_blocks
           ret_command_result = command_result_w_e_t_nl
         else
           raise "Invalid data type: #{data.inspect}"
         end
       end
-      wwt :required_lines, required_lines
+      wwt :concatenated_code_from_required_blocks, concatenated_code_from_required_blocks
 
       (ret_command_result || CommandResult.new(
         stdout: annotate_required_lines(
-          'blk:UX', required_lines, block_name: selected.id
+          'blk:UX', concatenated_code_from_required_blocks, block_name: selected.id
         )
       )).tap do |ret|
         wwt :cr, ret, caller.deref
@@ -1852,6 +1852,7 @@ module MarkdownExec
     def create_and_add_chrome_blocks(blocks, fcb, id: '', init_ids: false)
       index = nil
 
+      # find the first criteria with a pattern matching the body of the fcb
       unless (criteria = fcb.criteria)
         HashDelegator.chrome_block_criteria.each_with_index do |criteria1, index1|
           # rubocop:disable Lint/UselessAssignment
@@ -2622,18 +2623,36 @@ module MarkdownExec
           required[:blocks].map(&:body).flatten(1)
         )
       else
-        code_lines = if selected.type == BlockType::VARS
+        # code from the selected VARS block
+        vars_code = if selected.type == BlockType::VARS
                        code_from_vars_block_to_set_environment_variables(selected)
                      else
                        []
                      end
+
+        # activate UX blocks in the required list
+        command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
+          selected,
+          @dml_mdoc,
+          inherited_code: vars_code,
+          only_default: false,
+          required: required,
+          silent: false
+        )
+        ux_code = command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
+
         HashDelegator.flatten_and_compact_arrays(
           link_state&.inherited_lines,
           annotate_required_lines(
-            'blk:PORT', required[:code] + code_lines, block_name: selected.id
+            'blk:PORT',
+            required[:code] + vars_code + ux_code,
+            block_name: selected.id
           )
         )
       end
+
+    rescue StandardError
+      wwe(required[:code], ux_code, { error: $!, callback: $@[0] })
     end
 
     def execute_block_type_save(code_lines:, selected:)

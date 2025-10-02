@@ -30,13 +30,13 @@ load 'test_helper'
 @test 'Options - list blocks' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect --list-blocks-message oname --list-blocks-type 0 examples/colors.md --list-blocks \
-   'load_colors load_colors2  Bash1 Edit1 History1 Link1 Load1 Opts1 Port1 Save1 Vars1'
+   'load_colors load_colors2 Unspecified1 Unknown1 Bash1 Edit-inherited-blocks History1 Link1 Load1 Opts1 Port1 Save1  Vars1'
 }
 
 @test 'Options - list blocks, eval' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect --list-blocks-eval block.oname examples/colors.md --list-blocks \
-   'load_colors load_colors2  Bash1 Edit1 History1 Link1 Load1 Opts1 Port1 Save1 Vars1'
+   'load_colors load_colors2 Unspecified1 Unknown1 Bash1 Edit-inherited-blocks History1 Link1 Load1 Opts1 Port1 Save1  Vars1'
 }
 
 @test 'Options - how' {
