@@ -95,7 +95,6 @@ class CachedNestedFileReader
           'segment:', segment
 
       if continued_line || (Regexp.new(@import_directive_line_pattern) =~ segment)
-
         line = (continued_line || '') + segment
         # if segment ends in a continuation, prepend to next line
         if line.end_with?('\\')
@@ -104,13 +103,19 @@ class CachedNestedFileReader
         end
 
         continued_line = nil
-        Regexp.new(@import_directive_line_pattern) =~ line
+
+        # apply substitutions to the @import line
+        line_sub1 = apply_line_substitutions(line, substitutions,
+                                                    use_template_delimiters)
+
+        # parse the @import line
+        Regexp.new(@import_directive_line_pattern) =~ line_sub1
         name_strip = $~[:name].strip
         params_string = $~[:params] || ''
         import_indention = indention + $~[:indention]
-
         # Parse parameters for text substitution
         import_substitutions, add_code = parse_import_params(params_string)
+
         if add_code
           # strings as NestedLines
           add_lines = add_code.map.with_index do |line2, ind2|
@@ -187,6 +192,8 @@ class CachedNestedFileReader
   rescue Errno::ENOENT => err
     warn_format('readlines', "#{err} @@ #{context}",
                 { abort: true })
+  rescue StandardError
+    wwe $!
   end
 
   private
@@ -220,53 +227,14 @@ class CachedNestedFileReader
     scanned_params.each do |key, op, value|
       wwt :import, 'key:', key, 'op:', op, 'value:', value
 
-      # adjust key for current stem value
-      varname = key
-      case op
-      when @symbol_command_substitution,
-           @symbol_evaluated_expression,
-           @symbol_force_quoted_literal,
-           @symbol_variable_reference
-        # perform all substitutions per equal_op_params
-        equal_op_params.each do |equal_key, _equal_op, equal_value|
-          varname = varname.gsub(equal_key, equal_value)
-        end
-        wwt :import_key, 'varname:', varname
-      end
+      require_relative 'parameter_expansion'
+      expansion, new_var = ParameterExpansion.expand_parameter(key, op[1..-2], value)
+      value = expansion
 
-      case op
-      when @symbol_raw_literal
-        # skip replacement of equal values otherwise,
-        # the text is not available for other substitutions
-        next unless key != value
-
-        # replace the literal below
-      when @symbol_command_substitution
-        # add code to set the variable to the value of the parameter
+      unless new_var.nil?
         add_code += shell_code_block_for_assignment(
-          varname, %($(#{value}))
+          new_var.name, Shellwords.escape(new_var.assignment_code)
         )
-        # replace key with expansion of the added variable
-        value = "${#{varname}}"
-      when @symbol_evaluated_expression
-        # add code to set the variable to the value of the parameter
-        add_code += shell_code_block_for_assignment(
-          varname, %("#{value}")
-        )
-        # replace key with expansion of the added variable
-        value = "${#{varname}}"
-      when @symbol_force_quoted_literal
-        # add code to set the variable to the value of the parameter
-        add_code += shell_code_block_for_assignment(
-          varname, Shellwords.escape(value)
-        )
-        # replace key with expansion of the added variable
-        value = "${#{varname}}"
-      when @symbol_variable_reference
-        # variable exists
-        value = "${#{value}}"
-      else
-        wwe "Invalid op '#{op}'"
       end
 
       params[key] = value

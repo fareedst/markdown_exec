@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.5.0] - 2025-11-13
+
+### Added
+
+- MP4 with demonstration of Bash "trap" command.
+- Type casting for tokens in imported documents.
+- Default color for fenced code blocks per type.
+- Shell blocks can require UX blocks.
+- Common markdown patterns for text decorations.
+
+### Changed
+
+- README.md
+
 ## [3.4.0] - 2025-09-16
 
 ### Added

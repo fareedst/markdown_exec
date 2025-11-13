@@ -5,15 +5,16 @@
 require 'io/console'
 require 'timeout'
 require_relative 'env_interface'
+require_relative 'ww'
 
 # This function attempts to resize the terminal to its maximum supported size.
 # It checks if the script is running in an interactive terminal with no arguments.
 # If so, it sends escape sequences to query the terminal size and reads the response.
 # It then compares the current terminal size with the calculated size and adjusts if necessary.
 # If the terminal emulator is unsupported, it prints an error message.
-# 2024-8-23 add require_stdout to allow for testing
+# 2024-08-23 add require_stdout to allow for testing
 def resize_terminal(show_dims: false, show_rectangle: false,
-                    require_stdout: true)
+                    require_stdout: true, debug: $debug)
   # Check if running in an interactive terminal and no arguments are provided
   unless $stdin.tty?
     warn 'Usage: resize_terminal'
@@ -37,14 +38,14 @@ def resize_terminal(show_dims: false, show_rectangle: false,
   end
 
   if response.empty?
-    warn "Error: No response received from terminal. Response: #{response.inspect}"
+    wwe "Error: No response received from terminal. Response: #{response.inspect}" if debug
     return 1
   end
 
   # Match the response to extract the terminal dimensions
   match_data = response.match(/\[(\d+);(\d+)R/)
   unless match_data
-    warn "Error: Failed to match terminal response pattern. Response: #{response.inspect}"
+    wwe "Error: Failed to match terminal response pattern. Response: #{response.inspect}" if debug
     return 1
   end
 
@@ -60,7 +61,7 @@ def resize_terminal(show_dims: false, show_rectangle: false,
                                         nil)} -> #{calculated_columns}x#{calculated_rows}" if show_dims
     system("stty cols #{calculated_columns} rows #{calculated_rows}")
   else
-    warn "Error: Calculated terminal size is invalid. Columns: #{calculated_columns}, Rows: #{calculated_rows}"
+    wwe "Error: Calculated terminal size is invalid. Columns: #{calculated_columns}, Rows: #{calculated_rows}" if debug
     return 1
   end
 
@@ -68,10 +69,10 @@ def resize_terminal(show_dims: false, show_rectangle: false,
   display_terminal_rectangle(calculated_columns,
                              calculated_rows) if show_rectangle
 rescue Timeout::Error
-  warn 'Error: Timeout while reading terminal response. Unsupported terminal emulator.'
+  wwe 'Error: Timeout while reading terminal response. Unsupported terminal emulator.' if debug
   1
 rescue StandardError => err
-  warn "Error: #{err.message}. Unsupported terminal emulator."
+  wwe "Error: #{err.message}. Unsupported terminal emulator." if debug
   1
 ensure
   EnvInterface.set('COLUMNS', @original_columns)
@@ -141,11 +142,10 @@ class ResizeTerminalTest < Minitest::Test
     $stdin.stub(:tty?, true) do
       ARGV.replace([])
       $stdin.stub(:getch, -> { '' }) do
-        # assert_output(nil, /Error: No response received from terminal/) do
-        assert_output(nil,
-                      "Error: Timeout while reading terminal response. Unsupported terminal emulator.\n") do
-          assert_equal 1, resize_terminal(require_stdout: false)
+        error = assert_raises(StandardError) do
+          resize_terminal(require_stdout: false, debug: true)
         end
+        assert_equal 'Error: Timeout while reading terminal response. Unsupported terminal emulator.', error.message
       end
     end
   end
@@ -156,10 +156,11 @@ class ResizeTerminalTest < Minitest::Test
       ARGV.replace([])
       response = "\e[999;999H\e[6n\e[InvalidResponse".dup
       $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
-        assert_output(nil,
-                      /Error: Failed to match terminal response pattern/) do
-          assert_equal 1, resize_terminal(require_stdout: false)
+        error = assert_raises(StandardError) do
+          resize_terminal(require_stdout: false, debug: true)
         end
+        assert_match /Error: Failed to match terminal response pattern/, error.message
+
       end
     end
   end
@@ -169,9 +170,11 @@ class ResizeTerminalTest < Minitest::Test
     $stdin.stub(:tty?, true) do
       ARGV.replace([])
       Timeout.stub(:timeout, ->(_) { raise Timeout::Error }) do
-        assert_output(nil, /Error: Timeout while reading terminal response/) do
-          assert_equal 1, resize_terminal(require_stdout: false)
+        error = assert_raises(StandardError) do
+          resize_terminal(require_stdout: false, debug: true)
         end
+        assert_match /Error: Timeout while reading terminal response/, error.message
+
       end
     end
   end

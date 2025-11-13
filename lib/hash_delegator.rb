@@ -431,6 +431,7 @@ module HashDelegatorSelf
     return unless block && block_type_selected?(selected_types, :line)
 
     opts = {
+      block: nil,
       body: [line],
       id: source_id
     }
@@ -964,6 +965,7 @@ module MarkdownExec
                     # fcb.type = type
                   else
                     fcb = persist_fcb(
+                      block: nil,
                       body: fcb0.body,
                       center: fcb0.center,
                       chrome: true,
@@ -2451,7 +2453,7 @@ module MarkdownExec
       #
       if link_block_data.fetch(LinkKeys::EVAL, false) ||
          link_block_data.fetch(LinkKeys::EXEC, false)
-        code_lines += link_block_data_eval(
+        code_lines = link_block_data_eval(
           link_state, code_lines, selected, link_block_data,
           block_source: block_source,
           shell: @delegate_object[:block_type_default]
@@ -3399,29 +3401,48 @@ module MarkdownExec
       output_lines = []
 
       Tempfile.open do |file|
-        cmd = "#{shell} #{file.path}"
         file.write(all_code.join("\n"))
         file.rewind
 
         if link_block_data.fetch(LinkKeys::EXEC, false)
+          # exec: true
+
           @run_state.files = StreamsOut.new
-          execute_command_with_streams([cmd]) do |_stdin, stdout, stderr, _thread|
+          execute_command_with_streams(
+            ["#{shell} #{file.path}"]
+          ) do |_stdin, stdout, stderr, _thread|
             line = stdout || stderr
             output_lines.push(line) if line
           end
 
-          ## select output_lines that look like assignment or match other specs
-          #
-          output_lines = process_string_array(
-            output_lines,
-            begin_pattern: @delegate_object.fetch(:output_assignment_begin,
-                                                  nil),
-            end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
-            scan1: @delegate_object.fetch(:output_assignment_match, nil),
-            format1: @delegate_object.fetch(:output_assignment_format, nil),
-            name: ''
-          )
+          if link_block_data.fetch(LinkKeys::EVAL, true)
+            # eval: true
 
+            ## select output_lines that look like assignment or match other specs
+            #
+            output_lines = process_string_array(
+              output_lines,
+              begin_pattern: @delegate_object.fetch(:output_assignment_begin,
+                                                    nil),
+              end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+              scan1: @delegate_object.fetch(:output_assignment_match, nil),
+              format1: @delegate_object.fetch(:output_assignment_format, nil),
+              name: ''
+            )
+
+          else
+            # eval: false
+
+            ## select all output_lines
+            #
+            output_lines = process_string_array(
+              output_lines,
+              begin_pattern: @delegate_object.fetch(:output_assignment_begin,
+                                                    nil),
+              end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+              name: ''
+            )
+          end
         else
           output_lines = `bash #{file.path}`.split("\n")
         end
@@ -4910,6 +4931,7 @@ module MarkdownExec
                  end
 
       persist_fcb(
+        block: [line],
         body: [],
         call: rest.match(
           Regexp.new(@delegate_object[:block_calls_scan])
@@ -4961,6 +4983,8 @@ module MarkdownExec
           )
         )
       end
+    rescue StandardError
+      wwe $!, 'value:', value
     end
 
     ##
@@ -5004,6 +5028,7 @@ module MarkdownExec
         if state[:in_fenced_block]
           ## end of code block
           #
+          state[:fcb].append_block_line(line)
           HashDelegator.update_menu_attrib_yield_selected(
             fcb: state[:fcb],
             messages: selected_types,
@@ -5027,9 +5052,9 @@ module MarkdownExec
         ## add line to fenced code block
         # remove fcb indent if possible
         #
-        state[:fcb].body += [
-          line.chomp.sub(/^#{state[:fcb].indent}/, '')
-        ]
+        tline = line.chomp.sub(/^#{state[:fcb].indent}/, '')
+        state[:fcb].append_block_line(tline)
+        state[:fcb].body += [tline]
       elsif nested_line[:depth].zero? ||
             @delegate_object[:menu_include_imported_notes]
         # add line if it is depth 0 or option allows it

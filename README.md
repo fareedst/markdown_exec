@@ -1,150 +1,269 @@
 # MarkdownExec
 
-Interactively select and execute fenced code blocks in markdown files. Build complex scripts by naming and requiring blocks. Log resulting scripts and output. Re-run scripts.
+[![MarkdownExec For Interactive Bash Instruction](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.jpg)](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.mp4)   
 
-* Code blocks may be named. Named blocks can be required by other blocks.
+Transform static markdown into interactive, executable workflows. Build complex scripts with named blocks, interactive forms, cross-document navigation, and template systems.
 
-* The user-selected code block, and all required blocks, are arranged into a script in the order they appear in the markdown file. The script can be presented for approval prior to execution.
+## Key Features
 
-* Executed scripts can be saved. Saved scripts can be listed, selected, and executed.
+### Interactive Code Execution
+- **Named Blocks**: Create reusable code blocks with dependencies
+- **Block Requirements**: Automatically include required blocks in execution order
+- **Interactive Selection**: Choose blocks from intuitive menus
+- **Script Approval**: Review generated scripts before execution
 
-* Output from executed scripts can be saved.
+### UX Blocks - Interactive Forms
+- **Variable Input**: Create interactive forms for user input
+- **Validation**: Built-in regex validation with custom transforms
+- **Dynamic Menus**: Selection from allowed values or command output
+- **Auto-initialization**: Set values from environment, commands, or defaults
+- **Dependencies**: Chain UX blocks with complex relationships
 
-## Screenshots
+### Cross-Document Navigation
+- **Link Blocks**: Navigate between markdown files seamlessly
+- **Variable Passing**: Share data between documents
+- **Inherited Context**: Maintain state across document boundaries
+- **HyperCard-style Navigation**: Create interactive document stacks
 
-### Select a file
+### Template System & Imports
+- **Import Directives**: Include content from other files with `@import`
+- **Parameter Substitution**: Replace variables in imported content
+- **Shell Expansions**: Use `${variable}` and `$(command)` syntax throughout documents
+- **Dynamic Content**: Generate content based on user selections
 
-![Select a file](/assets/select_a_file.png)
+### Advanced Block Types
+- **Shell Blocks**: Execute bash shells
+- **UX Blocks**: Interactive forms with validation, transforms, and dynamic behavior
+- **Vars Blocks**: Define variables in YAML format
+- **Opts Blocks**: Configure document behavior and appearance
+- **Link Blocks**: Cross-document navigation and variable passing
 
-### Select a block
-
-![Select a block](/assets/select_a_block.png)
-
-### Approve code
-
-![Approve code](/assets/approve_code.png)
-
-### Output
-
-![Output of execution](/assets/output_of_execution.png)
-
-### Example blocks
-
-![Example blocks](/assets/example_blocks.png)
+### State Management
+- **Script Persistence**: Save and replay executed scripts
+- **Output Logging**: Capture and review execution results
+- **State Inheritance**: Manage context across sessions
+- **Configuration**: Flexible options via environment, files, or CLI
 
 ## Installation
 
-Install:
-    $ gem install markdown_exec
+```bash
+gem install markdown_exec
+```
 
-## Usage
+## Quick Start
 
-### Help
+### Interactive Mode (Recommended)
+```bash
+mde                    # Process README.md in current folder
+mde my-document.md     # Process specific markdown file
+mde .                  # Select from markdown files in current folder
+```
 
-::: `mde --help`
+### Command Line Mode
+```bash
+mde my-document.md my-block    # Execute specific block directly
+mde --list-blocks              # List all available blocks
+mde --list-docs                # List all markdown documents
+```
 
-Displays help information.
+## Interactive Features
 
-### Basic
+### UX Blocks - Interactive Forms
 
-::: `mde`
+Create interactive forms that prompt users for input:
 
-Process `README.md` file in the current folder. Displays all the blocks in the file and allows you to select using [up], [down], and [return].
+<pre><code>```ux
+name: USER_NAME
+prompt: Enter your name
+init: Guest
+```
+</code></pre>
 
-::: `mde my.md` or `mde -f my.md`
+<pre><code>```ux
+name: ENVIRONMENT
+allow:
+  - development
+  - staging
+  - production
+prompt: Select environment
+```
+</code></pre>
 
-Select a block to execute from `my.md`.
+<pre><code>```ux
+name: EMAIL
+prompt: Enter email address
+validate: '(?<local>[^@]+)@(?<domain>[^@]+)'
+transform: '%{local}@%{domain}'
+```
+</code></pre>
 
-::: `mde my.md myblock`
+### Cross-Document Navigation
 
-Execute the block named `myblock` from `my.md`.
+Navigate between documents while maintaining context:
 
-::: `mde .` or `mde -p .`
+<pre><code>```link
+file: next-document.md
+vars:
+  current_user: ${USER_NAME}
+  environment: ${ENVIRONMENT}
+```
+</code></pre>
 
-Select a markdown file in the current folder. Select a block to execute from that file.
+### Template System
 
-### Report documents and blocks
+Use imports with parameter substitution:
 
-::: `mde --list-blocks`
+```
+@import template.md USER_NAME=John ENVIRONMENT=production
+```
+</code></pre>
 
-List all blocks in the all the markdown documents in the current folder.
+### Block Dependencies
 
-::: `mde --list-docs`
+Create complex workflows with automatic dependency resolution:
 
-List all markdown documents in the current folder.
+<pre><code>```bash :deploy +setup +test +deploy
+echo "Deploying to ${ENVIRONMENT}"
+```
+</code></pre>
+
+<pre><code>```bash :setup
+echo "Setting up environment"
+```
+</code></pre>
+
+<pre><code>```bash :test
+echo "Running tests"
+```
+</code></pre>
+
+## Advanced Usage
 
 ### Configuration
 
-::: `mde --list-default-env` or `mde --list-default-yaml`
+```
+# Environment variables
+export MDE_SAVE_EXECUTED_SCRIPT=1
+export MDE_USER_MUST_APPROVE=1
 
-List default values that can be set in configuration file, environment, and command line.
+# Configuration file (.mde.yml)
+save_executed_script: true
+user_must_approve: true
 
-::: `mde -0`
+# Command line
+mde --save-executed-script 1 --user-must-approve 1
+```
 
-Show current configuation values that will be applied to the current run. Does not interrupt processing.
+### Script Management
 
-### Save scripts
+```bash
+mde --save-executed-script 1      # Save executed scripts
+mde --list-recent-scripts         # List saved scripts
+mde --select-recent-script        # Execute saved script
+mde --save-execution-output 1     # Save execution output
+```
 
-::: `mde --save-executed-script 1`
+## Block Types Reference
 
-Save executed script in saved script folder.
+### Shell Blocks
+<pre><code>```bash
+echo "Hello World"
+```
+</code></pre>
 
-::: `mde --list-recent-scripts`
+### UX Blocks (Interactive Forms)
+<pre><code>```ux
+name: USER_NAME
+prompt: Enter your name
+init: Guest
+```
+</code></pre>
 
-List recent saved scripts in saved script folder.
+<pre><code>```ux
+name: ENVIRONMENT
+allow:
+  - development
+  - staging
+  - production
+act: :allow
+```
+</code></pre>
 
-::: `mde --select-recent-script`
+<pre><code>```ux
+name: CURRENT_DIR
+exec: basename $(pwd)
+transform: :chomp
+```
+</code></pre>
 
-Select and execute a recently saved script in saved script folder.
+<pre><code>```ux
+name: EMAIL
+prompt: Enter email address
+validate: '(?<local>[^@]+)@(?<domain>[^@]+)'
+transform: '%{local}@%{domain}'
+```
+</code></pre>
 
-### Save output
+### Variable Blocks
+<pre><code>```vars
+DATABASE_URL: postgresql://localhost:5432/myapp
+DEBUG: true
+```
+</code></pre>
 
-::: `mde --save-execution-output 1`
+### Link Blocks (Cross-Document Navigation)
+<pre><code>```link
+file: next-page.md
+vars:
+  current_user: ${USER_NAME}
+```
+</code></pre>
 
-Save execution output in saved output folder.
+### Data Blocks (YAML)
+<pre><code>```yaml
+users:
+  - name: John
+    role: admin
+  - name: Jane
+    role: user
+```
+</code></pre>
 
-## Behavior
+### Import Directives
+```
+@import template.md USER_NAME=John ENVIRONMENT=production
+```
 
-* If no file and no folder are specified, blocks within `./README.md` are presented.
-* If a file is specified, its blocks are presented.
-* If a folder is specified, its files are presented. When a file is selected, its blocks are presented.
+### Options Blocks
+<pre><code>```opts :(document_opts)
+user_must_approve: true
+save_executed_script: true
+menu_ux_row_format: 'DEFAULT %{name} = ${%{name}}'
+```
+</code></pre>
 
 ## Configuration
 
 ### Environment Variables
-
-When executed, `mde` reads the current environment.
-* Configuration in current and children shells, e.g. `export MDE_SAVE_EXECUTED_SCRIPT=1`.
-* Configuration for the current command, e.g. `MDE_SAVE_EXECUTED_SCRIPT=1 mde`.
+<pre><code>```bash
+export MDE_SAVE_EXECUTED_SCRIPT=1
+export MDE_USER_MUST_APPROVE=1
+```
+</code></pre>
 
 ### Configuration Files
+<pre><code>```yaml
+# .mde.yml
+save_executed_script: true
+user_must_approve: true
+menu_with_inherited_lines: true
+```
+</code></pre>
 
-* Configuration in all shells, e.g. environment variables set in your user's `~/.bashrc` or `~/.bash_profile` files.
-* Configuration in the optional file `.mde.yml` in the current folder. .e.g. `save_executed_script: true`
-* Configuration in a YAML file and read while parsing the inputs, e.g. `--config my_path/my_file.yml`
-
-### Program Arguments
-
-* Configuration in command options, e.g. `mde --save-executed-script 1`
-
-## Representing boolean values
-
-Boolean values expressed as strings are interpreted as:
-| String | Boolean |
-| :---: | :---: |
-| *empty string* | False |
-| `0` | False |
-| `1` | True |
-| *anything else* | True |
-
-E.g. `opt1=1` will set option `opt1` to True.
-
-Boolean options configured with environment variables:
-- Set to `1` or non-empty value to save executed scripts; empty or `0` to disable saving.
-  e.g. `export MDE_SAVE_EXECUTED_SCRIPT=1`
-  e.g. `export MDE_SAVE_EXECUTED_SCRIPT=`
-- Specify variable on command line.
-  e.g. `MDE_SAVE_EXECUTED_SCRIPT=1 mde`
+### Command Line Options
+```bash
+mde --save-executed-script 1 --user-must-approve 1 --config my-config.yml
+```
 
 ## Tab Completion
 
@@ -152,7 +271,7 @@ Boolean options configured with environment variables:
 
 Append a command to load the completion script to your shell configuration file. `mde` must be executable for the command to be composed correctly.
 
-```bash :()
+```bash
 echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
 ```
 
@@ -179,29 +298,54 @@ In the table below, tab is indicated by `!`
 | `mde --user-must-approve !` | `mde --user-must-approve .BOOL.`|
 | `mde --user-must-approve .BOOL.!` | `mde --user-must-approve 1` |
 
-## Example Blocks
+## Example: Interactive Workflow
 
-When prompted, select either the `awake` or `asleep` block.
+This example demonstrates a complete interactive workflow with UX blocks, dependencies, and cross-document navigation:
 
-``` :(day)
-export TIME=early
+### Step 1: User Input
+<pre><code>```ux :user-setup
+name: USER_NAME
+prompt: Enter your name
+init: Guest
 ```
+</code></pre>
 
-``` :(night)
-export TIME=late
+<pre><code>```ux :environment
+name: ENVIRONMENT
+allow:
+  - development
+  - staging
+  - production
+prompt: Select environment
 ```
+</code></pre>
 
-``` :awake +(day) +(report)
-export ACTIVITY=awake
+### Step 2: Automated Setup
+Prompts the user for both values and generates output.
+<pre><code>```bash :setup +user-setup +environment
+echo "Setting up for user: ${USER_NAME}"
+echo "Environment: ${ENVIRONMENT}"
 ```
+</code></pre>
 
-``` :asleep +(night) +(report)
-export ACTIVITY=asleep
+### Step 3: Conditional Logic
+<pre><code>```bash :deploy +setup
+if [ "${ENVIRONMENT}" = "production" ]; then
+  echo "Deploying to production with extra safety checks"
+else
+  echo "Deploying to ${ENVIRONMENT}"
+fi
 ```
+</code></pre>
 
-``` :(report)
-echo "$TIME -> $ACTIVITY"
+### Step 4: Cross-Document Navigation
+<pre><code>```link
+file: next-workflow.md
+vars:
+  user: ${USER_NAME}
+  env: ${ENVIRONMENT}
 ```
+</code></pre>
 
 # Testing
 

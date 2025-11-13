@@ -5,5 +5,5 @@ load 'test_helper'
 @test '' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/import-directive-line-continuation.md \
    --blocks dname \
-   'Stem: U1_Species: Illacme tobini_Genus: Illacme'
+   'Stem: U1_Species: Illacme tobini'
 }

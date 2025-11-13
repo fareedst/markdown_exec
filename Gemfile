@@ -12,6 +12,7 @@ gem 'erb'
 gem 'irb'
 gem 'mocha', require: false
 gem 'minitest', require: false
+gem 'minitest-reporters', require: false
 gem 'pry-nav'
 gem 'pry-stack_explorer'
 gem 'railties'

@@ -485,12 +485,12 @@
   :procname: val_as_str
 - :opt_name: import_directive_line_pattern
   :env_var: MDE_IMPORT_PATTERN
-  :default: '^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +\w+(?::c=|:e=|:q=|:v=|=)(?:"[^"]*"|''[^'']*''|\S+))*)
+  :default: '^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +\w+(?::(?:[ceqv]|[ceqv]{2})=|=)(?:"[^"]*"|''[^'']*''|\S+))*)
     *\\?$'
   :procname: val_as_str
 - :opt_name: import_directive_parameter_scan
   :env_var: MDE_IMPORT_PATTERN_SCAN
-  :default: (\w+)(:c=|:e=|:q=|:v=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
+  :default: (\w+)(:[ceqv]{1,2}=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
   :procname: val_as_str
 - :opt_name: import_parameter_variable_assignment
   :env_var: MDE_IMPORT_PARAMETER_VARIABLE_ASSIGNMENT
@@ -524,10 +524,14 @@
     :pattern: "\\*\\*_([^_]{0,64})_\\*\\*"
   - :color_method: :bold_italic
     :pattern: "\\*\\*~([^~]{0,64})~\\*\\*"
+  - :color_method: :bold_italic
+    :pattern: "\\*\\*\\*([^*]{0,64})\\*\\*\\*"
   - :color_method: :bold
     :pattern: "\\*\\*([^*]{0,64})\\*\\*"
   - :color_method: :italic
     :pattern: "`([^`]{0,64})`"
+  - :color_method: :italic
+    :pattern: "\\*([^*]{0,64})\\*"
   - :color_method: :underline
     :pattern: __([^_]{0,64})__
   - :color_method: :underline_italic
@@ -724,7 +728,7 @@
 - :opt_name: menu_heading1_color
   :env_var: MDE_MENU_HEADING1_COLOR
   :description: Color for heading 1 in menu
-  :default: fg_bg_rgbh_70_70_b0_f8_f8_fa
+  :default: fg_bg_rgbh_70_70_b0_07_07_04
   :procname: val_as_str
 - :opt_name: menu_heading1_format
   :env_var: MDE_MENU_HEADING1_FORMAT
@@ -734,7 +738,7 @@
 - :opt_name: menu_heading2_color
   :env_var: MDE_MENU_HEADING2_COLOR
   :description: Color for heading 2 in menu
-  :default: fg_bg_rgbh_60_60_a0_f5_f5_f8
+  :default: fg_bg_rgbh_60_60_a0_0a_0a_07
   :procname: val_as_str
 - :opt_name: menu_heading2_format
   :env_var: MDE_MENU_HEADING2_FORMAT
@@ -744,7 +748,7 @@
 - :opt_name: menu_heading3_color
   :env_var: MDE_MENU_HEADING3_COLOR
   :description: Color for heading 3 in menu
-  :default: fg_bg_rgbh_50_50_90_f2_f2_f5
+  :default: fg_bg_rgbh_50_50_90_0e_0e_0a
   :procname: val_as_str
 - :opt_name: menu_heading3_format
   :env_var: MDE_MENU_HEADING3_FORMAT

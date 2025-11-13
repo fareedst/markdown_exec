@@ -55,6 +55,7 @@ module MarkdownExec
   class FCB
     def initialize(options = {})
       @attrs = {
+        block: nil,
         body: nil,
         call: nil,
         dname: nil,
@@ -72,6 +73,10 @@ module MarkdownExec
         title: '',
         type: ''
       }.merge(options)
+    end
+
+    def append_block_line(line)
+      @attrs[:block].push line
     end
 
     def pub_name(**kwargs)
@@ -526,6 +531,7 @@ if $PROGRAM_NAME == __FILE__
   class FCBTest < Minitest::Test
     def setup
       @fcb_data = {
+        block: nil,
         body: 'Sample body',
         call: 'Sample call',
         dname: 'Sample name',

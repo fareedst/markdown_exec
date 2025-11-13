@@ -59,7 +59,7 @@ module MarkdownExec
 
     def inherited_lines=(value)
       @inherited_lines = value.tap do |ret|
-        pp ['LinkState.inherited_lines=() ->', ret] if $pd
+        pp ['LinkState.inherited_lines=() ->', ret, caller.deref(3).last] if $pd
       end
     end
 

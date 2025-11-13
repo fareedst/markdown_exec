@@ -1,8 +1,10 @@
-**Command substitution:** `NAMEC`
-```bash
-echo "Command substitution: NAMEC"
-```
-
+/ 2025-11-13 the name of the variable generated
+/ changes on every load is not predictable
+/**Command substitution:** `NAMEC`
+/```bash
+/echo "Command substitution: NAMEC"
+/```
+/
 **Evaluated expression:** `NAMEE`
 ```bash
 echo "Evaluated expression: NAMEE"
