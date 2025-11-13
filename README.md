@@ -1,6 +1,8 @@
 # MarkdownExec
 
-[![MarkdownExec For Interactive Bash Instruction](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.jpg)](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.mp4)   
+[![MarkdownExec For Interactive Bash Instruction](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.gif)](https://raw.githubusercontent.com/fareedst/markdown_exec/main/demo/trap.demo1.mp4)
+
+*Click the GIF above to view the full video with audio (MP4)*
 
 Transform static markdown into interactive, executable workflows. Build complex scripts with named blocks, interactive forms, cross-document navigation, and template systems.
 
