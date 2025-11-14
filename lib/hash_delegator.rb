@@ -1123,7 +1123,9 @@ module MarkdownExec
         symbol_raw_literal:
           @delegate_object[:import_symbol_raw_literal],
         symbol_variable_reference:
-          @delegate_object[:import_symbol_variable_reference]
+          @delegate_object[:import_symbol_variable_reference],
+        hide_shebang:
+          @delegate_object.fetch(:hide_shebang, true)
       )
     end
 

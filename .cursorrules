@@ -1,0 +1,198 @@
+# Cursor AI Agent Rules for STDD Projects
+
+**STDD Methodology Version**: 1.0.0
+
+## 🎯 Semantic Token-Driven Development (STDD)
+
+This project follows **Semantic Token-Driven Development (STDD)**, where semantic tokens (`[REQ:*]`, `[ARCH:*]`, `[IMPL:*]`) are the central mechanism for preserving intent throughout the development lifecycle. Semantic tokens create a traceable chain of intent from requirements → architecture → implementation → tests → code, ensuring the original purpose and reasoning are never lost.
+
+## ⚠️ MANDATORY: AI Principles Acknowledgment
+
+**YOU MUST** acknowledge that you have read and will follow the AI principles at the start of EVERY response by prefacing with:
+
+**"Observing AI principles!"**
+
+Then proceed to:
+1. Read `ai-principles.md` if not already read in this session
+2. Check `semantic-tokens.md` for existing tokens
+3. Review `tasks.md` for active tasks
+4. Follow all principles throughout your response
+
+## 🎯 Core Principles
+
+1. **Always Reference ai-principles.md**
+   - Read `ai-principles.md` at the start of each session
+   - Acknowledge with "Observing AI principles!" at the start of every response
+   - Follow the documented development process
+   - Use semantic tokens consistently
+
+2. **Semantic Token System** (Core to STDD)
+   - Semantic tokens are the mechanism that preserves intent throughout the development lifecycle
+   - Use semantic tokens for all cross-referencing
+   - Format: `[TYPE:IDENTIFIER]` (e.g., `[REQ:MONITOR]`, `[IMPL:ASYNC_EXECUTION]`)
+   - Reference tokens in code comments, test names, and documentation
+   - Update `semantic-tokens.md` when creating new tokens
+   - Maintain traceability: Requirements → Architecture → Implementation → Tests → Code
+
+3. **Development Process**
+   - **Phase 1**: Expand requirements into pseudo-code and decisions (NO code changes)
+   - **Phase 2**: Break down into trackable tasks with priorities
+   - **Phase 3**: Implement tasks, starting with highest priority
+   - Always cross-reference using semantic tokens
+
+4. **Task Management**
+   - Break work into trackable tasks in `tasks.md`
+   - Assign priorities: P0 (Critical) > P1 (Important) > P2 (Nice-to-have) > P3 (Future)
+   - Remove subtasks when parent task completes
+   - Always include semantic token references
+
+5. **Priority Order**
+   - **Most Important**: Tests, Code, Basic Functions
+   - **Least Important**: Environment Orchestration, Enhanced Security, Automated Deployment
+
+## 📝 Documentation Requirements
+
+### ⚠️ CRITICAL: Documentation is MANDATORY, Not Optional
+
+**Documentation updates are REQUIRED at every stage of development. They are not optional or deferrable.**
+
+### Required Sections in All Documentation
+
+1. **Requirements** - with `[REQ:*]` tokens (in `requirements.md`)
+2. **Architecture Decisions** - with `[ARCH:*]` tokens (in `architecture-decisions.md`)
+   - **MUST** be recorded in `architecture-decisions.md` IMMEDIATELY when made
+   - **MUST** cross-reference `[REQ:*]` tokens
+   - Architecture decisions are dependent on requirements
+   - **DO NOT** defer architecture documentation - record it as you make decisions
+3. **Implementation Decisions** - with `[IMPL:*]` tokens (in `implementation-decisions.md`)
+   - **MUST** be recorded in `implementation-decisions.md` IMMEDIATELY when made
+   - **MUST** cross-reference both `[ARCH:*]` and `[REQ:*]` tokens
+   - Implementation decisions are dependent on both architecture and requirements
+   - **DO NOT** defer implementation documentation - record it as you make decisions
+4. **Semantic Token Registry** - maintained in `semantic-tokens.md`
+   - **MUST** be updated immediately when creating new tokens
+5. **Task Planning** - maintained in `tasks.md`
+   - **MUST** be updated when planning new work
+   - **MUST** be updated when completing tasks
+   - **MUST** include semantic token references
+6. **Code References** - semantic tokens in code comments
+7. **Test References** - semantic tokens in test names/comments
+
+### Documentation Update Checklist (MANDATORY)
+
+**When making ANY architectural decision:**
+- [ ] Record in `architecture-decisions.md` with `[ARCH:*]` token
+- [ ] Cross-reference relevant `[REQ:*]` tokens
+- [ ] Update `semantic-tokens.md` if new token created
+
+**When making ANY implementation decision:**
+- [ ] Record in `implementation-decisions.md` with `[IMPL:*]` token
+- [ ] Cross-reference relevant `[ARCH:*]` and `[REQ:*]` tokens
+- [ ] Update `semantic-tokens.md` if new token created
+
+**When planning new work:**
+- [ ] Create tasks in `tasks.md` BEFORE starting implementation
+- [ ] Assign priorities to all tasks
+- [ ] Include semantic token references in task descriptions
+- [ ] Break down into subtasks if needed
+
+**When completing work:**
+- [ ] Mark tasks complete in `tasks.md`
+- [ ] Remove completed subtasks
+- [ ] Verify all documentation is up-to-date
+- [ ] Ensure all semantic tokens are documented
+
+### Cross-Reference Format
+
+When referencing tokens:
+```go
+// [REQ:DUPLICATE_PREVENTION] Skip if text matches lastText
+// [IMPL:DUPLICATE_PREVENTION] [REQ:DUPLICATE_PREVENTION]
+```
+
+Test names:
+```go
+func TestDuplicatePrevention_REQ_DUPLICATE_PREVENTION(t *testing.T)
+```
+
+## 🔄 Before Starting Work
+
+1. **MANDATORY**: Read `ai-principles.md`
+2. **MANDATORY**: Check `semantic-tokens.md` for existing tokens
+3. **MANDATORY**: Review `tasks.md` for active tasks
+4. **MANDATORY**: Review `architecture-decisions.md` for existing architecture decisions
+5. **MANDATORY**: Review `implementation-decisions.md` for existing implementation decisions
+6. Understand priority levels
+7. **MANDATORY**: Plan work in `tasks.md` BEFORE writing any code
+
+## ⚙️ During Work
+
+1. Use semantic tokens in all code comments
+2. Use semantic tokens in test names/comments
+3. Cross-reference: Requirements → Architecture → Implementation → Tests
+4. **MANDATORY**: Break work into trackable tasks in `tasks.md` BEFORE starting implementation
+5. **MANDATORY**: Assign appropriate priorities to all tasks
+6. **MANDATORY**: Update documentation AS YOU WORK:
+   - Record architecture decisions in `architecture-decisions.md` immediately when made
+   - Record implementation decisions in `implementation-decisions.md` immediately when made
+   - Update `tasks.md` when planning new work or completing tasks
+   - Update `semantic-tokens.md` when creating new tokens
+   - **DO NOT** defer documentation updates until the end
+
+## ✅ After Completing Work
+
+1. **MANDATORY**: All semantic tokens documented in `semantic-tokens.md`
+2. **MANDATORY**: Documentation updated with implementation status:
+   - `architecture-decisions.md` updated with any new `[ARCH:*]` decisions
+   - `implementation-decisions.md` updated with any new `[IMPL:*]` decisions
+   - Both must cross-reference `[REQ:*]` tokens
+3. **MANDATORY**: Tests reference semantic tokens
+4. **MANDATORY**: Tasks marked complete in `tasks.md`
+5. **MANDATORY**: Subtasks removed from completed tasks
+6. **MANDATORY**: All documentation reflects current state (no stale information)
+
+## 🚫 What NOT to Do
+
+- Don't write code before expanding requirements into pseudo-code
+- Don't skip semantic token cross-referencing
+- Don't create tasks without priorities
+- Don't leave subtasks after parent task completes
+- Don't implement P2/P3 features before P0/P1 are complete
+
+## 📚 Key Files
+
+**Note**: These file names refer to your project's files. Copy the corresponding `.template.md` files from the STDD repository to your project.
+
+- `ai-principles.md` - Complete principles and process guide (reference from STDD repository)
+- `requirements.md` - Requirements with `[REQ:*]` tokens (copy from `requirements.template.md`)
+- `architecture-decisions.md` - **Semantic-token-linked record of architecture decisions dependent on requirements** (copy from `architecture-decisions.template.md`)
+  - All `[ARCH:*]` tokens must be documented here
+  - Must cross-reference `[REQ:*]` tokens
+- `implementation-decisions.md` - **Semantic-token-linked record of implementation decisions dependent on architecture and requirements** (copy from `implementation-decisions.template.md`)
+  - All `[IMPL:*]` tokens must be documented here
+  - Must cross-reference both `[ARCH:*]` and `[REQ:*]` tokens
+- `semantic-tokens.md` - Central registry of all tokens (copy from `semantic-tokens.template.md`)
+- `tasks.md` - Active task tracking (copy from `tasks.template.md`)
+
+## 🎯 Example Workflow
+
+1. **User Request**: "Add disk space checking"
+2. **AI Response (Planning Phase - NO CODE YET)**: 
+   - Creates `[REQ:DISK_SPACE_CHECK]` token in `requirements.md`
+   - Expands into pseudo-code and decisions
+   - **IMMEDIATELY** documents architecture decisions in `architecture-decisions.md` with `[ARCH:*]` tokens cross-referencing `[REQ:DISK_SPACE_CHECK]`
+   - **IMMEDIATELY** documents implementation decisions in `implementation-decisions.md` with `[IMPL:*]` tokens cross-referencing both `[ARCH:*]` and `[REQ:*]` tokens
+   - **IMMEDIATELY** updates `semantic-tokens.md` with all new tokens
+   - **IMMEDIATELY** creates tasks in `tasks.md` with P1 priority and semantic token references
+   - **NO code changes yet**
+3. **User Approval**: User reviews and approves planning documents
+4. **Implementation Phase**: 
+   - AI implements tasks, starting with highest priority
+   - **DURING implementation**: Updates documentation as decisions are made or refined
+   - **DURING implementation**: Updates `tasks.md` as subtasks are completed
+5. **Completion Phase**: 
+   - **MANDATORY**: Verifies all documentation is up-to-date
+   - **MANDATORY**: Marks tasks complete in `tasks.md`
+   - **MANDATORY**: Removes completed subtasks
+   - **MANDATORY**: Ensures all semantic tokens are documented
+

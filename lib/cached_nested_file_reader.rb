@@ -33,7 +33,8 @@ class CachedNestedFileReader
     symbol_evaluated_expression:,
     symbol_force_quoted_literal:,
     symbol_raw_literal:,
-    symbol_variable_reference:
+    symbol_variable_reference:,
+    hide_shebang: true
   )
     @file_cache = {}
     @import_directive_line_pattern = import_directive_line_pattern
@@ -46,6 +47,7 @@ class CachedNestedFileReader
     @symbol_force_quoted_literal = symbol_force_quoted_literal
     @symbol_raw_literal = symbol_raw_literal
     @symbol_variable_reference = symbol_variable_reference
+    @hide_shebang = hide_shebang
   end
 
   def error_handler(name = '', opts = {})
@@ -93,6 +95,11 @@ class CachedNestedFileReader
     File.readlines(filename, chomp: true).each.with_index do |segment, ind|
       wwt :readline, 'depth:', depth, 'filename:', filename, 'ind:', ind,
           'segment:', segment
+
+      # [REQ:SHEBANG_HIDING] Filter shebang lines from processed output
+      # [IMPL:SHEBANG_FILTERING] [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+      # first line is a shebang line if it starts with '#!'
+      next if @hide_shebang && is_shebang_line?(segment, ind == 0)
 
       if continued_line || (Regexp.new(@import_directive_line_pattern) =~ segment)
         line = (continued_line || '') + segment
@@ -314,6 +321,15 @@ class CachedNestedFileReader
     sorted_params = substitutions.sort.to_h.hash
     "#{filename}##{name_strip}##{params_string}##{sorted_params}"
   end
+
+  # [REQ:SHEBANG_HIDING] Detect shebang lines at the start of file content
+  # [IMPL:SHEBANG_DETECTION] [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+  # Matches the beginning of the first line as '#!' - anything after that matches a shebang
+  def is_shebang_line?(line, is_first_line)
+    return false unless is_first_line
+    
+    line.start_with?('#!')
+  end
 end
 
 return if $PROGRAM_NAME != __FILE__
@@ -500,5 +516,126 @@ class CachedNestedFileReaderTest < Minitest::Test
     template_file.unlink
     importing_file.close
     importing_file.unlink
+  end
+
+  # [REQ:SHEBANG_HIDING] Test shebang line detection and filtering
+  # [IMPL:SHEBANG_DETECTION] [IMPL:SHEBANG_FILTERING] [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+  def test_readlines_with_shebang_hidden
+    file_with_shebang = Tempfile.new('test_shebang.txt')
+    file_with_shebang.write("#!/usr/bin/env mde\nLine1\nLine2")
+    file_with_shebang.rewind
+
+    reader_with_hide = CachedNestedFileReader.new(
+      import_directive_line_pattern:
+        /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      import_directive_parameter_scan:
+        /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_parameter_variable_assignment: '%{key}=%{value}',
+      shell: 'bash',
+      shell_block_name: '(document_shell)',
+      symbol_command_substitution: ':c=',
+      symbol_evaluated_expression: ':e=',
+      symbol_raw_literal: '=',
+      symbol_force_quoted_literal: ':q=',
+      symbol_variable_reference: ':v=',
+      hide_shebang: true
+    )
+
+    result = reader_with_hide.readlines(file_with_shebang.path).map(&:to_s)
+    assert_equal ['Line1', 'Line2'], result, 'Shebang line should be filtered when hide_shebang is true'
+
+    file_with_shebang.close
+    file_with_shebang.unlink
+  end
+
+  def test_readlines_with_shebang_shown
+    file_with_shebang = Tempfile.new('test_shebang.txt')
+    file_with_shebang.write("#!/usr/bin/env mde\nLine1\nLine2")
+    file_with_shebang.rewind
+
+    reader_without_hide = CachedNestedFileReader.new(
+      import_directive_line_pattern:
+        /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      import_directive_parameter_scan:
+        /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_parameter_variable_assignment: '%{key}=%{value}',
+      shell: 'bash',
+      shell_block_name: '(document_shell)',
+      symbol_command_substitution: ':c=',
+      symbol_evaluated_expression: ':e=',
+      symbol_raw_literal: '=',
+      symbol_force_quoted_literal: ':q=',
+      symbol_variable_reference: ':v=',
+      hide_shebang: false
+    )
+
+    result = reader_without_hide.readlines(file_with_shebang.path).map(&:to_s)
+    assert_equal ['#!/usr/bin/env mde', 'Line1', 'Line2'], result, 'Shebang line should be included when hide_shebang is false'
+
+    file_with_shebang.close
+    file_with_shebang.unlink
+  end
+
+  def test_readlines_with_shebang_in_imported_file
+    imported_file = Tempfile.new('imported_shebang.txt')
+    imported_file.write("#!/usr/bin/env mde\nImportedLine1\nImportedLine2")
+    imported_file.rewind
+
+    main_file = Tempfile.new('main_file.txt')
+    main_file.write("Line1\n @import #{imported_file.path}\nLine2")
+    main_file.rewind
+
+    reader_with_hide = CachedNestedFileReader.new(
+      import_directive_line_pattern:
+        /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      import_directive_parameter_scan:
+        /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_parameter_variable_assignment: '%{key}=%{value}',
+      shell: 'bash',
+      shell_block_name: '(document_shell)',
+      symbol_command_substitution: ':c=',
+      symbol_evaluated_expression: ':e=',
+      symbol_raw_literal: '=',
+      symbol_force_quoted_literal: ':q=',
+      symbol_variable_reference: ':v=',
+      hide_shebang: true
+    )
+
+    result = reader_with_hide.readlines(main_file.path).map(&:to_s)
+    assert_equal ['Line1', ' ImportedLine1', ' ImportedLine2', 'Line2'], result,
+                 'Shebang in imported file should be filtered when hide_shebang is true'
+
+    imported_file.close
+    imported_file.unlink
+    main_file.close
+    main_file.unlink
+  end
+
+  def test_readlines_without_shebang
+    file_without_shebang = Tempfile.new('test_no_shebang.txt')
+    file_without_shebang.write("Line1\nLine2\nLine3")
+    file_without_shebang.rewind
+
+    reader_with_hide = CachedNestedFileReader.new(
+      import_directive_line_pattern:
+        /^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S+))*) *$/,
+      import_directive_parameter_scan:
+        /([A-Za-z_]\w*)(:=|\?=|!=|=)(?:"([^"]*)"|'([^']*)'|(\S+))/,
+      import_parameter_variable_assignment: '%{key}=%{value}',
+      shell: 'bash',
+      shell_block_name: '(document_shell)',
+      symbol_command_substitution: ':c=',
+      symbol_evaluated_expression: ':e=',
+      symbol_raw_literal: '=',
+      symbol_force_quoted_literal: ':q=',
+      symbol_variable_reference: ':v=',
+      hide_shebang: true
+    )
+
+    result = reader_with_hide.readlines(file_without_shebang.path).map(&:to_s)
+    assert_equal ['Line1', 'Line2', 'Line3'], result, 'File without shebang should work normally'
+
+    file_without_shebang.close
+    file_without_shebang.unlink
   end
 end

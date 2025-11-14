@@ -44,16 +44,46 @@ load 'test_helper'
    "prompt_show_expr_format: 'Expr: %{expr}'      # Format string for displaying expression values in prompts"
 }
 
-@test 'Options - list-default-env' {
+@test 'hide_shebang default value in environment variables output' {
+  # [REQ:SHEBANG_HIDING] Verify hide_shebang option appears with default value in env output
+  # [IMPL:CLI_OPTION_IMPLEMENTATION] [ARCH:CLI_OPTION_DESIGN] [REQ:SHEBANG_HIDING]
   BATS_OUTPUT_GREP=SHEBANG
   spec_mde_args_expect --list-default-env \
-   "MDE_SHEBANG=\#\!/usr/bin/env      # Shebang for saved scripts"
+   "MDE_HIDE_SHEBANG=t      # Hide shebang lines in document output
+MDE_SHEBANG=\#\!/usr/bin/env      # Shebang for saved scripts"
 }
 
-@test 'Options - list-default-yaml' {
+@test 'hide_shebang default value in YAML output' {
+  # [REQ:SHEBANG_HIDING] Verify hide_shebang option appears with default value in YAML output
+  # [IMPL:CLI_OPTION_IMPLEMENTATION] [ARCH:CLI_OPTION_DESIGN] [REQ:SHEBANG_HIDING]
+  BATS_OUTPUT_FILTER=A
   BATS_OUTPUT_GREP=shebang
   spec_mde_args_expect --list-default-yaml \
-   "shebang: '#!/usr/bin/env'      # Shebang for saved scripts"
+   "hide_shebang: true      # Hide shebang lines in document output shebang: '#!/usr/bin/env'      # Shebang for saved scripts"
+}
+
+@test 'shebang lines hidden by default in document processing' {
+  # [REQ:SHEBANG_HIDING] Verify shebang lines are filtered from document output by default
+  # [IMPL:SHEBANG_FILTERING] [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+  BATS_OUTPUT_FILTER=A
+  spec_mde_args_expect docs/dev/shebang.md --blocks dname \
+    'Demonstrate opening the document via Shebang. print-test'
+}
+
+@test 'markdown file with shebang executable directly' {
+  # [REQ:SHEBANG_HIDING] Verify markdown files with shebang can be executed directly
+  # [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+  output="$(./docs/dev/shebang.md --blocks dname)"
+  output="$(remove_ansi_escape_sequences "$output")"
+  [[ "$output" == "Demonstrate opening the document via Shebang. print-test" ]]
+}
+
+@test 'shebang file executes specified block name directly' {
+  # [REQ:SHEBANG_HIDING] Verify shebang files can execute specific blocks when block name provided
+  # [ARCH:SHEBANG_EXTRACTION] [REQ:SHEBANG_HIDING]
+  output="$(./docs/dev/shebang.md print-test)"
+  output="$(remove_ansi_escape_sequences "$output")"
+  [[ "$output" == " Test" ]]
 }
 
 @test 'Options - list-docs, path' {

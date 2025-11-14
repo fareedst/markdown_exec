@@ -554,6 +554,13 @@
   :default: true
   :procname: val_as_bool
 
+- :opt_name: hide_shebang
+  :env_var: MDE_HIDE_SHEBANG
+  :description: Hide shebang lines in document output
+  :arg_name: BOOL
+  :default: true
+  :procname: val_as_bool
+
 - :opt_name: history
   :long_name: history
   :description: Display execution history (saved scripts and output files)

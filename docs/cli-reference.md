@@ -83,6 +83,29 @@ mde my-document.md my-block  # Positional argument (position 1)
 
 **Note**: If a block name is provided as a positional argument (second argument), it's automatically treated as the block name. Use `.` as the block name to force menu display.
 
+### `hide-shebang`
+
+- **Option**: `hide_shebang`
+- **Long Name**: `--hide-shebang` / `--no-hide-shebang`
+- **Environment Variable**: `MDE_HIDE_SHEBANG`
+- **Default**: `true`
+
+Controls whether shebang lines (lines starting with `#!`) are hidden from document output. When enabled (default), shebang lines are extracted from input files during processing and not displayed as part of the document. This is useful when markdown files include shebang lines for direct execution (e.g., `#!/usr/bin/env mde`) but you don't want them to appear in the rendered document.
+
+**Usage:**
+```bash
+# Hide shebang lines (default behavior)
+mde my-document.md
+mde my-document.md --hide-shebang
+MDE_HIDE_SHEBANG=true mde my-document.md
+
+# Show shebang lines in output
+mde my-document.md --no-hide-shebang
+MDE_HIDE_SHEBANG=false mde my-document.md
+```
+
+**Note**: The option applies to both the main document and any imported files (via `@import` directives). Shebang lines are detected and filtered during the cached nested read process.
+
 ## Discovery Commands
 
 ### `list-blocks`

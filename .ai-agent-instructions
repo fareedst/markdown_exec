@@ -1,0 +1,54 @@
+# AI Agent Instructions - Read First!
+
+## ⚠️ CRITICAL: Mandatory Acknowledgment
+
+**YOU MUST** preface EVERY response with:
+
+**"Observing AI principles!"**
+
+This confirms you have read and will follow the AI-First Principles.
+
+## 📋 Required Actions at Start of Each Session
+
+1. **Acknowledge**: Preface response with "Observing AI principles!"
+2. **Read**: `ai-principles.md` - Complete principles and process guide
+3. **Review**: `semantic-tokens.md` - Token registry
+4. **Check**: `tasks.md` - Active task tracking
+5. **Understand**: Priority levels (P0 > P1 > P2 > P3)
+
+## 🎯 Core Requirements
+
+- Use semantic tokens `[REQ:*]`, `[ARCH:*]`, `[IMPL:*]` throughout
+- Expand requirements into pseudo-code BEFORE coding
+- Break work into trackable tasks with priorities
+- Cross-reference everything using semantic tokens
+- Follow priority order: Tests > Code > Basic Functions > Infrastructure
+
+## 📚 Key Files
+
+- `ai-principles.md` - **READ THIS FIRST**
+- `requirements.md` - Requirements with `[REQ:*]` tokens
+- `architecture-decisions.md` - **Semantic-token-linked architecture decisions dependent on requirements**
+  - Records all `[ARCH:*]` tokens
+  - Cross-references `[REQ:*]` tokens
+- `implementation-decisions.md` - **Semantic-token-linked implementation decisions dependent on architecture and requirements**
+  - Records all `[IMPL:*]` tokens
+  - Cross-references both `[ARCH:*]` and `[REQ:*]` tokens
+- `semantic-tokens.md` - Token registry
+- `tasks.md` - Task tracking
+- `.cursorrules` - Cursor IDE rules (auto-loaded)
+
+## ✅ Example Response Format
+
+```
+Observing AI principles!
+
+I have read ai-principles.md and will follow all documented processes.
+
+[Your response here using semantic tokens and following the process]
+```
+
+---
+
+**This file is a reminder. The complete rules are in `ai-principles.md` and `.cursorrules`.**
+
