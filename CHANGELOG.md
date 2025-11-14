@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.5.1] - 2025-11-14
+
+### Added
+
+- Docker testing environment.
+
+### Changed
+
+- Correct tests for Docker environment.
+- Uses env split mode to parse the shell command.
+
 ## [3.5.0] - 2025-11-13
 
 ### Added

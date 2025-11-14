@@ -107,20 +107,6 @@ class ResizeTerminalTest < Minitest::Test
     EnvInterface.set('LINES', @original_lines)
   end
 
-  # def test_resize_terminal_successful
-  #   # Simulate interactive terminal
-  #   $stdin.stub(:tty?, true) do
-  #     ARGV.replace([])
-  #     ENV['COLUMNS'] = '80'
-  #     ENV['LINES'] = '24'
-  #     response = "\e[999;999H\e[6n\e[24;80R"
-  #     $stdin.stub(:getch, -> { response.slice!(0) || '' }) do
-  #       assert_output(nil, /24x80/) do
-  #         resize_terminal
-  #       end
-  #     end
-  #   end
-  # end
   def test_resize_terminal_successful
     # Simulate interactive terminal
     $stdin.stub(:tty?, true) do
