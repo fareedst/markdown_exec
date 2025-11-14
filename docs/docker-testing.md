@@ -83,6 +83,11 @@ docker run --rm markdown-exec-test bundle exec rake minitest
 - **BATS Location**: `/markdown_exec/test/bats/bin/bats` (symlinked to `/usr/local/bin/bats`)
 - **Test Helpers**: Located in `/markdown_exec/test/test_helper/`
 
+## Related Documentation
+
+- [Option Documentation Process](option-documentation-process.md) - Process for documenting options
+- [Option Documentation Tasks](option-documentation-tasks.md) - Task list for documentation
+
 ## Troubleshooting
 
 ### Submodules not initialized

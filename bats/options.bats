@@ -41,7 +41,7 @@ load 'test_helper'
 
 @test 'Options - how' {
   spec_mde_args_expect --how how \
-   "prompt_show_expr_format: 'Expr: %{expr}'      # prompt_show_expr_format"
+   "prompt_show_expr_format: 'Expr: %{expr}'      # Format string for displaying expression values in prompts"
 }
 
 @test 'Options - list-default-env' {

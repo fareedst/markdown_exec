@@ -1,5 +1,7 @@
 # Tab Completion
 
+This document describes how to install and use tab completion for MarkdownExec.
+
 ## Install tab completion
 
 Append a command to load the completion script to your shell configuration file. `mde` must be executable for the command to be composed correctly.
@@ -30,4 +32,9 @@ In the table below, tab is indicated by `!`
 | `mde --v!` | `mde --version` |
 | `mde --user-must-approve !` | `mde --user-must-approve .BOOL.`|
 | `mde --user-must-approve .BOOL.!` | `mde --user-must-approve 1` |
+
+## Related Documentation
+
+- [CLI Reference](cli-reference.md) - Complete command-line reference
+- [Getting Started](getting-started.md) - Quick start guide
 

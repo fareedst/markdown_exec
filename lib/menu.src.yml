@@ -32,21 +32,25 @@
 
 - :opt_name: block_batch_match
   :env_var: MDE_BLOCK_BATCH_MATCH
+  :description: Pattern to match blocks that should be executed in batch mode
   :default: '@batch'
   :procname: val_as_str
 
 - :opt_name: block_calls_scan
   :env_var: MDE_BLOCK_CALLS_SCAN
+  :description: Regex pattern to extract call names from block start lines (e.g., %call_name)
   :default: "%\\([^\\)]+\\)"
   :procname: val_as_str
 
 - :opt_name: block_disable_match
   :env_var: MDE_BLOCK_DISABLE_MATCH
+  :description: Pattern to match blocks that should be disabled (not executable)
   :default: '@disable'
   :procname: val_as_str
 
 - :opt_name: block_interactive_match
   :env_var: MDE_BLOCK_INTERACTIVE_MATCH
+  :description: Pattern to match blocks that should be executed in interactive mode
   :default: '@interactive'
   :procname: val_as_str
 
@@ -60,42 +64,44 @@
   :procname: val_as_str
 
 - :opt_name: block_name_hidden_match
-  :env_var: MDE_BLOCK_NAME_HIDDEN_MATCH
-  :description: Pattern for blocks to hide from user-selection
-  :default: "^-.+-$"
+  :env_var: MDE_BLOCK_NAME_HIDE_CUSTOM_MATCH
+  :description: Regex pattern for block names that should be hidden from the menu
+  :default: "^\\(.*\\)$"
   :procname: val_as_str
 
-- :opt_name: block_name_include_match
-  :env_var: MDE_BLOCK_NAME_INCLUDE_MATCH
-  :description: Pattern for blocks to hide from user-selection
-  :default: "^\\(.*\\)$"
+- :opt_name: block_name_hide_custom_match
+  :env_var: MDE_BLOCK_NAME_HIDE_CUSTOM_MATCH
+  :description: Regex pattern for block names that should be hidden from the menu
+  :default: "^-.+-$"
   :procname: val_as_str
 
 - :opt_name: block_name_match
   :env_var: MDE_BLOCK_NAME_MATCH
-  :description: Pattern for the block name in the line defining the block
+  :description: Regex pattern to extract the block name from the fenced code block start line
   :default: ":(?<title>\\S+)( |$)"
   :procname: val_as_str
 
 - :opt_name: block_name_nick_match
   :env_var: MDE_BLOCK_NAME_NICK_MATCH
-  :description: Pattern for block nicknames (name is not used in menu)
+  :description: Regex pattern for block nicknames (alternative names not displayed in menu)
   :default: "^\\[.*\\]$"
   :procname: val_as_str
 
 - :opt_name: block_name_wrapper_match
   :env_var: MDE_BLOCK_NAME_WRAPPER_MATCH
-  :description: Pattern for block names to use as wrappers
+  :description: Regex pattern for block names that act as wrappers (include other blocks)
   :default: "^{.+}$"
   :procname: val_as_str
 
 - :opt_name: block_required_scan
   :env_var: MDE_BLOCK_REQUIRED_SCAN
+  :description: Regex pattern to scan block body for required dependencies (e.g., +blockname)
   :default: "\\+\\S+"
   :procname: val_as_str
 
 - :opt_name: block_stdin_scan
   :env_var: MDE_BLOCK_STDIN_SCAN
+  :description: Regex pattern to scan block body for stdin redirection (e.g., <variable or <$variable)
   :default: "<(?<full>(?<type>\\$)?(?<name>[A-Za-z_\\-\\.\\w]+))"
   :procname: val_as_str
 
@@ -107,50 +113,52 @@
 
 - :opt_name: block_type_default
   :env_var: MDE_BLOCK_TYPE_DEFAULT
+  :description: Default shell type for blocks when no type is specified in the fenced code block
   :default: bash
   :procname: val_as_str
 
 - :opt_name: block_type_port_set_format
   :env_var: MDE_BLOCK_TYPE_PORT_SET_FORMAT
+  :description: Format string for generating shell variable assignments from PORT block content
   :default: ": ${%{key}:=%{value}}"
   :procname: val_as_str
 
 - :opt_name: blocks
   :arg_name: MESSAGE
   :default:
-  :description: List the blocks displayed
+  :description: List all code blocks in the document with optional message format
   :env_var: MDE_BLOCKS_LIST_MESSAGE
   :long_name: blocks
   :procname: val_as_str
 
 - :opt_name: clear_screen_for_select_block
   :env_var: MDE_CLEAR_SCREEN_FOR_SELECT_BLOCK
-  :description: clear_screen_for_select_block
+  :description: Clear the screen before displaying the block selection menu
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
 
 - :opt_name: command_substitution_name_capture_group
   :env_var: MDE_COMMAND_SUBSTITUTION_NAME_CAPTURE_GROUP
-  :description: command_substitution_name_capture_group
+  :description: Named capture group name that extracts the command from command substitution matches
   :default: command
   :procname: val_as_str
 
 - :opt_name: command_substitution_regexp
   :env_var: MDE_COMMAND_SUBSTITUTION_REGEXP
-  :description: command_substitution_regexp
+  :description: Regex pattern that matches command substitutions (e.g., $(command))
   :default: "(?<expression>\\$\\((?<command>([^()]*(\\([^()]*\\))*[^()]*)*)\\))"
   :procname: val_as_str
 
 - :long_name: config
-  :description: Read configuration file
+  :description: Read configuration file from specified path
   :arg_name: PATH
   :default: "."
   :procname: path
 
 - :opt_name: debounce_execution
   :env_var: MDE_DEBOUNCE_EXECUTION
-  :description: debounce_execution
+  :description: Whether to prompt before re-executing the same block multiple times
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
@@ -158,24 +166,25 @@
 - :long_name: debug
   :short_name: d
   :env_var: MDE_DEBUG
-  :description: Debug output
+  :description: Enable debug output with detailed internal information
   :arg_name: BOOL
   :default: false
   :procname: debug
 
 - :opt_name: default_find_select_open
   :env_var: MDE_DEFAULT_FIND_SELECT_OPEN
-  :description: default_find_select_open
+  :description: Whether to search for files when a filename argument doesn't exist
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
 
 - :opt_name: dig
   :long_name: dig
-  :description: Dig history (Present menu of history)
+  :description: Present interactive menu of execution history
 
 - :opt_name: display_level_xbase_prefix
   :env_var: MDE_DISPLAY_LEVEL_XBASE_PREFIX
+  :description: Text prefix prepended to output lines when display level is above base level
   :default: "> "
   :procname: val_as_str
 
@@ -241,6 +250,7 @@
 
 - :opt_name: document_play_bin
   :env_var: MDE_DOCUMENT_PLAY_BIN
+  :description: Binary used for default block execution mode
   :default: play
   :procname: val_as_str
 
@@ -261,7 +271,7 @@
 - :opt_name: dump_blocks_in_file
   :long_name: dump-blocks-in-file
   :env_var: MDE_DUMP_BLOCKS_IN_FILE
-  :description: Dump BlocksInFile (stage 1)
+  :description: Display parsed blocks from file (debug/diagnostic output, stage 1)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -269,7 +279,7 @@
 - :opt_name: dump_delegate_object
   :long_name: dump-delegate-object
   :env_var: MDE_DUMP_DELEGATE_OBJECT
-  :description: Dump @delegate_object
+  :description: Display internal delegate object state (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -277,7 +287,7 @@
 - :opt_name: dump_dependencies
   :long_name: dump-dependencies
   :env_var: MDE_DUMP_DEPENDENCIES
-  :description: Dump dependencies
+  :description: Display block dependency relationships (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -285,7 +295,7 @@
 - :opt_name: dump_inherited_block_names
   :long_name: dump-inherited-block-names
   :env_var: MDE_DUMP_INHERITED_BLOCK_NAMES
-  :description: Dump inherited block_names
+  :description: Display inherited block names from imported documents (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -293,7 +303,7 @@
 - :opt_name: dump_inherited_dependencies
   :long_name: dump-inherited-dependencies
   :env_var: MDE_DUMP_INHERITED_DEPENDENCIES
-  :description: Dump inherited dependencies
+  :description: Display inherited dependencies from imported documents (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -301,7 +311,7 @@
 - :opt_name: dump_inherited_lines
   :long_name: dump-inherited-lines
   :env_var: MDE_DUMP_INHERITED_LINES
-  :description: Dump inherited lines
+  :description: Display inherited code lines from imported documents (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -309,7 +319,7 @@
 - :opt_name: dump_menu_blocks
   :long_name: dump-menu-blocks
   :env_var: MDE_DUMP_MENU_BLOCKS
-  :description: Dump MenuBlocks (stage 2)
+  :description: Display blocks formatted for menu display (debug/diagnostic output, stage 2)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -317,7 +327,7 @@
 - :opt_name: dump_selected_block
   :long_name: dump-selected-block
   :env_var: MDE_DUMP_SELECTED_BLOCK
-  :description: Dump selected block
+  :description: Display selected block details (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
   :procname: val_as_bool
@@ -348,21 +358,21 @@
 
 - :opt_name: exclude_by_name_regex
   :env_var: MDE_EXCLUDE_BY_NAME_REGEX
-  :description: Exclude blocks with name matching
+  :description: Regex pattern to exclude blocks whose names match
   :arg_name: REGEX
   :default:
   :procname: val_as_str
 
 - :opt_name: exclude_by_shell_regex
   :env_var: MDE_EXCLUDE_BY_SHELL_REGEX
-  :description: Exclude blocks with shell matching
+  :description: Regex pattern to exclude blocks whose shell type matches
   :arg_name: REGEX
   :default:
   :procname: val_as_str
 
 - :opt_name: exclude_expect_blocks
   :env_var: MDE_EXCLUDE_EXPECT_BLOCKS
-  :description: Hide all blocks of type "expect"
+  :description: Whether to exclude all blocks of type "expect" from menus
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
@@ -414,23 +424,23 @@
 
 - :opt_name: execution_report_preview_frame_color
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_FRAME_COLOR
-  :description: execution_report_preview_frame_color
+  :description: Text color for the frame around execution report previews
   :default: fg_rgbh_90_e0_90  # Light green - consistent with allow/success colors
   :procname: val_as_str
 
 - :opt_name: execution_report_preview_head
   :env_var: MDE_EXECUTION_REPORT_PREVIEW_HEAD
-  :description: execution_report_preview_head
+  :description: Text displayed before execution report preview content
   :procname: val_as_str
 
 - :opt_name: execution_report_preview_tail
-  :description: execution_report_preview_tail
+  :description: Text displayed after execution report preview content
   :default: " -v-"
   :procname: val_as_str
 
 - :long_name: exit
   :short_name: x
-  :description: Exit app
+  :description: Exit the application immediately
   :procname: exit
 
 ## match fenced code indented by spaces
@@ -458,7 +468,7 @@
 
 - :long_name: find
   :short_name: "?"
-  :description: Find argument in documents
+  :description: Search for keyword across documents, block names, and file contents
   :arg_name: FIND
   :default: ''
   :procname: find
@@ -466,7 +476,7 @@
 - :opt_name: find_path
   :long_name: find-path
   :env_var: MDE_FIND_PATH
-  :description: Path for find (uses PATH if empty)
+  :description: Directory path to search when using find command (uses path option if empty)
   :arg_name: FIND_PATH
   :default: ''
   :procname: val_as_str
@@ -534,21 +544,19 @@
 
 - :long_name: help
   :short_name: h
-  :description: App help
+  :description: Display help message with usage and available options
   :procname: help
 
 - :opt_name: hide_blocks_by_name
   :env_var: MDE_HIDE_BLOCKS_BY_NAME
-  :description: |-
-    Exclude blocks with name matching expression " \
-         "`block_name_hidden_match`
+  :description: Whether to hide blocks whose names match block_name_hide_custom_match pattern
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
 
 - :opt_name: history
   :long_name: history
-  :description: History
+  :description: Display execution history (saved scripts and output files)
 
 - :opt_name: history_document_separator
   :env_var: MDE_HISTORY_DOCUMENT_SEPARATOR
@@ -562,55 +570,64 @@
 
 - :long_name: how
   :short_name: "?"
-  :description: Find keyword in YAML configuration options
+  :description: Search for keyword in YAML configuration option names and descriptions
   :arg_name: HOW
   :default: ''
   :procname: how
 
 - :opt_name: import_paths
   :env_var: MDE_IMPORT_PATHS
+  :description: Colon-separated list of directory paths to search when resolving imported file names in @import directives
   :default:
   :procname: val_as_str
 
 - :opt_name: import_directive_line_pattern
   :env_var: MDE_IMPORT_PATTERN
+  :description: Regular expression pattern that matches @import directive lines, capturing indentation, filename, and optional parameters
   :default: >-
     ^(?<indention> *)@import +(?<name>\S+)(?<params>(?: +\w+(?::(?:[ceqv]|[ceqv]{2})=|=)(?:"[^"]*"|'[^']*'|\S+))*) *\\?$
   :procname: val_as_str
 
 - :opt_name: import_directive_parameter_scan
   :env_var: MDE_IMPORT_PATTERN_SCAN
+  :description: Regular expression pattern that extracts individual parameters (key, operator, value) from the params portion of an @import line
   :default: >-
     (\w+)(:[ceqv]{1,2}=|=)(?:"([^"]*)"|'([^']*)'|(\S+))
   :procname: val_as_str
 
 - :opt_name: import_parameter_variable_assignment
   :env_var: MDE_IMPORT_PARAMETER_VARIABLE_ASSIGNMENT
+  :description: Format string used to generate shell variable assignments when parameters require command substitution or expression evaluation
   :default: "%{key}=%{value}"
   :procname: val_as_str
 
 - :opt_name: import_symbol_command_substitution
   :env_var: MDE_IMPORT_SYMBOL_COMMAND_SUBSTITUTION
+  :description: Symbol/operator (default ':c=') that indicates a parameter value should be treated as a shell command to execute, using the command output as the substitution value
   :default: ':c='
   :procname: val_as_str
 
 - :opt_name: import_symbol_evaluated_expression
   :env_var: MDE_IMPORT_SYMBOL_EVALUATED_EXPRESSION
+  :description: Symbol/operator (default ':e=') that indicates a parameter value should be treated as a shell expression to evaluate with variable expansion
   :default: ':e='
   :procname: val_as_str
 
 - :opt_name: import_symbol_raw_literal
   :env_var: MDE_IMPORT_SYMBOL_RAW_LITERAL
+  :description: Symbol/operator (default '=') that indicates a parameter value should be used as a raw literal string without any processing
   :default: '='
   :procname: val_as_str
 
 - :opt_name: import_symbol_force_quoted_literal
   :env_var: MDE_IMPORT_SYMBOL_FORCE_QUOTED_LITERAL
+  :description: Symbol/operator (default ':q=') that indicates a parameter value should be treated as a literal string and automatically wrapped in double quotes during substitution
   :default: ':q='
   :procname: val_as_str
 
 - :opt_name: import_symbol_variable_reference
   :env_var: MDE_IMPORT_SYMBOL_VARIABLE_REFERENCE
+  :description: Symbol/operator (default ':v=') that indicates a parameter value should be treated as a reference to an existing variable from the importing document
   :default: ':v='
   :procname: val_as_str
 
@@ -651,12 +668,12 @@
 
 - :opt_name: list_blocks
   :long_name: list-blocks
-  :description: List blocks
+  :description: List all available code blocks in the document
 
 - :opt_name: list_blocks_eval
   :long_name: list-blocks-eval
   :env_var: MDE_LIST_BLOCKS_EVAL
-  :description: Eval block, supercedes Message, for report
+  :description: Ruby expression to evaluate on each block for list output (overrides list-blocks-message)
   :arg_name: EVAL
   :default:
   :procname: val_as_str
@@ -664,7 +681,7 @@
 - :opt_name: list_blocks_message
   :long_name: list-blocks-message
   :env_var: MDE_LIST_BLOCKS_MESSAGE
-  :description: Message to blocks, for report
+  :description: Block method or property to display for each block in list output
   :arg_name: MESSAGE
   :default: oname
   :procname: val_as_sym
@@ -672,7 +689,7 @@
 - :opt_name: list_blocks_type
   :long_name: list-blocks-type
   :env_var: MDE_LIST_BLOCKS_TYPE
-  :description: Block type to report
+  :description: Filter blocks by type for list output (0=all, 1=bash, 2=ux, etc.)
   :arg_name: TYPE
   :default: 0
   :procname: val_as_int
@@ -687,37 +704,37 @@
 
 - :opt_name: list_default_env
   :long_name: list-default-env
-  :description: List default configuration as environment variables
+  :description: Display all default configuration options as environment variable assignments
 
 - :opt_name: list_default_yaml
   :long_name: list-default-yaml
-  :description: List default configuration as YAML
+  :description: Display all default configuration options in YAML format
 
 - :opt_name: list_docs
   :long_name: list-docs
-  :description: List docs in current folder
+  :description: List all markdown documents in the current directory or specified path
 
 - :opt_name: list_output_format
   :long_name: format
   :env_var: MDE_OUTPUT_LIST_FORMAT
-  :description: Format for list
+  :description: Output format for list commands (text, json, yaml, etc.)
   :arg_name: FORMAT
   :default: text
   :procname: val_as_sym
 
 - :opt_name: list_recent_output
   :long_name: list-recent-output
-  :description: List recent saved output
+  :description: List recently saved execution output files
 
 - :opt_name: list_recent_scripts
   :long_name: list-recent-scripts
-  :description: List recent saved scripts
+  :description: List recently saved executed scripts
 
 - :opt_name: load_code
   :long_name: load-code
   :short_name: l
   :env_var: MDE_LOAD_CODE
-  :description: Load code
+  :description: Load code from external file into document context as inherited lines
   :arg_name: PATH
   :default: ''
   :procname: val_as_str
@@ -747,7 +764,7 @@
 
 - :opt_name: menu_active_color_pastel_messages
   :env_var: MDE_MENU_ACTIVE_COLOR_PASTEL_MESSAGES
-  :description: menu_active_color_pastel_messages
+  :description: Pastel color methods to apply to active menu item text
   :default:
   - inverse
 
@@ -798,13 +815,13 @@
 
 - :opt_name: menu_collapsible_symbol_collapsed
   :env_var: MDE_MENU_COLLAPSIBLE_SYMBOL_COLLAPSED
-  :description: menu_collapsible_symbol_collapsed
+  :description: Symbol displayed for collapsed collapsible menu items
   :default: '⬢' # ∆ ⬢ +
   :procname: val_as_str
 
 - :opt_name: menu_collapsible_symbol_expanded
-  :env_var: MDE_MENU_COLLAPSIBLE_SYMBOL_expandED
-  :description: menu_collapsible_symbol_expanded
+  :env_var: MDE_MENU_COLLAPSIBLE_SYMBOL_EXPANDED
+  :description: Symbol displayed for expanded collapsible menu items
   :default: '⬡' # … ⬡ -
   :procname: val_as_str
 
@@ -1198,7 +1215,7 @@
 
 - :opt_name: mine
   :long_name: mine
-  :description: Mine history (List lines matched by probe)
+  :description: Display matching lines from execution history files when used with probe pattern
 
 - :opt_name: no_chrome
   :env_var: MDE_NO_CHROME
@@ -1209,20 +1226,20 @@
 
 - :long_name: open
   :short_name: o
-  :description: Find argument in documents, present list, and open user selection
+  :description: Search for keyword in documents, present selection menu, and open chosen document
   :arg_name: OPEN
   :default: ''
   :procname: open
 
 - :opt_name: option_expansion_expression_regexp
   :env_var: MDE_OPTION_EXPANSION_EXPRESSION_REGEXP
-  :description: option_expansion_expression_regexp
+  :description: Regex pattern that matches option expansions (e.g., &{option.property})
   :default: '(?<expression>&{(?<payload>(?<option>[A-Z0-9a-z_]+)(?:\.(?<property>[A-Z0-9a-z_]+))?)})'
   :procname: val_as_str
 
 - :opt_name: option_expansion_payload_regexp
   :env_var: MDE_OPTION_EXPANSION_PAYLOAD_REGEXP
-  :description: option_expansion_payload_regexp
+  :description: Regex pattern that extracts the option and property names from option expansion payloads
   :default: '^(?<option>[A-Z0-9a-z_]+)(?:\.(?<property>[A-Z0-9a-z_]+))?$'
   :procname: val_as_str
 
@@ -1329,18 +1346,20 @@
 
 - :opt_name: play_bin_batch
   :env_var: MDE_PLAY_BIN_BATCH
+  :description: Binary used for batch mode block execution
   :default: play
   :procname: val_as_str
 
 - :opt_name: play_bin_interactive
   :env_var: MDE_PLAY_BIN_INTERACTIVE
+  :description: Binary used for interactive mode block execution
   :default: play_interactive
   :procname: val_as_str
 
 - :opt_name: probe
   :long_name: probe
   :env_var: MDE_PROBE
-  :description: Probe history (Filter history to files with lines matching a pattern)
+  :description: Filter execution history to files containing lines matching the specified pattern
   :procname: val_as_str
 
 - :opt_name: prompt_after_script_execution
@@ -1399,7 +1418,7 @@
 
 - :opt_name: prompt_margin_left_text
   :env_var: MDE_PROMPT_MARGIN_LEFT_TEXT
-  :description: prompt_margin_left_text
+  :description: Text prefix displayed at the left margin of prompts
   :default: "» "
   :procname: val_as_str
 
@@ -1453,7 +1472,7 @@
 
 - :opt_name: prompt_show_expr_format
   :env_var: MDE_PROMPT_SHOW_EXPR_FORMAT
-  :description: prompt_show_expr_format
+  :description: Format string for displaying expression values in prompts
   :default: 'Expr: %{expr}'
   :procname: val_as_str
 
@@ -1471,27 +1490,27 @@
 
 - :opt_name: publish_block_name_format
   :env_var: MDE_PUBLISH_BLOCK_NAME_FORMAT
-  :description: format for block name published
+  :description: Format string for block execution events published to file
   :default: "%{time} Blc %{document} / %{block}\n"
   :procname: val_as_str
 
 - :opt_name: publish_document_file_mode
   :long_name: publish-document-file-mode
   :env_var: MDE_PUBLISH_DOCUMENT_FILE_MODE
-  :description: Published file mode (fifo/append/write)
+  :description: File mode for publishing document events (fifo=pipe, append=append to file, write=overwrite file)
   :default: fifo
   :procname: val_as_str
 
 - :opt_name: publish_document_file_name
   :long_name: publish-document-file-name
   :env_var: MDE_PUBLISH_DOCUMENT_FILE_NAME
-  :description: File path for publishing
+  :description: File path where document execution events are published
   :default: ''
   :procname: val_as_str
 
 - :opt_name: publish_document_name_format
   :env_var: MDE_PUBLISH_DOCUMENT_NAME_FORMAT
-  :description: format for document name published
+  :description: Format string for document load events published to file
   :default: "%{time} Doc %{document}\n"
   :procname: val_as_str
 
@@ -1622,20 +1641,20 @@
 
 - :opt_name: script_execution_frame_color
   :env_var: MDE_SCRIPT_EXECUTION_FRAME_COLOR
-  :description: script_execution_frame_color
+  :description: Text color for the frame around script execution output
   :default: fg_rgbh_80_d0_a0  # Sage green - calmer frame color for execution context
   :procname: val_as_str
 
 - :opt_name: script_execution_head
   :env_var: MDE_SCRIPT_EXECUTION_HEAD
-  :description: script_execution_head
+  :description: Text displayed before script execution output
   :default: "\n -^-"
 
   :procname: val_as_str
 
 - :opt_name: script_execution_tail
   :env_var: MDE_SCRIPT_EXECUTION_TAIL
-  :description: script_execution_tail
+  :description: Text displayed after script execution output
   :default: " -v-\n"
   :procname: val_as_str
 
@@ -1647,26 +1666,26 @@
 
 - :opt_name: script_preview_head
   :env_var: MDE_SCRIPT_PREVIEW_HEAD
-  :description: script_preview_head
+  :description: Text displayed before script preview content
   :default: "\n -^-"
   :procname: val_as_str
 
 - :opt_name: script_preview_tail
   :env_var: MDE_SCRIPT_PREVIEW_TAIL
-  :description: script_preview_tail
+  :description: Text displayed after script preview content
   :default: " -v-\n"
   :procname: val_as_str
 
 - :opt_name: select_by_name_regex
   :env_var: MDE_SELECT_BY_NAME_REGEX
-  :description: Select blocks with name matching
+  :description: Regex pattern to include only blocks whose names match
   :arg_name: REGEX
   :default:
   :procname: val_as_str
 
 - :opt_name: select_by_shell_regex
   :env_var: MDE_SELECT_BY_SHELL_REGEX
-  :description: Select blocks with shell matching
+  :description: Regex pattern to include only blocks whose shell type matches
   :arg_name: REGEX
   :default:
   :procname: val_as_str
@@ -1703,13 +1722,13 @@
 
 - :opt_name: shell_code_label_format_above
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_ABOVE
-  :description: shell_code_label_format_above
+  :description: Format string for label text displayed above code blocks in generated scripts
   :default:
   :procname: val_as_str
 
 - :opt_name: shell_code_label_format_below
   :env_var: MDE_SHELL_CODE_LABEL_FORMAT_BELOW
-  :description: shell_code_label_format_below
+  :description: Format string for label text displayed below code blocks in generated scripts
   :default:
   :procname: val_as_str
 
@@ -1729,12 +1748,12 @@
 - :opt_name: sift
   :long_name: sift
   :env_var: MDE_SIFT
-  :description: Sift history (Filter history to file names matching a pattern)
+  :description: Filter execution history to file names matching the specified pattern
   :procname: val_as_str
 
 - :opt_name: tab_completions
   :long_name: tab-completions
-  :description: List tab completions
+  :description: List available tab completion options for shell integration
 
 - :opt_name: table_border_color
   :env_var: MDE_TABLE_BORDER_COLOR
@@ -1817,19 +1836,20 @@
 
 - :opt_name: ux_auto_load_force_default
   :env_var: MDE_UX_AUTO_LOAD_FORCE_DEFAULT
+  :description: Whether to force default values for UX blocks during auto-load, even if variables already exist
   :arg_name: BOOL
   :default: true
   :procname: val_as_bool
 
 - :opt_name: variable_expansion_name_capture_group
   :env_var: MDE_VARIABLE_EXPANSION_NAME_CAPTURE_GROUP
-  :description: variable_expansion_name_capture_group
+  :description: Named capture group name that extracts the variable name from variable expansion matches
   :default: variable
   :procname: val_as_str
 
 - :opt_name: variable_expansion_regexp
   :env_var: MDE_VARIABLE_EXPANSION_REGEXP
-  :description: variable_expansion_regexp
+  :description: Regex pattern that matches variable expansions (e.g., ${variable})
   :default: "(?<expression>\\${(?<variable>[A-Z0-9a-z_]+)})"
   :procname: val_as_str
 
@@ -1841,8 +1861,8 @@
   :procname: val_as_str
 
 - :opt_name: vars_block_filename_pattern
-  :env_var: MDE_VARS_BLOCK_filename_pattern
-  :description: vars_block_filename_pattern
+  :env_var: MDE_VARS_BLOCK_FILENAME_PATTERN
+  :description: Regex pattern that parses filenames into path, base, and extension components for vars blocks
   :arg_name: PATTERN
   :default: '^(?<path>.*/)(?<base>[^/]+?)(?<extension>\.?[^./]*)?$'
   :procname: val_as_str
