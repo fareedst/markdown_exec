@@ -269,36 +269,7 @@ mde --save-executed-script 1 --user-must-approve 1 --config my-config.yml
 
 ## Tab Completion
 
-### Install tab completion
-
-Append a command to load the completion script to your shell configuration file. `mde` must be executable for the command to be composed correctly.
-
-```bash
-echo "source $(mde --pwd)/bin/tab_completion.sh" >> ~/.bash_profile
-```
-
-### Behavior
-
-Press tab for completions appropriate to the current input.
-`mde <...> <prior word> <current word><TAB>`
-
-Completions are calculated based on the current word and the prior word. 
-1. If the current word starts with `-`, present matching options, eg `--version` for the current word `--v`.
-2. Else, if the current word is empty and the prior word is an option that takes an argument, present the type of the argument, eg `.BOOL.` for the option `--user-must-approve`.
-3. Else, if the current word is the type of argument, from the rule above, present the default value for the option. e.g. `1` for the type `.BOOL.` for the option `--user-must-approve`.
-4. Else, if the current word is non-empty, list matching files and folders.
-
-### Example Completions
-
-In the table below, tab is indicated by `!`
-| Input | Completions |
-| :--- | :--- |
-| `mde !` | local files and folders |
-| `mde -!` | all options |
-| `mde --!` | all options |
-| `mde --v!` | `mde --version` |
-| `mde --user-must-approve !` | `mde --user-must-approve .BOOL.`|
-| `mde --user-must-approve .BOOL.!` | `mde --user-must-approve 1` |
+See [Tab Completion Documentation](docs/tab-completion.md) for installation and usage instructions.
 
 ## Example: Interactive Workflow
 
@@ -351,7 +322,29 @@ vars:
 
 # Testing
 
-Execute tests for individual libraries.
+## Docker Testing Environment
+
+For a complete testing environment with all dependencies, use the Docker testing container:
+
+```bash
+# Build the test environment
+docker build -f Dockerfile.test -t markdown-exec-test .
+
+# Run all tests (RSpec, Minitest, and BATS)
+docker run -it markdown-exec-test bash -c 'bundle exec rake test'
+
+# Run individual test suites
+docker run -it markdown-exec-test bash -c 'bundle exec rspec'          # RSpec only
+docker run -it markdown-exec-test bash -c 'bundle exec rake minitest'  # Minitest only
+docker run -it markdown-exec-test bash -c 'bundle exec rake bats'      # BATS tests only
+
+# Enter the container interactively
+docker run --rm -it markdown-exec-test bash
+```
+
+## Local Testing
+
+Execute tests for individual libraries locally:
 
 `bundle exec rake minitest`
 

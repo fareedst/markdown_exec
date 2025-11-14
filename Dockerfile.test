@@ -1,0 +1,42 @@
+FROM ruby:3.3-bookworm
+
+ENV LANG C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        bsdmainutils \
+        gawk \
+        git \
+        tree \
+        vim
+
+# `markdown_exec` is the name expected by some BATS tests
+WORKDIR /markdown_exec
+
+# Clone the repository (shallow clone for faster builds)
+ARG GIT_BRANCH=main
+RUN git clone --depth 1 --branch ${GIT_BRANCH} https://github.com/fareedst/markdown_exec.git .
+
+# Initialize and update git submodules
+RUN git submodule update --init --recursive
+
+# Install dependencies
+RUN bundle install
+
+# Add aliases
+RUN echo 'alias batsv="bats --verbose-run --show-output-of-passing-tests"' >> ~/.bashrc && \
+    echo 'alias be="bundle exec"' >> ~/.bashrc && \
+    echo 'alias bmde="bin/bmde"' >> ~/.bashrc && \
+    echo 'alias ll="ls -FGlAhp"' >> ~/.bashrc
+
+RUN git submodule add https://github.com/bats-core/bats-core.git test/bats && \
+    git submodule add https://github.com/bats-core/bats-support.git test/test_helper/bats-support && \
+    git submodule add https://github.com/bats-core/bats-assert.git test/test_helper/bats-assert
+
+# make dirs, file for BATS tests
+RUN mkdir -p logs
+RUN mkdir -p docs/research
+RUN echo '04:31 e' > logs/mde_site.local_2024-07-31-20-04-01___examples_save_md_~_test_.out.txt
+RUN ln -s /markdown_exec/test/bats/bin/bats /usr/local/bin/
+
+CMD ["bash"]
