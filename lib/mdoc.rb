@@ -12,7 +12,7 @@ $pd = false unless defined?($pd)
 module MarkdownExec
   class MenuFilter
     def initialize(opts)
-      @opts = opts.merge(block_name_hidden_match: nil)
+      @opts = opts.merge(block_name_hide_custom_match: nil)
     end
 
     def fcb_in_menu?(fcb)
@@ -38,10 +38,10 @@ module MarkdownExec
         false
       else
         @opts[:hide_blocks_by_name] &&
-          ((@opts[:block_name_hidden_match]&.present? &&
+          ((@opts[:block_name_hide_custom_match]&.present? &&
+            block.s2title&.match(Regexp.new(@opts[:block_name_hide_custom_match]))) ||
+           (@opts[:block_name_hidden_match]&.present? &&
             block.s2title&.match(Regexp.new(@opts[:block_name_hidden_match]))) ||
-           (@opts[:block_name_include_match]&.present? &&
-            block.s2title&.match(Regexp.new(@opts[:block_name_include_match]))) ||
            (@opts[:block_name_wrapper_match]&.present? &&
             block.s2title&.match(Regexp.new(@opts[:block_name_wrapper_match])))) &&
           (block.s2title&.present? || block[:label]&.present?)
@@ -252,7 +252,7 @@ module MarkdownExec
     # @return [Array<Hash>] An array of code blocks that match the options.
     #
     def fcbs_per_options(opts = {})
-      options = opts.merge(block_name_hidden_match: nil)
+      options = opts.merge(block_name_hide_custom_match: nil)
       selrows = @table.select do |fcb_title_groups|
         Filter.fcb_select? options, fcb_title_groups
       end
@@ -403,10 +403,10 @@ module MarkdownExec
         false
       else
         opts[:hide_blocks_by_name] &&
-          ((opts[:block_name_hidden_match]&.present? &&
+          ((opts[:block_name_hide_custom_match]&.present? &&
+            block.s2title&.match(Regexp.new(opts[:block_name_hide_custom_match]))) ||
+           (opts[:block_name_hidden_match]&.present? &&
             block.s2title&.match(Regexp.new(opts[:block_name_hidden_match]))) ||
-           (opts[:block_name_include_match]&.present? &&
-            block.s2title&.match(Regexp.new(opts[:block_name_include_match]))) ||
            (opts[:block_name_wrapper_match]&.present? &&
             block.s2title&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
           (block.s2title&.present? || block[:label]&.present?)
@@ -620,7 +620,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_hide_menu_block_on_name
         opts = { hide_blocks_by_name: true,
-                 block_name_hidden_match: 'block1' }
+                 block_name_hide_custom_match: 'block1' }
         block = FCB.new(s2title: 'block1')
         result = @doc.hide_menu_block_on_name(opts, block)
         assert result # this should be true based on the given logic
@@ -628,7 +628,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_fcbs_per_options
         opts = { hide_blocks_by_name: true,
-                 block_name_hidden_match: 'block1' }
+                 block_name_hide_custom_match: 'block1' }
         result = @doc.fcbs_per_options(opts)
         assert_equal [@table[1], @table[2]], result
       end if false ### broken test

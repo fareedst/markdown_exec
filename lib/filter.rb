@@ -135,12 +135,12 @@ module MarkdownExec
 
       if options[:hide_blocks_by_name]
         filters[:hidden_name] =
-          !!(options[:block_name_hidden_match].present? &&
-                    fcb.code_name_exp?(options[:block_name_hidden_match]))
+          !!(options[:block_name_hide_custom_match].present? &&
+                    fcb.code_name_exp?(options[:block_name_hide_custom_match]))
       end
       filters[:include_name] =
-        !!(options[:block_name_include_match].present? &&
-                  fcb.code_name_exp?(options[:block_name_include_match]))
+        !!(options[:block_name_hidden_match].present? &&
+                  fcb.code_name_exp?(options[:block_name_hidden_match]))
       filters[:wrap_name] =
         !!(options[:block_name_wrapper_match].present? &&
                   fcb.code_name_exp?(options[:block_name_wrapper_match]))
@@ -251,7 +251,7 @@ if $PROGRAM_NAME == __FILE__
 
       def test_hidden_name_condition
         @options[:hide_blocks_by_name] = true
-        @options[:block_name_hidden_match] = 'hidden'
+        @options[:block_name_hide_custom_match] = 'hidden'
         @fcb.oname = 'hidden_block'
         refute Filter.fcb_select?(@options, @fcb)
       end
@@ -336,7 +336,7 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_hidden_block_by_name
-        @options[:block_name_hidden_match] = 'hidden_block'
+        @options[:block_name_hide_custom_match] = 'hidden_block'
         @options[:hide_blocks_by_name] = true
         fcb = FCB.new(oname: 'hidden_block', shell: ShellType::BASH,
                       start_line: '')
@@ -345,7 +345,7 @@ if $PROGRAM_NAME == __FILE__
       end
 
       def test_include_block_by_name
-        @options[:block_name_include_match] = 'include_block'
+        @options[:block_name_hidden_match] = 'include_block'
         fcb = FCB.new(oname: 'include_block', shell: ShellType::BASH,
                       start_line: '')
         Filter.apply_other_filters(@options, @filters, fcb)

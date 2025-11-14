@@ -983,7 +983,7 @@ e.g. `MDE_OUTPUT_VIEWER_OPTIONS="-a '/Applications/Sublime Text.app'" mde --sele
 
 | YAML Name | Environment Variable | Default |
 | :--- | :--- | :--- |
-| block_name_hidden_match | MDE_BLOCK_NAME_HIDDEN_MATCH  | `^\(.+\)$` |
+| block_name_hide_custom_match | MDE_BLOCK_NAME_HIDE_CUSTOM_MATCH  | `^\(.+\)$` |
 | block_name_match | MDE_BLOCK_NAME_MATCH  | `:(?<title>\S+)( \|$)` |
 | block_required_scan | MDE_BLOCK_REQUIRED_SCAN  | `\+\S+` |
 | fenced_start_and_end_regex | MDE_FENCED_START_AND_END_REGEX  | ``^`{3,}`` |

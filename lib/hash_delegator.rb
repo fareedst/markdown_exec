@@ -4108,7 +4108,7 @@ module MarkdownExec
       blocks.select { |item| item.type == 'ux' }
     end
 
-    # Filter blocks per block_name_include_match, block_name_wrapper_match.
+    # Filter blocks per block_name_hidden_match, block_name_wrapper_match.
     #
     # @param all_blocks [Array<Hash>] The list of blocks from the file.
     def select_blocks(menu_blocks)
@@ -4116,12 +4116,12 @@ module MarkdownExec
         Filter.prepared_not_in_menu?(
           @delegate_object,
           fcb,
-          %i[block_name_include_match block_name_wrapper_match]
+          %i[block_name_hidden_match block_name_wrapper_match]
         )
       end
     end
 
-    # Filter blocks per block_name_include_match, block_name_wrapper_match.
+    # Filter blocks per block_name_hidden_match, block_name_wrapper_match.
     # Set name displayed by tty-prompt.
     #
     # @param all_blocks [Array<Hash>] The list of blocks from the file.
