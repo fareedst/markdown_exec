@@ -77,25 +77,25 @@ end
 def execute_with_error_handling(iterator)
   all_error_level = 0
   all_failed_files = []
-  
+
   iterator.each do |item|
     command = yield(item)
     next unless command # Skip if command is nil
-    
-    result = system(command)
+
+    system(command)
     error_level = $?.exitstatus
 
-    if error_level != 0
-      puts "Error: Command '#{command}' failed with exit status #{error_level}."
-      all_error_level = error_level
-      all_failed_files << command
-    end
+    next unless error_level != 0
+
+    puts "Error: Command '#{command}' failed with exit status #{error_level}."
+    all_error_level = error_level
+    all_failed_files << command
   end
 
-  if all_error_level != 0
-    puts "Error: #{all_failed_files.join(', ')} failed."
-    exit all_error_level
-  end
+  return unless all_error_level != 0
+
+  puts "Error: #{all_failed_files.join(', ')} failed."
+  exit all_error_level
 end
 
 desc 'bats'
@@ -114,20 +114,28 @@ task :listtests do
   puts `find lib -name '*.rb' -type f | xargs grep '< Minitest::Test' -l | sort`
 end
 
-desc 'minitest'
-task :minitest do
-  commands = [
-    './lib/argument_processor.rb --verbose',
-    './lib/block_label.rb --verbose',
-    './lib/cached_nested_file_reader.rb --verbose',
-    './lib/collapser.rb --verbose',
+def dev_test_commands
+  dev_dir = File.join(__dir__, 'lib', 'dev')
+  return [] unless Dir.exist?(dev_dir)
+
+  [
     './lib/dev/ansi_codes.rb --verbose',
     './lib/dev/append_to_bash_history.rb --verbose',
     './lib/dev/generate_transition_codes.rb --verbose',
     './lib/dev/hierarchy.rb --verbose',
     './lib/dev/process_command.rb --verbose',
     './lib/dev/process_template.rb --test --verbose',
-    './lib/dev/visibility-controller.rb --verbose',
+    './lib/dev/visibility-controller.rb --verbose'
+  ]
+end
+
+desc 'minitest'
+task :minitest do
+  commands = dev_test_commands + [
+    './lib/argument_processor.rb --verbose',
+    './lib/block_label.rb --verbose',
+    './lib/cached_nested_file_reader.rb --verbose',
+    './lib/collapser.rb --verbose',
     './lib/directory_searcher.rb --verbose',
     './lib/evaluate_shell_expressions.rb --verbose',
     './lib/fcb.rb --verbose',
@@ -164,26 +172,26 @@ end
 desc 'test'
 task :test do
   success = true
-  
+
   # Run all tests and track failures
   rspec_success = system('bundle exec rspec')
   success = false unless rspec_success
-  
+
   Rake::Task['minitest'].invoke
   minitest_success = $?.success?
   success = false unless minitest_success
-  
+
   Rake::Task['bats'].invoke
   bats_success = $?.success?
   success = false unless bats_success
-  
+
   # Report failures and exit with non-zero status if any test failed
   unless success
     failed_tests = []
     failed_tests << 'RSpec' unless rspec_success
     failed_tests << 'Minitest' unless minitest_success
     failed_tests << 'Bats' unless bats_success
-    
+
     puts "\nThe following test suites failed: #{failed_tests.join(', ')}"
     exit 1
   end
@@ -213,7 +221,7 @@ task :update_menu_yml do
   File.write(MENU_YML, menu_options.to_yaml)
   puts `stat #{MENU_YML}`
 end
-task :menu => 'update_menu_yml'
+task menu: 'update_menu_yml'
 
 # write tab_completion.sh with erb
 #

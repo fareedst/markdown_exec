@@ -84,7 +84,6 @@ class TestFindFiles < Minitest::Test
     expected_files = [
       'lib/cli.rb',
       'lib/colorize.rb',
-      'lib/dev/watchfile.sh',
       'lib/markdown_exec.rb',
       'lib/markdown_exec/version.rb'
     ]

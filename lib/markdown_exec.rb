@@ -1104,7 +1104,7 @@ module MarkdownExec
   class TestMarkdownTableFormatter < Minitest::Test
     def test_select_document_if_multiple
       find_path = "#{`pwd`.chomp}/fixtures"
-      value = 'document'
+      value = 'fix'
       searcher = SearchResultsReport.new(value, [find_path])
       options = {
         ansi_formatter_color: false,
