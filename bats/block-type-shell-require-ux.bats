@@ -2,12 +2,12 @@
 
 load 'test_helper'
 
-@test 'initial' {
+@test 'displays initial values before UX block activation' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-shell-require-ux.md \
    'require-a-UX-block__FULL_NAME='
 }
 
-@test 'activated' {
+@test 'updates values when UX block activated' {
   # 2025-11-13 add a '.' block to force the display to update
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-shell-require-ux.md \
    require-a-UX-block . \

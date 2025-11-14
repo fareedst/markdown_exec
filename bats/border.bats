@@ -2,7 +2,7 @@
 
 load 'test_helper'
 
-@test 'Border - ' {
+@test 'renders border between blocks' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/border.md \
    'A: 1_B: 2'
 }

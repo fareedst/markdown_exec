@@ -2,26 +2,26 @@
 
 load 'test_helper'
 
-@test 'automatic blocks load defaults - constants or first allowed from output of echo or exec' {
+@test 'loads defaults from constants or first allowed value' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-allowed.md \
    'SPECIES=Pongo tapanuliensis_GENUS=Pongo_FAMILY=_ORDER: Click to select..._Click to select..._YEAR_DISCOVERED=_NAME=Tapanuli Orangutan'
 }
 
-@test 'executing a block loads the first allowed value' {
+@test 'loads first allowed value when block executed' {
   skip 'Unable to test the menu presented'
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-allowed.md \
    '[FAMILY]' \
    'SPECIES=Pongo tapanuliensis_GENUS=Pongo_FAMILY=Hominidae_Click to select...Click to select..._YEAR_DISCOVERED=_NAME='
 }
 
-@test 'executing a block loads the first line in the output of exec' {
+@test 'loads first line from exec output when block executed' {
   skip 'Unable to test the menu presented'
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-allowed.md \
    '[YEAR_DISCOVERED]' \
    'SPECIES=Pongo tapanuliensis_GENUS=Pongo_FAMILY=_YEAR_DISCOVERED=2017_NAME='
 }
 
-@test 'executing a block loads the first line in the output of echo' {
+@test 'loads first line from echo output when block executed' {
   skip 'Unable to test the menu presented'
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-allowed.md \
    '[NAME]' \

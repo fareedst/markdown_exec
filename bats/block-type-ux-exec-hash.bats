@@ -2,12 +2,12 @@
 
 load 'test_helper'
 
-@test 'automatic' {
+@test 'sets variables automatically from exec hash' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-exec-hash.md \
    'A single named variable is set automatically as the_output of the exec string._Common_Name=Yeti Crab__Common_Name=Yeti Crab_ Y  e  t  i     C  r  a  b  _ _ 59 65 74 69 20 43 72 61 62 0A__Multiple variables are set automatically as the_output of each exec string._One variable is temporary/not stored to inherited lines_but available for calculations within the block._Domain=ukaryota_____D=_Domain=ukaryota_ u  k  a  r  y  o  t  a  _   _ _ 75 6B 61 72 79 6F 74 61 0A 0A__A single named variable is set interactively as the_output of the exec string._Year_Discovered=_Year_Discovered=_$(hexdump_format "$Year_Discovered")__Multiple variables are set interactively as the_output of the exec string._Genus=_Species=_$(hexdump_format "$Species")_Genus=_$(hexdump_format "$Genus")__A single named variable is set automatically as the_first line of the output of the first element in the echo_hash._Kingdom=Animalia_Kingdom=Animalia_ A  n  i  m  a  l  i  a_ 41 6E 69 6D 61 6C 69 61__A single named variable is set automatically as the_first line of the output of the first element in the exec_hash._Class=Malacostraca_Class=Malacostraca_ M  a  l  a  c  o  s  t  r  a  c  a_ 4D 61 6C 61 63 6F 73 74 72 61 63 61'
 }
 
-@test 'interactive' {
+@test 'sets variables interactively from exec hash' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-exec-hash.md \
    '[Year_Discovered]' \
    '[Genus]' \

@@ -2,7 +2,7 @@
 
 load 'test_helper'
 
-@test 'Publish document file name - mode: write, name, format' {
+@test 'writes document name to file with format' {
   export MDE_PUBLISH_DOCUMENT_NAME_FORMAT='- %{document}'
   run bin/bmde \
    --publish-document-file-mode write \
@@ -12,7 +12,7 @@ load 'test_helper'
   [[ "$(cat /tmp/mde_file)" == "- ./docs/dev/specs.md" ]]
 }
 
-@test 'Publish block name - mode: write, name, format' {
+@test 'appends document and block names to file with format' {
   [ -f /tmp/mde_file ] && rm /tmp/mde_file
   export MDE_PUBLISH_BLOCK_NAME_FORMAT='++%{block}'
   export MDE_PUBLISH_DOCUMENT_NAME_FORMAT='--%{document}'

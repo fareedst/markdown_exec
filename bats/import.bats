@@ -2,20 +2,20 @@
 
 load 'test_helper'
 
-@test 'Directives - import, indented' {
+@test 'lists indented blocks from imported file' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/import.md \
    --list-blocks-message indent --list-blocks \
    '              '
 }
 
-@test 'Directives - import, missing' {
+@test 'reports error when imported file missing' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/import-missing.md \
    ' Error: CachedNestedFileReader.readlines -- No such file or directory - this-is-missing.md @@ '
 }
 
-@test 'Directives - import; list block ids' {
+@test 'lists block ids from imported file' {
   BATS_OUTPUT_FILTER=A
   BATS_SAFE=_
   spec_mde_args_expect docs/dev/import.md \

@@ -2,7 +2,7 @@
 
 load 'test_helper'
 
-@test 'Import and require blocks with duplicate names - blocks with same name have different requirements' {
+@test 'executes blocks with same name but different requirements' {
   BATS_OUTPUT_FILTER=A
   BATS_SAFE=_
   spec_mde_args_expect docs/dev/import-conflict-0.md \

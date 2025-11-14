@@ -2,7 +2,7 @@
 
 load 'test_helper'
 
-@test 'automatic block - disabled' {
+@test 'disables automatic block when readonly' {
   spec_mde_args_expect \
    docs/dev/block-type-ux-readonly.md \
    --blocks readonly \

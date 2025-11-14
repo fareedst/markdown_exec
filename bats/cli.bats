@@ -8,21 +8,21 @@ load 'test_helper'
    ' ARGS: 1 23'
 }
 
-@test 'Position 0 File Name - file does not exist; string not found; select a file from the current directory' {
+@test 'searches current directory when file not found' {
   skip 'algorithm to exit waiting MDE is not ready'
   BATS_OUTPUT_FILTER=A
   BATS_SLEEP=8
   spec_mde_args_expect NotFoundAnywhere 'Searching in: .'
 }
 
-@test 'Position 1 Block Name - block does not exist' {
+@test 'reports error when block not found' {
   BATS_OUTPUT_FILTER=A
   BATS_STATUS=1
   spec_mde_args_expect docs/dev/pass-through-arguments.md NonExistentBlock \
    ' Error: Block not found -- name: NonExistentBlock'
 }
 
-@test 'block named in link does not exist' {
+@test 'reports error when linked block missing' {
   BATS_STATUS=1
   spec_mde_args_expect docs/dev/requiring-blocks.md '[link-missing-local-block]' \
    'Block missing'
@@ -30,46 +30,46 @@ load 'test_helper'
 
 # Requiring blocks
 
-@test 'bash block setting an environment variable requires a bash block' {
+@test 'bash block requires another bash block' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/requiring-blocks.md '[set-env]' \
    ' ARG1: 37'
 }
 
-@test 'vars in link block are appended to inherited lines - local link' {
+@test 'appends vars from link block to inherited lines - local' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/requiring-blocks.md \
    '[link-local-block-with-vars]' \
    '* Exit_# [link-local-block-with-vars]_ARG1="37"_block: echo-ARG1_  file: docs/dev/linked-file.md_  vars:_    ARG1: arg1-from-link-file_block: output_arguments_  vars:_    ARG1: 37_block: missing_ARG1=37_output_arguments'
 }
 
-@test 'vars in link block are appended to inherited lines - external file' {
+@test 'appends vars from link block to inherited lines - external' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/requiring-blocks.md \
    '[link-file-block-with-vars]' \
    '* Exit_# [link-file-block-with-vars]_ARG1="arg1-from-link-file"_echo-ARG1'
 }
 
 # the last block is a link block, so menu is displayed
-@test 'link block setting an environment variable requires a bash block' {
+@test 'link block requires bash block' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/requiring-blocks.md '[link-local-block-with-vars]' $EXIT_MENU \
    ' ARG1: 37'
 }
 
 # the last block is a link block, so menu is displayed
-@test 'link block setting an environment variable calls a bash block in a file' {
+@test 'link block calls bash block in external file' {
   BATS_OUTPUT_FILTER=A
   spec_mde_args_expect docs/dev/requiring-blocks.md '[link-file-block-with-vars]' $EXIT_MENU \
    ' ARG1: arg1-from-link-file'
 }
 
-@test 'history' {
+@test 'lists history files' {
   file_name="$(most_recent_history_file_name)"
   BATS_OUTPUT_GREP="$file_name"
   spec_mde_args_expect examples/save.md --history \
    "$file_name"
 }
 
-@test 'sift - format text' {
+@test 'sifts history with text format' {
   file_name="$(most_recent_history_file_name)"
   date="$(date_from_history_file_name "$file_name")"
   BATS_OUTPUT_GREP="$file_name"
@@ -77,7 +77,7 @@ load 'test_helper'
    "$file_name"
 }
 
-@test 'sift - format yaml' {
+@test 'sifts history with yaml format' {
   file_name="$(most_recent_history_file_name)"
   date="$(date_from_history_file_name "$file_name")"
   BATS_OUTPUT_GREP="$file_name"

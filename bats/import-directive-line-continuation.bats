@@ -2,7 +2,7 @@
 
 load 'test_helper'
 
-@test '' {
+@test 'handles line continuation in import directive' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/import-directive-line-continuation.md \
    --blocks dname \
    'Stem: U1_Species: Illacme tobini'
