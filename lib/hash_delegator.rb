@@ -2280,7 +2280,7 @@ module MarkdownExec
           link_state: link_state,
           block_source: block_source
         )
-        next_state_set_code(selected, link_state, required_lines)
+        next_state_append_code(selected, link_state, required_lines)
 
       elsif selected.type == BlockType::UX
         debounce_reset
@@ -3712,10 +3712,13 @@ module MarkdownExec
         default_only: true,
         mdoc: mdoc
       ))&.select_by(:empty?, false)&.compact&.count&.positive?
-        new_code = code_lines
         wwt :code_lines, 'code_lines:', code_lines
+
+        # prepend inherited lines to new code lines
+        new_code = (link_state&.inherited_lines || []) + code_lines
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
+
         reload_blocks = true
       else
         link_state&.inherited_lines
