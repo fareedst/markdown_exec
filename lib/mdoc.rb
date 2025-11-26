@@ -85,7 +85,7 @@ module MarkdownExec
       end
     end
 
-    # Collects and formats the shell command output to redirect script block code to a file or a variable.
+    # Generates a shell command to redirect a block's body to either a shell variable or a file.
     #
     # @param [Hash] fcb A hash containing information about the script block's stdout and body.
     #   @option fcb [Hash] :stdout A hash specifying the stdout details.
@@ -93,10 +93,10 @@ module MarkdownExec
     #     @option stdout [String] :name The name of the variable or file to which the body will be output.
     #   @option fcb [Array<String>] :body An array of strings representing the lines of the script block's body.
     #
-    # @return [String] A string containing the formatted shell command to output the script block's body.
+    # @return [String] A string containing the shell command to redirect the script block's body.
     #   If stdout[:type] is true, the command will export the body to a shell variable.
     #   If stdout[:type] is false, the command will write the body to a file.
-    def collect_block_code_stdout(fcb)
+    def code_for_fcb_body_into_var_or_file(fcb)
       stdout = fcb[:stdout]
       body = fcb.body.join("\n")
       if stdout[:type]
@@ -170,6 +170,7 @@ module MarkdownExec
       anyname:, block_source:,
       label_body: true, label_format_above: nil, label_format_below: nil
     )
+      raise 'unexpected label_body' if !label_body
       block_search = collect_block_dependencies(anyname: anyname)
       if block_search[:blocks]
         blocks = collect_wrapped_blocks(block_search[:blocks])
@@ -178,30 +179,10 @@ module MarkdownExec
         block_search.merge(
           { block_names: blocks.map(&:pub_name),
             code: blocks.map do |fcb|
-              if fcb[:cann]
-                collect_block_code_cann(fcb)
-              elsif fcb[:stdout]
-                collect_block_code_stdout(fcb)
-              elsif [BlockType::OPTS].include? fcb.type
-                fcb.body # entire body is returned to requesing block
-
-              elsif [BlockType::LINK,
-                     BlockType::LOAD,
-                     BlockType::UX,
-                     BlockType::VARS].include? fcb.type
-                nil # Vars for all types are collected later
-              elsif fcb[:chrome] # for Link blocks like History
-                nil
-              elsif fcb.type == BlockType::PORT
-                generate_env_variable_shell_commands(fcb)
-              elsif label_body
-                generate_label_body_code(
-                  fcb, block_source,
-                  label_format_above, label_format_below
-                )
-              else # raw body
-                fcb.body
-              end
+              process_block_to_code(
+                fcb, block_source,
+                label_body, label_format_above, label_format_below
+              )
             end.compact.flatten(1).compact }
         )
       else
@@ -328,7 +309,7 @@ module MarkdownExec
       end
     end
 
-    # Generates a formatted code block with labels above and below the main content.
+    # Wraps a code block body with formatted labels above and below the main content.
     # The labels and content are based on the provided format strings and the body of the given object.
     #
     # @param fcb [Object] An object with a `pub_name` method that returns a string, and a `body` method that returns an array of strings.
@@ -343,8 +324,8 @@ module MarkdownExec
     #   and `label_format_below` is "End of %{block_name}", the method will return:
     #     ["Start of Example_Block", "line1", "line2", "End of Example_Block"]
     #
-    def generate_label_body_code(fcb, block_source, label_format_above,
-                                 label_format_below)
+    def wrap_block_body_with_labels(fcb, block_source, label_format_above,
+                                    label_format_below)
       block_name_for_bash_comment = fcb.pub_name.gsub(/\s+/, '_')
 
       label_above = if label_format_above.present?
@@ -411,6 +392,60 @@ module MarkdownExec
             block.s2title&.match(Regexp.new(opts[:block_name_wrapper_match])))) &&
           (block.s2title&.present? || block[:label]&.present?)
       end
+    end
+
+    # Processes a single code block and returns its code representation.
+    #
+    # @param fcb [Hash] The code block to process.
+    # @param block_source [Hash] Additional information for label generation.
+    # @param label_body [Boolean] Whether to generate labels around the body.
+    # @param label_format_above [String, nil] Format string for label above content.
+    # @param label_format_below [String, nil] Format string for label below content.
+    # @return [String, Array, nil] The code representation of the block, or nil if the block should be skipped.
+    #
+    def process_block_to_code(fcb, block_source, label_body, label_format_above,
+                              label_format_below)
+      raise 'unexpected label_body' unless label_body
+
+      if fcb[:cann]
+        collect_block_code_cann(fcb)
+      elsif fcb[:stdout]
+        code_for_fcb_body_into_var_or_file(fcb)
+      elsif [BlockType::OPTS].include? fcb.type
+        fcb.body # entire body is returned to requesing block
+
+      elsif [BlockType::LINK,
+             BlockType::LOAD,
+             BlockType::UX,
+             BlockType::VARS].include? fcb.type
+        nil # Vars for all types are collected later
+      elsif fcb[:chrome] # for Link blocks like History
+        nil
+      elsif fcb.type == BlockType::PORT
+        generate_env_variable_shell_commands(fcb)
+      elsif label_body
+        raise 'unexpected type' if fcb.type != BlockType::SHELL
+
+        # BlockType::  SHELL block
+        if fcb.start_line =~ /@eval/ ###s
+          com_exp_cod = HashDelegator.execute_bash_script_lines(
+            code_lines: fcb.body,
+            export: OpenStruct.new(exportable: true, name: ''),
+            force: true,
+            shell: fcb.shell || 'bash' ###s
+          )
+          ###s CommandResult.exit_status failure?
+          com_exp_cod[:new_lines].map { _1[:text] }
+
+        else
+          wrap_block_body_with_labels(
+            fcb, block_source,
+            label_format_above, label_format_below
+          )
+        end
+      else # raw body
+        fcb.body
+      end.tap { |p1| wwr p1 }
     end
 
     # Recursively fetches required code blocks for a given list of requirements.
