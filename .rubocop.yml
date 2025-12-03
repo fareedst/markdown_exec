@@ -14,10 +14,15 @@ Layout/LineContinuationLeadingSpace:
   Enabled: false
 
 Layout/LineLength:
+  AllowHeredoc: true          # optional
+  AllowURI: true              # optional
+  AllowedPatterns:
+    - '^\s*#'
+    - '^[^#]*#'
   # Enabled: false
+  # IgnoreComments: true        # ← THIS is what you want
+  IgnoreCopDirectives: true   # optional, but useful
   Max: 80
-  # Max: 96
-  # Max: 120
 
 Lint/Debugger:
   Enabled: false

@@ -392,7 +392,10 @@ class Array
     raise ArgumentError,
           'Method must be a Symbol or String' unless method.is_a?(Symbol) || method.is_a?(String)
 
-    partition { |item| item.respond_to?(method) && item.send(method) == value }
+    partition do |item|
+      item.respond_to?(method) &&
+        item.send(method) == value
+    end
   rescue NoMethodError => err
     warn "Method #{method} not available on some items: #{err.message}"
     [[], self]
@@ -412,7 +415,10 @@ class Array
       raise ArgumentError,
             'Method must be a Symbol or String' unless method.is_a?(Symbol) || method.is_a?(String)
 
-      reject { |item| item.respond_to?(method) && item.send(method) == value }
+      reject do |item|
+        item.respond_to?(method) &&
+          item.send(method) == value
+      end
     end
   rescue NoMethodError => err
     warn "Method #{method} not available on some items: #{err.message}"
@@ -433,7 +439,10 @@ class Array
       raise ArgumentError,
             'Method must be a Symbol or String' unless method.is_a?(Symbol) || method.is_a?(String)
 
-      select { |item| item.respond_to?(method) && item.send(method) == value }
+      select do |item|
+        item.respond_to?(method) &&
+          item.send(method) == value
+      end
     end
   rescue NoMethodError => err
     warn "Method #{method} not available on some items: #{err.message}"
@@ -704,8 +713,10 @@ class TestWwFunction < Minitest::Test
     $debug = true
 
     # Test that wwa exits (we can't easily test exit behavior in minitest)
-    # So we'll just verify it would call ww0 properly by testing the structure
-    # Note: wwa calls exit, so we can't test it directly without special handling
+    # So we'll just verify it would call ww0 properly by testing the
+    # structure
+    # Note: wwa calls exit, so we can't test it directly without special
+    # handling
     skip 'wwa exits the program, cannot test directly in minitest'
   end
 

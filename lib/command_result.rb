@@ -3,11 +3,18 @@
 
 # encoding=utf-8
 
+ALL = [
+  BASH = 'bash',
+  FISH = 'fish',
+  SH = 'sh'
+].freeze
+
 # Encapsulates the result of executing a system command, storing its output,
 # exit status, and any number of additional, arbitrary attributes.
 #
 # @example
-#   result = CommandResult.new(stdout: output, exit_status: $?.exitstatus, duration: 1.23)
+#   result = CommandResult.new(stdout: output, exit_status: $?.exitstatus,
+#                              duration: 1.23)
 #   result.stdout        # => output
 #   result.exit_status   # => 0
 #   result.duration      # => 1.23
@@ -15,13 +22,19 @@
 #   result.new_field     # => 42
 #   result.success?      # => true
 class CommandResult
+  ALL = [
+    EXIT_STATUS_OK = 0,
+    EXIT_STATUS_FAIL = 127,
+    EXIT_STATUS_REQUIRED_EMPTY = 248
+  ].freeze
+
   # @param attributes [Hash{Symbol=>Object}] initial named attributes
   def initialize(**attributes)
-    @attributes = {}
-    @attributes[:exit_status] = 0
-    @attributes[:stdout] = ''
-    @attributes[:warning] = ''
-    attributes.each { |name, value| @attributes[name] = value }
+    @attributes = {
+      exit_status: EXIT_STATUS_OK,
+      stdout: '',
+      warning: ''
+    }.merge(attributes)
   end
 
   def failure?
@@ -37,6 +50,14 @@ class CommandResult
     value = @attributes[:new_lines] || []
     ww caller.deref[0..4], value
     value
+  end
+
+  def stdout
+    @attributes[:stdout]
+  end
+
+  def transformed
+    @attributes[:transformed]
   end
 
   # # trap assignment to new_lines

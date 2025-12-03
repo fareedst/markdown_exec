@@ -14,12 +14,15 @@ module MarkdownExec
     # Initialize the LinkState with keyword arguments for each attribute.
     # @param block_name [String, nil] the name of the block.
     # @param document_filename [String, nil] the filename of the document.
-    # @param inherited_block_names [Array<String>, nil] the names of the inherited blocks.
+    # @param inherited_block_names [Array<String>, nil] the names of
+    # the inherited blocks.
     # @param inherited_dependencies [?, nil] the dependecy hierarcy.
     # @param inherited_lines [Array<String>, nil] the inherited lines of code.
-    def initialize(block_name: nil, display_menu: nil, document_filename: nil,
-                   inherited_block_names: [], inherited_dependencies: nil, inherited_lines: nil,
-                   keep_code: false, prior_block_was_link: nil)
+    def initialize(
+      block_name: nil, display_menu: nil, document_filename: nil,
+      inherited_block_names: [], inherited_dependencies: nil,
+      inherited_lines: nil, keep_code: false, prior_block_was_link: nil
+    )
       @block_name = block_name
       @display_menu = display_menu
       @document_filename = document_filename
@@ -28,10 +31,12 @@ module MarkdownExec
       @inherited_lines = inherited_lines
       @keep_code = keep_code
       @prior_block_was_link = prior_block_was_link
+      wwt :link_state, self, caller.deref
     end
 
     # Creates an empty LinkState instance.
-    # @return [LinkState] an instance with all attributes set to their default values.
+    # @return [LinkState] an instance with all attributes
+    # set to their default values.
     def self.empty
       new
     end
@@ -99,12 +104,14 @@ module MarkdownExec
       @history = []
     end
 
-    # Peeks at the most recent LinkState, returns an empty LinkState if stack is empty.
+    # Peeks at the most recent LinkState, returns an empty LinkState
+    # if stack is empty.
     def peek
       @history.last || LinkState.empty
     end
 
-    # Pops the most recent LinkState off the stack, returns an empty LinkState if stack is empty.
+    # Pops the most recent LinkState off the stack, returns an empty LinkState
+    # if stack is empty.
     def pop
       @history.pop || LinkState.empty
     end
@@ -131,10 +138,14 @@ if $PROGRAM_NAME == __FILE__
     class TestLinkHistory < Minitest::Test
       def setup
         @link_history = LinkHistory.new
-        @link_state1 = LinkState.new(block_name: 'block1', document_filename: 'document1.txt',
-                                     inherited_lines: ['code1.rb'])
-        @link_state2 = LinkState.new(block_name: 'block2', document_filename: 'document2.txt',
-                                     inherited_lines: ['code2.rb'])
+        @link_state1 = LinkState.new(
+          block_name: 'block1', document_filename: 'document1.txt',
+          inherited_lines: ['code1.rb']
+        )
+        @link_state2 = LinkState.new(
+          block_name: 'block2', document_filename: 'document2.txt',
+          inherited_lines: ['code2.rb']
+        )
       end
 
       def test_push

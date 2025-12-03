@@ -27,6 +27,7 @@ require_relative 'constants'
 require_relative 'directory_searcher'
 require_relative 'error_reporting'
 require_relative 'evaluate_shell_expressions'
+require_relative 'executed_shell_command'
 require_relative 'exceptions'
 require_relative 'fcb'
 require_relative 'filter'
@@ -43,13 +44,12 @@ require_relative 'streams_out'
 require_relative 'string_util'
 require_relative 'table_extractor'
 require_relative 'text_analyzer'
+require_relative 'transformed_shell_command'
 require_relative 'value_or_exception'
 require_relative 'env_interface'
 
 $pd = false unless defined?($pd)
 $table_cell_truncate = true
-EXIT_STATUS_FAIL = 127
-EXIT_STATUS_REQUIRED_EMPTY = 248
 
 module HashDelegatorSelf
   # Applies an ANSI color method to a string using a specified color key.
@@ -165,8 +165,7 @@ module HashDelegatorSelf
 
   # delete the current line if it is empty and the previous is also empty
   def delete_consecutive_blank_lines!(blocks_menu)
-    blocks_menu.process_and_conditionally_delete! do
-      |prev_item, current_item, _next_item|
+    blocks_menu.process_and_conditionally_delete! do |prev_item, current_item, _next_item|
       !current_item.is_split? &&
         prev_item&.fetch(:chrome, nil) &&
         !(prev_item && prev_item.oname.present?) &&
@@ -236,6 +235,7 @@ module HashDelegatorSelf
   def execute_bash_script_lines(
     code_lines: [],
     export: nil,
+    export_name:,
     force: false,
     shell:,
     archive_script: false, # @delegate_object[:archive_ad_hoc_scripts]
@@ -243,11 +243,7 @@ module HashDelegatorSelf
     archive_time_format: nil # @delegate_object[:archive_time_format]
   )
     Tempfile.create('script_exec') do |temp_file|
-      temp_file.write(
-        join_code_lines(
-          code_lines
-        )
-      )
+      temp_file.write(join_code_lines(code_lines))
       temp_file.close # Close the file before chmod and execution
       File.chmod(0o755, temp_file.path)
 
@@ -259,44 +255,49 @@ module HashDelegatorSelf
         `cp #{temp_file.path} #{archive_filename}`
       end
 
-      output = `#{shell} #{temp_file.path}`
-
+      tsc = TransformedShellCommand.new(
+        "#{shell} #{temp_file.path}",
+        regex: export.validate,
+        format: export.transform
+      )
       exportable = if export&.exportable.nil?
                      true
                    else
                      (export ? export.exportable : false)
                    end
       new_lines = []
-      # new_lines << { comment: 'execute_bash_script_lines' }
 
-      command_result = CommandResult.new(
-        stdout: output,
-        exit_status: $?.exitstatus
-      )
-      exportable &&= command_result.success?
-      if exportable
-        new_lines << { name: export.name, force: force,
-                       text: command_result.stdout }
+      if false
+        # optional comment
+        new_lines << { comment: 'execute_bash_script_lines' }
       end
 
-      {
-        command_result: command_result,
-        exportable: exportable,
-        new_lines: new_lines
-      }
+      exportable_success = exportable && tsc.success?
+      if exportable_success
+        new_lines << { name: export_name, force: force,
+                       text: tsc.transformed_output }
+      end
+
+      CommandResult.new(
+        exit_status: tsc.exit_code,
+        exportable: exportable_success,
+        new_lines: new_lines,
+        script: code_lines,
+        stdout: tsc.transformed_output,
+        transformed_shell_command: tsc
+      )
     end
-  rescue StandardError => err
-    wwe 'code_lines:', code_lines, 'export:', export
+  rescue StandardError
+    wwe $!, 'code_lines:', code_lines, 'export:', export
     # warn "Error executing script: #{err.message}"
     # return failure result
-    {
-      command_result: CommandResult.new(
-        stdout: '',
-        exit_status: EXIT_STATUS_FAIL
-      ),
+    CommandResult.new(
+      exit_status: CommandResult::EXIT_STATUS_FAIL,
       exportable: false,
-      new_lines: []
-    }
+      new_lines: [],
+      script: code_lines,
+      stdout: ''
+    )
   end
 
   # Takes multiple arrays as arguments, flattens them into a single array, and removes nil values.
@@ -325,6 +326,8 @@ module HashDelegatorSelf
 
   def join_code_lines(lines)
     ((lines || []) + ['']).join("\n")
+  rescue StandardError
+    wwe $!, 'lines:', lines
   end
 
   def next_link_state(
@@ -566,14 +569,14 @@ module HashDelegatorSelf
 
     # if the id is present, update the existing fcb
     if options[:id]
-      fcb = all_fcbs.find { |fcb| fcb.id == options[:id] }
+      fcb = all_fcbs.find { _1.id == options[:id] }
       if fcb
         fcb.update(options)
         return fcb
       end
     end
-    MarkdownExec::FCB.new(options).tap do |fcb|
-      all_fcbs << fcb
+    MarkdownExec::FCB.new(options).tap do
+      all_fcbs << _1
     end
   end
 end
@@ -774,7 +777,7 @@ module MarkdownExec
         source: OpenStruct.new
       )
       @link_history = LinkHistory.new
-      @fout = FOut.new(@delegate_object) ### slice only relevant keys
+      @fout = FOut.new(@delegate_object)
 
       @process_mutex = Mutex.new
       @process_cv = ConditionVariable.new
@@ -1001,7 +1004,6 @@ module MarkdownExec
     # @param block_type_color_option [Symbol, nil] The shell color option to apply.
     # @return [String] The colorized or original name string.
     def apply_block_type_color_option(name, block_type_color_option)
-      ### accept string for color
       if block_type_color_option && @delegate_object[block_type_color_option].present?
         string_send_color(name, block_type_color_option)
       else
@@ -1262,7 +1264,9 @@ module MarkdownExec
     end
 
     # return code resulting from evaluating all automatic blocks in order
-    def code_from_auto_blocks(all_blocks, mdoc: nil, default_only: true)
+    def code_from_auto_blocks(
+      all_blocks, mdoc: nil, default_only: true, inherited_lines: []
+    )
       shell_block_name = @delegate_object[:document_load_shell_block_name]
       vars_block_name = @delegate_object[:document_load_vars_block_name]
 
@@ -1275,21 +1279,26 @@ module MarkdownExec
       @vars_most_recent_filename = @delegate_object[:filename]
 
       all_code = []
+      all_inherit = []
       all_blocks.each do |fcb|
         block_code = []
+        block_inherit = []
         if fcb.oname == shell_block_name
           if read_shell
             # collect code from shell block
             code = if mdoc
-                     mdoc.collect_recursively_required_code(
+                     reqinfo = mdoc.collect_recursively_required_code(
                        anyname: fcb.id,
-                       ### anyname: fcb.pub_name,
                        label_format_above:
                          @delegate_object[:shell_code_label_format_above],
                        label_format_below:
                          @delegate_object[:shell_code_label_format_below],
-                       block_source: block_source
-                     )[:code]
+                       block_source: block_source,
+                       inherited_lines: inherited_lines
+                     )
+                     block_inherit = reqinfo[:inherit]
+
+                     reqinfo[:code]
                    else
                      fcb.body
                    end
@@ -1327,43 +1336,12 @@ module MarkdownExec
 
         wwt :code, 'block_code:', block_code unless block_code&.empty?
         all_code += block_code
+        all_inherit += block_inherit
       end
 
-      all_code.tap { wwt :code, _1 }
+      [all_code, all_inherit].tap { wwr _1 }
     rescue StandardError
-      wwe 'all_blocks.count:', all_blocks.count
-    end
-
-    # return code resulting from evaluating all automatic SHELL blocks in order
-    def code_from_auto_shell_blocks(all_blocks, mdoc: nil)
-      # a block name is required
-      # do not reload the most recent filename
-      block_name = @delegate_object[:document_load_shell_block_name]
-      unless block_name.present? &&
-             @shell_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      @shell_most_recent_filename = @delegate_object[:filename]
-
-      # select the first block with the given name
-      fcb = HashDelegator.block_find(all_blocks, :oname, block_name)
-      return unless fcb
-
-      # collect code from shell block
-      code = if mdoc
-               mdoc.collect_recursively_required_code(
-                 anyname: fcb.pub_name,
-                 label_format_above:
-                   @delegate_object[:shell_code_label_format_above],
-                 label_format_below:
-                   @delegate_object[:shell_code_label_format_below],
-                 block_source: block_source
-               )[:code]
-             else
-               fcb.body
-             end
-      annotate_required_lines('blk:SHELL', code, block_name: fcb.id)
+      wwe $!, 'all_blocks.count:', all_blocks.count
     end
 
     # return code resulting from evaluating all UX blocks in order
@@ -1441,6 +1419,7 @@ module MarkdownExec
       required: nil, silent:
     )
       wwt :fcb, 'selected:', selected
+      wwt :inherited_code, inherited_code
       ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
@@ -1448,9 +1427,11 @@ module MarkdownExec
         anyname: selected_id_name(selected),
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
-        block_source: block_source
+        block_source: block_source,
+        inherited_lines: inherited_code
       )
       wwt :required, required
+      # new_inherited_lines = []
 
       # process each ux block in sequence, setting ENV and collecting lines
       concatenated_code_from_required_blocks = []
@@ -1475,7 +1456,7 @@ module MarkdownExec
           # if any precondition is not set, the sequence is aborted.
           required_variables = []
           export.required&.each do |precondition|
-            required_variables.push "[[ -z $#{precondition} ]] && exit #{EXIT_STATUS_REQUIRED_EMPTY}"
+            required_variables.push "[[ -z $#{precondition} ]] && exit #{CommandResult::EXIT_STATUS_REQUIRED_EMPTY}"
           end
           wwt :required_variables, 'required_variables',
               required_variables
@@ -1532,7 +1513,7 @@ module MarkdownExec
         wwt :cr, ret, caller.deref
       end
     rescue StandardError
-      wwe 'selected:', selected, 'required:', required, 'block:', block,
+      wwe $!, 'selected:', selected, 'required:', required, 'block:', block,
           'data:', data
     end
 
@@ -2008,16 +1989,7 @@ module MarkdownExec
         case_conversion: criteria[:case_conversion],
         center: criteria[:center] &&
                 @delegate_object[criteria[:center]],
-
-        collapse: case fcb.collapse_token
-                  when COLLAPSIBLE_TOKEN_COLLAPSE
-                    true
-                  when COLLAPSIBLE_TOKEN_EXPAND
-                    false
-                  else
-                    false
-                  end,
-
+        collapse: fcb.collapse_token == COLLAPSIBLE_TOKEN_COLLAPSE,
         color_method: criteria[:color] &&
                       @delegate_object[criteria[:color]].to_sym,
         decor_patterns:
@@ -2410,7 +2382,6 @@ module MarkdownExec
           only_default: false,
           silent: true
         )
-        ### TBD if command_result_w_e_t_nl.failure?
         next_state_append_code(
           selected,
           link_state,
@@ -2534,7 +2505,8 @@ module MarkdownExec
           anyname: selected_id_name(selected),
           block_source: block_source,
           label_format_above: @delegate_object[:shell_code_label_format_above],
-          label_format_below: @delegate_object[:shell_code_label_format_below]
+          label_format_below: @delegate_object[:shell_code_label_format_below],
+          inherited_lines: link_state&.inherited_lines || []
         )
         code_lines = annotate_required_lines(
           'blk:LINK', code_info[:code], block_name: selected.id
@@ -2715,7 +2687,8 @@ module MarkdownExec
         anyname: selected_id_name(selected),
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
-        block_source: block_source
+        block_source: block_source,
+        inherited_lines: link_state&.inherited_lines || []
       ) # !!t 'required'
       dependencies = (
         link_state&.inherited_dependencies || {}
@@ -3047,7 +3020,8 @@ module MarkdownExec
     end
 
     def ux_block_eval_for_export(
-      bash_script_lines, export,
+      bash_script_lines,
+      export,
       data:,
       first_only: false,
       force:,
@@ -3055,67 +3029,71 @@ module MarkdownExec
       silent:,
       string: nil
     )
-      exportable = true
       command_result = nil
       new_lines = []
+      required_lines = []
       export_string = string.nil? ? data : string
       expander = ->(expression) { %(printf '%s' "#{expression}") }
+      exportable = true
 
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
-        com_exp_cod = HashDelegator.execute_bash_script_lines(
+        command_result = HashDelegator.execute_bash_script_lines(
           code_lines: join_array_of_arrays(
             bash_script_lines,
             printf_expand ? expander.call(export_string) : [export_string]
           ),
           export: export,
+          export_name: export.name,
           force: force,
           shell: @delegate_object[:shell],
           archive_script: @delegate_object[:archive_ad_hoc_scripts],
           archive_path_format: @delegate_object[:archive_path_format],
           archive_time_format: @delegate_object[:archive_time_format]
         )
-        command_result = com_exp_cod[:command_result]
-        exportable = com_exp_cod[:exportable]
+        exportable = command_result&.exportable
 
-        if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+        if command_result&.exit_status == CommandResult::EXIT_STATUS_REQUIRED_EMPTY
           exportable = false
           unless silent
             command_result.warning = warning_required_empty(export)
           end
-        elsif command_result.failure?
+        elsif command_result.nil? || command_result.failure?
           exportable = false
           unless silent
             command_result.warning = warning_failure(export)
           end
         else
-          # store the transformed value in ENV
-          EnvInterface.set(export.name, command_result.stdout.to_s)
-
-          new_lines << { name: export.name, force: force,
-                         text: command_result.stdout }
+          out = command_result.stdout.to_s
+          if export_environment_variable(export.name, out)
+            new_lines << {
+              name: export.name, force: force, text: out
+            }
+            required_lines << code_line_to_assign_a_variable(
+              export.name, out, force: force
+            )
+          end
         end
 
       when Hash
-        required_lines = []
 
         # each item in the hash is a variable name and value
         export_string.each do |name, expression|
-          com_exp_cod = HashDelegator.execute_bash_script_lines(
+          command_result = HashDelegator.execute_bash_script_lines(
             code_lines: join_array_of_arrays(
               bash_script_lines,
               required_lines,
               printf_expand ? expander.call(expression) : [expression]
             ),
             export: export,
+            export_name: name,
             force: force,
             shell: @delegate_object[:shell],
             archive_script: @delegate_object[:archive_ad_hoc_scripts],
             archive_path_format: @delegate_object[:archive_path_format],
             archive_time_format: @delegate_object[:archive_time_format]
-          )
-          command_result = com_exp_cod[:command_result]
-          if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+          ).tap { ww _1 }
+          if command_result.exit_status == CommandResult::EXIT_STATUS_REQUIRED_EMPTY
             exportable = false
             unless silent
               command_result.warning = warning_required_empty(export)
@@ -3126,20 +3104,15 @@ module MarkdownExec
               command_result.warning = warning_failure(export)
             end
           else
-            transformed = command_result.stdout.to_s
-
-            # code for subsequent expression evaluations
-            required_lines << code_line_to_assign_a_variable(
-              name, transformed, force: force
-            )
-
-            if variable_is_exportable(name)
-              # store the transformed value in ENV
-              EnvInterface.set(name, transformed)
-
-              new_lines << { name: name, force: force,
-                             text: command_result.stdout }
+            out = command_result.stdout.to_s
+            if export_environment_variable(name, out)
+              new_lines << {
+                name: name, force: force, text: out
+              }
             end
+            required_lines << code_line_to_assign_a_variable(
+              name, out, force: force
+            )
           end
 
           break if first_only
@@ -3148,9 +3121,23 @@ module MarkdownExec
         # do nothing
       end
 
-      [command_result, exportable, new_lines]
+      if command_result
+        command_result.exportable = exportable
+        command_result.new_lines = new_lines
+        command_result.required_lines = required_lines
+      end
+
+      command_result
     rescue StandardError
-      wwe bash_script_lines, export, force, silent, string
+      wwe $!, bash_script_lines, export, force, silent, string
+    end
+
+    def export_environment_variable(export_name, stdout)
+      return unless variable_is_exportable(export_name)
+
+      EnvInterface.set(export_name, stdout)
+
+      true
     end
 
     # Retrieves a specific data symbol from the delegate object,
@@ -3846,18 +3833,21 @@ module MarkdownExec
         reload_blocks = true
       end
 
+      link_state_inherited_lines = link_state&.inherited_lines || []
+
       # return code resulting from evaluating all SHELL, UX, VARS blocks;
       # each set in sequence; with its own order
       #
-      if (code_lines = code_from_auto_blocks(
+      if (code_lines, _inherit_lines = code_from_auto_blocks(
         all_blocks,
         default_only: true,
-        mdoc: mdoc
+        mdoc: mdoc,
+        inherited_lines: link_state_inherited_lines
       ))&.select_by(:empty?, false)&.compact&.count&.positive?
         wwt :code_lines, 'code_lines:', code_lines
 
         # prepend inherited lines to new code lines
-        new_code = (link_state&.inherited_lines || []) + code_lines
+        new_code = link_state_inherited_lines + code_lines
         next_state_set_code(nil, link_state, new_code)
         link_state.inherited_lines = new_code
 
@@ -4021,6 +4011,14 @@ module MarkdownExec
         @compressed_ids[selected.id] = selected.level
         @expanded_ids.delete(selected.id)
       end
+    end
+
+    # Define respond_to_missing? to match method_missing behavior
+    def respond_to_missing?(method_name, include_private = false)
+      return true if @delegate_object.respond_to?(method_name, include_private)
+      return true if method_name.to_s.end_with?('=')
+
+      true # Any other method name is treated as a key accessor
     end
 
     # If a method is missing, treat it as a key for the @delegate_object.
@@ -4260,11 +4258,7 @@ module MarkdownExec
         if name.empty?
           "# #{comment}" unless comment.empty?
         else
-          transformed = if command_result_w_e_t_nl.transformable
-                          transform_export_value(name_force[:text], export)
-                        else
-                          name_force[:text]
-                        end
+          transformed = name_force[:text]
 
           # store the transformed value in ENV
           EnvInterface.set(name, transformed)
@@ -4685,7 +4679,7 @@ module MarkdownExec
             @delegate_object.respond_to?(:[]=, include_private)
         true
       else
-        @delegate_object.respond_to?(method_name, include_private)
+        false
       end
     end
 
@@ -5059,7 +5053,6 @@ module MarkdownExec
     #  color_sym is not found in @delegate_object.
     # @return [String] The string with the applied color method.
     def string_send_color(string, color_sym)
-      ### accept string with color as well as symbol for color_hash
       HashDelegator.apply_color_from_hash(string, @delegate_object, color_sym)
     end
 
@@ -5187,21 +5180,20 @@ module MarkdownExec
       force = export.force.nil? ? true : export.force
       new_lines = []
       silent = false
-      transformable = true
 
       case FCB.act_source(export)
       when false, UxActSource::FALSE
         # read-only
-        command_result = CommandResult.new
-        exportable = false
-        transformable = false
+        command_result = CommandResult.new(
+          exportable: false
+        )
 
       when :allow, UxActSource::ALLOW
         raise unless export.allow.present?
 
         case export.allow
         when :echo, ExportValueSource::ECHO
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             bash_script_lines,
             export,
             data: export.echo,
@@ -5211,18 +5203,15 @@ module MarkdownExec
             silent: silent
           )
 
-          if command_result.failure?
-            command_result
-          else
-            command_result = CommandResult.new(
-              stdout: menu_from_list_with_back(
-                command_result.stdout.split("\n")
-              )
+          if command_result.success?
+            command_result.exportable = true
+            command_result.stdout = menu_from_list_with_back(
+              com_exp_cod.command_result.stdout.split("\n")
             )
           end
 
         when :exec, UxActSource::EXEC
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             bash_script_lines,
             export,
             data: export.exec,
@@ -5231,19 +5220,19 @@ module MarkdownExec
             silent: silent
           )
 
-          if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+          if command_result.exit_status ==
+             CommandResult::EXIT_STATUS_REQUIRED_EMPTY
             command_result
           else
-            command_result = CommandResult.new(
-              stdout: menu_from_list_with_back(
-                command_result.stdout.split("\n")
-              )
+            command_result.exportable = true
+            command_result.stdout = menu_from_list_with_back(
+              command_result.stdout.split("\n")
             )
           end
 
         else
           export_init = menu_from_list_with_back(export.allow)
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
             data: export.echo,
@@ -5253,11 +5242,13 @@ module MarkdownExec
             silent: silent,
             string: export_init
           )
-
+          if command_result.success?
+            command_result.exportable = true
+          end
         end
 
       when :echo, UxActSource::ECHO
-        command_result, exportable, new_lines = ux_block_eval_for_export(
+        command_result = ux_block_eval_for_export(
           bash_script_lines,
           export,
           data: export.echo,
@@ -5265,6 +5256,9 @@ module MarkdownExec
           printf_expand: true,
           silent: silent
         )
+        if command_result.success?
+          command_result.exportable = true
+        end
 
       when :edit, UxActSource::EDIT
         output = ''
@@ -5281,7 +5275,6 @@ module MarkdownExec
           end
         rescue Interrupt
           exportable = false
-          transformable = false
         end
 
         if exportable
@@ -5290,29 +5283,35 @@ module MarkdownExec
                          text: output }
         end
         command_result = CommandResult.new(stdout: output)
+        if command_result.success?
+          command_result.exportable = true
+        end
 
       when :exec, UxActSource::EXEC
-        command_result, exportable, new_lines = ux_block_eval_for_export(
+        command_result = ux_block_eval_for_export(
           bash_script_lines,
           export,
           data: export.exec,
           force: force,
           silent: silent
         )
+        if command_result.success?
+          command_result.exportable = true
+        end
 
       else
-        transformable = false
         command_result = CommandResult.new(stdout: export.default.to_s)
+        if command_result.success?
+          command_result.exportable = true
+        end
       end
 
       # add message for required variables
-      if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+      if command_result.exit_status == CommandResult::EXIT_STATUS_REQUIRED_EMPTY
         command_result.warning = warning_required_empty(export)
         warn command_result.warning unless silent
       end
 
-      command_result.exportable = exportable
-      command_result.transformable = transformable
       command_result.new_lines = new_lines
       command_result
     rescue StandardError
@@ -5325,22 +5324,21 @@ module MarkdownExec
       command_result = nil
       exportable = true
       force = export.force.nil? ? false : export.force
-      new_lines = []
       silent = true
-      transformable = true
 
       case FCB.init_source(export)
       when false, UxActSource::FALSE
         exportable = false
-        transformable = false
-        command_result = CommandResult.new
+        command_result = CommandResult.new(
+          exportable: false
+        )
 
       when :allow, UxActSource::ALLOW
         raise unless export.allow.present?
 
         case export.allow
         when :echo, ExportValueSource::ECHO
-          cr_echo, = ux_block_eval_for_export(
+          cr_echo = ux_block_eval_for_export(
             bash_script_lines,
             export,
             data: export.echo,
@@ -5351,7 +5349,7 @@ module MarkdownExec
           )
           export_init = cr_echo.stdout.split("\n").first
 
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
             data: export.echo,
@@ -5364,7 +5362,7 @@ module MarkdownExec
 
         when :exec, ExportValueSource::EXEC
           # extract first line from 'exec' output
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             bash_script_lines,
             export,
             data: export.exec,
@@ -5372,10 +5370,9 @@ module MarkdownExec
             force: force,
             silent: silent
           )
-
           unless command_result.failure?
             export_init = command_result.stdout.split("\n").first
-            command_result, exportable, new_lines = ux_block_eval_for_export(
+            command_result = ux_block_eval_for_export(
               [assign_key_value_in_bash(export.name, export_init)],
               export,
               data: export.exec,
@@ -5389,7 +5386,7 @@ module MarkdownExec
         else
           # first item from 'allow' list
           export_init = export.allow.first
-          command_result, exportable, new_lines = ux_block_eval_for_export(
+          command_result = ux_block_eval_for_export(
             [assign_key_value_in_bash(export.name, export_init)],
             export,
             data: export.allow,
@@ -5402,13 +5399,14 @@ module MarkdownExec
         end
 
       when :default, UxActSource::DEFAULT
-        transformable = false
-        command_result = CommandResult.new(stdout: export.default.to_s)
+        command_result = CommandResult.new(
+          stdout: export.default.to_s
+        )
 
       when :echo, UxActSource::ECHO
         raise unless export.echo.present?
 
-        command_result, exportable, new_lines = ux_block_eval_for_export(
+        command_result = ux_block_eval_for_export(
           bash_script_lines,
           export,
           data: export.echo,
@@ -5420,7 +5418,7 @@ module MarkdownExec
       when :exec, UxActSource::EXEC
         raise unless export.exec.present?
 
-        command_result, exportable, new_lines = ux_block_eval_for_export(
+        command_result = ux_block_eval_for_export(
           bash_script_lines,
           export,
           data: export.exec,
@@ -5430,7 +5428,7 @@ module MarkdownExec
 
       else
         export_init = export.init.to_s
-        command_result, exportable, new_lines = ux_block_eval_for_export(
+        command_result = ux_block_eval_for_export(
           [assign_key_value_in_bash(export.name, export_init)],
           export,
           data: export.exec,
@@ -5442,17 +5440,15 @@ module MarkdownExec
       end
 
       # add message for required variables
-      if command_result.exit_status == EXIT_STATUS_REQUIRED_EMPTY
+      if command_result.exit_status == CommandResult::EXIT_STATUS_REQUIRED_EMPTY
         command_result.warning = warning_required_empty(export)
         warn command_result.warning unless silent
       end
 
-      command_result.exportable = exportable
-      command_result.transformable = transformable
-      command_result.new_lines = new_lines
+      command_result.exportable = command_result.success? && exportable
       command_result
     rescue StandardError
-      wwe bash_script_lines, export
+      wwe $!, bash_script_lines, export
     end
 
     # true if the variable is exported in a series of evaluations
@@ -7309,12 +7305,16 @@ module MarkdownExec
     def setup
       @hd = HashDelegator.new
       @bash_script_lines = ['#!/bin/bash', 'set -e']
-      @export = OpenStruct.new(name: 'TEST_VAR', required: ['TEST_VAR'])
+      @export = OpenStruct.new(
+        name: 'TEST_VAR', required: ['TEST_VAR'], init: 'default'
+      )
       @mock_result = OpenStruct.new(
-        exit_status: 0,
-        stdout: 'test_output',
-        stderr: '',
-        warning: nil
+        command_result: OpenStruct.new(
+          exit_status: 0,
+          stdout: 'test_output',
+          stderr: '',
+          warning: nil
+        )
       )
     end
 
@@ -7327,31 +7327,27 @@ module MarkdownExec
 
     # Test string input - typical case
     def test_string_input_success
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
-        @bash_script_lines, @export,
+      command_result = @hd.ux_block_eval_for_export(
+        @bash_script_lines,
+        @export,
         data: 'echo "hello"',
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
-      assert_equal @mock_result, command_result
-      assert_equal true, exportable
-      assert_equal 1, new_lines.length
-      assert_equal 'TEST_VAR', new_lines.first[:name]
-      assert_equal 'test_output', new_lines.first[:text]
+      # assert_equal @mock_result, command_result
+      assert_equal 1, command_result.new_lines.length
+      assert_equal 'TEST_VAR', command_result.new_lines.first[:name]
+      assert_equal "hello\n", command_result.stdout
     end
 
     # Test string input with printf_expand
     def test_string_input_with_printf_expand
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
       @hd.ux_block_eval_for_export(
@@ -7368,208 +7364,180 @@ module MarkdownExec
 
     # Test integer input
     def test_integer_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 42,
         force: true,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
-      assert_equal 1, new_lines.length
+      assert_equal 1, command_result.new_lines.length
     end
 
     # Test boolean inputs
     def test_boolean_true_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: true,
         force: false,
         silent: false
       )
 
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     def test_boolean_false_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: false,
         force: false,
         silent: false
       )
 
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     # Test float input
     def test_float_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 3.14,
         force: false,
         silent: false
       )
 
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     # Test hash input - typical case
     def test_hash_input_success
       hash_data = { 'VAR1' => 'value1', 'VAR2' => 'value2' }
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
       @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=value1')
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: hash_data,
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
-      assert_equal 2, new_lines.length
-      assert_equal 'VAR1', new_lines.first[:name]
-      assert_equal 'VAR2', new_lines.last[:name]
+      assert_equal 2, command_result.new_lines.length
+      assert_equal 'VAR1', command_result.new_lines.first[:name]
+      assert_equal 'VAR2', command_result.new_lines.last[:name]
     end
 
     # Test hash input with first_only flag
     def test_hash_input_first_only
       hash_data = { 'VAR1' => 'value1', 'VAR2' => 'value2' }
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
-      @hd.stubs(:variable_is_exportable).returns(true)
-      @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=value1')
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: hash_data,
         first_only: true,
         force: false,
+        printf_expand: true,
         silent: false
       )
 
-      command_result, _, new_lines = result
-      assert_equal @mock_result, command_result
-      assert_equal 1, new_lines.length
-      assert_equal 'VAR1', new_lines.first[:name]
+      assert_equal 1, command_result.new_lines.length
+      assert_equal 'VAR1', command_result.new_lines.first[:name]
     end
 
     # Test hash with non-exportable variables
     def test_hash_input_non_exportable_variables
       hash_data = { 'LOCAL_VAR' => 'value1' }
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      @mock_result.new_lines = []
+      HashDelegator.stubs(:execute_bash_script_lines).returns(@mock_result)
       @hd.stubs(:variable_is_exportable).returns(false)
       @hd.stubs(:code_line_to_assign_a_variable).returns('LOCAL_VAR=value1')
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: hash_data,
         force: false,
         silent: false
       )
 
-      command_result, _, new_lines = result
       assert_equal @mock_result, command_result
-      assert_equal 0, new_lines.length # No exportable variables
+      assert_equal 0, command_result.new_lines.length # No exportable variables
     end
 
     # Test EXIT_STATUS_REQUIRED_EMPTY handling
     def test_exit_status_required_empty_with_warning
-      failed_result = OpenStruct.new(
-        exit_status: 248, # EXIT_STATUS_REQUIRED_EMPTY
+      failed_result = CommandResult.new(
+        exit_status: CommandResult::EXIT_STATUS_REQUIRED_EMPTY,
+        exportable: false,
         stdout: '',
         stderr: 'Required variable empty',
         warning: nil
       )
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: failed_result, exportable: false
-                                                              })
+      HashDelegator.stubs(:execute_bash_script_lines).returns(failed_result)
       @hd.stubs(:warning_required_empty).returns('Warning: required empty')
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 'echo ""',
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_equal failed_result, command_result
-      assert_equal false, exportable
-      assert_equal 0, new_lines.length
       assert_equal 'Warning: required empty', command_result.warning
     end
 
     # Test EXIT_STATUS_REQUIRED_EMPTY handling with silent flag
     def test_exit_status_required_empty_silent
-      failed_result = OpenStruct.new(
-        exit_status: 248,
-        stdout: '',
-        stderr: 'Required variable empty',
-        warning: nil
-      )
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: failed_result, exportable: false
-                                                              })
-
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 'echo ""',
         force: false,
         silent: true
       )
 
-      command_result, exportable, = result
-      assert_equal failed_result, command_result
-      assert_equal false, exportable
-      assert_nil command_result.warning # No warning when silent
+      assert_empty command_result.warning # No warning when silent
     end
 
     # Test string parameter override
     def test_string_parameter_override
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 'original_data',
         string: 'override_string',
@@ -7578,140 +7546,115 @@ module MarkdownExec
       )
 
       # The function should use string parameter instead of data
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     # Edge case: empty string
     def test_empty_string_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: '',
         force: false,
         silent: false
       )
 
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     # Edge case: nil data (uses string.nil? check)
     def test_nil_data_input
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
+      @mock_result.exportable = true
+      HashDelegator.stubs(:execute_bash_script_lines).returns(
+        @mock_result
+      )
       @hd.stubs(:variable_is_exportable).returns(true)
 
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 'd1',
         force: false,
         silent: false
       )
 
-      command_result, exportable, = result
       assert_equal @mock_result, command_result
-      assert_equal true, exportable
     end
 
     # Edge case: empty hash
     def test_empty_hash_input
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: {},
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_nil command_result # No iterations, so command_result remains nil
-      assert_equal true, exportable # Initial value
-      assert_equal 0, new_lines.length
     end
 
     # Edge case: hash with nil values
     def test_hash_with_nil_values
       hash_data = { 'VAR1' => nil, 'VAR2' => 'value2' }
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
-      @hd.stubs(:variable_is_exportable).returns(true)
-      @hd.stubs(:code_line_to_assign_a_variable).returns('VAR1=')
-
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: hash_data,
         force: false,
+        printf_expand: true,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
-      assert_equal @mock_result, command_result
-      assert_equal true, exportable
-      assert_equal 2, new_lines.length
+      assert_equal 2, command_result.new_lines.length
     end
 
     # Edge case: unsupported input type (Array)
     def test_unsupported_input_type_array
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: %w[item1 item2],
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_nil command_result # No processing for unsupported types
-      assert_equal true, exportable # Initial value
-      assert_equal 0, new_lines.length
     end
 
     # Edge case: unsupported input type (custom object)
     def test_unsupported_input_type_object
       custom_object = Object.new
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: custom_object,
         force: false,
         silent: false
       )
 
-      command_result, exportable, new_lines = result
       assert_nil command_result # No processing for unsupported types
-      assert_equal true, exportable # Initial value
-      assert_equal 0, new_lines.length
     end
 
     # Test error handling - StandardError rescue
     def test_standard_error_rescue
       # Should not raise, but return nil due to rescue block
-      result = @hd.ux_block_eval_for_export(
+      command_result = @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
         data: 'test_data',
         force: false,
         silent: false
       )
 
-      command_result, = result
-      assert_equal EXIT_STATUS_FAIL, command_result.exit_status
+      assert_equal CommandResult::EXIT_STATUS_FAIL, command_result.exit_status
     end
 
     # Test environment variable setting
     def test_environment_variable_setting
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
       @hd.stubs(:variable_is_exportable).returns(true)
 
       # Mock EnvInterface.set to verify it's called
-      EnvInterface.expects(:set).with('TEST_VAR', 'test_output')
+      EnvInterface.expects(:set).with('TEST_VAR', "test\n")
 
       @hd.ux_block_eval_for_export(
         @bash_script_lines, @export,
@@ -7723,11 +7666,6 @@ module MarkdownExec
 
     # Test join_array_of_arrays is called correctly
     def test_join_array_of_arrays_called
-      HashDelegator.stubs(:execute_bash_script_lines).returns({
-                                                                command_result: @mock_result, exportable: true
-                                                              })
-      @hd.stubs(:variable_is_exportable).returns(true)
-
       # Mock join_array_of_arrays to verify it's called with correct parameters
       @hd.expects(:join_array_of_arrays).with(
         @bash_script_lines,

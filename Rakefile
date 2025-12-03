@@ -138,6 +138,7 @@ task :minitest do
     './lib/collapser.rb --verbose',
     './lib/directory_searcher.rb --verbose',
     './lib/evaluate_shell_expressions.rb --verbose',
+    './lib/executed_shell_command.rb --verbose',
     './lib/fcb.rb --verbose',
     './lib/filter.rb --verbose',
     './lib/find_files.rb',
@@ -155,6 +156,7 @@ task :minitest do
     './lib/saved_files_matcher.rb --verbose',
     './lib/table_extractor.rb --verbose',
     './lib/text_analyzer.rb --verbose',
+    './lib/transformed_shell_command.rb --verbose',
     './lib/ww.rb --verbose'
   ]
 

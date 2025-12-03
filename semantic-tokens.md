@@ -65,6 +65,12 @@ When referencing other tokens:
 - `[IMPL:EXAMPLE_IMPLEMENTATION]` - Example implementation [ARCH:EXAMPLE_DECISION] [REQ:EXAMPLE_FEATURE]
 - Add your implementation tokens here
 
+## Test Tokens
+
+### Test Specifications
+- `[TEST:SHELL_COMMAND]` - Comprehensive test suite for ShellCommand class covering execution, memoization, outputs, metadata, and edge cases
+- Add your test tokens here
+
 ## Token Relationships
 
 ### Hierarchical Relationships
@@ -119,4 +125,8 @@ Implementation details are documented in [IMPL:EXAMPLE_IMPLEMENTATION].
 - `[IMPL:SHEBANG_FILTERING]` - Filter shebang lines from processed output
 - `[IMPL:CLI_OPTION_IMPLEMENTATION]` - CLI option implementation in menu system
 - Add your implementation tokens here
+
+### Tests
+- `[TEST:SHELL_COMMAND]` - Comprehensive test suite for ExecutedShellCommand class
+- Add your test tokens here
 
