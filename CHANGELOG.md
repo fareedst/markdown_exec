@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.5.2]
+
+### Added
+
+- Option for hiding shebang lines.
+
+### Changed
+
+- Fix inherited code from activated UX blocks.
+- Improve BATS test names.
+
 ## [3.5.1] - 2025-11-14
 
 ### Added
