@@ -3,7 +3,7 @@ divider4_center: false
 
 dump_blocks_in_file: false     # Dump BlocksInFile (stage 1)
 dump_delegate_object: false    # Dump @delegate_object
-dump_inherited_lines: false    # Dump inherited lines
+dump_context_code: false    # Dump inherited lines
 dump_menu_blocks: false        # Dump MenuBlocks (stage 2)
 dump_selected_block: false     # Dump selected block
 

@@ -9,7 +9,7 @@ load 'test_helper'
 
 @test 'displays inherited lines in menu' {
   spec_mde_xansi_dname_doc_blocks_expect docs/dev/block-type-ux-echo.md \
-   '(menu_with_inherited_lines)' \
+   '(menu_with_context_code)' \
    '[[ -z $VAR ]] && VAR=markdown_exec_VAR=markdown_exec_IAB='
 }
 

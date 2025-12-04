@@ -29,7 +29,7 @@ ENTITY='Pongo tapanuliensis,Pongo'
 ```
 /
 / This block is not visible. Execute to display the inherited lines for testing.
-```opts :(menu_with_inherited_lines)
-menu_with_inherited_lines: true
+```opts :(menu_with_context_code)
+menu_with_context_code: true
 ```
 @import bats-document-configuration.md

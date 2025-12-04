@@ -28,7 +28,7 @@ VAULT2
 
 @import example-document-opts.md
 ```opts :(document_opts)
-dump_inherited_lines: true
+dump_context_code: true
 execute_in_own_window: false
 output_execution_report: false
 output_execution_summary: false

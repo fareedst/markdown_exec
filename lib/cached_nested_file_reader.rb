@@ -53,11 +53,12 @@ class CachedNestedFileReader
   def error_handler(name = '', opts = {})
     Exceptions.error_handler(
       "CachedNestedFileReader.#{name} -- #{$!}",
+      caller.deref(6),
       opts
     )
   end
 
-  def warn_format(name, message, opts = {})
+  def self.warn_format(name, message, opts = {})
     Exceptions.warn_format(
       "CachedNestedFileReader.#{name} -- #{message}",
       opts
@@ -113,7 +114,7 @@ class CachedNestedFileReader
 
         # apply substitutions to the @import line
         line_sub1 = apply_line_substitutions(line, substitutions,
-                                                    use_template_delimiters)
+                                             use_template_delimiters)
 
         # parse the @import line
         Regexp.new(@import_directive_line_pattern) =~ line_sub1
@@ -197,8 +198,10 @@ class CachedNestedFileReader
     wwt :read_document_code, 'processed_lines:', processed_lines
     @file_cache[cache_key] = processed_lines
   rescue Errno::ENOENT => err
-    warn_format('readlines', "#{err} @@ #{context}",
-                { abort: true })
+    CachedNestedFileReader.warn_format(
+      'readlines', "#{err} @@ #{context}",
+      { abort: true }
+    )
   rescue StandardError
     wwe $!
   end
@@ -327,7 +330,7 @@ class CachedNestedFileReader
   # Matches the beginning of the first line as '#!' - anything after that matches a shebang
   def is_shebang_line?(line, is_first_line)
     return false unless is_first_line
-    
+
     line.start_with?('#!')
   end
 end
@@ -542,7 +545,7 @@ class CachedNestedFileReaderTest < Minitest::Test
     )
 
     result = reader_with_hide.readlines(file_with_shebang.path).map(&:to_s)
-    assert_equal ['Line1', 'Line2'], result, 'Shebang line should be filtered when hide_shebang is true'
+    assert_equal %w[Line1 Line2], result, 'Shebang line should be filtered when hide_shebang is true'
 
     file_with_shebang.close
     file_with_shebang.unlink
@@ -633,7 +636,7 @@ class CachedNestedFileReaderTest < Minitest::Test
     )
 
     result = reader_with_hide.readlines(file_without_shebang.path).map(&:to_s)
-    assert_equal ['Line1', 'Line2', 'Line3'], result, 'File without shebang should work normally'
+    assert_equal %w[Line1 Line2 Line3], result, 'File without shebang should work normally'
 
     file_without_shebang.close
     file_without_shebang.unlink

@@ -28,7 +28,7 @@ mode: replace
 /
 @import bats-document-configuration.md
 ```opts :(document_opts)
-dump_inherited_lines: true
+dump_context_code: true
 # menu_for_saved_lines: true
 
 screen_width: 64

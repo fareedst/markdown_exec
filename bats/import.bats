@@ -20,5 +20,5 @@ load 'test_helper'
   BATS_SAFE=_
   spec_mde_args_expect docs/dev/import.md \
    --list-block-message id --list-blocks \
-   'ItrBlkFrmNstFls:1¤./docs/dev/specs-import.md:0_ItrBlkFrmNstFls:4¤./docs/dev/specs-import.md:3_ItrBlkFrmNstFls:7¤./docs/dev/specs-import.md:6'
+   'IBNF:1¤./docs/dev/specs-import.md:0_IBNF:4¤./docs/dev/specs-import.md:3_IBNF:7¤./docs/dev/specs-import.md:6'
 }

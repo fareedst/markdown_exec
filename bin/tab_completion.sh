@@ -44,7 +44,7 @@ _mde() {
             
               --dump-inherited-dependencies) COMPREPLY="f"; return 0 ;;
             
-              --dump-inherited-lines) COMPREPLY="f"; return 0 ;;
+              --dump-context-code) COMPREPLY="f"; return 0 ;;
             
               --dump-menu-blocks) COMPREPLY="f"; return 0 ;;
             
@@ -110,7 +110,7 @@ _mde() {
   # present matching option names
   #
   if [[ ${cur} == -* ]] ; then
-    opts=("--block-name" "--blocks" "--config" "--debug" "--dig" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block-names" "--dump-inherited-dependencies" "--dump-inherited-lines" "--dump-menu-blocks" "--dump-selected-block" "--execute-in-own-window" "--exit" "--filename" "--find" "--find-path" "--help" "--history" "--how" "--list-blocks" "--list-blocks-eval" "--list-blocks-message" "--list-blocks-type" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--format" "--list-recent-output" "--list-recent-scripts" "--load-code" "--mine" "--open" "--output-script" "--output-stdout" "--path" "--pause-after-script-execution" "--probe" "--publish-document-file-mode" "--publish-document-file-name" "--pwd" "--run-last-script" "--sift" "--tab-completions" "--user-must-approve" "--version" "--display-level")
+    opts=("--block-name" "--blocks" "--config" "--debug" "--dig" "--dump-blocks-in-file" "--dump-delegate-object" "--dump-dependencies" "--dump-inherited-block-names" "--dump-inherited-dependencies" "--dump-context-code" "--dump-menu-blocks" "--dump-selected-block" "--execute-in-own-window" "--exit" "--filename" "--find" "--find-path" "--help" "--history" "--how" "--list-blocks" "--list-blocks-eval" "--list-blocks-message" "--list-blocks-type" "--list-count" "--list-default-env" "--list-default-yaml" "--list-docs" "--format" "--list-recent-output" "--list-recent-scripts" "--load-code" "--mine" "--open" "--output-script" "--output-stdout" "--path" "--pause-after-script-execution" "--probe" "--publish-document-file-mode" "--publish-document-file-name" "--pwd" "--run-last-script" "--sift" "--tab-completions" "--user-must-approve" "--version" "--display-level")
     COMPREPLY=( $(compgen -W "$(printf "'%s' " "${opts[@]}")" -- "${cur}") )
 
     return 0
@@ -145,7 +145,7 @@ _mde() {
         
           --dump-inherited-dependencies) COMPREPLY=".BOOL."; return 0 ;;
         
-          --dump-inherited-lines) COMPREPLY=".BOOL."; return 0 ;;
+          --dump-context-code) COMPREPLY=".BOOL."; return 0 ;;
         
           --dump-menu-blocks) COMPREPLY=".BOOL."; return 0 ;;
         

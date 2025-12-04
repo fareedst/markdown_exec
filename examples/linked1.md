@@ -2,7 +2,7 @@
 
 @import example-document-opts.md
 ```opts :(document_opts)
-dump_inherited_lines: true
+dump_context_code: true
 pause_after_script_execution: false
 user_must_approve: false
 ```

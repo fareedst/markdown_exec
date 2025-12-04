@@ -258,7 +258,7 @@ export MDE_USER_MUST_APPROVE=1
 # .mde.yml
 save_executed_script: true
 user_must_approve: true
-menu_with_inherited_lines: true
+menu_with_context_code: true
 ```
 </code></pre>
 

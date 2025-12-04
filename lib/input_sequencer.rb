@@ -35,7 +35,7 @@ class InputSequencer
       document_filename: next_state.document_filename || current.document_filename,
       inherited_block_names: next_state.inherited_block_names,
       inherited_dependencies: next_state.inherited_dependencies,
-      inherited_lines: next_state.inherited_lines,
+      context_code: next_state.context_code,
       prior_block_was_link: next_state.prior_block_was_link.nil? ? current.prior_block_was_link : next_state.prior_block_was_link
     )
   # rubocop:disable Style/RescueStandardError
@@ -49,13 +49,13 @@ class InputSequencer
 
   def self.next_link_state(
     block_name: nil, display_menu: nil, document_filename: nil,
-    inherited_lines: nil, keep_code: false, prior_block_was_link: false
+    context_code: nil, keep_code: false, prior_block_was_link: false
   )
     MarkdownExec::LinkState.new(
       block_name: block_name,
       display_menu: display_menu,
       document_filename: document_filename,
-      inherited_lines: inherited_lines,
+      context_code: context_code,
       keep_code: keep_code,
       prior_block_was_link: prior_block_was_link
     )
@@ -96,6 +96,7 @@ class InputSequencer
       if now_menu.display_menu
         # !!b
         break if run_yield(:end_of_cli, &block) == :exit
+
         # !!b
 
         exit_when_bq_empty = false

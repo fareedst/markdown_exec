@@ -4,8 +4,8 @@ echo: $(basename `pwd`)
 name: VAR
 ```
 / This block is not visible. Execute to display the inherited lines for testing.
-```opts :(menu_with_inherited_lines)
-menu_with_inherited_lines: true
+```opts :(menu_with_context_code)
+menu_with_context_code: true
 ```
 / This block is not visible. Execute to set a new value, displayed by the block above.
 ```ux :(VAR_has_count)
@@ -22,6 +22,6 @@ echo: $VAR$VAR
 name: IAB
 ```
 ```opts :(document_opts)
-menu_with_inherited_lines: false
+menu_with_context_code: false
 ```
 @import bats-document-configuration.md

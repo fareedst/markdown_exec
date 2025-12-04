@@ -217,7 +217,7 @@ module HashDelegatorSelf
   #
   # @example Basic execution without export
   #   result, exportable, new_lines = execute_bash_script_lines(
-  #     code_lines: ["echo 'Hello'", "echo 'World'"],
+  #     transient_code: ["echo 'Hello'", "echo 'World'"],
   #     export: nil,
   #     force: false
   #   )
@@ -226,14 +226,14 @@ module HashDelegatorSelf
   # @example Execution with export
   #   export = OpenStruct.new(name: "MY_VAR", exportable: true)
   #   result, exportable, new_lines = execute_bash_script_lines(
-  #     code_lines: ["echo 'Hello World'"],
+  #     transient_code: ["echo 'Hello World'"],
   #     export: export,
   #     force: true
   #   )
   #   # => [CommandResult, true, [{name: "MY_VAR", force: true, text: "Hello World\n"}]]
   #
   def execute_bash_script_lines(
-    code_lines: [],
+    transient_code: [],
     export: nil,
     export_name:,
     force: false,
@@ -243,7 +243,7 @@ module HashDelegatorSelf
     archive_time_format: nil # @delegate_object[:archive_time_format]
   )
     Tempfile.create('script_exec') do |temp_file|
-      temp_file.write(join_code_lines(code_lines))
+      temp_file.write(join_code_lines(transient_code))
       temp_file.close # Close the file before chmod and execution
       File.chmod(0o755, temp_file.path)
 
@@ -282,20 +282,20 @@ module HashDelegatorSelf
         exit_status: tsc.exit_code,
         exportable: exportable_success,
         new_lines: new_lines,
-        script: code_lines,
+        script: transient_code,
         stdout: tsc.transformed_output,
         transformed_shell_command: tsc
       )
     end
   rescue StandardError
-    wwe $!, 'code_lines:', code_lines, 'export:', export
+    wwe $!, 'transient_code:', transient_code, 'export:', export
     # warn "Error executing script: #{err.message}"
     # return failure result
     CommandResult.new(
       exit_status: CommandResult::EXIT_STATUS_FAIL,
       exportable: false,
       new_lines: [],
-      script: code_lines,
+      script: transient_code,
       stdout: ''
     )
   end
@@ -781,7 +781,7 @@ module MarkdownExec
 
       @process_mutex = Mutex.new
       @process_cv = ConditionVariable.new
-      @dml_link_state = Struct.new(:document_filename, :inherited_lines)
+      @dml_link_state = Struct.new(:document_filename, :context_code)
                               .new(@delegate_object[:filename], [])
       @dml_menu_blocks = []
       @fcb_store = [] # all fcbs created
@@ -850,7 +850,7 @@ module MarkdownExec
       add_inherited_lines(
         link_state: link_state,
         menu_blocks: menu_blocks
-      ) if @delegate_object[:menu_with_inherited_lines]
+      ) if @delegate_object[:menu_with_context_code]
 
       # back before exit
       add_back_option(
@@ -969,10 +969,10 @@ module MarkdownExec
     # @param menu_blocks [Array] The array of menu block elements.
     # @param position [Symbol] The position to insert the divider (:initial or :final).
     def append_inherited_lines(link_state:, menu_blocks:, position: top)
-      return unless link_state.inherited_lines_present?
+      return unless link_state.context_code_present?
 
       insert_at_top = @delegate_object[:menu_inherited_lines_at_top]
-      chrome_blocks = link_state.inherited_lines_map do |line|
+      chrome_blocks = link_state.context_code_map do |line|
         formatted = format(@delegate_object[:menu_inherited_lines_format],
                            { line: line })
         persist_fcb(
@@ -1190,7 +1190,7 @@ module MarkdownExec
       occurrence_expressions: nil
     )
       evaluate_shell_expressions(
-        (link_state&.inherited_lines_block || ''),
+        (link_state&.context_code_block || ''),
         commands,
         initial_code_required: initial_code_required,
         occurrence_expressions: occurrence_expressions
@@ -1209,7 +1209,7 @@ module MarkdownExec
           exts: '.out.txt',
           saved_asset_format:
             shell_escape_asset_format(
-              code_lines: @dml_link_state.inherited_lines,
+              transient_code: @dml_link_state.context_code,
               shell: ShellType::BASH
             )
         ).generate_name
@@ -1264,8 +1264,8 @@ module MarkdownExec
     end
 
     # return code resulting from evaluating all automatic blocks in order
-    def code_from_auto_blocks(
-      all_blocks, mdoc: nil, default_only: true, inherited_lines: []
+    def inherited_lines_from_auto_blocks(
+      all_blocks, mdoc: nil, default_only: true, context_code: []
     )
       shell_block_name = @delegate_object[:document_load_shell_block_name]
       vars_block_name = @delegate_object[:document_load_vars_block_name]
@@ -1294,7 +1294,7 @@ module MarkdownExec
                        label_format_below:
                          @delegate_object[:shell_code_label_format_below],
                        block_source: block_source,
-                       inherited_lines: inherited_lines
+                       context_code: context_code
                      )
                      block_inherit = reqinfo[:inherit]
 
@@ -1339,46 +1339,9 @@ module MarkdownExec
         all_inherit += block_inherit
       end
 
-      [all_code, all_inherit].tap { wwr _1 }
+      all_code.tap { wwr _1 }
     rescue StandardError
       wwe $!, 'all_blocks.count:', all_blocks.count
-    end
-
-    # return code resulting from evaluating all UX blocks in order
-    def code_from_auto_ux_blocks(
-      all_blocks,
-      mdoc
-    )
-      # do not reload the most recent filename
-      unless @ux_most_recent_filename != @delegate_object[:filename]
-        return
-      end
-
-      @ux_most_recent_filename = @delegate_object[:filename]
-
-      # select all UX blocks, rejecting non-primary split
-      blocks = select_automatic_ux_blocks(
-        all_blocks.reject(&:is_split_rest?)
-      )
-      return if blocks.empty?
-
-      # collect code from all ux blocks
-      (blocks.each.with_object([]) do |block, merged_options|
-        command_result_w_e_t_nl =
-          code_from_ux_block_to_set_environment_variables(
-            block,
-            mdoc,
-            force: @delegate_object[:ux_auto_load_force_default],
-            only_default: true,
-            silent: true
-          )
-        if command_result_w_e_t_nl.failure?
-          # if a block fails, proceed with next block
-          merged_options
-        else
-          merged_options.push(command_result_w_e_t_nl.new_lines)
-        end
-      end).to_a
     end
 
     # return code resulting from evaluating all automatic VARS blocks in order
@@ -1428,7 +1391,7 @@ module MarkdownExec
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source,
-        inherited_lines: inherited_code
+        context_code: inherited_code
       )
       wwt :required, required
       # new_inherited_lines = []
@@ -1520,12 +1483,12 @@ module MarkdownExec
     # def
     # sets ENV
     def code_from_vars_block_to_set_environment_variables(selected)
-      code_lines = []
+      transient_code = []
       case data = YAML.load(selected.body.join("\n"))
       when Hash
         data.each do |key, value|
           EnvInterface.set(key, value.to_s)
-          code_lines << assign_key_value_in_bash(key, value)
+          transient_code << assign_key_value_in_bash(key, value)
 
           next unless @delegate_object[:menu_vars_set_format].present?
 
@@ -1537,10 +1500,10 @@ module MarkdownExec
           print string_send_color(formatted_string, :menu_vars_set_color)
         end
       end
-      annotate_required_lines('blk:VARS', code_lines, block_name: selected.id)
+      annotate_required_lines('blk:VARS', transient_code, block_name: selected.id)
     rescue StandardError
       wwe 'selected:', selected, 'data:', data, 'key:', key, 'value:', value,
-          'code_lines:', code_lines, 'formatted_string:', formatted_string
+          'transient_code:', transient_code, 'formatted_string:', formatted_string
     end
 
     # make a single line of shell code to assign an escaped value to a variable
@@ -2212,10 +2175,10 @@ module MarkdownExec
         warn format_and_highlight_lines(link_state.inherited_dependencies,
                                         label: 'inherited_dependencies')
       end
-      return unless @delegate_object[:dump_inherited_lines]
+      return unless @delegate_object[:dump_context_code]
 
-      warn format_and_highlight_lines(link_state.inherited_lines,
-                                      label: 'inherited_lines')
+      warn format_and_highlight_lines(link_state.context_code,
+                                      label: 'context_code')
     end
 
     # Opens text in an editor for user modification and
@@ -2330,7 +2293,7 @@ module MarkdownExec
         debounce_reset
 
         execute_block_type_save(
-          code_lines: link_state&.inherited_lines,
+          transient_code: link_state&.context_code,
           selected: selected
         )
 
@@ -2352,7 +2315,7 @@ module MarkdownExec
 
       elsif selected.type == BlockType::OPTS
         debounce_reset
-        code_lines = []
+        transient_code = []
         options_state = read_show_options_and_trigger_reuse(
           link_state: link_state,
           mdoc: @dml_mdoc,
@@ -2361,7 +2324,7 @@ module MarkdownExec
         update_menu_base(options_state.options)
 
         link_state = LinkState.new
-        next_state_append_code(selected, link_state, code_lines)
+        next_state_append_code(selected, link_state, transient_code)
 
       elsif selected.type == BlockType::PORT
         debounce_reset
@@ -2378,7 +2341,7 @@ module MarkdownExec
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
-          inherited_code: @dml_link_state.inherited_lines,
+          inherited_code: @dml_link_state.context_code,
           only_default: false,
           silent: true
         )
@@ -2506,25 +2469,25 @@ module MarkdownExec
           block_source: block_source,
           label_format_above: @delegate_object[:shell_code_label_format_above],
           label_format_below: @delegate_object[:shell_code_label_format_below],
-          inherited_lines: link_state&.inherited_lines || []
+          context_code: link_state&.context_code || []
         )
-        code_lines = annotate_required_lines(
+        transient_code = annotate_required_lines(
           'blk:LINK', code_info[:code], block_name: selected.id
         )
         block_names = code_info[:block_names]
         dependencies = code_info[:dependencies]
       else
         block_names = []
-        code_lines = []
+        transient_code = []
         dependencies = {}
       end
 
       # load key and values from link block into current environment
       #
       if link_block_data[LinkKeys::VARS]
-        code_lines << BashCommentFormatter.format_comment(selected.pub_name)
+        transient_code << BashCommentFormatter.format_comment(selected.pub_name)
         link_block_data[LinkKeys::VARS].each do |key, value|
-          code_lines << assign_key_value_in_bash(key, value)
+          transient_code << assign_key_value_in_bash(key, value)
           EnvInterface.set(key, value.to_s)
         end
       end
@@ -2535,20 +2498,20 @@ module MarkdownExec
         load_filespec = load_filespec_from_expression(load_expr)
         if load_filespec
           begin
-            code_lines += File.readlines(load_filespec,
-                                         chomp: true)
+            transient_code += File.readlines(load_filespec,
+                                             chomp: true)
           rescue Errno::ENOENT
             report_error($ERROR_INFO)
           end
         end
       end
 
-      # if an eval link block, evaluate code_lines and return its standard output
+      # if an eval link block, evaluate transient_code and return its standard output
       #
       if link_block_data.fetch(LinkKeys::EVAL, false) ||
          link_block_data.fetch(LinkKeys::EXEC, false)
-        code_lines = link_block_data_eval(
-          link_state, code_lines, selected, link_block_data,
+        transient_code = link_block_data_eval(
+          link_state, transient_code, selected, link_block_data,
           block_source: block_source,
           shell: @delegate_object[:block_type_default]
         )
@@ -2563,13 +2526,13 @@ module MarkdownExec
         nil
       ) || link_block_data.fetch(LinkKeys::BLOCK, nil) || ''
 
-      code_lines = annotate_required_lines(
-        'blk:LINK', code_lines, block_name: selected.id
+      transient_code = annotate_required_lines(
+        'blk:LINK', transient_code, block_name: selected.id
       )
 
       if link_block_data[LinkKeys::RETURN]
         pop_add_current_code_to_head_and_trigger_load(
-          link_state, block_names, code_lines,
+          link_state, block_names, transient_code,
           dependencies, selected, next_block_name: next_block_name
         )
 
@@ -2582,8 +2545,8 @@ module MarkdownExec
             ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies:
             (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-          inherited_lines: HashDelegator.flatten_and_compact_arrays(
-            link_state&.inherited_lines, code_lines
+          context_code: HashDelegator.flatten_and_compact_arrays(
+            link_state&.context_code, transient_code
           ),
           keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
@@ -2688,7 +2651,7 @@ module MarkdownExec
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source,
-        inherited_lines: link_state&.inherited_lines || []
+        context_code: link_state&.context_code || []
       ) # !!t 'required'
       dependencies = (
         link_state&.inherited_dependencies || {}
@@ -2739,7 +2702,7 @@ module MarkdownExec
         ux_code = command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
 
         HashDelegator.flatten_and_compact_arrays(
-          link_state&.inherited_lines,
+          link_state&.context_code,
           annotate_required_lines(
             'blk:PORT',
             required[:code] + vars_code + ux_code,
@@ -2751,7 +2714,7 @@ module MarkdownExec
       wwe(required[:code], ux_code, { error: $!, callback: $@[0] })
     end
 
-    def execute_block_type_save(code_lines:, selected:)
+    def execute_block_type_save(transient_code:, selected:)
       block_data = HashDelegator.parse_yaml_data_from_body(selected.body)
       directory_glob = if block_data['directory']
                          File.join(
@@ -2772,7 +2735,7 @@ module MarkdownExec
             end
 
             File.write(save_filespec,
-                       HashDelegator.join_code_lines(code_lines))
+                       HashDelegator.join_code_lines(transient_code))
           rescue Errno::ENOENT
             report_error($ERROR_INFO)
           end
@@ -2867,14 +2830,14 @@ module MarkdownExec
     end
 
     def execute_inherited_save(
-      code_lines: @dml_link_state.inherited_lines
+      transient_code: @dml_link_state.context_code
     )
       return unless (save_filespec = save_filespec_from_expression(
         document_name_in_glob_as_file_name
       ))
 
       unless write_file_with_directory_creation(
-        content: HashDelegator.join_code_lines(code_lines),
+        content: HashDelegator.join_code_lines(transient_code),
         filespec: save_filespec
       )
         :break
@@ -2885,14 +2848,14 @@ module MarkdownExec
       @menu_user_clicked_back_link = true
 
       keep_code = @dml_link_state.keep_code
-      inherited_lines = keep_code ? @dml_link_state.inherited_lines_block : nil
+      context_code = keep_code ? @dml_link_state.context_code_block : nil
 
       @dml_link_state = pop_link_history_new_state
 
       {
         block_name: @dml_link_state.block_name,
         document_filename: @dml_link_state.document_filename,
-        inherited_lines: inherited_lines,
+        context_code: context_code,
         keep_code: keep_code
       }
     end
@@ -2920,7 +2883,7 @@ module MarkdownExec
         calc_logged_stdout_filename(block_name: @dml_block_state.block.oname)
       end
       format_and_execute_command(
-        code_lines: required_lines,
+        transient_code: required_lines,
         erls: erls,
         shell: selected_shell(shell)
       )
@@ -3039,7 +3002,7 @@ module MarkdownExec
       case export_string
       when String, Integer, Float, TrueClass, FalseClass
         command_result = HashDelegator.execute_bash_script_lines(
-          code_lines: join_array_of_arrays(
+          transient_code: join_array_of_arrays(
             bash_script_lines,
             printf_expand ? expander.call(export_string) : [export_string]
           ),
@@ -3080,7 +3043,7 @@ module MarkdownExec
         # each item in the hash is a variable name and value
         export_string.each do |name, expression|
           command_result = HashDelegator.execute_bash_script_lines(
-            code_lines: join_array_of_arrays(
+            transient_code: join_array_of_arrays(
               bash_script_lines,
               required_lines,
               printf_expand ? expander.call(expression) : [expression]
@@ -3211,11 +3174,11 @@ module MarkdownExec
     end
 
     def format_and_execute_command(
-      code_lines:,
+      transient_code:,
       erls:,
       shell:
     )
-      formatted_command = code_lines.flatten.join("\n")
+      formatted_command = transient_code.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
                              color_sym: :script_execution_frame_color)
 
@@ -3484,7 +3447,7 @@ module MarkdownExec
         wwt :iterlines, 'nested_line:', nested_line
         update_line_and_block_state(
           nested_line, state, selected_types,
-          source_id: "ItrBlkFrmNstFls:#{index}¤#{nested_line.filename}:#{nested_line.index}",
+          source_id: "IBNF:#{index}¤#{nested_line.filename}:#{nested_line.index}",
           &block
         )
 
@@ -3524,10 +3487,10 @@ module MarkdownExec
       end.compact.flatten(1)
     end
 
-    def link_block_data_eval(link_state, code_lines, selected, link_block_data,
+    def link_block_data_eval(link_state, transient_code, selected, link_block_data,
                              block_source:, shell:)
       all_code = HashDelegator.flatten_and_compact_arrays(
-        link_state&.inherited_lines, code_lines
+        link_state&.context_code, transient_code
       )
       output_lines = []
 
@@ -3546,34 +3509,34 @@ module MarkdownExec
             output_lines.push(line) if line
           end
 
-          if link_block_data.fetch(LinkKeys::EVAL, true)
-            # eval: true
+          output_lines = if link_block_data.fetch(LinkKeys::EVAL, true)
+                           # eval: true
 
-            ## select output_lines that look like assignment or match other specs
-            #
-            output_lines = process_string_array(
-              output_lines,
-              begin_pattern: @delegate_object.fetch(:output_assignment_begin,
-                                                    nil),
-              end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
-              scan1: @delegate_object.fetch(:output_assignment_match, nil),
-              format1: @delegate_object.fetch(:output_assignment_format, nil),
-              name: ''
-            )
+                           ## select output_lines that look like assignment or match other specs
+                           #
+                           process_string_array(
+                             output_lines,
+                             begin_pattern: @delegate_object.fetch(:output_assignment_begin,
+                                                                   nil),
+                             end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+                             scan1: @delegate_object.fetch(:output_assignment_match, nil),
+                             format1: @delegate_object.fetch(:output_assignment_format, nil),
+                             name: ''
+                           )
 
-          else
-            # eval: false
+                         else
+                           # eval: false
 
-            ## select all output_lines
-            #
-            output_lines = process_string_array(
-              output_lines,
-              begin_pattern: @delegate_object.fetch(:output_assignment_begin,
-                                                    nil),
-              end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
-              name: ''
-            )
-          end
+                           ## select all output_lines
+                           #
+                           process_string_array(
+                             output_lines,
+                             begin_pattern: @delegate_object.fetch(:output_assignment_begin,
+                                                                   nil),
+                             end_pattern: @delegate_object.fetch(:output_assignment_end, nil),
+                             name: ''
+                           )
+                         end
         else
           output_lines = `bash #{file.path}`.split("\n")
         end
@@ -3620,7 +3583,7 @@ module MarkdownExec
 
     def link_history_push_and_next(
       curr_block_name:, curr_document_filename:,
-      inherited_block_names:, inherited_dependencies:, inherited_lines:,
+      inherited_block_names:, inherited_dependencies:, context_code:,
       keep_code:,
       next_block_name:, next_document_filename:,
       next_keep_code:,
@@ -3632,7 +3595,7 @@ module MarkdownExec
           document_filename: curr_document_filename,
           inherited_block_names: inherited_block_names,
           inherited_dependencies: inherited_dependencies,
-          inherited_lines: inherited_lines,
+          context_code: context_code,
           keep_code: keep_code
         )
       )
@@ -3643,7 +3606,7 @@ module MarkdownExec
           document_filename: next_document_filename,
           inherited_block_names: inherited_block_names,
           inherited_dependencies: inherited_dependencies,
-          inherited_lines: inherited_lines,
+          context_code: context_code,
           keep_code: next_keep_code
         )
       )
@@ -3833,27 +3796,27 @@ module MarkdownExec
         reload_blocks = true
       end
 
-      link_state_inherited_lines = link_state&.inherited_lines || []
+      link_state_context_code = link_state&.context_code || []
 
       # return code resulting from evaluating all SHELL, UX, VARS blocks;
       # each set in sequence; with its own order
       #
-      if (code_lines, _inherit_lines = code_from_auto_blocks(
+      if (transient_code = inherited_lines_from_auto_blocks(
         all_blocks,
         default_only: true,
         mdoc: mdoc,
-        inherited_lines: link_state_inherited_lines
+        context_code: link_state_context_code
       ))&.select_by(:empty?, false)&.compact&.count&.positive?
-        wwt :code_lines, 'code_lines:', code_lines
+        wwt :transient_code, 'transient_code:', transient_code
 
-        # prepend inherited lines to new code lines
-        new_code = link_state_inherited_lines + code_lines
+        # prepend context code to new transient code
+        new_code = link_state_context_code + transient_code
         next_state_set_code(nil, link_state, new_code)
-        link_state.inherited_lines = new_code
+        link_state.context_code = new_code
 
         reload_blocks = true
       else
-        link_state&.inherited_lines
+        link_state&.context_code
       end
 
       if reload_blocks
@@ -4040,19 +4003,19 @@ module MarkdownExec
       list[(index + 1) % list.size] # Get the next item, wrap around if at the end
     end
 
-    def next_state_append_code(selected, link_state, code_lines,
+    def next_state_append_code(selected, link_state, transient_code,
                                mode: LoadMode::APPEND)
       next_state_set_code(
         selected,
         link_state,
         HashDelegator.flatten_and_compact_arrays(
-          mode == LoadMode::APPEND ? link_state&.inherited_lines : [],
-          code_lines.is_a?(Array) ? code_lines : [] # no code for :ux_exec_prohibited
+          mode == LoadMode::APPEND ? link_state&.context_code : [],
+          transient_code.is_a?(Array) ? transient_code : [] # no code for :ux_exec_prohibited
         )
       )
     end
 
-    def next_state_set_code(selected, link_state, code_lines)
+    def next_state_set_code(selected, link_state, transient_code)
       block_names = []
       dependencies = {}
       link_history_push_and_next(
@@ -4062,7 +4025,7 @@ module MarkdownExec
           ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
         inherited_dependencies:
           (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-        inherited_lines: HashDelegator.flatten_and_compact_arrays(code_lines),
+        context_code: HashDelegator.flatten_and_compact_arrays(transient_code),
         keep_code: link_state&.keep_code,
         next_block_name: '',
         next_document_filename: @delegate_object[:filename],
@@ -4127,7 +4090,7 @@ module MarkdownExec
     end
 
     def pop_add_current_code_to_head_and_trigger_load(
-      link_state, block_names, code_lines,
+      link_state, block_names, transient_code,
       dependencies, selected, next_block_name: nil
     )
       pop = @link_history.pop # updatable
@@ -4139,9 +4102,9 @@ module MarkdownExec
            (pop.inherited_block_names + block_names).sort.uniq,
           inherited_dependencies:
            dependencies.merge(pop.inherited_dependencies || {}), ### merge, not replace, key data
-          inherited_lines:
-           HashDelegator.flatten_and_compact_arrays(pop.inherited_lines,
-                                                    code_lines)
+          context_code:
+           HashDelegator.flatten_and_compact_arrays(pop.context_code,
+                                                    transient_code)
         )
         @link_history.push(next_state)
 
@@ -4157,9 +4120,9 @@ module MarkdownExec
            ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
           inherited_dependencies:
            (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-          inherited_lines:
+          context_code:
            HashDelegator.flatten_and_compact_arrays(
-             link_state&.inherited_lines, code_lines
+             link_state&.context_code, transient_code
            ),
           keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
@@ -4184,7 +4147,7 @@ module MarkdownExec
         document_filename: pop.document_filename,
         inherited_block_names: peek.inherited_block_names,
         inherited_dependencies: peek.inherited_dependencies,
-        inherited_lines: peek.inherited_lines
+        context_code: peek.context_code
       )
     end
 
@@ -4764,7 +4727,7 @@ module MarkdownExec
         filename: filename,
         saved_asset_format:
           shell_escape_asset_format(
-            code_lines: link_state&.inherited_lines,
+            transient_code: link_state&.context_code,
             shell: selected_shell(@delegate_object[:shell])
           )
       ).generate_name
@@ -4933,7 +4896,7 @@ module MarkdownExec
     end
 
     def shell_escape_asset_format(
-      code_lines:,
+      transient_code:,
       enable: @delegate_object[:shell_parameter_expansion],
       raw: @delegate_object[:saved_asset_format],
       shell:
@@ -4948,7 +4911,7 @@ module MarkdownExec
 
       marker = Random.new.rand.to_s
 
-      code = (code_lines || []) + ["echo -n \"#{marker}#{raw}\""]
+      code = (transient_code || []) + ["echo -n \"#{marker}#{raw}\""]
       File.write filespec, HashDelegator.join_code_lines(code)
       File.chmod 0o755, filespec
 
@@ -5484,10 +5447,10 @@ module MarkdownExec
     end
 
     def vux_edit_inherited
-      edited = edit_text(@dml_link_state.inherited_lines_block)
+      edited = edit_text(@dml_link_state.context_code_block)
       return unless edited
 
-      @dml_link_state.inherited_lines =
+      @dml_link_state.context_code =
         annotate_required_lines(
           'blk:EDIT', edited.split("\n"), block_name: 'EDIT'
         )
@@ -5707,7 +5670,7 @@ module MarkdownExec
     def vux_load_code_files_into_state
       return unless @menu_base_options[:load_code].present?
 
-      @dml_link_state.inherited_lines =
+      @dml_link_state.context_code =
         @menu_base_options[:load_code].split(':').map do |path|
           File.readlines(path, chomp: true)
         end.flatten(1)
@@ -5718,7 +5681,7 @@ module MarkdownExec
 
       pop_add_current_code_to_head_and_trigger_load(
         @dml_link_state, inherited_block_names,
-        code_lines, inherited_dependencies, selected
+        transient_code, inherited_dependencies, selected
       )
     end
 
@@ -5727,7 +5690,7 @@ module MarkdownExec
         document_name_in_glob_as_file_name
       ))
 
-      @dml_link_state.inherited_lines_append(
+      @dml_link_state.context_code_append(
         File.readlines(filespec, chomp: true)
       )
     end
@@ -5886,7 +5849,7 @@ module MarkdownExec
       files = document_glob ? Dir.glob(document_glob) : []
       @doc_saved_lines_files = files.count.positive? ? files : []
 
-      lines_count = @dml_link_state.inherited_lines_count
+      lines_count = @dml_link_state.context_code_count
 
       # add menu items (glob, load, save) and enable selectively
       if files.count.positive? || lines_count.positive?
@@ -6011,7 +5974,7 @@ module MarkdownExec
     end
 
     def vux_view_inherited(stream:)
-      stream.puts @dml_link_state.inherited_lines_block
+      stream.puts @dml_link_state.context_code_block
     end
 
     def wait_for_stream_processing
@@ -6104,7 +6067,7 @@ module MarkdownExec
           prefix: @delegate_object[:saved_script_filename_prefix],
           saved_asset_format:
             shell_escape_asset_format(
-              code_lines: @dml_link_state.inherited_lines,
+              transient_code: @dml_link_state.context_code,
               shell: shell
             ),
           time: time_now
@@ -6163,7 +6126,7 @@ module MarkdownExec
         if save_filespec.present?
           File.write(
             save_filespec,
-            HashDelegator.join_code_lines(link_state&.inherited_lines)
+            HashDelegator.join_code_lines(link_state&.context_code)
           )
           @delegate_object[:filename]
         else
@@ -6346,7 +6309,7 @@ module MarkdownExec
         LinkState.new(block_name: 'sample_block',
                       document_filename: 'sample_file',
                       inherited_dependencies: {},
-                      inherited_lines: ['# ', 'KEY="VALUE"'])
+                      context_code: ['# ', 'KEY="VALUE"'])
       )
       assert_equal expected_result,
                    @hd.execute_block_type_link_with_state(
@@ -6528,6 +6491,36 @@ module MarkdownExec
       )
 
       assert_equal ['code line', 'key="value"'], result
+    end
+
+    def test_transient_code_parameter_usage
+      # Test that transient_code parameter is used correctly in execute_bash_script_lines
+      transient_code = ["echo 'test'", "echo 'transient'"]
+      export = OpenStruct.new(exportable: false, validate: //, transform: ->(x) { x })
+      result = HashDelegator.execute_bash_script_lines(
+        transient_code: transient_code,
+        export: export,
+        export_name: 'TEST',
+        shell: '/bin/bash'
+      )
+
+      assert result.is_a?(CommandResult)
+      assert_equal transient_code, result.script
+    end
+
+    def test_transient_code_vs_context_code_separation
+      # Test that transient_code is separate from context_code
+      context_code = ['CONTEXT_VAR="context_value"']
+      transient_code = ['TRANSIENT_VAR="transient_value"']
+
+      # Simulate combining them
+      all_code = HashDelegator.flatten_and_compact_arrays(
+        context_code, transient_code
+      )
+
+      assert_equal 2, all_code.length
+      assert_includes all_code, 'CONTEXT_VAR="context_value"'
+      assert_includes all_code, 'TRANSIENT_VAR="transient_value"'
     end
   end
 

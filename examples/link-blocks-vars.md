@@ -22,7 +22,7 @@ View the current inherited lines.
 The inherited lines can also be displayed automatically within the menu by enabling this option:
 
 ```opts
-menu_with_inherited_lines: true
+menu_with_context_code: true
 ```
 
 ## Setting Variables in the Inherited Lines
@@ -80,7 +80,7 @@ This Link block (YAML) appends the output of the Bash code to the inherited line
 @import example-document-opts.md
 ```opts :(document_opts)
 execute_in_own_window: false
-menu_with_inherited_lines: false
+menu_with_context_code: false
 output_execution_report: false
 output_execution_summary: false
 pause_after_script_execution: true

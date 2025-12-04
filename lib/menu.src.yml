@@ -308,9 +308,9 @@
   :default: false
   :procname: val_as_bool
 
-- :opt_name: dump_inherited_lines
-  :long_name: dump-inherited-lines
-  :env_var: MDE_DUMP_INHERITED_LINES
+- :opt_name: dump_context_code
+  :long_name: dump-context-code
+  :env_var: MDE_DUMP_CONTEXT_CODE
   :description: Display inherited code lines from imported documents (debug/diagnostic output)
   :arg_name: BOOL
   :default: false
@@ -1206,8 +1206,8 @@
   :default: true
   :procname: val_as_bool
 
-- :opt_name: menu_with_inherited_lines
-  :env_var: MDE_MENU_WITH_INHERITED_LINES
+- :opt_name: menu_with_context_code
+  :env_var: MDE_MENU_WITH_CONTEXT_CODE
   :description: Display inherited lines in menu
   :arg_name: BOOL
   :default: false

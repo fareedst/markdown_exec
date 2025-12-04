@@ -2,7 +2,7 @@ Demonstrate setting variable values interactively for use in generated scripts.
 
 @import example-document-opts.md
 ```opts :(document_opts)
-menu_with_inherited_lines: true
+menu_with_context_code: true
 pause_after_script_execution: false
 user_must_approve: false
 ```

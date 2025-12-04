@@ -10,5 +10,5 @@ name: COMMON_NAME
   NAMEV:vq=COMMON_NAME
 @import bats-document-configuration.md
 ```opts :(document_opts)
-dump_inherited_lines: false
+dump_context_code: false
 ```

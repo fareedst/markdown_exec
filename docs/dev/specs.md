@@ -72,7 +72,7 @@ dump_blocks_in_file: false
 dump_dependencies: false
 dump_inherited_block_names: false
 dump_inherited_dependencies: false
-dump_inherited_lines: false
+dump_context_code: false
 dump_menu_blocks: false
 ```
 
@@ -80,5 +80,5 @@ dump_menu_blocks: false
 ```opts :(document_opts) +(disable_dump_*)
 menu_note_color: 'plain'
 menu_with_exit: true
-menu_with_inherited_lines: false
+menu_with_context_code: false
 ```

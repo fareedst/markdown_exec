@@ -15,6 +15,6 @@ name: Common_Name
 ! Common_Name! ${Common_Name}
 @import bats-document-configuration.md
 ```opts :(document_opts)
-dump_inherited_lines: true
+dump_context_code: true
 table_center: false
 ```

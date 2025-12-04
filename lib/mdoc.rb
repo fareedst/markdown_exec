@@ -68,20 +68,38 @@ module MarkdownExec
       @table = table
     end
 
-    def collect_block_code_cann(fcb)
+    # Generates a yq (YAML query) shell command from a call annotation.
+    # The call annotation specifies I/O redirection patterns:
+    # - <$VAR_NAME: read YAML from environment variable, apply expression from block body
+    # - <FILE_NAME: read YAML from file, apply expression from block body
+    # - >$VAR_NAME: write result to environment variable
+    # - >FILE_NAME: write result to file
+    #
+    # @param fcb [FCB] The fenced code block containing the call annotation and body
+    # @return [String] A shell command string that executes the yq query
+    def generate_yq_command_from_call_annotation(fcb)
       body = fcb.body.join("\n")
       xcall = fcb[:cann][1..-2]
+      # match <$VAR_NAME, <FILE_NAME, >$VAR_NAME, >FILE_NAME
       mstdin = xcall.match(/<(?<type>\$)?(?<name>[\-.\w]+)/)
       mstdout = xcall.match(/>(?<type>\$)?(?<name>[\-.\w]+)/)
 
       yqcmd = if mstdin[:type]
+                # when <$VAR_NAME
+                # the value of the variable is the expression to apply to the YAML from the block body.
                 "echo \"$#{mstdin[:name]}\" | yq '#{body}'"
               else
+                # when <FILE_NAME
+                # the block body is the expression to apply to the YAML file.
                 "yq e '#{body}' '#{mstdin[:name]}'"
               end
       if mstdout[:type]
+        # when >$VAR_NAME
+        # set the value of the variable to the result of the expression
         "export #{mstdout[:name]}=$(#{yqcmd})"
       else
+        # when >FILE_NAME
+        # write the result of the expression to the file
         "#{yqcmd} > '#{mstdout[:name]}'"
       end
     end
@@ -170,7 +188,7 @@ module MarkdownExec
     def collect_recursively_required_code(
       anyname:, block_source:,
       label_body: true, label_format_above: nil, label_format_below: nil,
-      inherited_lines: [] ###s
+      context_code: [] ###s
     )
       raise 'unexpected label_body' unless label_body
 
@@ -179,22 +197,22 @@ module MarkdownExec
         blocks = collect_wrapped_blocks(block_search[:blocks])
         # !!t blocks.count
 
-        code_inherit = blocks.map do |fcb|
+        context_transient_codes = blocks.map do |fcb|
           process_block_to_code(
             fcb, block_source,
             label_body, label_format_above, label_format_below,
-            inherited_lines: inherited_lines
+            context_code: context_code
           )
-        end
+        end.tap { ww anyname, _1 }
 
         block_search.merge(
           { block_names: blocks.map(&:pub_name),
-            code: code_inherit.map(&:first).compact.flatten(1).compact,
-            inherit: code_inherit.map(&:last).compact.flatten(1).compact }
+            code: context_transient_codes.map(&:transient_code).compact.flatten(1).compact,
+            inherit: context_transient_codes.map(&:context_code).compact.flatten(1).compact }
         )
       else
         block_search.merge({ block_names: [], code: [], inherit: [] })
-      end
+      end.tap { wwr _1 }
     rescue StandardError
       error_handler('collect_recursively_required_code')
     end
@@ -286,9 +304,7 @@ module MarkdownExec
       # remove
       # . empty chrome between code; edges are same as blanks
       #
-      select_elements_with_neighbor_conditions(selrows) do |prev_element,
-                                                            current,
-                                                            next_element|
+      select_elements_with_neighbor_conditions(selrows) do |prev_element, current, next_element|
         !(current[:chrome] && !current.oname.present?) ||
           !(!prev_element.nil? &&
             prev_element.shell.present? &&
@@ -415,61 +431,64 @@ module MarkdownExec
     # @return [String, Array, nil] The code representation of the block, or nil if the block should be skipped.
     #
     def process_block_to_code(fcb, block_source, label_body, label_format_above,
-                              label_format_below, inherited_lines: [])
+                              label_format_below, context_code: [])
       raise 'unexpected label_body' unless label_body
 
-      new_inherited_lines = []
+      new_context_code = []
 
-      new_code_lines = if fcb[:cann]
-                         collect_block_code_cann(fcb)
-                       elsif fcb[:stdout]
-                         code_for_fcb_body_into_var_or_file(fcb)
-                       elsif [BlockType::OPTS].include? fcb.type
-                         fcb.body # entire body is returned to requesing block
+      new_transient_code = if fcb[:cann]
+                             generate_yq_command_from_call_annotation(fcb)
+                           elsif fcb[:stdout]
+                             code_for_fcb_body_into_var_or_file(fcb)
+                           elsif [BlockType::OPTS].include? fcb.type
+                             fcb.body # entire body is returned to requesing block
 
-                       elsif [BlockType::LINK,
-                              BlockType::LOAD,
-                              BlockType::UX,
-                              BlockType::VARS].include? fcb.type
-                         nil # Vars for all types are collected later
-                       elsif fcb[:chrome] # for Link blocks like History
-                         nil
-                       elsif fcb.type == BlockType::PORT
-                         generate_env_variable_shell_commands(fcb)
-                       elsif label_body
-                         raise 'unexpected type' if fcb.type != BlockType::SHELL
+                           elsif [BlockType::LINK,
+                                  BlockType::LOAD,
+                                  BlockType::UX,
+                                  BlockType::VARS].include? fcb.type
+                             nil # Vars for all types are collected later
+                           elsif fcb[:chrome] # for Link blocks like History
+                             nil
+                           elsif fcb.type == BlockType::PORT
+                             generate_env_variable_shell_commands(fcb)
+                           elsif label_body
+                             raise 'unexpected type' if fcb.type != BlockType::SHELL
 
-                         # BlockType::  SHELL block
-                         if fcb.start_line =~ /@eval/ ###s
-                           command_result = HashDelegator.execute_bash_script_lines(
-                             code_lines: inherited_lines + fcb.body,
-                             export: OpenStruct.new(exportable: true, name: ''),
-                             force: true,
-                             shell: fcb.shell || 'bash'
-                           )
-                           command_result.new_lines.map { _1[:text] }.tap do
-                             if fcb.start_line =~ /@inherit/ ###s
-                               new_inherited_lines = _1
+                             # BlockType::  SHELL block
+                             if fcb.start_line =~ /@eval/ ###s
+                               command_result = HashDelegator.execute_bash_script_lines(
+                                 transient_code: context_code + fcb.body,
+                                 export: OpenStruct.new(exportable: true, name: ''),
+                                 force: true,
+                                 shell: fcb.shell || 'bash'
+                               )
+                               command_result.new_lines.map { _1[:text] }.tap do
+                                 if fcb.start_line =~ /@inherit/ ###s
+                                   new_context_code = _1
+                                 end
+                               end
+
+                             elsif fcb.start_line =~ /@inherit/ ###s
+                               # raw body
+                               ### expansions?
+                               new_context_code = fcb.body
+                               nil # collect later or return as code to inherit
+
+                             else
+                               wrap_block_body_with_labels(
+                                 fcb, block_source,
+                                 label_format_above, label_format_below
+                               )
                              end
+                           else # raw body
+                             fcb.body
                            end
 
-                         elsif fcb.start_line =~ /@inherit/ ###s
-                           # raw body
-                           ### expansions?
-                           new_inherited_lines = fcb.body
-                           nil # collect later or return as code to inherit
-
-                         else
-                           wrap_block_body_with_labels(
-                             fcb, block_source,
-                             label_format_above, label_format_below
-                           )
-                         end
-                       else # raw body
-                         fcb.body
-                       end
-
-      [new_code_lines, new_inherited_lines].tap { wwr _1 }
+      OpenStruct.new(
+        context_code: new_context_code,
+        transient_code: new_transient_code
+      ).tap { wwr _1 }
     end
 
     # Recursively fetches required code blocks for a given list of requirements.
