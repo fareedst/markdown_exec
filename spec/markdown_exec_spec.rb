@@ -456,7 +456,7 @@ RSpec.describe 'MarkdownExec' do
                                    .collect_recursively_required_code(
                                      anyname: 'four',
                                      block_source: block_source
-                                   )[:code]).to eq %w[a b c d]
+                                   )[:transient_code]).to eq %w[a b c d]
   end
 
   xit 'test_list_yield' do
@@ -483,7 +483,7 @@ RSpec.describe 'MarkdownExec' do
                      .collect_recursively_required_code(
                        anyname: block.oname,
                        block_source: block_source
-                     )[:code] }
+                     )[:transient_code] }
            end).to eq([
                         { name: 'one', code: ['a'] },
                         { name: 'two', code: %w[a b] },
@@ -500,7 +500,7 @@ RSpec.describe 'MarkdownExec' do
                      .collect_recursively_required_code(
                        anyname: block.oname,
                        block_source: block_source
-                     )[:code] }
+                     )[:transient_code] }
            end).to eq([
                         { name: 'one', code: %w[a] },
                         { name: 'two', code: %w[a b] },
@@ -727,7 +727,7 @@ RSpec.describe 'MarkdownExec' do
     expect(mdoc_yaml1.collect_recursively_required_code(
       anyname: 'show_fruit_yml',
       block_source: block_source
-    )[:code]).to eq [
+    )[:transient_code]).to eq [
       [
         %q(cat > 'fruit.yml' <<"EOF"),
         'fruit:',
@@ -770,7 +770,7 @@ RSpec.describe 'MarkdownExec' do
     expect(mdoc_yaml2.collect_recursively_required_code(
       anyname: 'show_coins_var',
       block_source: block_source
-    )[:code]).to eq [
+    )[:transient_code]).to eq [
       %(export coins=$(cat <<"EOF"\ncoins:\n  - name: bitcoin\n    price: 21000\n  - name: ethereum\n    price: 1000\nEOF\n)),
       %q(export coins_report=$(echo "$coins" | yq '.coins | map(. | { "name": .name, "price": .price })')),
       %(export coins_report=$(cat <<"EOF"\necho "coins_report:"\necho "${coins_report:-MISSING}"\nEOF\n))

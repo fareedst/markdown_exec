@@ -1,6 +1,6 @@
 / No blocks are evaluated at initialization.
 / When the shell block is activated, the UX block is required.
-```bash :require-a-UX-block +[ux1]
+```bash :require-a-UX-block +[ux1] @context
 ENTITY='Mythical Monkey'
 ```
 / Display variables set in the UX block.
@@ -16,3 +16,7 @@ init: false
 readonly: true
 ```
 @import bats-document-configuration.md
+/```opts :(document_opts)
+/dump_context_code: true
+/menu_for_saved_lines: true
+/```

@@ -245,7 +245,7 @@ class Array
     # exclude vendor and .bundle directories
     # limit the count to 4
     # replace the home directory with a .
-    def deref(count = 4)
+    def deref(count = 6)
       dir_pwd = Dir.pwd
       map(&:deref).reject do |line|
         %r{^/(vendor|\.bundle)/}.match(line)

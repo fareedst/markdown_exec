@@ -1287,7 +1287,7 @@ module MarkdownExec
           if read_shell
             # collect code from shell block
             code = if mdoc
-                     reqinfo = mdoc.collect_recursively_required_code(
+                     required_code = mdoc.collect_recursively_required_code(
                        anyname: fcb.id,
                        label_format_above:
                          @delegate_object[:shell_code_label_format_above],
@@ -1296,9 +1296,9 @@ module MarkdownExec
                        block_source: block_source,
                        context_code: context_code
                      )
-                     block_inherit = reqinfo[:inherit]
+                     block_inherit = required_code[:context_code]
 
-                     reqinfo[:code]
+                     required_code[:transient_code]
                    else
                      fcb.body
                    end
@@ -1378,91 +1378,97 @@ module MarkdownExec
     # set ENV value for the variable and return code lines for the same
     # for BlockType::UX
     def code_from_ux_block_to_set_environment_variables(
-      selected, mdoc, inherited_code: nil, force: true, only_default: false,
-      required: nil, silent:
+      selected, mdoc, context_code: nil, force: true, only_default: false,
+      required: OpenStruct.new(context_code: [], transient_code: []),
+      silent:
     )
       wwt :fcb, 'selected:', selected
-      wwt :inherited_code, inherited_code
+      wwt :context_code, context_code
       ret_command_result = nil
       exit_prompt = @delegate_object[:prompt_filespec_back]
 
-      required ||= mdoc.collect_recursively_required_code(
+      wwt :required, required
+      required_code = mdoc&.collect_recursively_required_code(
         anyname: selected_id_name(selected),
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source,
-        context_code: inherited_code
+        context_code: context_code
       )
-      wwt :required, required
+      wwt :required_code, required_code
       # new_inherited_lines = []
 
       # process each ux block in sequence, setting ENV and collecting lines
       concatenated_code_from_required_blocks = []
-      required[:blocks]&.each do |block|
-        next if block.type != BlockType::UX
+      if required_code # exclude for tests
+        required_code[:blocks]&.each do |block|
+          next if block.type != BlockType::UX
 
-        wwt :fcb, 'a required block', block
+          wwt :fcb, 'a required block', block
 
-        body1 = block.raw_body || block.body
-        case data = safe_yaml_load(body1.join("\n"))
-        when Hash
-          export = parse_yaml_of_ux_block(
-            data,
-            prompt: @delegate_object[:prompt_ux_enter_a_value],
-            validate: '^(?<name>[^ ].*)$'
-          )
-          block.export = export
-          block.export_act = FCB.act_source(export)
-          block.export_init = FCB.init_source(export)
+          body1 = block.raw_body || block.body
+          case data = safe_yaml_load(body1.join("\n"))
+          when Hash
+            export = parse_yaml_of_ux_block(
+              data,
+              prompt: @delegate_object[:prompt_ux_enter_a_value],
+              validate: '^(?<name>[^ ].*)$'
+            )
+            block.export = export
+            block.export_act = FCB.act_source(export)
+            block.export_init = FCB.init_source(export)
 
-          # required are variable names that must be set before the UX block is executed.
-          # if any precondition is not set, the sequence is aborted.
-          required_variables = []
-          export.required&.each do |precondition|
-            required_variables.push "[[ -z $#{precondition} ]] && exit #{CommandResult::EXIT_STATUS_REQUIRED_EMPTY}"
-          end
-          wwt :required_variables, 'required_variables',
-              required_variables
+            # required_code are variable names that must be set before the UX block is executed.
+            # if any precondition is not set, the sequence is aborted.
+            required_variables = []
+            export.required&.each do |precondition|
+              required_variables.push "[[ -z $#{precondition} ]] && exit #{CommandResult::EXIT_STATUS_REQUIRED_EMPTY}"
+            end
+            wwt :required_variables, 'required_variables',
+                required_variables
 
-          eval_code = join_array_of_arrays(
-            inherited_code, # inherited code
-            concatenated_code_from_required_blocks, # current block requirements
-            required_variables, # test conditions
-            required[:code] # required by selected
-          )
-          wwt :eval_code, 'eval_code:', eval_code
-          if only_default
-            command_result_w_e_t_nl =
-              ux_block_export_automatic(eval_code, export)
-            # do not display warnings on initializing call
+            eval_code = join_array_of_arrays(
+              required[:context_code],
+              context_code, # inherited code
+              concatenated_code_from_required_blocks, # current block requirements
+              required_variables, # test conditions
+              required[:transient_code],
+              required_code[:transient_code] # required by selected
+            )
+            wwt :eval_code, 'eval_code:', eval_code
+            if only_default
+              command_result_w_e_t_nl =
+                ux_block_export_automatic(eval_code, export)
+              # do not display warnings on initializing call
+              return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
+
+            else
+              command_result_w_e_t_nl =
+                ux_block_export_activated(eval_code, export, exit_prompt)
+              if command_result_w_e_t_nl.failure?
+                if command_result_w_e_t_nl.warning&.present? && !silent
+                  warn command_result_w_e_t_nl.warning
+                end
+                return command_result_w_e_t_nl
+              end
+            end
             return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
 
+            # update the required lines for this and subsequent blocks
+            command_result_w_e_t_nl.new_lines =
+              process_command_result_lines(command_result_w_e_t_nl, export,
+                                           concatenated_code_from_required_blocks)
+            concatenated_code_from_required_blocks.concat(command_result_w_e_t_nl.new_lines)
+
+            concatenated_code_from_required_blocks = annotate_required_lines(
+              'blk:UX', concatenated_code_from_required_blocks, block_name: selected.id
+            )
+
+            command_result_w_e_t_nl.new_lines = concatenated_code_from_required_blocks
+            ret_command_result = command_result_w_e_t_nl
           else
-            command_result_w_e_t_nl =
-              ux_block_export_activated(eval_code, export, exit_prompt)
-            if command_result_w_e_t_nl.failure?
-              if command_result_w_e_t_nl.warning&.present? && !silent
-                warn command_result_w_e_t_nl.warning
-              end
-              return command_result_w_e_t_nl
-            end
+            raise "Invalid data type: #{data.inspect}"
           end
-          return command_result_w_e_t_nl if command_result_w_e_t_nl.failure?
-
-          # update the required lines for this and subsequent blocks
-          command_result_w_e_t_nl.new_lines =
-            process_command_result_lines(command_result_w_e_t_nl, export,
-                                         concatenated_code_from_required_blocks)
-          concatenated_code_from_required_blocks.concat(command_result_w_e_t_nl.new_lines)
-
-          concatenated_code_from_required_blocks = annotate_required_lines(
-            'blk:UX', concatenated_code_from_required_blocks, block_name: selected.id
-          )
-
-          command_result_w_e_t_nl.new_lines = concatenated_code_from_required_blocks
-          ret_command_result = command_result_w_e_t_nl
-        else
-          raise "Invalid data type: #{data.inspect}"
         end
       end
       wwt :concatenated_code_from_required_blocks,
@@ -1476,7 +1482,7 @@ module MarkdownExec
         wwt :cr, ret, caller.deref
       end
     rescue StandardError
-      wwe $!, 'selected:', selected, 'required:', required, 'block:', block,
+      wwe $!, 'selected:', selected, 'required_code:', required_code, 'block:', block,
           'data:', data
     end
 
@@ -1560,7 +1566,8 @@ module MarkdownExec
       else
         @run_state.in_own_window = false
         command_execute_in_process(
-          args: args, command: command,
+          args: args,
+          command: command,
           erls: erls,
           filename: @delegate_object[:filename],
           shell: shell
@@ -1642,8 +1649,7 @@ module MarkdownExec
     #  containing code blocks.
     # @param selected [Hash] The selected item from the menu
     #  to be executed.
-    # @return [LoadFileLinkState] An object indicating whether to load
-    #  the next block or reuse the current one.
+    # @return [Array] context_code
     def compile_execute_and_trigger_reuse(
       mdoc:, selected:, block_source:, link_state:
     )
@@ -1660,18 +1666,18 @@ module MarkdownExec
                    end
                  end
 
-      required_lines = execute_block_type_port_code_lines(
+      required_code = execute_block_type_port_code_lines(
         mdoc: mdoc, selected: selected,
         link_state: link_state, block_source: block_source
       )
       output_or_approval = @delegate_object[:output_script] ||
                            @delegate_object[:user_must_approve]
       if output_or_approval
-        display_required_code(required_lines: required_lines)
+        display_required_code(required_lines: required_code[:transient_code])
       end
       allow_execution = if @delegate_object[:user_must_approve]
                           prompt_for_user_approval(
-                            required_lines: required_lines,
+                            required_lines: required_code[:transient_code],
                             selected: selected
                           )
                         else
@@ -1679,16 +1685,28 @@ module MarkdownExec
                         end
 
       if allow_execution
+        script_lines = ( #HashDelegator.join_code_lines(
+          # ['# prior context'] +
+          (link_state&.context_code || []) +
+          # ['# new context'] +
+          required_code[:context_code] +
+          # ['# new transient'] +
+          required_code[:transient_code]
+        )
         execute_required_lines(
           blockname: selected_id_name(selected),
           erls: { play_bin: play_bin,
                   shell: selected_shell(selected.shell) },
-          required_lines: required_lines,
+          script_lines: script_lines,
           shell: selected_shell(selected.shell)
         )
       end
 
       link_state.block_name = nil
+
+      required_code[:context_code]
+    rescue StandardError
+      wwe $!
     end
 
     # Check if the expression contains wildcard characters
@@ -1999,6 +2017,8 @@ module MarkdownExec
       # filter block if selected in menu
       return true if @run_state.source.block_name_from_cli
 
+      return true if @delegate_object[:block_name].empty?
+
       # return false if @prior_execution_block == @delegate_object[:block_name]
       if @prior_execution_block == @delegate_object[:block_name]
         return @allowed_execution_block == @prior_execution_block ||
@@ -2264,7 +2284,7 @@ module MarkdownExec
         vux_edit_inherited
         return :break if pause_user_exit
 
-        next_state_append_code(selected, link_state, [])
+        next_state_append_code(selected, link_state, context_code: [])
 
       elsif selected.type == BlockType::HISTORY
         debounce_reset
@@ -2277,17 +2297,19 @@ module MarkdownExec
 
       elsif selected.type == BlockType::LINK
         debounce_reset
-        execute_block_type_link_with_state(link_block_body: selected.body,
-                                           mdoc: mdoc,
-                                           selected: selected,
-                                           link_state: link_state,
-                                           block_source: block_source)
+        execute_block_type_link_with_state(
+          link_block_body: selected.body,
+          mdoc: mdoc,
+          selected: selected,
+          link_state: link_state,
+          block_source: block_source
+        )
 
       elsif selected.type == BlockType::LOAD
         debounce_reset
         load_result = execute_block_type_load_code_lines(selected)
-        next_state_append_code(selected, link_state, load_result.code,
-                               mode: load_result.mode)
+        next_state_append_code(selected, link_state, context_code: load_result.code,
+                                                     mode: load_result.mode)
 
       elsif selected.type == BlockType::SAVE
         debounce_reset
@@ -2324,7 +2346,7 @@ module MarkdownExec
         update_menu_base(options_state.options)
 
         link_state = LinkState.new
-        next_state_append_code(selected, link_state, transient_code)
+        next_state_append_code(selected, link_state, context_code: transient_code)
 
       elsif selected.type == BlockType::PORT
         debounce_reset
@@ -2333,22 +2355,22 @@ module MarkdownExec
           selected: selected,
           link_state: link_state,
           block_source: block_source
-        )
-        next_state_append_code(selected, link_state, required_lines)
+        )[:context_code]
+        next_state_append_code(selected, link_state, context_code: required_lines)
 
       elsif selected.type == BlockType::UX
         debounce_reset
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
-          inherited_code: @dml_link_state.context_code,
+          context_code: @dml_link_state.context_code,
           only_default: false,
           silent: true
         )
         next_state_append_code(
           selected,
           link_state,
-          command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
+          context_code: command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
         )
 
       elsif selected.type == BlockType::VARS
@@ -2356,7 +2378,7 @@ module MarkdownExec
         next_state_append_code(
           selected,
           link_state,
-          code_from_vars_block_to_set_environment_variables(selected)
+          context_code: code_from_vars_block_to_set_environment_variables(selected)
         )
 
       elsif COLLAPSIBLE_TYPES.include?(selected.type)
@@ -2366,11 +2388,13 @@ module MarkdownExec
 
       elsif debounce_allows
         # SHELL type
-        compile_execute_and_trigger_reuse(mdoc: mdoc,
-                                          selected: selected,
-                                          link_state: link_state,
-                                          block_source: block_source)
-        LoadFileLinkState.new(LoadFile::REUSE, link_state)
+        context_code = compile_execute_and_trigger_reuse(
+          mdoc: mdoc,
+          selected: selected,
+          link_state: link_state,
+          block_source: block_source
+        )
+        next_state_set_code(selected, link_state, context_code)
 
       else
         LoadFileLinkState.new(LoadFile::REUSE, link_state)
@@ -2464,30 +2488,31 @@ module MarkdownExec
       ## collect blocks specified by block
       #
       if mdoc
-        code_info = mdoc.collect_recursively_required_code(
+        required_code = mdoc.collect_recursively_required_code(
           anyname: selected_id_name(selected),
           block_source: block_source,
           label_format_above: @delegate_object[:shell_code_label_format_above],
           label_format_below: @delegate_object[:shell_code_label_format_below],
           context_code: link_state&.context_code || []
         )
-        transient_code = annotate_required_lines(
-          'blk:LINK', code_info[:code], block_name: selected.id
+
+        context_code = annotate_required_lines(
+          'blk:LINK', required_code[:context_code], block_name: selected.id
         )
-        block_names = code_info[:block_names]
-        dependencies = code_info[:dependencies]
+        block_names = required_code[:block_names]
+        dependencies = required_code[:dependencies]
       else
         block_names = []
-        transient_code = []
+        context_code = []
         dependencies = {}
       end
 
       # load key and values from link block into current environment
       #
       if link_block_data[LinkKeys::VARS]
-        transient_code << BashCommentFormatter.format_comment(selected.pub_name)
+        context_code << BashCommentFormatter.format_comment(selected.pub_name)
         link_block_data[LinkKeys::VARS].each do |key, value|
-          transient_code << assign_key_value_in_bash(key, value)
+          context_code << assign_key_value_in_bash(key, value)
           EnvInterface.set(key, value.to_s)
         end
       end
@@ -2498,20 +2523,20 @@ module MarkdownExec
         load_filespec = load_filespec_from_expression(load_expr)
         if load_filespec
           begin
-            transient_code += File.readlines(load_filespec,
-                                             chomp: true)
+            context_code += File.readlines(load_filespec,
+                                           chomp: true)
           rescue Errno::ENOENT
             report_error($ERROR_INFO)
           end
         end
       end
 
-      # if an eval link block, evaluate transient_code and return its standard output
+      # if an eval link block, evaluate context_code and return its standard output
       #
       if link_block_data.fetch(LinkKeys::EVAL, false) ||
          link_block_data.fetch(LinkKeys::EXEC, false)
-        transient_code = link_block_data_eval(
-          link_state, transient_code, selected, link_block_data,
+        context_code = link_block_data_eval(
+          link_state, context_code, selected, link_block_data,
           block_source: block_source,
           shell: @delegate_object[:block_type_default]
         )
@@ -2526,13 +2551,16 @@ module MarkdownExec
         nil
       ) || link_block_data.fetch(LinkKeys::BLOCK, nil) || ''
 
-      transient_code = annotate_required_lines(
-        'blk:LINK', transient_code, block_name: selected.id
+      context_code = annotate_required_lines(
+        'blk:LINK', context_code, block_name: selected.id
+      )
+      context_code = annotate_required_lines(
+        'blk:LINK', context_code, block_name: selected.id
       )
 
       if link_block_data[LinkKeys::RETURN]
         pop_add_current_code_to_head_and_trigger_load(
-          link_state, block_names, transient_code,
+          link_state, block_names, context_code,
           dependencies, selected, next_block_name: next_block_name
         )
 
@@ -2546,7 +2574,7 @@ module MarkdownExec
           inherited_dependencies:
             (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
           context_code: HashDelegator.flatten_and_compact_arrays(
-            link_state&.context_code, transient_code
+            link_state&.context_code, context_code
           ),
           keep_code: link_state&.keep_code,
           next_block_name: next_block_name,
@@ -2643,32 +2671,34 @@ module MarkdownExec
     #
     # @param mdoc [YourMDocClass] An instance of the MDoc class.
     # @param selected [Hash] The selected block.
-    # @return [Array<String>] Required code blocks as an array of lines.
+    # @return [OpenStruct] context and transient code
     def execute_block_type_port_code_lines(mdoc:, selected:, block_source:,
                                            link_state: LinkState.new)
-      required = mdoc.collect_recursively_required_code(
+      required_code = mdoc.collect_recursively_required_code(
         anyname: selected_id_name(selected),
         label_format_above: @delegate_object[:shell_code_label_format_above],
         label_format_below: @delegate_object[:shell_code_label_format_below],
         block_source: block_source,
         context_code: link_state&.context_code || []
-      ) # !!t 'required'
+      ) # !!t 'required_code'
       dependencies = (
         link_state&.inherited_dependencies || {}
-      ).merge(required[:dependencies] || {})
-      required[:unmet_dependencies] = (
-        required[:unmet_dependencies] || []
+      ).merge(required_code[:dependencies] || {})
+
+      required_code[:unmet_dependencies] = (
+        required_code[:unmet_dependencies] || []
       ) - (link_state&.inherited_block_names || [])
-      if required[:unmet_dependencies].present?
+
+      if required_code[:unmet_dependencies].present?
         ### filter against link_state.inherited_block_names
 
         warn format_and_highlight_dependencies(
-          dependencies, highlight: required[:unmet_dependencies]
+          dependencies, highlight: required_code[:unmet_dependencies]
         )
         runtime_exception(
           :runtime_exception_error_level,
           'unmet_dependencies, flag: runtime_exception_error_level',
-          required[:unmet_dependencies]
+          required_code[:unmet_dependencies]
         )
       elsif @delegate_object[:dump_dependencies]
         warn format_and_highlight_dependencies(
@@ -2679,8 +2709,11 @@ module MarkdownExec
 
       if selected[:type] == BlockType::OPTS
         # body of blocks is returned as a list of lines to be read an YAML
-        HashDelegator.flatten_and_compact_arrays(
-          required[:blocks].map(&:body).flatten(1)
+        OpenStruct.new(
+          context_code: HashDelegator.flatten_and_compact_arrays(
+            required_code[:blocks].map(&:body).flatten(1)
+          ),
+          transient_code: []
         )
       else
         # code from the selected VARS block
@@ -2690,28 +2723,38 @@ module MarkdownExec
                       []
                     end
 
-        # activate UX blocks in the required list
+        # activate UX blocks in the required_code list
         command_result_w_e_t_nl = code_from_ux_block_to_set_environment_variables(
           selected,
           @dml_mdoc,
-          inherited_code: vars_code,
+          context_code: required_code[:context_code] + required_code[:transient_code],
           only_default: false,
-          required: required,
+          required:
+            OpenStruct.new(context_code: [], transient_code: vars_code),
           silent: false
         )
         ux_code = command_result_w_e_t_nl.failure? ? [] : command_result_w_e_t_nl.new_lines
 
-        HashDelegator.flatten_and_compact_arrays(
-          link_state&.context_code,
-          annotate_required_lines(
-            'blk:PORT',
-            required[:code] + vars_code + ux_code,
-            block_name: selected.id
+        OpenStruct.new(
+          context_code: HashDelegator.flatten_and_compact_arrays(
+            link_state&.context_code,
+            annotate_required_lines(
+              'blk:PORT',
+              (required_code[:context_code] || []) + vars_code + ux_code,
+              block_name: selected.id
+            )
+          ),
+          transient_code: HashDelegator.flatten_and_compact_arrays(
+            annotate_required_lines(
+              'blk:PORT',
+              required_code[:transient_code],
+              block_name: selected.id
+            )
           )
         )
       end
     rescue StandardError
-      wwe(required[:code], ux_code, { error: $!, callback: $@[0] })
+      wwe(required_code, ux_code, { error: $!, callback: $@[0] })
     end
 
     def execute_block_type_save(transient_code:, selected:)
@@ -2871,23 +2914,25 @@ module MarkdownExec
     def execute_required_lines(
       blockname: '',
       erls: {},
-      required_lines: [],
+      script_lines: [],
       shell:
     )
       if @delegate_object[:save_executed_script]
         write_command_file(blockname: blockname,
-                           required_lines: required_lines,
+                           required_lines: script_lines,
                            shell: selected_shell(shell))
       end
       if @dml_block_state
         calc_logged_stdout_filename(block_name: @dml_block_state.block.oname)
       end
       format_and_execute_command(
-        transient_code: required_lines,
+        script_lines: script_lines,
         erls: erls,
         shell: selected_shell(shell)
       )
       post_execution_process
+    rescue StandardError
+      wwe $!
     end
 
     def expand_blocks_with_replacements(
@@ -3174,11 +3219,11 @@ module MarkdownExec
     end
 
     def format_and_execute_command(
-      transient_code:,
+      script_lines:,
       erls:,
       shell:
     )
-      formatted_command = transient_code.flatten.join("\n")
+      formatted_command = script_lines.flatten.join("\n")
       @fout.fout fetch_color(data_sym: :script_execution_head,
                              color_sym: :script_execution_frame_color)
 
@@ -4003,19 +4048,19 @@ module MarkdownExec
       list[(index + 1) % list.size] # Get the next item, wrap around if at the end
     end
 
-    def next_state_append_code(selected, link_state, transient_code,
+    def next_state_append_code(selected, link_state, context_code:,
                                mode: LoadMode::APPEND)
       next_state_set_code(
         selected,
         link_state,
         HashDelegator.flatten_and_compact_arrays(
           mode == LoadMode::APPEND ? link_state&.context_code : [],
-          transient_code.is_a?(Array) ? transient_code : [] # no code for :ux_exec_prohibited
+          context_code.is_a?(Array) ? context_code : [] # no code for :ux_exec_prohibited
         )
       )
     end
 
-    def next_state_set_code(selected, link_state, transient_code)
+    def next_state_set_code(selected, link_state, context_code)
       block_names = []
       dependencies = {}
       link_history_push_and_next(
@@ -4025,7 +4070,7 @@ module MarkdownExec
           ((link_state&.inherited_block_names || []) + block_names).sort.uniq,
         inherited_dependencies:
           (link_state&.inherited_dependencies || {}).merge(dependencies || {}), ### merge, not replace, key data
-        context_code: HashDelegator.flatten_and_compact_arrays(transient_code),
+        context_code: HashDelegator.flatten_and_compact_arrays(context_code),
         keep_code: link_state&.keep_code,
         next_block_name: '',
         next_document_filename: @delegate_object[:filename],
@@ -4523,11 +4568,13 @@ module MarkdownExec
       obj = {}
 
       # concatenated body of all required blocks loaded a YAML
+
+      rc = execute_block_type_port_code_lines(
+        mdoc: mdoc, selected: selected,
+        link_state: link_state, block_source: {}
+      )
       data = (YAML.load(
-        execute_block_type_port_code_lines(
-          mdoc: mdoc, selected: selected,
-          link_state: link_state, block_source: {}
-        ).join("\n")
+        rc[:context_code].join("\n")
       ) || {}).transform_keys(&:to_sym)
 
       if selected.type == BlockType::OPTS
@@ -6485,12 +6532,13 @@ module MarkdownExec
     def test_execute_block_type_port_code_lines_with_vars
       YAML.stubs(:load).returns({ 'key' => 'value' })
       @mdoc.stubs(:collect_recursively_required_code)
-           .returns({ code: ['code line'] })
+           .returns({ context_code: [], transient_code: ['code line'] })
       result = @hd.execute_block_type_port_code_lines(
         mdoc: @mdoc, selected: @selected, block_source: {}
       )
 
-      assert_equal ['code line', 'key="value"'], result
+      assert_equal ['key="value"'], result[:context_code]
+      assert_equal ['code line'], result[:transient_code]
     end
 
     def test_transient_code_parameter_usage

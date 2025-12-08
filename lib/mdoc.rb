@@ -104,7 +104,7 @@ module MarkdownExec
       end
     end
 
-    # Generates a shell command to redirect a block's body to either a shell variable or a file.
+    # Generates a shell command to copy the block's body to either a shell variable or a file.
     #
     # @param [Hash] fcb A hash containing information about the script block's stdout and body.
     #   @option fcb [Hash] :stdout A hash specifying the stdout details.
@@ -183,12 +183,12 @@ module MarkdownExec
     # Collects recursively required code blocks and returns them as an array of strings.
     #
     # @param name [String] The name of the code block to start the collection from.
-    # @return [Array<String>] An array of strings containing the collected code blocks.
+    # @return [OpenStruct]
     #
     def collect_recursively_required_code(
       anyname:, block_source:,
       label_body: true, label_format_above: nil, label_format_below: nil,
-      context_code: [] ###s
+      context_code: []
     )
       raise 'unexpected label_body' unless label_body
 
@@ -206,12 +206,18 @@ module MarkdownExec
         end.tap { ww anyname, _1 }
 
         block_search.merge(
-          { block_names: blocks.map(&:pub_name),
-            code: context_transient_codes.map(&:transient_code).compact.flatten(1).compact,
-            inherit: context_transient_codes.map(&:context_code).compact.flatten(1).compact }
+          {
+            block_names: blocks.map(&:pub_name),
+            context_code:
+              context_transient_codes.map(&:context_code).compact.flatten(1).compact,
+            transient_code:
+              context_transient_codes.map(&:transient_code).compact.flatten(1).compact
+          }
         )
       else
-        block_search.merge({ block_names: [], code: [], inherit: [] })
+        block_search.merge(
+          { block_names: [], context_code: [], transient_code: [] }
+        )
       end.tap { wwr _1 }
     rescue StandardError
       error_handler('collect_recursively_required_code')
@@ -439,6 +445,7 @@ module MarkdownExec
       new_transient_code = if fcb[:cann]
                              generate_yq_command_from_call_annotation(fcb)
                            elsif fcb[:stdout]
+                             # copy the block's body to either a shell variable or a file
                              code_for_fcb_body_into_var_or_file(fcb)
                            elsif [BlockType::OPTS].include? fcb.type
                              fcb.body # entire body is returned to requesing block
@@ -456,24 +463,24 @@ module MarkdownExec
                              raise 'unexpected type' if fcb.type != BlockType::SHELL
 
                              # BlockType::  SHELL block
-                             if fcb.start_line =~ /@eval/ ###s
+                             if fcb.start_line =~ /@eval/
                                command_result = HashDelegator.execute_bash_script_lines(
                                  transient_code: context_code + fcb.body,
-                                 export: OpenStruct.new(exportable: true, name: ''),
+                                 export: OpenStruct.new(exportable: false, name: ''),
+                                 export_name: '',
                                  force: true,
                                  shell: fcb.shell || 'bash'
                                )
-                               command_result.new_lines.map { _1[:text] }.tap do
-                                 if fcb.start_line =~ /@inherit/ ###s
+                               command_result.stdout.split("\n").tap do
+                                 if fcb.start_line =~ /@context/
                                    new_context_code = _1
                                  end
                                end
-
-                             elsif fcb.start_line =~ /@inherit/ ###s
+                             elsif fcb.start_line =~ /@context/
                                # raw body
                                ### expansions?
                                new_context_code = fcb.body
-                               nil # collect later or return as code to inherit
+                               [] # collect later or return as code to inherit
 
                              else
                                wrap_block_body_with_labels(
@@ -489,6 +496,8 @@ module MarkdownExec
         context_code: new_context_code,
         transient_code: new_transient_code
       ).tap { wwr _1 }
+    rescue StandardError
+      wwe $!
     end
 
     # Recursively fetches required code blocks for a given list of requirements.
