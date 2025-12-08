@@ -1,6 +1,13 @@
 # Changelog
 
-## [3.5.2]
+## [3.6.0] - 2025-12-08
+
+### Added
+
+- Directive to append shell block to the context code.
+- Directive to evaluate shell block prior to appending to context or transient code.
+
+## [3.5.2] - 2025-12-02
 
 ### Added
 
